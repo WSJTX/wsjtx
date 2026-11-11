@@ -13,14 +13,13 @@ namespace
 
 bool isDirectAutoRespondCandidate(DecodedText const& message, QString const& myCall)
 {
-  if (!message.isStandardMessage() || myCall.isEmpty()) return false;
+  if (!message.hasValidHeader() || !message.isStandardMessage() || myCall.isEmpty()) return false;
 
-  auto const words = message.messageWords();
-  if (words.size() < 5) return false;
-
-  auto const recipient = words.at(2);
-  auto const sender = words.at(3);
-  auto const exchange = words.at(4);
+  auto const& fields = message.fields();
+  if (fields.hasMalformedCalls) return false;
+  auto const& recipient = fields.destination;
+  auto const& sender = fields.sender;
+  auto const& exchange = fields.exchange;
   auto const myBaseCall = Radio::base_callsign(myCall);
   bool const addressedToUs = myCall == myBaseCall ? recipient == myBaseCall : recipient == myCall;
 

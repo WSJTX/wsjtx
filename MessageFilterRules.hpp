@@ -13,7 +13,8 @@ namespace MessageFilterRules
     bool filtersApplied {false};
   };
 
-  Evaluation evaluateMSK144Text(QString text, MessageFilterLogic::FilterContext const& ctx);
+  Evaluation evaluateMSK144Text(QString const& payload, QString const& sender,
+                               MessageFilterLogic::FilterContext const& ctx);
 }
 
 #endif // MESSAGEFILTERRULES_HPP

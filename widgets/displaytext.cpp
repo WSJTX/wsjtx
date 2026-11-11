@@ -47,14 +47,6 @@ bool play_ITUZ = false;
 bool play_ITUZOB = false;
 bool muted = false;
 
-namespace
-{
-  QRegularExpression const message_73_regexp {"^(73|RR73)$"};
-  // Trailing #? matches Q65's "copied last Tx" flag marker (e.g. "q3#"),
-  // appended after the usual AP-type/averaging-count qualifier.
-  QRegularExpression const ap_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9*]?#?)$)"};
-}
-
 using SpecOp = Configuration::SpecialOperatingActivity;
 
 DisplayText::DisplayText(QWidget *parent)
@@ -640,24 +632,18 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   muted=alertsMuted;
   QColor bg;
   QColor fg;
-  bool CQcall = false;
-  auto is_73 = decodedText.messageWords().filter (message_73_regexp).size();
-  if (decodedText.string ().contains (" CQ ")) {
+  auto const& fields = decodedText.fields ();
+  auto const& words = decodedText.payloadWords ();
+  bool const is_73 = words.contains ("73") || words.contains ("RR73")
+    || !fields.acknowledgedRecipient.isEmpty ();
+  if (fields.cq) {
     if (m_config->alert_CQ()) {
       if (!muted) play_CQ = true;
     }
   }
-  if (decodedText.string ().contains (" CQ ")
-      || decodedText.string ().contains (" CQDX ")
-      || decodedText.string ().contains (" QRZ ")
-      || (is_73 && (m_config->highlight_73 ())))
-    {
-      CQcall = true;
-    }
-  else
-    {
-      if (bCQonly) return false;
-    }
+  bool const CQcall = fields.cq || fields.destination == "QRZ"
+    || (is_73 && m_config->highlight_73 ());
+  if (!CQcall && bCQonly) return false;
   auto message = decodedText.string();
   auto const& dxCall = facts.sender;
   auto const& dxGrid = facts.grid;
@@ -722,14 +708,16 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
     {
       extra += QString {"%1"}.arg (fSpread, 5, 'f', fSpread < 0.95 ? 3 : 2) + QChar {' '};
     }
-  auto ap_pos = message.lastIndexOf (ap_regexp);
-  if (ap_pos >= 0)
+  auto const& annotations = decodedText.annotations ();
+  if (!annotations.suffix.isEmpty () && (annotations.ap || annotations.q >= 0)
+      && message.endsWith (annotations.suffix))
     {
-      extra += message.mid (ap_pos) + QChar {' '};
-      message = message.left (ap_pos).trimmed ();
+      extra += annotations.suffix + QChar {' '};
+      message.chop (annotations.suffix.size ());
+      message = message.trimmed ();
     }
   if (CQcall || (is_73 && m_config->highlight_73()) || (mode == "FT4" && m_config->highlight_73() && m_config->NCCC_Sprint()
-      && (SpecOp::NA_VHF == m_config->special_op_id()) && decodedText.string().contains(" R ")))
+      && (SpecOp::NA_VHF == m_config->special_op_id()) && fields.exchange == "R"))
     {
       if (displayDXCCEntity)
         {
@@ -771,29 +759,22 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
         }
     }
 
-  if (myCall.size ())
+  if (!myCall.isEmpty () && !fields.hasMalformedCalls)
     {
-      QString regexp {"[ <]" + myCall + "[ >]"};
-      if (Radio::is_compound_callsign (myCall))
+      auto const baseCall = Radio::base_callsign (myCall);
+      auto const matchesOwnCall = [&myCall, &baseCall] (QString const& call) {
+        return call == myCall || call == baseCall;
+      };
+      if (matchesOwnCall (fields.destination) || matchesOwnCall (fields.acknowledgedRecipient))
         {
-          regexp = "(?:" + regexp + "|[ <]" + Radio::base_callsign (myCall) + "[ >])";
+          highlight_types types {Highlight::MyCall};
+          set_colours (m_config, &bg, &fg, types);
+          if (m_config->alert_MyCall()) play_MyCall = true;
         }
-      if ((decodedText.clean_string () + " ").contains (QRegularExpression {regexp}))
+      else if (matchesOwnCall (fields.sender))
         {
-        QStringList tw;
-        if (mode == "FT8" or mode == "FT4" or mode == "MSK144") {
-          tw=decodedText.string().mid(24).split(" ",SkipEmptyParts);
-        } else {
-          tw=decodedText.string().mid(22).split(" ",SkipEmptyParts);
-        }
-          if ((tw.size () > 0 && tw[0].contains(myCall)) or decodedText.clean_string().contains("; " + myCall)) {
-            highlight_types types {Highlight::MyCall};
-            set_colours (m_config, &bg, &fg, types);
-            if (m_config->alert_MyCall()) play_MyCall = true;
-          } else {
-            highlight_types types {Highlight::Tx};
-            set_colours (m_config, &bg, &fg, types);
-          }
+          highlight_types types {Highlight::Tx};
+          set_colours (m_config, &bg, &fg, types);
         }
     }
 

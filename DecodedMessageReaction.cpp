@@ -1,7 +1,6 @@
 #include "DecodedMessageReaction.hpp"
 
 #include "Decoder/decodedtext.h"
-#include "Decoder/DecoderAnnotations.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "qt_helpers.hpp"
 
@@ -135,6 +134,19 @@ namespace
       && receivedBaseCall == Radio::base_callsign(selectedCall);
   }
 
+  bool isResolvedCall(DecodedCallState state)
+  {
+    return state == DecodedCallState::Literal || state == DecodedCallState::ResolvedHash;
+  }
+
+  bool isSignedReport(QString const& text)
+  {
+    static QRegularExpression const expression {"\\A[+-][0-9]{2}\\z"};
+    if (!expression.match(text).hasMatch()) return false;
+    auto const report = text.toInt();
+    return report >= -50 && report <= 49;
+  }
+
   bool messageContainsCall(QStringList const& messageWords, QString const& call)
   {
     if (call.isEmpty()) return false;
@@ -145,25 +157,23 @@ namespace
   {
     QString marker;
     QStringList payload;
+    bool valid {false};
 
     bool contains73 () const {return payload.contains ("73");}
 
     bool isDirectedTo (QsoReactionSnapshot const& snapshot, QString const& partner = {}) const
     {
-      if (payload.size () != 3 || payload.at (2) != "73"
+      if (!valid || payload.size () != 3 || payload.at (2) != "73"
           || !isSupportedModeMarker (snapshot.mode, marker)) return false;
-      auto const recipient = QString {payload.at (0)}.remove ('<').remove ('>');
-      auto const sender = QString {payload.at (1)}.remove ('<').remove ('>');
-      return sameStation (recipient, snapshot.baseCall)
-        && sameStation (sender, partner.isEmpty () ? snapshot.hisCall : partner);
+      return sameStation (payload.at (0), snapshot.baseCall)
+        && sameStation (payload.at (1), partner.isEmpty () ? snapshot.hisCall : partner);
     }
   };
 
   FinalReply parseFinalReply (DecodedText const& message)
   {
-    auto const fields = DecoderAnnotations::normalized_message (message.clean_string ())
-      .split (' ', SkipEmptyParts);
-    return {fields.value (4), fields.mid (5)};
+    return {message.modeMarker(), message.payloadWords(),
+            message.hasValidHeader() && !message.fields().hasMalformedCalls};
   }
 
   bool appendFinalReplyPlan(DecodedText const& message, FinalReply const& reply, QsoReactionSnapshot const& snapshot,
@@ -207,14 +217,17 @@ namespace
       || origin == Origin::Udp;
   }
 
-  bool hasUnresolvedQsoCall(DecodedText const& message, QStringList const& words)
+  bool hasUnresolvedQsoCall(DecodedText const& message)
   {
-    return message.isStandardMessage() && (words.value(2) == "..." || words.value(3) == "...");
+    auto const& fields = message.fields();
+    return message.isStandardMessage()
+      && (fields.destinationState == DecodedCallState::UnresolvedHash
+          || fields.senderState == DecodedCallState::UnresolvedHash);
   }
 
   bool isSignoffForCurrentQso(DecodedText const& message, QsoReactionSnapshot const& snapshot)
   {
-    QStringList const messageWords = message.messageWords();
+    QStringList const messageWords = message.payloadWords();
     if (!messageWords.filter(QRegularExpression {"^(73|RR73)$"}).size()) return false;
 
     return messageContainsCall(messageWords, snapshot.baseCall)
@@ -259,14 +272,18 @@ namespace
       return analysis;
     }
 
-    QStringList const parts = message.clean_string().split(' ', SkipEmptyParts);
-    if (parts.size() < 5) {
+    if (!message.hasValidHeader()) {
       analysis.reason = "decode has too few fields";
       return analysis;
     }
 
-    if (!isSupportedModeMarker(snapshot.mode, parts.at(4).left(1))) {
+    if (!isSupportedModeMarker(snapshot.mode, message.modeMarker())) {
       analysis.reason = "decode mode marker does not match current mode";
+      return analysis;
+    }
+    auto const& fields = message.fields();
+    if (fields.hasMalformedCalls) {
+      analysis.reason = "message has malformed callsign fields";
       return analysis;
     }
 
@@ -284,10 +301,11 @@ namespace
       return analysis;
     }
 
-    if (parts.size() >= 7 && snapshot.fastMode && parts[5] == "CQ" && snapshot.transceiverOnline) {
+    auto const parts = message.payloadWords();
+    if (parts.size() >= 2 && snapshot.fastMode && parts[0] == "CQ" && snapshot.transceiverOnline) {
       bool ok = false;
-      auto const kHz = parts[6].toUInt(&ok);
-      if (ok && kHz >= 10 && parts[6].size() == 3) {
+      auto const kHz = parts[1].toUInt(&ok);
+      if (ok && kHz >= 10 && parts[1].size() == 3) {
         if (snapshot.nominalQsyAllowed) {
           auto const dialFrequency = snapshot.nominalFrequency / 1000000 * 1000000 + 1000 * kHz;
           QsoReactionEffect effect;
@@ -328,16 +346,15 @@ namespace
       return analysis;
     }
 
-    QString const cleanMessage = message.clean_string().remove("<").remove(">");
     if (snapshot.doubleClicked
-        && cleanMessage.contains(" " + snapshot.baseCall + " ")
-        && cleanMessage.contains(" " + analysis.hisCall + " ")
-        && message.clean_string().mid(22).contains(" 73")) {
+        && sameStation(fields.destination, snapshot.baseCall)
+        && sameStation(fields.sender, analysis.hisCall)
+        && fields.exchange == "73") {
       analysis.reason = "double-click on final 73 from current QSO";
       return analysis;
     }
 
-    analysis.payloadWords = message.clean_string().mid(22).remove("<").remove(">").split(" ", SkipEmptyParts);
+    analysis.payloadWords = message.payloadWords();
     if (analysis.payloadWords.size() >= 4) {
       if (analysis.messageWords.size() < 4) {
         analysis.reason = "payload has contest shape but message words are incomplete";
@@ -351,8 +368,20 @@ namespace
     }
 
     analysis.is73 = analysis.messageWords.filter(QRegularExpression {"^(73|RR73)$"}).size();
-    if (!analysis.is73 && !message.isStandardMessage() && !message.clean_string().contains("<")) {
+    bool const hasHashedCall = fields.destinationState == DecodedCallState::ResolvedHash
+      || fields.senderState == DecodedCallState::ResolvedHash
+      || fields.acknowledgedRecipientState == DecodedCallState::ResolvedHash
+      || fields.destinationState == DecodedCallState::UnresolvedHash
+      || fields.senderState == DecodedCallState::UnresolvedHash;
+    if (!analysis.is73 && !message.isStandardMessage() && !hasHashedCall) {
       analysis.reason = "non-standard free text is not processable";
+      return analysis;
+    }
+    bool const rogerReport = fields.exchange.startsWith("R+") || fields.exchange.startsWith("R-");
+    bool const signedReport = fields.exchange.startsWith('+') || fields.exchange.startsWith('-');
+    if ((rogerReport && !isSignedReport(fields.exchange.mid(1)))
+        || (signedReport && !isSignedReport(fields.exchange))) {
+      analysis.reason = "message has an invalid signal report";
       return analysis;
     }
 
@@ -418,7 +447,6 @@ namespace
       appendIntEffect(plan, QsoReactionEffect::Kind::SetRxFrequency, message.frequencyOffset());
     }
 
-    QString const cleanMessage = message.clean_string().trimmed();
     if (snapshot.selectionOrigin != DecodedMessageReaction::SelectionOrigin::ManualRightPane) {
       appendEffect(plan, QsoReactionEffect::Kind::RefreshQsoPaneIfChanged);
     }
@@ -429,8 +457,8 @@ namespace
       if (analysis.qsoPartnerBaseCall != analysis.hisBaseCall) {
         appendEffect(plan, QsoReactionEffect::Kind::ClearDxGrid);
       }
-      bool const suppressCallChange = cleanMessage.contains(" " + snapshot.myCall + " ")
-        && cleanMessage.mid(22).contains(" 73")
+      bool const suppressCallChange = sameStation(message.fields().destination, snapshot.myCall)
+        && message.fields().exchange == "73"
         && snapshot.respondPolicy == AutoRespondPolicy::MaxSignal;
       if (!suppressCallChange) {
         appendTextEffect(plan, QsoReactionEffect::Kind::SetDxCall, analysis.hisCall);
@@ -511,12 +539,10 @@ namespace DecodedMessageReaction
 
     auto progress = snapshot.qsoProgress;
     bool reacted = false;
-    QString dtext = " " + message.clean_string() + " ";
-    dtext = dtext.remove("<").remove(">");
-    bool const addressed = dtext.contains(" " + snapshot.baseCall + " ")
-      || dtext.contains("<" + snapshot.baseCall + "> ")
-      || dtext.contains("/" + snapshot.baseCall + " ")
-      || dtext.contains(" " + snapshot.baseCall + "/")
+    auto const& fields = message.fields();
+    bool const acknowledgesUs = isResolvedCall(fields.acknowledgedRecipientState)
+      && sameStation(fields.acknowledgedRecipient, snapshot.baseCall);
+    bool const addressed = sameStation(fields.destination, snapshot.baseCall) || acknowledgesUs
       || analysis.firstCall == "DE";
 
     if (analysis.is73 && !message.isStandardMessage()) {
@@ -541,16 +567,16 @@ namespace DecodedMessageReaction
         hintShown = true;
       }
 
-      QStringList fullWords = message.clean_string().split(' ', SkipEmptyParts);
+      QStringList const fullWords = message.payloadWords();
       int const fullWordCount = fullWords.size();
       if (fullWordCount < 2) {
-        plan.reason = "decode has too few full-line fields";
+        plan.reason = "decode has too few payload fields";
         return plan;
       }
       QString fieldDayLead = fullWords.at(fullWordCount - 2);
       QString const fieldDayClass = fieldDayLead.right(1);
       bool fieldDayMessage = fieldDayClass >= "A" && fieldDayClass <= "F"
-        && fieldDayLead.size() <= 3 && fullWordCount >= 9;
+        && fieldDayLead.size() <= 3 && fullWordCount >= 4;
       int const fieldDayNumber = fieldDayLead.remove(fieldDayClass).toInt();
       if (fieldDayNumber < 1) fieldDayMessage = false;
       if (fieldDayMessage) {
@@ -570,7 +596,8 @@ namespace DecodedMessageReaction
 
       if ((snapshot.specOp == SpecOp::EU_VHF || snapshot.specOp == SpecOp::RTTY
            || snapshot.specOp == SpecOp::FIELD_DAY)
-          && message.string().contains("<...>")) {
+          && (fields.destinationState == DecodedCallState::UnresolvedHash
+              || fields.senderState == DecodedCallState::UnresolvedHash)) {
         plan.reason = "contest message contains unresolved call";
         return plan;
       }
@@ -651,9 +678,10 @@ namespace DecodedMessageReaction
           reacted = true;
         } else {
           QString const word3 = analysis.messageWords.at(4);
-          int const word3Number = word3.toInt();
+          bool word3NumberValid = false;
+          int const word3Number = word3.toInt(&word3NumberValid);
           bool const signoffLike = word3 == "RRR"
-            || (word3Number == 73 && progress == QsoProgress::Rogers)
+            || (word3 == "73" && progress == QsoProgress::Rogers)
             || word3 == "RR73" || (word3 == "R" && progress != QsoProgress::Report);
           if (signoffLike) {
             if (snapshot.mode == "FT4" && word3 == "RR73") {
@@ -697,7 +725,7 @@ namespace DecodedMessageReaction
                       || (progress >= QsoProgress::Replying
                           && (snapshot.mode == "MSK144" || snapshot.mode == "FT8"
                               || snapshot.mode == "FT4" || snapshot.mode == "Q65")))
-                     && word3.startsWith('R')) {
+                     && (word3 == "R" || (word3.startsWith('R') && isSignedReport(word3.mid(1))))) {
             appendIntEffect(plan, QsoReactionEffect::Kind::SetTxMessageIndex, 4);
             setProgress(plan, progress, QsoProgress::Rogers);
             if (snapshot.specOp == SpecOp::RTTY) {
@@ -710,8 +738,9 @@ namespace DecodedMessageReaction
             appendIntEffect(plan, QsoReactionEffect::Kind::CheckTxMessage, 4);
             reacted = true;
           } else if (progress >= QsoProgress::Calling
-                     && ((word3Number >= -50 && word3Number <= 49)
-                         || (word3Number >= 529 && word3Number <= 599))) {
+                     && (isSignedReport(word3)
+                         || (word3.startsWith('R') && isSignedReport(word3.mid(1)))
+                         || (word3NumberValid && word3Number >= 529 && word3Number <= 599))) {
             if (snapshot.specOp == SpecOp::EU_VHF || snapshot.specOp == SpecOp::FIELD_DAY
                 || snapshot.specOp == SpecOp::RTTY) {
               setTxMessageAndProgress(plan, progress, 2, QsoProgress::Report);
@@ -723,8 +752,7 @@ namespace DecodedMessageReaction
             reacted = true;
           }
         }
-      } else if (analysis.messageWords.size() == 5
-                 && snapshot.baseCall == analysis.messageWords.at(1)) {
+      } else if (acknowledgesUs && fields.exchangeWords.size() == 1 && isSignedReport(fields.exchange)) {
         if (snapshot.loggingEnabled) appendEffect(plan, QsoReactionEffect::Kind::RequestLogQso);
         else appendEffect(plan, QsoReactionEffect::Kind::CeaseAutoTx);
         selectMessage(plan, 6);
@@ -796,18 +824,22 @@ namespace DecodedMessageReaction
                                    unsigned stopTolerance)
   {
     QsoReactionPlan plan;
+    if (!message.hasValidHeader() || message.fields().hasMalformedCalls) {
+      plan.reason = "invalid decoded message";
+      return plan;
+    }
     if (phase == AutoSequencePhase::LegacyShortMessage) {
       if (static_cast<unsigned>(qAbs(message.frequencyOffset() - snapshot.rxFrequency)) > startTolerance) {
         plan.reason = "short message is out of tolerance";
         return plan;
       }
-      QString const text = message.string();
-      if (text.contains(" " + snapshot.myCall + " ") && text.contains(" OOO")) {
+      auto const words = message.payloadWords();
+      if (sameStation(message.fields().destination, snapshot.myCall) && words.contains("OOO")) {
         appendIntEffect(plan, QsoReactionEffect::Kind::SetTxMessage, 3);
       }
-      if (text.contains(" RO")) appendIntEffect(plan, QsoReactionEffect::Kind::SetTxMessage, 4);
-      if (text.contains(" RRR")) appendIntEffect(plan, QsoReactionEffect::Kind::SetTxMessage, 5);
-      if (text.contains(" 73")) appendIntEffect(plan, QsoReactionEffect::Kind::SetTxMessage, 5);
+      if (words == QStringList {"RO"}) appendIntEffect(plan, QsoReactionEffect::Kind::SetTxMessage, 4);
+      if (words == QStringList {"RRR"} || words == QStringList {"73"})
+        appendIntEffect(plan, QsoReactionEffect::Kind::SetTxMessage, 5);
       if (!plan.effects.isEmpty()) {
         plan.disposition = ReactionDisposition::Reacted;
         plan.reason = "short message advances auto sequence";
@@ -846,9 +878,9 @@ namespace DecodedMessageReaction
 
     QStringList const messageWords = message.messageWords();
     bool const is73 = messageWords.filter(QRegularExpression {"^(73|RR73)$"}).size();
-    QString const messageWithoutHash = message.clean_string().mid(22).remove("<").remove(">");
+    auto const& fields = message.fields();
     bool const mskRReport = snapshot.mode == "MSK144"
-      && messageWithoutHash.indexOf(snapshot.dxCall + " R ") > 0;
+      && sameStation(fields.sender, snapshot.dxCall) && fields.exchange == "R";
     if (messageWords.size() <= 3 || !(message.isStandardMessage() || is73 || mskRReport)) {
       plan.reason = "message is not an auto-sequence candidate";
       return plan;
@@ -856,7 +888,7 @@ namespace DecodedMessageReaction
     int const frequency = message.frequencyOffset();
     bool const withinTolerance = static_cast<unsigned>(qAbs(snapshot.rxFrequency - frequency)) <= startTolerance
       || static_cast<unsigned>(qAbs(snapshot.txFrequency - frequency)) <= startTolerance;
-    QStringList const words = messageWithoutHash.split(" ", SkipEmptyParts);
+    QStringList const words = message.payloadWords();
     QString thirdPayloadWord;
     int reportOrSerial = 0;
     if (words.size() > 2) {
@@ -867,9 +899,15 @@ namespace DecodedMessageReaction
       }
     }
     bool const euVhfSerial = isEuVhfType5Exchange(reportOrSerial);
-    if (euVhfSerial && message.clean_string().contains("<" + snapshot.myCall + "> ")) {
+    auto const exchangeWords = fields.exchangeWords;
+    bool const completeEuVhfExchange = exchangeWords.size() == 2
+      || (exchangeWords.size() == 3 && exchangeWords.first() == "R");
+    if (euVhfSerial && completeEuVhfExchange
+        && gridExpression().match(exchangeWords.last()).hasMatch()
+        && fields.destinationState == DecodedCallState::ResolvedHash
+        && sameStation(fields.destination, snapshot.myCall)) {
       appendTextEffect(plan, QsoReactionEffect::Kind::SetReceivedExchange,
-                       message.clean_string().trimmed().right(13));
+                       exchangeWords.mid(exchangeWords.first() == "R" ? 1 : 0).join(' '));
     }
 
     if (snapshot.autoEnabled
@@ -888,7 +926,7 @@ namespace DecodedMessageReaction
       return plan;
     }
 
-    if (hasUnresolvedQsoCall(message, messageWords)
+    if (hasUnresolvedQsoCall(message)
         && !sameStation(messageWords.value(1), snapshot.baseCall)) {
       plan.reason = "structured message has unresolved QSO calls";
       return plan;
@@ -917,10 +955,70 @@ namespace DecodedMessageReaction
     return plan;
   }
 
+  QsoReactionPlan planHoundReply(DecodedText const& message, QsoReactionSnapshot const& snapshot)
+  {
+    QsoReactionPlan plan;
+    if (snapshot.mode != "FT8" || snapshot.specOp != SpecOp::HOUND
+        || !message.hasValidHeader() || message.modeMarker() != "~" || message.isTX()) {
+      plan.reason = "message is not a received Hound reply";
+      return plan;
+    }
+
+    auto const& fields = message.fields();
+    if (fields.hasMalformedCalls || !isResolvedCall(fields.senderState)
+        || !sameStation(fields.sender, snapshot.dxCall)) {
+      plan.reason = "Hound message is not from the selected Fox";
+      return plan;
+    }
+
+    bool const acknowledgesUs = isResolvedCall(fields.acknowledgedRecipientState)
+      && sameStation(fields.acknowledgedRecipient, snapshot.myCall)
+      && isResolvedCall(fields.destinationState) && message.payloadWords().size() == 5
+      && fields.exchangeWords.size() == 1 && isSignedReport(fields.exchange);
+    bool const addressedToUs = isResolvedCall(fields.destinationState)
+      && sameStation(fields.destination, snapshot.myCall);
+    if (acknowledgesUs || (addressedToUs && snapshot.houndReplyAvailable
+                           && fields.exchange == "RR73" && fields.exchangeWords.size() == 1)) {
+      appendEffect(plan, QsoReactionEffect::Kind::ClickStopTx);
+      appendEffect(plan, QsoReactionEffect::Kind::RequestLogQso);
+      plan.disposition = ReactionDisposition::Reacted;
+      plan.reason = "Fox acknowledges the Hound";
+    }
+
+    if (!addressedToUs || !snapshot.houndReplyAvailable) return plan;
+    if (fields.exchangeWords.size() == 1 && isSignedReport(fields.exchange)) {
+      QsoReactionEffect effect;
+      effect.kind = QsoReactionEffect::Kind::PrepareHoundReply;
+      effect.text = fields.exchange;
+      effect.intValue = message.frequencyOffset();
+      plan.effects.append(effect);
+      plan.disposition = ReactionDisposition::Reacted;
+      plan.reason = "Fox report prepares the Hound reply";
+    } else if (fields.exchange != "73" && fields.exchange != "RR73"
+               && !fields.exchange.startsWith("R+") && !fields.exchange.startsWith("R-")
+               && !fields.exchange.startsWith('+') && !fields.exchange.startsWith('-')
+               && fields.acknowledgedRecipient.isEmpty()
+               && (message.isStandardMessage() || fields.exchangeWords.isEmpty())) {
+      if (message.timeInSeconds() % 30 == 15) {
+        plan.disposition = ReactionDisposition::IgnoreDecode;
+        plan.reason = "Hound ignores Fox fallback from the wrong time slot";
+        return plan;
+      }
+      appendEffect(plan, QsoReactionEffect::Kind::ProcessSyntheticMessageNow);
+      plan.disposition = ReactionDisposition::Reacted;
+      plan.reason = "Hound processes a supported Fox message";
+    }
+    return plan;
+  }
+
   QsoReactionPlan planWaitReplyCall(DecodedText const& message, QsoReactionSnapshot const& snapshot,
                                     WaitDecodeSource source)
   {
     QsoReactionPlan plan;
+    if (!message.hasValidHeader() || message.fields().hasMalformedCalls) {
+      plan.reason = "invalid decoded message";
+      return plan;
+    }
     WaitFeatureContext const waitContext {
       snapshot.mode,
       snapshot.specOp,
@@ -953,7 +1051,7 @@ namespace DecodedMessageReaction
       return plan;
     }
 
-    auto const fields = parseDecodedMessage(message.message());
+    auto const& fields = message.fields();
     if (!sameStation(fields.sender, snapshot.hisCall)) {
       plan.reason = "Wait message is not from the selected station";
       return plan;
@@ -972,7 +1070,7 @@ namespace DecodedMessageReaction
       && ((snapshot.waitFeaturesEnabled && !snapshot.autoButtonChecked) || nccc);
 
     if (reply && slowPolicy && snapshot.specOp == SpecOp::HOUND
-        && (message.mid(4, 2).contains("15") || message.mid(4, 2).contains("45"))) {
+        && message.timeInSeconds() % 30 == 15) {
       plan.disposition = ReactionDisposition::IgnoreDecode;
       plan.reason = "hound ignores slow decode from wrong time slot";
       return plan;

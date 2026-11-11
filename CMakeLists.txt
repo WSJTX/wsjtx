@@ -1276,6 +1276,8 @@ set_target_properties (wsjtx PROPERTIES
   )
 
 target_include_directories (wsjtx PRIVATE ${FFTW3_INCLUDE_DIRS})
+# Static Qt consumers must precede the selected Fortran archive.
+target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 # On macOS the app links the non-OpenMP variant while jt9 carries the GNU
 # OpenMP runtime separately; this keeps Apple Clang libomp out of the bundle.
 if ((NOT WSJT_BUILD_FORTRAN_OPENMP) OR APPLE)
@@ -1287,7 +1289,6 @@ else ()
       LINK_FLAGS " -Wl,--stack,0x1000000,--heap,0x20000000")
   endif ()
 endif ()
-target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 if (WSJT_ENABLE_TSAN)
   target_compile_definitions (wsjtx PRIVATE WSJT_TSAN_TEST_PROFILE)

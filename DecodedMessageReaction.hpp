@@ -113,6 +113,7 @@ namespace DecodedMessageReaction
     bool autoSequenceChecked {false};
     bool quickCall {false};
     bool repeatTx {false};
+    bool houndReplyAvailable {false};
 
     bool loggingEnabled {false};
     bool contestHintShown {false};
@@ -191,7 +192,8 @@ namespace DecodedMessageReaction
       ScheduleAutoFlagOff,
       QueueContestHint,
       ProcessSyntheticMessageNow,
-      ProcessAutomaticSelectionNow
+      ProcessAutomaticSelectionNow,
+      PrepareHoundReply
     };
 
     Kind kind;
@@ -224,6 +226,7 @@ namespace DecodedMessageReaction
                                    unsigned stopTolerance);
   QsoReactionPlan planWaitReplyCall(DecodedText const& message, QsoReactionSnapshot const& snapshot,
                                     WaitDecodeSource source);
+  QsoReactionPlan planHoundReply(DecodedText const& message, QsoReactionSnapshot const& snapshot);
 }
 
 #endif // DECODEDMESSAGEREACTION_HPP

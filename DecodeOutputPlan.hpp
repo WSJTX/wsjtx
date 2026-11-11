@@ -6,6 +6,7 @@
 #include "SpecialOperatingActivity.hpp"
 
 #include <QByteArray>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -47,7 +48,7 @@ namespace DecodeOutputPlan
     int ft8DecoderStart {0};
     quint64 nominalFrequency {0};
     bool reduceFalseDecodes {false};
-    QString earlyDecodes;
+    QSet<QString> earlyDecodeKeys;
   };
 
   enum class LineDisposition
@@ -64,6 +65,7 @@ namespace DecodeOutputPlan
     QByteArray normalizedLine;
     QString decodedOriginal;
     QString decodedForLogic;
+    DecodedText originalMessage {QString {}};
     DecodedText logicMessage {QString {}};
     bool averaged {false};
     int averageCount {0};
@@ -185,6 +187,20 @@ namespace DecodeOutputPlan
     bool competingFoxReport {false};
   };
 
+  struct FoxReportContext
+  {
+    QString myCall;
+    QStringList activeHounds;
+  };
+
+  struct FoxReportDecision
+  {
+    QString houndCall;
+    QString report;
+    QString reason;
+  };
+
+  QString duplicateKey(DecodedText const& message);
   PreparedLine prepareLine(QByteArray const& rawLine, PreparationContext const& context);
   ExperimentalFilterDecision decideExperimentalFilter(DecodedText const& message,
                                                       ExperimentalFilterContext const& context);
@@ -196,6 +212,7 @@ namespace DecodeOutputPlan
                          bool filtered, bool filtersForWaitAndPounceOnly);
   RoutingDecision decideRouting(DecodedText const& originalMessage, DecodedText const& displayMessage,
                                 bool averaged, RoutingContext const& context);
+  FoxReportDecision decideFoxReport(DecodedText const& message, FoxReportContext const& context);
   bool shouldPostPsk(QString const& mode, SpecialOperatingActivity specOp, bool superFox,
                      bool standardMessage, bool bandPostingAllowed);
   QVector<Action> finishBatchActions(QString const& mode, SpecialOperatingActivity specOp,

@@ -2,30 +2,9 @@
 
 #include "MessageFilter.hpp"
 
-#include <QRegularExpression>
-#include <QStringList>
-
 namespace
 {
   using SpecOp = SpecialOperatingActivity;
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-  auto const SkipEmptyParts = Qt::SkipEmptyParts;
-#else
-  auto const SkipEmptyParts = QString::SkipEmptyParts;
-#endif
-
-  QString msk144FilterText(QString const& text, MessageFilterLogic::FilterContext const& ctx)
-  {
-    if (!ctx.filtersForWord2) return text;
-
-    QStringList const words = text.mid(24).split(" ", SkipEmptyParts);
-    if (words.size() < 2) return "___";
-    if (words[1].length() == 2 && words[1].contains(QRegularExpression{"\\w\\w"})) {
-      return words.size() > 2 ? words[2] : "___";
-    }
-    return words[1];
-  }
 
   bool containsFilterMatch(QString const& filterText, QStringList const& keywords, bool startsWith)
   {
@@ -34,13 +13,14 @@ namespace
   }
 }
 
-MessageFilterRules::Evaluation MessageFilterRules::evaluateMSK144Text(QString text, MessageFilterLogic::FilterContext const& ctx)
+MessageFilterRules::Evaluation MessageFilterRules::evaluateMSK144Text(
+  QString const& payload, QString const& sender, MessageFilterLogic::FilterContext const& ctx)
 {
   Evaluation evaluation;
-  text = text.replace("<", "").replace(">", "");
 
   bool const startsWith = ctx.filtersForWord2;
-  QString const filterText = msk144FilterText(text, ctx);
+  QString filterText = payload;
+  if (startsWith) filterText = sender.isEmpty() ? QString {"___"} : sender;
 
   if (SpecOp::NONE == ctx.specOp && ctx.alwaysPass && containsFilterMatch(filterText, ctx.passKeywords, startsWith)) {
     return evaluation;

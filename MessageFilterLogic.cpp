@@ -7,7 +7,8 @@
 
 MessageFilterLogic::FilterResult MessageFilterLogic::evaluateMSK144(const DecodedText& decodedtext, const FilterContext& ctx, LogBook* logbook)
 {
-    auto evaluation = MessageFilterRules::evaluateMSK144Text(decodedtext.string(), ctx);
+    auto evaluation = MessageFilterRules::evaluateMSK144Text(
+      decodedtext.payloadWords().join(' '), decodedtext.fields().sender, ctx);
     auto result = evaluation.result;
 
     if (result.shouldReturn || !evaluation.filtersApplied) return result;
@@ -16,9 +17,8 @@ MessageFilterLogic::FilterResult MessageFilterLogic::evaluateMSK144(const Decode
         ctx.hideB4 || ctx.hideEU || ctx.hideAS || ctx.hideNA || ctx.hideSA || ctx.hideAF ||
         ctx.hideOC || ctx.hideAN) {
 
-        QString deCall;
-        QString deGrid;
-        decodedtext.deCallAndGrid(deCall, deGrid);
+        auto const& deCall = decodedtext.fields().sender;
+        auto const& deGrid = decodedtext.fields().grid;
 
         if (ctx.hideTerritory1 || ctx.hideTerritory2 || ctx.hideTerritory3 || ctx.hideTerritory4) {
             auto const& looked_up = logbook->countries()->lookup(deCall);

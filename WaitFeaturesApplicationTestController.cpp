@@ -39,7 +39,7 @@ extern bool ignored;
 extern bool wait_and_call;
 extern bool no_wait_and_call;
 extern QString ignoreList;
-extern QString earlyDecodes;
+extern QSet<QString> earlyDecodeKeys;
 extern bool programStart;
 
 QString WaitFeaturesApplicationTestController::prepareSettings (QSettings * settings)
@@ -154,7 +154,7 @@ bool WaitFeaturesApplicationTestController::startReception (
   no_wait_and_call = false;
   g_iptt = 0;
   m_txing = false;
-  earlyDecodes.clear ();
+  earlyDecodeKeys.clear ();
   ignoreList.clear ();
   window_->ui->DX_Call_Button->setChecked (false);
   window_->ui->tuneButton->setChecked (false);
@@ -198,7 +198,7 @@ bool WaitFeaturesApplicationTestController::nextReception ()
 {
   completeScriptedTestDecode (backend_);
   window_->m_dateTimeSeqStart = window_->m_dateTimeSeqStart.addSecs (int (2 * window_->m_TRperiod));
-  earlyDecodes.clear ();
+  earlyDecodeKeys.clear ();
   return publishReception ();
 }
 
@@ -468,7 +468,7 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
   };
   auto candidate = [this] (QString const& payload) {
     DecodedText decoded {"120000 -10  0.3 1900 ~  " + payload};
-    window_->updateRespondTarget (decoded, decoded.string (), pounce,
+    window_->updateRespondTarget (decoded, pounce,
                                  window_->m_dateTimeSeqStart, false);
   };
   for (auto const policy : {AutoRespondPolicy::First, AutoRespondPolicy::MaxDistance,
@@ -748,7 +748,7 @@ bool WaitFeaturesApplicationTestController::tuneShutdownScenarios ()
         else {
           pounce = true;
           DecodedText cq {"120000 -10  0.3 1900 ~  CQ JA1ABC PM95"};
-          window_->updateRespondTarget (cq, cq.string (), pounce,
+          window_->updateRespondTarget (cq, pounce,
                                        window_->m_dateTimeSeqStart, false);
         }
       };

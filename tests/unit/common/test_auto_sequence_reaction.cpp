@@ -866,13 +866,18 @@ private slots:
   {
     auto snapshot = baseSnapshot();
     snapshot.mode = "MSK144";
-    DecodedText message {"060522 -10  0.3 1500 &  <K1ABC> W1AW 520001 FN31 W1AW R X"};
+    DecodedText message {"060522 -10  0.3 1500 &  <K1ABC> <W1AW> 520001 FN31AA"};
 
     auto const plan = DecodedMessageReaction::planAutoSequence(
       message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
     QCOMPARE(textEffect(plan, Effect::Kind::SetReceivedExchange),
-             message.clean_string().trimmed().right(13));
+             QString {"520001 FN31AA"});
+
+    auto const malformed = DecodedMessageReaction::planAutoSequence(
+      decode("<K1ABC> W1AW 520001 FN31 W1AW R X", "&", "060522"), snapshot,
+      DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+    QVERIFY(textEffect(malformed, Effect::Kind::SetReceivedExchange).isEmpty());
   }
 
   void ignoresEuVhfExchangeForRejectedDecode()
@@ -895,6 +900,7 @@ private slots:
     QTest::newRow("ro") << "RO" << 4;
     QTest::newRow("rrr") << "RRR" << 5;
     QTest::newRow("73") << "73" << 5;
+    QTest::newRow("ooo-annotated") << "K1ABC W1AW OOO a3" << 3;
   }
 
   void legacyShortMessages()

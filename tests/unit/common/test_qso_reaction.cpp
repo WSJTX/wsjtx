@@ -400,7 +400,7 @@ private slots:
     QCOMPARE(state.progress, QsoProgress::RogerReport);
   }
 
-  void dualFoxMessagePreservesCurrentDisposition()
+  void foxMessagesPreserveRecipientRoles()
   {
     auto snapshot = baseSnapshot();
     snapshot.loggingEnabled = true;
@@ -409,6 +409,44 @@ private slots:
     QCOMPARE(message.messageWords().size(), 7);
     QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
     QVERIFY(effectIndex(plan, Effect::Kind::RequestLogQso) < 0);
+
+    snapshot.specOp = SpecialOperatingActivity::HOUND;
+    snapshot.houndReplyAvailable = true;
+    for (QString const& suffix : {QString {}, QString {" a3"}, QString {" ? a3"}}) {
+      auto const acknowledgement = DecodedMessageReaction::planHoundReply(
+        decode("K1ABC RR73; W2XX <W1AW> -10" + suffix, "~", "060500"), snapshot);
+      QVERIFY(hasEffect(acknowledgement, Effect::Kind::ClickStopTx));
+      QVERIFY(hasEffect(acknowledgement, Effect::Kind::RequestLogQso));
+      QVERIFY(!hasEffect(acknowledgement, Effect::Kind::PrepareHoundReply));
+
+      auto const report = DecodedMessageReaction::planHoundReply(
+        decode("W2XX RR73; K1ABC <W1AW> -10" + suffix, "~", "060500"), snapshot);
+      QCOMPARE(textEffect(report, Effect::Kind::PrepareHoundReply), QString {"-10"});
+      QCOMPARE(intEffect(report, Effect::Kind::PrepareHoundReply), 1500);
+      QVERIFY(!hasEffect(report, Effect::Kind::RequestLogQso));
+    }
+
+    for (QString const& payload : {QString {"K1ABC W1AWX -10"},
+         QString {"K1ABC <...> -10"}, QString {"K1ABC <W1AW -10"},
+         QString {"K1ABC W1AW -10X"}, QString {"K1ABCX W1AW -10"},
+         QString {"K1ABC RR73; W2XX <W1AW> -10 JUNK"},
+         QString {"K1ABC RR73; W2XX <W1AW> -10X"},
+         QString {"K1ABC RR73; W2XX <W1AW>"},
+         QString {"K1ABC RR73; <...> <W1AW> -10"}}) {
+      auto const rejected = DecodedMessageReaction::planHoundReply(
+        decode(payload, "~", "060500"), snapshot);
+      QVERIFY(rejected.effects.isEmpty());
+    }
+
+    auto const signedReport = DecodedMessageReaction::planHoundReply(
+      decode("K1ABC W1AW -10", "~", "060500"), snapshot);
+    QCOMPARE(textEffect(signedReport, Effect::Kind::PrepareHoundReply), QString {"-10"});
+
+    auto const bothRecipients = DecodedMessageReaction::planHoundReply(
+      decode("K1ABC RR73; K1ABC <W1AW> -10", "~", "060500"), snapshot);
+    QVERIFY(hasEffect(bothRecipients, Effect::Kind::ClickStopTx));
+    QVERIFY(hasEffect(bothRecipients, Effect::Kind::RequestLogQso));
+    QCOMPARE(textEffect(bothRecipients, Effect::Kind::PrepareHoundReply), QString {"-10"});
   }
 
   void freeTextSignoffSelectsTx5()

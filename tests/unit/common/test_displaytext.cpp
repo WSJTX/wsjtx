@@ -291,6 +291,12 @@ private slots:
     QVERIFY (missing.highlights.empty ());
     QVERIFY (missing.sender.isEmpty ());
     QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", false, logbook, "20m"));
+    display.clear ();
+    DecodedText collision {"060522 -10  0.3  815 ~ <TA1ABCD> TA1ABC -10"};
+    QVERIFY (display.displayDecodedText (collision, "TA1ABC", "FT8", true, logbook, "20m"));
+    auto const transmitted = DecodeHighlightingModel::resolve_colors (
+      configuration_->decode_highlighting ().items (), {DecodeHighlightingModel::Highlight::Tx}, {}, {});
+    QCOMPARE (display.document ()->firstBlock ().blockFormat ().background ().color (), transmitted.background_);
     QCoreApplication::removeTranslator (&translator);
   }
 

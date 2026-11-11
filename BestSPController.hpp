@@ -78,7 +78,7 @@ public:
   {
     if (!request_ || !sameRequest (*request_, request)
         || !message.isStandardMessage ()) return;
-    auto const fields = parseDecodedMessage (message.message ());
+    auto const& fields = message.fields();
     if (fields.cq && !fields.sender.isEmpty ()) observations_.push_back (message);
   }
 

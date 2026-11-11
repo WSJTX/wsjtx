@@ -825,7 +825,7 @@ private:
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
   void playDecodeAlertSound(bool play_Wanted, bool play_DXcall);
   void playDecodeAlertSound(DecodeAlertSound sound);
-  void updateRespondTarget(const DecodedText& dt, const QString& text, bool pounce,
+  void updateRespondTarget(const DecodedText& dt, bool pounce,
                            QDateTime const& decodePeriodStart, bool diskData);
   QString selectedTxMessage() const;
   AutoRespondPolicy autoRespondPolicy() const;
@@ -1920,7 +1920,7 @@ private:
   void houndCallers();
   void updateFoxQSOsInProgressDisplay();
   void foxQueueTopCallCommand();
-  void foxRxSequencer(QString msg, QString houndCall, QString rptRcvd);
+  void foxRxSequencer(DecodedText const& message);
   bool foxTxSequencer();
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);

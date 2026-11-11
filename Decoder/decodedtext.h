@@ -10,6 +10,19 @@
 #define DECODEDTEXT_H
 
 #include <QString>
+#include <QStringList>
+
+#include "DecoderAnnotations.hpp"
+#include "DecoderMessage.h"
+
+enum class DecodedCallState
+{
+  Missing,
+  Literal,
+  ResolvedHash,
+  UnresolvedHash,
+  Malformed
+};
 
 struct DecodedMessageFields
 {
@@ -18,6 +31,18 @@ struct DecodedMessageFields
   QString exchange;
   QString grid;
   bool cq {};
+  QString acknowledgedRecipient;
+  QStringList exchangeWords;
+  QStringList payloadWords;
+  DecodedCallState destinationState {DecodedCallState::Missing};
+  DecodedCallState senderState {DecodedCallState::Missing};
+  DecodedCallState acknowledgedRecipientState {DecodedCallState::Missing};
+  bool hasMalformedCalls {false};
+  bool completeTail {false};
+  bool reportPresent {false};
+  int report {0};
+  int kind {DECODER_MESSAGE_NONE};
+  int exchangeKind {DECODER_EXCHANGE_NONE};
 };
 
 DecodedMessageFields parseDecodedMessage (QString message);
@@ -43,13 +68,21 @@ public:
   QString string() const { return string_; };
   QString clean_string() const { return clean_string_; };
   QString message() const { return message_; };
+  QString const& payload() const { return payload_; }
+  QStringList const& payloadWords() const { return fields_.payloadWords; }
+  DecodedMessageFields const& fields() const { return fields_; }
+  bool hasValidHeader() const { return valid_header_; }
+  QString const& modeMarker() const { return mode_marker_; }
+  DecoderAnnotations::Metadata const& annotations() const { return annotations_; }
+  QString withoutAnnotations() const;
+  DecodedText withDisplayString (QString const& displayLine) const;
   QStringList messageWords () const;
   int indexOf(QString s) const { return string_.indexOf(s); };
   int indexOf(QString s, int i) const { return string_.indexOf(s,i); };
   QString mid(int f, int t) const { return string_.mid(f,t); };
   QString left(int i) const { return string_.left(i); };
 
-  void clear() { string_.clear(); };
+  void clear() { *this = DecodedText {QString {}}; }
 
   QString CQersCall() const;
 
@@ -88,10 +121,25 @@ private:
 
   QString string_;
   QString clean_string_;
-  int padding_;
+  int padding_ {0};
   QString message_;
   QString message0_;
-  bool is_standard_;
+  bool is_standard_ {false};
+  QString payload_;
+  DecodedMessageFields fields_;
+  DecoderAnnotations::Metadata annotations_;
+  QString mode_marker_;
+  int payload_offset_ {0};
+  unsigned time_seconds_ {0};
+  int frequency_ {0};
+  int snr_ {0};
+  float dt_ {0.f};
+  bool valid_header_ {false};
+  bool transmitted_ {false};
+  QStringList message_captures_;
+  QString de_call_;
+  QString de_exchange_;
+  void cacheLegacyCaptures ();
 };
 
 #endif // DECODEDTEXT_H

@@ -35,8 +35,9 @@ inline DecodeClassification classifyDecode (DecodedText const& decoded, QString 
                                              LotWUsers const * lotw = nullptr)
 {
   DecodeClassification result;
-  decoded.deCallAndGrid (result.sender, result.grid);
-  if (!Radio::is_callsign (result.sender))
+  result.sender = decoded.fields().sender;
+  result.grid = decoded.fields().grid;
+  if (decoded.fields().hasMalformedCalls || !Radio::is_callsign (result.sender))
     {
       result.sender.clear ();
       result.grid.clear ();

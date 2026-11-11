@@ -23,6 +23,7 @@
 #include <QWheelEvent>
 #include <QProcessEnvironment>
 #include <QSharedMemory>
+#include <QSet>
 #include <QFileDialog>
 #include <QTextBlock>
 #include <QProgressBar>
@@ -473,7 +474,7 @@ QString txLog;
 QString ignoreList;
 QString ALLCALL7 = "";
 QString m_hisCall0 = "";
-QString earlyDecodes = "";  //ft8md
+QSet<QString> earlyDecodeKeys;
 
 QSharedMemory mem_qmap;                     //Memory segment to be shared (optionally) with QMAP
 QMapDecodeBlock qmapcom {};
@@ -3089,7 +3090,8 @@ void MainWindow::fastSink(qint64 frames)
         QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
         QString deCall;
         QString deGrid;
-        decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+        deCall = decodedtext.fields().sender;
+        deGrid = decodedtext.fields().grid;
         if (ui->actionHideIgnored->isChecked() && !ui->cbBypass->isChecked() && ignoreList.contains(deCall + ",")) filtered = true;
         if (ui->actionHideToday->isChecked() && !ui->cbBypass->isChecked() && (
               txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
@@ -3109,7 +3111,8 @@ void MainWindow::fastSink(qint64 frames)
     if (ui->actionIgnoreB4->isChecked() && (pounce or m_auto)) {
       QString deCall;
       QString deGrid;
-      decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+      deCall = decodedtext.fields().sender;
+      deGrid = decodedtext.fields().grid;
       bool callB4onBand;
       bool countryB4onBand;
       bool gridB4onBand;
@@ -3129,13 +3132,14 @@ void MainWindow::fastSink(qint64 frames)
           decodedtext, DecodedMessageReaction::WaitDecodeSource::Msk144FastDecoder)
         == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) return;
 
-    updateRespondTarget(decodedtext, text, pounce, m_dateTimeSeqStart, m_diskData);
+    updateRespondTarget(decodedtext, pounce, m_dateTimeSeqStart, m_diskData);
     // show distance and bearing for MSK144
     if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {
         QString distance;
         QString deCall;
         QString deGrid;
-        decodedtext.deCallAndGrid(deCall,deGrid);
+        deCall = decodedtext.fields().sender;
+        deGrid = decodedtext.fields().grid;
         if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(MainWindow::grid_regexp)) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -3211,7 +3215,9 @@ void MainWindow::fastSink(qint64 frames)
         if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
 
         // display "73" messages for us also in the right pane
-        if (m_mode=="MSK144" && text.mid(22).contains(m_baseCall + " " + m_hisCall + " 73")) {
+        if (m_mode=="MSK144" && decodedtext.fields().exchange == "73"
+            && Radio::base_callsign(decodedtext.fields().destination) == m_baseCall
+            && decodedtext.fields().sender == m_hisCall) {
             ui->decodedTextBrowser2->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
               m_logBook, nominalRxBand (), m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
             applyHighlighting(decodedtext, ui->decodedTextBrowser2, false, play_Wanted, play_DXcall);
@@ -3223,9 +3229,9 @@ void MainWindow::fastSink(qint64 frames)
     if(m_config.highlight_orange() or (m_config.highlight_blue()) or ui->actionHighlight_Whitelist_entries->isChecked()) {
         QString deCall;
         QString deGrid;
-        decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-        QStringList tw;
-        tw=text.mid(22).split(" ",SkipEmptyParts);
+        deCall = decodedtext.fields().sender;
+        deGrid = decodedtext.fields().grid;
+        auto const& tw = decodedtext.payloadWords();
         if (m_config.highlight_orange() && deCall.size()>2
             && HighlightingRules::matchesCallsignPrefix(m_config.highlight_orange_callsigns(), deCall)) {
           ui->decodedTextBrowser->highlight_callsign(deCall, QColor(225,75,0), QColor(255,255,255), true);
@@ -3273,7 +3279,8 @@ void MainWindow::fastSink(qint64 frames)
         QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
         QString deCall;
         QString deGrid;
-        decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+        deCall = decodedtext.fields().sender;
+        deGrid = decodedtext.fields().grid;
         bool callB4onBand;
         bool countryB4onBand;
         bool gridB4onBand;
@@ -3312,8 +3319,8 @@ void MainWindow::fastSink(qint64 frames)
     }
 
     // Highlight DX Call/Grid for MSK144
-    if (!pounce && (m_config.highlight_DXcall () or m_config.alert_Enabled()) && (m_hisCall!="") && ((text.contains(QRegularExpression {"(\\w+) " + m_hisCall}))
-        || (decodedtext.string().contains("<...> " + m_hisCall))))  {
+    if (!pounce && (m_config.highlight_DXcall () or m_config.alert_Enabled())
+        && !m_hisCall.isEmpty() && decodedtext.fields().sender == m_hisCall) {
       if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
       if (m_config.highlight_DXcall()) {
         // repeated highlighting to override JTAlert
@@ -3323,7 +3330,8 @@ void MainWindow::fastSink(qint64 frames)
         QTimer::singleShot (2500, this, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
       }
     }
-    if (!pounce && (m_config.highlight_DXgrid () or m_config.alert_Enabled()) && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid.left(4))))  {
+    if (!pounce && (m_config.highlight_DXgrid () or m_config.alert_Enabled())
+        && !m_hisGrid.isEmpty() && decodedtext.fields().grid.left(4) == m_hisGrid.left(4)) {
       if (m_config.highlight_DXgrid()) ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
       if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
     }
@@ -4040,9 +4048,9 @@ void MainWindow::dispatchWaitRetryTimeout(bool reply, quint64 generation)
 
 void MainWindow::acknowledgeWaitReply(DecodedText const& message, QDateTime const& receivedPeriod)
 {
-  auto const fields = parseDecodedMessage(message.message());
+  auto const& fields = message.fields();
   if (m_mode == "FT8" && m_specOp == SpecOp::HOUND
-      && (message.mid(4, 2) == "15" || message.mid(4, 2) == "45")) return;
+      && message.timeInSeconds() % 30 != 0) return;
   if (m_mode == "MSK144" && ui->actionFull_Duplex_Mode->isChecked() && m_txing) return;
   if (!message.isStandardMessage() || message.isTX() || m_tune
       || fields.sender == "..." || fields.destination == "..."
@@ -5139,7 +5147,7 @@ void MainWindow::read_wav_file (QString const& fname)
   if (m_mode=="FT8" && (m_multithreadFT8 or m_operatingFrequency.rx ()>45000000)) {
     m_nDecodes=0;                  // reset the decodes counter
     ndecodes_label.setText("");
-    earlyDecodes = "";             // reset dupe check
+    earlyDecodeKeys.clear();
   }
   // call diskDat() when done
   int i0=fname.lastIndexOf("_");
@@ -6189,7 +6197,7 @@ void::MainWindow::fast_decode_done()
       if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
     }
 
-    t=message.mid(10,5).toFloat();
+    t=decodedtext.dt();
     if(t>tmax) {
       tmax=t;
       m_bDecoded=true;
@@ -7328,7 +7336,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       (decodeContext.specOp==SpecOp::ARRL_DIGI or m_ActiveStationsWidget->isVisible());
   }
   extern bool no_a7_decodes;
-  extern QString earlyDecodes;
+  extern QSet<QString> earlyDecodeKeys;
   DecodeOutputPlan::PreparationContext preparationContext;
   preparationContext.mode = decodeContext.mode;
   preparationContext.specOp = decodeContext.specOp;
@@ -7362,8 +7370,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
     Q_EMIT decoderOutputLine (raw_line);
 #endif
-    // earlyDecodes grows as lines are displayed within this batch
-    preparationContext.earlyDecodes = earlyDecodes;
+    preparationContext.earlyDecodeKeys = earlyDecodeKeys;
     auto const prepared = DecodeOutputPlan::prepareLine (raw_line, preparationContext);
 
     bool updateArrlActivity = false;
@@ -7385,23 +7392,23 @@ void MainWindow::readFromStdout()                             //readFromStdout
     bool block_right_display {false};
     float fSpread = prepared.frequencySpread;
     QString const message0 = prepared.decodedOriginal;
-    DecodedText decodedtext0 {prepared.decodedOriginal};
+    auto const& decodedtext0 = prepared.originalMessage;
     DecodedText const& decodedtext {prepared.logicMessage};
     auto const classification = classifyDecode (decodedtext, decodeContext.mode, decodeContext.band,
                                                  m_logBook, &m_config.lotw_users ());
     m_bestSP.observe ({m_decodeCycleGeneration, static_cast<quint64> (output.request), decodeContext},
                        decodedtext0);
     bool const deferCQSelection = m_bestSP.armed () && decodeContext.mode == "FT4"
-      && decodedtext0.isStandardMessage () && parseDecodedMessage (decodedtext0.message ()).cq;
+      && decodedtext0.isStandardMessage () && decodedtext0.fields().cq;
     if (!decodeContext.diskData) m_decodedGridHistory.observe(decodedtext0);
     Q_EMIT decodedMessageProcessed (decodedtext.message ().simplified ());
 
     if (m_mode=="Q65" && m_specOp==SpecOp::Q65_PILEUP) {
-      auto const fields = parseDecodedMessage (decodedtext.message ());
+      auto const& fields = decodedtext.fields();
 
       // Keep the Active Stations '#' indication current: a later decode from the same caller without '#' removes it.
       if (!fields.sender.isEmpty ()) {
-        if (raw_line.trimmed ().endsWith ('#')) {
+        if (decodedtext.annotations().copied) {
           m_q65PileupCopiedCallers.insert (fields.sender);
         } else {
           m_q65PileupCopiedCallers.remove (fields.sender);
@@ -7465,9 +7472,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
           processSFoxVerification(decodedtext0, filtered);
 
-        QString text = decodedtext.string().replace("<", "").replace(">", "");
-
-
         if (!applyFiltering(decodedtext, filtered, &classification)) return;
 
 
@@ -7523,7 +7527,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
           displayDecodedTextLine(decodedtext1, line_read, distance, haveFSpread, fSpread, bDisplayPoints, classification);
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
         }
-        if (m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_operatingFrequency.rx ()>45000000)) earlyDecodes.append(line_read); //ft8md
+        if (m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_operatingFrequency.rx ()>45000000))
+          earlyDecodeKeys.insert(DecodeOutputPlan::duplicateKey(decodedtext));
 
         applyHighlighting(decodedtext, ui->decodedTextBrowser, true, play_Wanted, play_DXcall, &classification);
 
@@ -7533,7 +7538,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
 
         if (!deferCQSelection)
-          updateRespondTarget(decodedtext0, text, pounce, decodeContext.sequenceStart,
+          updateRespondTarget(decodedtext0, pounce, decodeContext.sequenceStart,
                               decodeContext.diskData);
 
 
@@ -7567,9 +7572,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
           && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) {
         bool bProcessMsgNormally=autoRespondPolicy () != AutoRespondPolicy::None or
                                    (m_ActiveStationsWidget!=NULL and !m_ActiveStationsWidget->isVisible());
-        if (decodedtext.messageWords().length() >= 3) {
-          QString t=decodedtext.messageWords()[2];
-          if(t.contains("R+") or t.contains("R-") or t=="R" or t=="RRR" or t=="RR73") bProcessMsgNormally=true;
+        if (!decodedtext.fields().sender.isEmpty()) {
+          auto const& exchange = decodedtext.fields().exchange;
+          if(exchange.startsWith("R+") || exchange.startsWith("R-")
+              || exchange=="R" || exchange=="RRR" || exchange=="RR73") bProcessMsgNormally=true;
         } else {
           bProcessMsgNormally=true;
         }
@@ -7638,49 +7644,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
       postDecode (true, decodedtext.string ());
 
       if(m_mode=="FT8" and SpecOp::HOUND==m_specOp) {
-        if(decodedtext.string().contains(";")) {
-          QString text = decodedtext.string().remove("<").remove(">");   // needed for MSHV multistream messages
-          QStringList w=text.mid(24).split(" ",SkipEmptyParts);
-          if(w.size() >= 5) {
-            if(w.at(0)==m_config.my_callsign() or w.at(0)==Radio::base_callsign(m_config.my_callsign())) {
-              ui->stopTxButton->click ();
-              scheduleLogQso();
-            }
-            if((w.at(2)==m_config.my_callsign() or w.at(2)==Radio::base_callsign(m_config.my_callsign()))
-               and ui->tx3->text().length()>0) {
-              m_rptRcvd=w.at(4);
-              m_rptSent=decodedtext.string().mid(7,3);
-              hound_reply (decodedtext.string().mid(16,4).toInt());
-            }
-          }
-        } else {
-          QString text = decodedtext.string().remove("<").remove(">");   // needed for MSHV multistream messages
-          QStringList w=text.mid(24).split(" ",SkipEmptyParts);
-          if(decodedtext.string().contains("/")) w.append(" +00");  //Add a dummy report
-          if(w.size()>=3) {
-            QString foxCall=w.at(1);
-            if((w.at(0)==m_config.my_callsign() or w.at(0)==Radio::base_callsign(m_config.my_callsign())) and
-               ui->tx3->text().length()>0) {
-              if(w.at(2)=="RR73") {
-                ui->stopTxButton->click ();
-                scheduleLogQso();
-              } else {
-                if(w.at(1)==Radio::base_callsign(ui->dxCallEntry->text()) and
-                   (w.at(2).mid(0,1)=="+" or w.at(2).mid(0,1)=="-")) {
-                  m_rptRcvd=w.at(2);
-                  m_rptSent=decodedtext.string().mid(7,3);
-                  hound_reply (decodedtext.string().mid(16,4).toInt());
-                } else {
-                  if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) return;
-                  auto const fields = parseDecodedMessage(decodedtext.message());
-                  if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall)
-                      && fields.exchange != "73" && fields.exchange != "RR73")
-                    processSyntheticMessage(decodedtext0);
-                }
-              }
-            }
-          }
-        }
+        auto const houndPlan = DecodedMessageReaction::planHoundReply(
+          decodedtext0, qsoReactionSnapshot(Qt::NoModifier, DecodedMessageReaction::SelectionOrigin::Synthetic));
+        if (houndPlan.disposition == DecodedMessageReaction::ReactionDisposition::IgnoreDecode) return;
+        applyQsoReactionPlan(houndPlan, decodedtext0);
       }
 
 //### I think this is where we are preventing Hounds from spotting Fox ###
@@ -7694,9 +7661,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         QString rpt;
         bool stdMsg = decodedtext.report(m_baseCall,
             Radio::base_callsign(ui->dxCallEntry->text()), rpt);
-        QString deCall;
-        QString grid;
-        decodedtext.deCallAndGrid(/*out*/deCall,grid);
+        auto const& deCall = decodedtext.fields().sender;
         {
           auto t = Radio::base_callsign (ui->dxCallEntry->text ());
           auto const& dx_call = decodedtext.call ();
@@ -7797,23 +7762,21 @@ void MainWindow::pskPost (DecodedText const& decodedtext,
                           DecodeOperatingContext const& context)
 {
   auto const baseCall = Radio::base_callsign (context.myCall);
+  auto const& fields = decodedtext.fields();
   if (context.diskData || !m_config.spot_to_psk_reporter() || decodedtext.isLowConfidence ()
-      || (decodedtext.string().contains(baseCall) && decodedtext.string().contains(m_config.my_grid().left(4)))) return; // prevent self-spotting when running multiple instances
+      || (Radio::base_callsign(fields.sender) == baseCall
+          && fields.grid.left(4) == m_config.my_grid().left(4))) return;
   auto const qSpotTime = DecodedTime::spotTime(
     decodedtext.string().section(' ', 0, 0),
     QDateTime::currentDateTimeUtc(), context.trPeriod);
   if (!qSpotTime.isValid()) return;
   QString msgmode=context.mode;
-  QString deCall;
-  QString grid;
-  decodedtext.deCallAndGrid(/*out*/deCall,grid);
+  auto const& deCall = fields.sender;
+  auto const& grid = fields.grid;
   int audioFrequency = decodedtext.frequencyOffset();
-  if(context.mode=="FT8" or context.mode=="MSK144" or context.mode=="FT4") {
-    audioFrequency=decodedtext.string().mid(16,4).toInt();
-  }
   int snr = decodedtext.snr();
   Frequency frequency = context.periodFrequency + audioFrequency;
-  if(grid.contains (MainWindow::grid_regexp)  || decodedtext.string().contains(" CQ ")) {
+  if(grid.contains (MainWindow::grid_regexp) || fields.cq) {
 //    qDebug() << "To PSKreporter:" << deCall << grid << frequency << msgmode << snr;
     if (!m_psk_Reporter.addRemoteStation (deCall, grid, frequency, msgmode, snr, qSpotTime))
       {
@@ -8542,7 +8505,7 @@ void MainWindow::guiUpdate()
     }
     logDecoderProgress();
     //    qDebug()   << "AAA" << nsec % 60;
-    // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
+    // Reset duplicate identities between early-decode passes.
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_operatingFrequency.rx ()>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
       int s = now.time().toString("ss").toInt();
@@ -8550,7 +8513,7 @@ void MainWindow::guiUpdate()
         if ((s == 7 || s == 22 ||s == 37 || s == 52) && decoderBusy ()) {
           recoverDecoderAtBoundary ("FT8 early-decode boundary", false);
         }
-        if (s == 10 || s == 25 ||s == 40 || s == 55) earlyDecodes = "";
+        if (s == 10 || s == 25 ||s == 40 || s == 55) earlyDecodeKeys.clear();
       }
     }
 
@@ -9427,8 +9390,8 @@ void MainWindow::handleDecodeSelection(
       m_deCall, selection_origin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
     return;
   }
-  DecodedText message {line.trimmed().left(61).remove("TU; ")};
-  if(SpecOp::HOUND==m_specOp && (message.string().mid(4,2).contains("15") or message.string().mid(4,2).contains("45"))) {
+  DecodedText message {line};
+  if(SpecOp::HOUND==m_specOp && message.timeInSeconds() % 30 != 0) {
     statusBar()->showMessage(tr("Hound: select a Fox at :00 or :30."), 5000);
     return;
   }
@@ -9459,9 +9422,7 @@ void MainWindow::handleDecodeSelection(
     }
     return;
   }
-  QString hiscall;
-  QString hisgrid;
-  message.deCallAndGrid(/*out*/hiscall,hisgrid);
+  auto const& hiscall = message.fields().sender;
   if (is77BitMode () && modifiers!=Qt::AltModifier
       && Radio::is_77bit_nonstandard_callsign (m_config.my_callsign ())
       && Radio::is_77bit_nonstandard_callsign (hiscall)) {
@@ -9566,6 +9527,7 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
   snapshot.holdTxFrequency = ui->cbHoldTxFreq->isChecked();
   snapshot.rxFrequencyEnabled = ui->RxFreqSpinBox->isEnabled();
   snapshot.tx1Enabled = ui->tx1->isEnabled();
+  snapshot.houndReplyAvailable = !ui->tx3->text().isEmpty();
   snapshot.autoEnabled = m_auto;
   snapshot.autoButtonChecked = ui->autoButton->isChecked();
   snapshot.autoReply = m_bAutoReply;
@@ -9703,6 +9665,11 @@ bool MainWindow::applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffec
     break;
   case Effect::Kind::SetReceivedExchange:
     m_xRcvd = effect.text;
+    break;
+  case Effect::Kind::PrepareHoundReply:
+    m_rptRcvd = effect.text;
+    m_rptSent = message.report();
+    hound_reply(effect.intValue);
     break;
   case Effect::Kind::SetCallingCq:
     m_bCallingCQ = effect.boolValue;
@@ -9875,7 +9842,9 @@ void MainWindow::refreshQsoPane(DecodedText const& message)
     BlankLineInserted = true;
     m_band_changed = false;
   }
-  if (!current.contains(m_baseCall) || m_mode == "MSK144") {
+  auto const& fields = message.fields();
+  if ((Radio::base_callsign(fields.destination) != m_baseCall
+       && Radio::base_callsign(fields.sender) != m_baseCall) || m_mode == "MSK144") {
     ui->decodedTextBrowser2->displayDecodedText(
       message, m_config.my_callsign(), m_mode, m_config.DXCC(), m_logBook, nominalRxBand (),
       m_config.ppfx(), false, false, 0.0, false, -99, "", m_muted);
@@ -13230,13 +13199,13 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
       showNormal ();
       raise ();
     }
-  auto const fields = parseDecodedMessage(message_text);
+  DecodedText message {message_line};
+  auto const& fields = message.fields();
   if (fields.cq || fields.destination == "QRZ" || fields.exchange == "73"
       || fields.exchange == "RR73" || ui->cbHoldTxFreq->isChecked ()) {
     // a message we are willing to accept and auto reply to
     m_bDoubleClicked = true;
     }
-  DecodedText message {message_line};
   Qt::KeyboardModifiers kbmod {modifiers << 24};
   auto const snapshot = qsoReactionSnapshot (kbmod, DecodedMessageReaction::SelectionOrigin::Udp);
   auto const plan = DecodedMessageReaction::planProcessMessage (message, snapshot);
@@ -14806,27 +14775,16 @@ void MainWindow::houndCallers()
   }
 }
 
-void MainWindow::foxRxSequencer(QString msg, QString houndCall, QString rptRcvd)
+void MainWindow::foxRxSequencer(DecodedText const& message)
 {
-/* Called from "readFromStdOut()" to process decoded messages of the form
- * "myCall houndCall R+rpt".
- *
- * If houndCall matches a callsign in one of our active QSO slots, we
- * prepare to send "houndCall RR73" to that caller.
-*/
-  if(m_foxQSO.contains(houndCall)) {
-    m_foxQSO[houndCall].rcvd=rptRcvd.mid(1);  //Save report Rcvd, for the log
-    m_foxQSO[houndCall].tFoxRrpt=m_tFoxTx;    //Save time R+rpt was received
-    writeFoxQSO(" Rx:   " + msg.trimmed());
-  } else {
-    for(QString hc: m_foxQSO.keys()) {        //Check for a matching compound call
-      if(hc.contains("/"+houndCall) or hc.contains(houndCall+"/")) {
-        m_foxQSO[hc].rcvd=rptRcvd.mid(1);  //Save report Rcvd, for the log
-        m_foxQSO[hc].tFoxRrpt=m_tFoxTx;    //Save time R+rpt was received
-        writeFoxQSO(" Rx:   " + msg.trimmed());
-      }
-    }
-  }
+  auto const decision = DecodeOutputPlan::decideFoxReport(
+    message, {m_config.my_callsign(), m_foxQSO.keys()});
+  if (decision.houndCall.isEmpty()) return;
+  auto qso = m_foxQSO.find(decision.houndCall);
+  if (qso == m_foxQSO.end()) return;
+  qso->rcvd = decision.report;
+  qso->tFoxRrpt = m_tFoxTx;
+  writeFoxQSO(" Rx:   " + message.string().trimmed());
 }
 
 void MainWindow::updateFoxQSOsInProgressDisplay()
@@ -15472,7 +15430,6 @@ void MainWindow::foxTest()
   QString t;
   QString msg;
   QString hc1;
-  QString rptRcvd;
   qint32 n=0;
 
   while(!s.atEnd()) {
@@ -15518,16 +15475,7 @@ void MainWindow::foxTest()
     }
     if(line.contains("Rx:"))  {
       msg=line.mid(37+6);
-      t=msg.mid(24);
-      int i0=t.indexOf(" ");
-      hc1=t.mid(i0+1);
-      int i1=hc1.indexOf(" ");
-      hc1=hc1.mid(0,i1);
-      int i2=qMax(msg.indexOf("R+"),msg.indexOf("R-"));
-      if(i2>10) {
-        rptRcvd=msg.mid(i2,4);
-        foxRxSequencer(msg,hc1,rptRcvd);
-      }
+      foxRxSequencer(DecodedText {msg});
     }
     if(line.contains("Tx1:")) {
       if (!foxTxSequencer()) return;
@@ -16877,19 +16825,7 @@ void MainWindow::applyExperimentalFT8Filter(const DecodedText& decodedtext, bool
 
 void MainWindow::processFoxSignals(const DecodedText& decodedtext)
 {
-  if(m_mode=="FT8" and SpecOp::FOX == m_specOp and
-     (decodedtext.string().contains("R+") or decodedtext.string().contains("R-"))) {
-    auto for_us  = decodedtext.string().contains(" " + m_config.my_callsign() + " ") or
-        decodedtext.string().contains(" "+m_baseCall) or
-        decodedtext.string().contains(m_baseCall+" ") or
-        decodedtext.string().contains(" <" + m_config.my_callsign() + "> ");
-    if(decodedtext.string().contains(" DE ")) for_us=true;
-    if(for_us) {
-      QString houndCall,houndGrid;
-      decodedtext.deCallAndGrid(/*out*/houndCall,houndGrid);
-      foxRxSequencer(decodedtext.string(),houndCall,houndGrid);
-    }
-  }
+  if (m_mode == "FT8" && m_specOp == SpecOp::FOX) foxRxSequencer(decodedtext);
 }
 
 void MainWindow::processSFoxVerification(const DecodedText& decodedtext0, bool& filtered)
@@ -16990,7 +16926,7 @@ DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
   if (!eligible) return DecodedMessageReaction::ReactionDisposition::NoReaction;
 
   auto snapshot = qsoReactionSnapshot();
-  auto const sender = parseDecodedMessage(message.message()).sender;
+  auto const& sender = message.fields().sender;
   if (ui->actionIgnoreIgnored->isChecked()) {
     for (auto const& entry : ignoreList.split(',', SkipEmptyParts)) {
       auto const call = entry.trimmed();
@@ -17138,7 +17074,7 @@ void MainWindow::completeBestSP (quint64 backendRequest)
   auto const reason = selected->reason == BestSPController::Reason::NewDXCC
     ? tr ("new DXCC entity") : tr ("callsign not worked on this band");
   setBestSPArmed (false, tr ("Best S+P selected %1: %2.")
-    .arg (parseDecodedMessage (selected->message.message ()).sender, reason));
+    .arg (selected->message.fields().sender, reason));
   QScopedValueRollback<bool> selectionContext {m_bDoubleClicked, true};
   processSyntheticMessage (selected->message, DecodedMessageReaction::SelectionOrigin::AutomaticSelection);
 }
@@ -17148,7 +17084,6 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
 {
   if (!decodePane) return;
 
-  QString text = decodedtext.string().replace("<","").replace(">","");
   if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
      or ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked()
      or ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
@@ -17156,7 +17091,8 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
       QString deCall;
       QString deGrid;
-      decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+      deCall = decodedtext.fields().sender;
+      deGrid = decodedtext.fields().grid;
       if (ui->actionHighlightB4->isChecked()) {
           auto const ownClassification = classification ? DecodeClassification {}
             : classifyDecode (decodedtext, m_mode, nominalRxBand (), m_logBook);
@@ -17193,7 +17129,8 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
   if (m_config.highlight_orange() or (m_config.highlight_blue()) or ui->actionHighlight_Whitelist_entries->isChecked()) {
     QString deCall;
     QString deGrid;
-    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+    deCall = decodedtext.fields().sender;
+    deGrid = decodedtext.fields().grid;
     if (m_config.highlight_orange() && deCall.size()>2
         && HighlightingRules::matchesCallsignPrefix(m_config.highlight_orange_callsigns(), deCall)) {
       decodePane->highlight_callsign(deCall, QColor(225,75,0), QColor(255,255,255), true);
@@ -17213,12 +17150,7 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
     }
     // highlight directional calls
-    QStringList tw;
-    if (m_mode == "FT8" or m_mode == "FT4" or m_mode == "Q65" or m_mode == "FST4") {
-      tw=text.mid(24).split(" ",SkipEmptyParts);
-    } else {
-      tw=text.mid(22).split(" ",SkipEmptyParts);
-    }
+    auto const& tw = decodedtext.payloadWords();
     if (tw.size() > 2) {
       if (m_config.highlight_orange() && tw[0]=="CQ"
           && HighlightingRules::matchesDirectionalCall(m_config.highlight_orange_callsigns(), tw[1])) {
@@ -17240,11 +17172,8 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
   }
 
   // Highlight DX Call/Grid
-  if (!pounce && (m_config.highlight_DXcall() or (updateAlertState && m_config.alert_Enabled())) && (m_hisCall != "") &&
-      ((decodedtext.string().contains(QRegularExpression{"(\\w+) " + m_hisCall}))
-       || (decodedtext.string().contains(QRegularExpression{"(\\w+) <" + m_hisCall + ">"}))
-       || (decodedtext.string().contains(QRegularExpression{"<(\\w+)> " + m_hisCall}))
-       || (decodedtext.string().contains(QRegularExpression{"<...> " + m_hisCall})))) {
+  if (!pounce && (m_config.highlight_DXcall() or (updateAlertState && m_config.alert_Enabled()))
+      && !m_hisCall.isEmpty() && decodedtext.fields().sender == m_hisCall) {
     if (updateAlertState && m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
     if (m_config.highlight_DXcall()) {
       decodePane->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
@@ -17258,8 +17187,8 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       }
     }
   }
-  if (!pounce && (m_config.highlight_DXgrid () or (updateAlertState && m_config.alert_Enabled())) && (m_hisGrid!="") &&
-      (decodedtext.string().contains(m_hisGrid.left(4))))  {
+  if (!pounce && (m_config.highlight_DXgrid () or (updateAlertState && m_config.alert_Enabled()))
+      && !m_hisGrid.isEmpty() && decodedtext.fields().grid.left(4) == m_hisGrid.left(4)) {
     if (m_config.highlight_DXgrid()) decodePane->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
     if (updateAlertState && m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
   }
@@ -17327,7 +17256,7 @@ bool MainWindow::tryAutomaticSelection(DecodedText const& message, bool * block_
   return installAutoTxEnabled(true);
 }
 
-void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool pounce,
+void MainWindow::updateRespondTarget(const DecodedText& decodedtext, bool pounce,
                                      QDateTime const& decodePeriodStart, bool diskData)
 {
   bool const fullDuplexBlocked = ui->actionFull_Duplex_Mode->isChecked() && m_txing;
@@ -17340,7 +17269,7 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
   auto const periodPolicy = m_autoRespondPeriodState.policy();
   auto const pouncePolicy = autoRespondPolicy ();
   bool const pounceCq = pounce
-    && text.contains(" CQ ")
+    && decodedtext.fields().cq
     && m_config.Wait_features_enabled();
 
   bool const selectPounceFirst = pounceCq
@@ -17364,9 +17293,8 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
     }
   }
 
-  QString deCall;
-  QString deGrid;
-  decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+  auto const& deCall = decodedtext.fields().sender;
+  auto const& deGrid = decodedtext.fields().grid;
 
   bool const selectPounceDistance = pounceCq
     && !filtered
@@ -17472,9 +17400,7 @@ void MainWindow::processSuperHoundVerification(const DecodedText& decodedtext0)
 QString MainWindow::calculateDistanceAndBearing(const DecodedText& decodedtext)
 {
   QString distance;
-  QString deCall;
-  QString deGrid;
-  decodedtext.deCallAndGrid(deCall,deGrid);
+  auto const& deGrid = decodedtext.fields().grid;
   if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(MainWindow::grid_regexp)) {
     double utch=0.0;
     int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -17505,7 +17431,8 @@ void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QB
 {
   bool displayed;
   if ((m_mode == "JT65" or m_mode == "JT9" or m_mode == "JT4") && m_config.DXCC()) {
-    DecodedText decodedtextJT {((QString::fromUtf8(line_read.left(44).constData())) + (QString::fromUtf8(line_read.mid(62, 2).constData())))};
+    auto const decodedtextJT = decodedtext.withDisplayString(
+      QString::fromUtf8(line_read.left(44)) + QString::fromUtf8(line_read.mid(62, 2)));
     displayed = ui->decodedTextBrowser->displayDecodedText (
       decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
       m_logBook, m_currentBandPeriod, m_config.ppfx (),
@@ -17513,10 +17440,7 @@ void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QB
       haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted, &classification);
   } else {
     if (ui->actionHide_AP_info->isVisible() && ui->actionHide_AP_info->isChecked()) {
-      // Hide FT8 AP information
-      QByteArray line = line_read;
-      DecodedText decodedtext2 {(QString::fromUtf8(line.replace("a1","").replace("a2","").replace("a3","").replace("a4","")
-                                 .replace("a5","").replace("a6","").replace("a7","").replace("a8","").replace("a9","").replace("?","")))};
+      auto const decodedtext2 = decodedtext.withDisplayString(decodedtext.withoutAnnotations());
       displayed = ui->decodedTextBrowser->displayDecodedText (
         decodedtext2, m_config.my_callsign (), m_mode, m_config.DXCC (),
         m_logBook, m_currentBandPeriod, m_config.ppfx (),

@@ -37,10 +37,18 @@ void TestDecodedMessageFields::parsesMessage_data()
   QTest::newRow ("bracketed-call") << "CQ <PJ4/KA1ABC> FK52" << "CQ" << "PJ4/KA1ABC" << "FK52" << true;
   QTest::newRow ("unresolved-destination") << "<...> V5/HB9SHD RR73" << "..." << "V5/HB9SHD" << "" << false;
   QTest::newRow ("unresolved-sender") << "K1ABC <...> RR73" << "K1ABC" << "..." << "" << false;
-  QTest::newRow ("unresolved-both-calls") << "<...> <...> 590001 FN20QI" << "..." << "..." << "FN20" << false;
+  QTest::newRow ("unresolved-both-calls") << "<...> <...> 590001 FN20QI" << "..." << "..." << "FN20QI" << false;
   QTest::newRow ("later-grid") << "K1ABC W1AW R 520001 FN31AA" << "K1ABC" << "W1AW" << "FN31AA" << false;
   QTest::newRow ("incomplete") << "CQ TEST" << "CQ" << "TEST" << "" << true;
   QTest::newRow ("free-text") << "HELLO WORLD" << "HELLO" << "WORLD" << "" << false;
+  QTest::newRow ("hashed-compound-signoff") << "<K1ABC> <W2XYZ/P> 73" << "K1ABC" << "W2XYZ/P" << "" << false;
+  QTest::newRow ("hashed-nonstandard-report") << "<C8K> <OH6OKSA> R-13" << "C8K" << "OH6OKSA" << "" << false;
+  QTest::newRow ("wspr-source") << "W1AW FN31 37" << "" << "W1AW" << "FN31" << false;
+  QTest::newRow ("wspr-hashed-source") << "<...> FN31 37" << "" << "..." << "FN31" << false;
+  QTest::newRow ("literal-signoff-punctuation") << "K1ABC W1AW 73!" << "K1ABC" << "W1AW" << "" << false;
+  QTest::newRow ("overlength-diagnostic")
+    << "$VERIFY$ C8K 1234567890 diagnostic text outside the protocol payload"
+    << "" << "" << "" << false;
 }
 
 void TestDecodedMessageFields::parsesMessage()
@@ -56,6 +64,36 @@ void TestDecodedMessageFields::parsesMessage()
   QCOMPARE (fields.sender, sender);
   QCOMPARE (fields.grid, grid);
   QCOMPARE (fields.cq, cq);
+  if (message.endsWith ('!')) {
+    QCOMPARE (fields.exchange, QString {"73!"});
+    QVERIFY (!fields.completeTail);
+    QVERIFY (!fields.reportPresent);
+  }
+  auto const rawWords = message.split (' ', Qt::SkipEmptyParts);
+  QCOMPARE (fields.payloadWords.size (), message.size () > 37 ? 0 : rawWords.size ());
+  if (message.contains ("<...>")) {
+    QVERIFY (fields.destinationState == DecodedCallState::UnresolvedHash
+             || fields.senderState == DecodedCallState::UnresolvedHash);
+  }
+  for (auto const& header : {QString {"0605 -10  0.3 1500 #* "}, QString {"060500 -10  0.3 1500 # "}}) {
+    for (auto const& suffix : {QString {"f"}, QString {"f*"}, QString {"d22"},
+                              QString {"d 2"}, QString {"a 2"}, QString {"q 2"}}) {
+      DecodedText const decoded {header + message.leftJustified (22, ' ') + " " + suffix};
+      QVERIFY (decoded.hasValidHeader ());
+      QCOMPARE (decoded.payload (), message);
+      QCOMPARE (decoded.fields ().destination, destination);
+      QCOMPARE (decoded.fields ().sender, sender);
+      QCOMPARE (decoded.fields ().grid, grid);
+      QCOMPARE (decoded.annotations ().averageCount, suffix == "f" ? 0 : suffix == "f*" ? 10 : 2);
+    }
+  }
+  if (fields.exchange == "73" || fields.exchange == "RR73" || fields.exchange == "R-13") {
+    for (auto const& suffix : {QString {" ?"}, QString {" ? a3"}}) {
+      DecodedText const confidence {"060500 -10  0.3 1500 ~  " + message + suffix};
+      QCOMPARE (confidence.payload (), message);
+      QVERIFY (confidence.annotations ().lowConfidence);
+    }
+  }
 }
 
 void TestDecodedMessageFields::classifiesReceivedHashedMessages_data()
@@ -89,6 +127,10 @@ void TestDecodedMessageFields::classifiesReceivedHashedMessages_data()
   QTest::newRow ("extra-bracket") << "<<...>> W1AW RR73" << false << "" << "" << "";
   QTest::newRow ("wrong-placeholder") << "<..> W1AW RR73" << false << "" << "" << "";
   QTest::newRow ("free-text-signoff") << "TNX QSO 73" << false << "" << "" << "";
+  QTest::newRow ("resolved-nonstandard-hound") << "C8K <OH6OKSA> R-13" << true << "C8K" << "OH6OKSA" << "R-13";
+  QTest::newRow ("literal-question") << "WHY A3?" << false << "" << "" << "";
+  QTest::newRow ("literal-annotation-token") << "TEST a3" << false << "" << "" << "";
+  QTest::newRow ("literal-signoff-question") << "HELLO WORLD 73 ?" << false << "" << "" << "";
 }
 
 void TestDecodedMessageFields::classifiesReceivedHashedMessages()
@@ -98,17 +140,59 @@ void TestDecodedMessageFields::classifiesReceivedHashedMessages()
   QFETCH (QString, destination);
   QFETCH (QString, sender);
   QFETCH (QString, exchange);
-  DecodedText const message {QString {"0605 -10  0.3 1500 ~  %1"}.arg (payload)};
-
-  QCOMPARE (message.isStandardMessage (), standard);
-  if (standard) {
-    auto const words = message.messageWords ();
-    QVERIFY (words.size () > 4);
-    QCOMPARE (words.at (1), payload.contains ("RR73;")
-              ? payload.section (' ', 0, 0).remove ('<').remove ('>') : QString {});
-    QCOMPARE (words.at (2), destination);
-    QCOMPARE (words.at (3), sender);
-    QCOMPARE (words.at (4), exchange);
+  for (auto const& time : {QString {"0605"}, QString {"060500"}}) {
+    for (auto const& suffix : {QString {}, QString {"a3"}, QString {"? a7"}, QString {"q23#"}, QString {"q2*#"}}) {
+      auto const line = time + " -10  0.3 1500 ~  " + payload.leftJustified (37, ' ')
+        + (suffix.isEmpty () ? QString {} : " " + suffix);
+      DecodedText message {line};
+      QCOMPARE (message.string (), line);
+      QVERIFY (message.hasValidHeader ());
+      QCOMPARE (message.timeInSeconds (), 21900U);
+      QCOMPARE (message.snr (), -10);
+      QCOMPARE (message.frequencyOffset (), 1500);
+      QCOMPARE (message.modeMarker (), QString {"~"});
+      QCOMPARE (message.payload (), payload);
+      QCOMPARE (message.isStandardMessage (), standard);
+      QCOMPARE (message.annotations ().lowConfidence, suffix.startsWith ('?'));
+      QCOMPARE (message.annotations ().ap, suffix.contains ("a7") ? 7 : suffix.contains ("a3") ? 3 : 0);
+      QCOMPARE (message.annotations ().copied, suffix.endsWith ('#'));
+      QCOMPARE (message.annotations ().averageCount, suffix.startsWith ('q') ? (suffix.contains ('*') ? 10 : 3) : 0);
+      QCOMPARE (message.withoutAnnotations (), time + " -10  0.3 1500 ~  " + payload);
+      if (standard) {
+        auto const words = message.messageWords ();
+        QVERIFY (words.size () > 4);
+        auto const acknowledged = payload.contains ("RR73;")
+          ? payload.section (' ', 0, 0).remove ('<').remove ('>') : QString {};
+        QCOMPARE (words.at (1), acknowledged);
+        QCOMPARE (words.at (2), destination);
+        QCOMPARE (words.at (3), sender);
+        QCOMPARE (words.at (4), exchange);
+        QCOMPARE (message.fields ().destination, destination);
+        QCOMPARE (message.fields ().sender, sender);
+        QCOMPARE (message.fields ().exchange, exchange);
+        QCOMPARE (message.fields ().acknowledgedRecipient, acknowledged);
+        QVERIFY (!message.fields ().hasMalformedCalls);
+        QString legacySender;
+        QString legacyExchange;
+        message.deCallAndGrid (legacySender, legacyExchange);
+        QCOMPARE (legacySender, sender);
+        QCOMPARE (legacyExchange, exchange == "R" ? message.fields ().exchangeWords.value (1) : exchange);
+        QString receivedReport;
+        QVERIFY (message.report (destination, sender, receivedReport));
+        auto expectedReport = exchange;
+        if (expectedReport.startsWith ('R')) expectedReport.remove (0, 1);
+        bool numeric = false;
+        auto const value = expectedReport.toInt (&numeric);
+        if (!numeric || value < -50 || value >= 50) expectedReport.clear ();
+        QCOMPARE (receivedReport, expectedReport);
+      }
+      message.clear ();
+      QVERIFY (message.string ().isEmpty ());
+      QVERIFY (message.payload ().isEmpty ());
+      QVERIFY (message.fields ().sender.isEmpty ());
+      QVERIFY (!message.hasValidHeader ());
+      QVERIFY (!message.isStandardMessage ());
+    }
   }
 }
 
