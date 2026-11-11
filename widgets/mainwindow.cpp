@@ -10826,7 +10826,7 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
   if (!m_logBook.add (call, grid, m_config.bands()->find(dial_freq), mode, ADIF))
     {
       MessageBox::warning_message (this, tr ("Log file error"),
-                                   tr ("Cannot open \"%1\"").arg (m_logBook.path ()));
+                                   tr ("Cannot write to \"%1\"").arg (m_logBook.path ()));
     }
 
   m_messageClient->qso_logged (QSO_date_off, call, grid, dial_freq, mode, rpt_sent, rpt_received
@@ -12727,10 +12727,14 @@ void MainWindow::on_actionExport_Cabrillo_log_triggered()
 void MainWindow::on_actionErase_wsjtx_log_adi_triggered()
 {
   int ret = MessageBox::query_message (this, tr ("Confirm Erase"),
-                                       tr ("Are you sure you want to erase file wsjtx_log.adi?"));
+                                       tr ("Are you sure you want to erase file %1?\n\n"
+                                           "If other WSJT-X instances share this log, their worked-before history is erased too.")
+                                       .arg (QDir::toNativeSeparators (m_config.adif_log_file_path ())));
   if(ret==MessageBox::Yes) {
-    QFile f {m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_log.adi")};
-    f.remove();
+    if (!m_logBook.erase_log ()) {
+      MessageBox::warning_message (this, tr ("Erase Failed"),
+                                   tr ("The log file could not be erased. It may be in use by another program or another WSJT-X instance."));
+    }
   }
 }
 

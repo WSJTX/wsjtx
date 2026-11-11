@@ -25,17 +25,41 @@ image::colors.png[align="center",alt="Colors Screen"]
 * Check *Include extra WAE entities* if you are interested in the
   extra entities defined for DARC WAE and CQ Marathon awards.
 
-* Worked-before status includes `wsjtx_log.adi` in your log directory.
-This is the writable primary log: new contacts logged in _WSJT-X_ are
-appended here. You can still replace this file with an ADIF export
-from your station logging application and click *Rescan ADIF Log*.
+* Worked-before status includes your _WSJT-X_ ADIF log, by default
+`wsjtx_log.adi` in your log directory. This is the writable primary log:
+new contacts logged in _WSJT-X_ are appended here. You can still replace
+this file with an ADIF export from your station logging application and
+click *Rescan ADIF Log*.
 
 * Click *History sources...* to add read-only history from ADIF exports.
 Use *Add files...* to select individual files or *Add folder...* to select
 a folder whose contents will be scanned. These sources contribute to
 worked-before highlighting without copying contacts into the primary log.
 _WSJT-X_ does not append to, rewrite, or erase these files. Removing a
-source from the list does not delete it.
+source from the list does not delete it. Read-only history files are
+rechecked every few seconds and reloaded when they change; files in added
+folders are not watched individually, but the folders are rescanned
+whenever a reload happens.
+
+* To let several _WSJT-X_ instances share one ADIF logbook, open *History
+sources...*, click *Change log...* and choose the same file in every
+instance. New contacts are appended with a lock file kept next to the log
+(so that folder must be writable), and each instance normally notices
+contacts logged by the others within a few seconds; a very large log or
+history folder can make that take longer. Use a log on a local disk, or on
+a network share that reports file sizes and modification times promptly.
+Click *Default log* to go back to `wsjtx_log.adi` in your log directory.
+
+* Only the log you choose is read as the primary log. Contacts in
+`wsjtx_log.adi` stop counting for worked-before status unless you add that
+file as a history source, and other programs that read `wsjtx_log.adi`
+(for example a companion logging program) no longer see new contacts. A
+file that was a history source is removed from the list when you make it
+the primary log. The text log `wsjtx.log`, used when checking for
+duplicates, stays separate for each instance. Do not share a log with a
+_WSJT-X_ version that lacks this feature while both are running. An edit
+made inside an existing record, with no change in file size, is noticed
+only after a rescan.
 
 * Added folders include all `.adi` and `.adif` files directly inside them.
 Select a folder in the list and check *Include subfolders* to include files

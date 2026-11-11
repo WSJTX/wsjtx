@@ -5550,7 +5550,7 @@ QPushButton[state=&quot;ok&quot;] {
   </action>
   <action name="actionErase_wsjtx_log_adi">
    <property name="text">
-    <string>Erase wsjtx_log.adi</string>
+    <string>Erase ADIF log</string>
    </property>
   </action>
   <action name="actionErase_Tx_Log">
