@@ -1580,6 +1580,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   PerformanceTrace::Phase settings_restore {m_startup_trace_run, "mainwindow.settings_restore"};
   readSettings();            //Restore user's setup parameters
   settings_restore.finish ();
+  setupJttyFunctionKeys ();
   PerformanceTrace::Phase runtime_initialize {m_startup_trace_run, "mainwindow.runtime_initialize"};
   connect (ui->respondComboBox, QOverload<int>::of (&QComboBox::currentIndexChanged), this,
            [this] (int) {
@@ -3390,6 +3391,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   if (QDialog::Accepted == m_config.exec ()) {
     cancelPendingFt8Decode ("settings changed");
     checkMSK144ContestType();
+    updateJttyFunctionKeyLabels ();
     if (m_config.my_callsign () != callsign) {
       m_baseCall = Radio::base_callsign (m_config.my_callsign ());
       ui->tx1->setEnabled (elide_tx1_not_allowed () || ui->tx1->isEnabled ());
@@ -4112,6 +4114,19 @@ void MainWindow::statusChanged()
 
 bool MainWindow::eventFilter (QObject * object, QEvent * event)
 {
+  if (event->type () == QEvent::Resize || event->type () == QEvent::FontChange
+      || event->type () == QEvent::StyleChange)
+    {
+      for (auto& key : m_jttyFunctionKeys)
+        {
+          if (object == key.button)
+            {
+              fitJttyFunctionKeyLabel (key);
+              break;
+            }
+        }
+    }
+
   if (!m_event_filter_ready)
     {
       return QObject::eventFilter (object, event);
@@ -9325,6 +9340,7 @@ void MainWindow::handleDecodeSelection(
     // Capture the SNR of the decode actually selected, not whichever decoded last.
     m_jttyHisCallSnr = jttySnrForSelectedWord(
       m_deCall, selection_origin == DecodedMessageReaction::SelectionOrigin::ManualLeftPane);
+    updateJttyFunctionKeyLabels ();  // %R uses the SNR captured above
     return;
   }
   DecodedText message {line.trimmed().left(61).remove("TU; ")};
@@ -10496,6 +10512,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
         ui->txb1->setEnabled(true);
         set_mode(m_mode);
       }
+      updateJttyFunctionKeyLabels ();  // %E depends on the special operating activity
       displayDialFrequency ();
       update_watchdog_label ();
       checkMSK144ContestType();
@@ -10650,6 +10667,7 @@ void MainWindow::on_dxCallEntry_textChanged (QString const& call)
   statusChanged();
   statusUpdate ();
   check_button_color();
+  updateJttyFunctionKeyLabels ();
 }
 
 void MainWindow::on_dxCallEntry_editingFinished()
@@ -12022,6 +12040,7 @@ void MainWindow::on_actionJTTY_triggered()
   m_wideGraph->showNormal();
   setDecodeHeadings("", "");
   updateJttyDecodeHeadings();
+  updateJttyFunctionKeyLabels();  // other modes may have changed the special operating activity
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
   applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
                     ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
@@ -14088,6 +14107,7 @@ void MainWindow::locationChange (QString const& location)
 //    qDebug() << "locationChange: Grid supplied is " << grid;
     if (m_config.my_grid () != grid) {
       m_config.set_location (grid);
+      updateJttyFunctionKeyLabels ();  // %G follows the new location
       genStdMsgs (m_rpt, false);
       pskSetLocal ();
       statusUpdate ();

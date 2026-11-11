@@ -330,6 +330,11 @@ namespace Jtty::Encoder
                                                 ExchangeRole role);
   NativeMacroCompilation compileNativeMacro (std::u16string const& macroTemplate,
                                              NativeMacroContext const& context);
+
+  // The text a template would send, for display. Unlike sending, a macro whose
+  // value is blank stays in the text as written, and nothing is ever refused.
+  std::u16string previewMacro (std::u16string const& macroTemplate,
+                               NativeMacroContext const& context);
 }
 
 #endif

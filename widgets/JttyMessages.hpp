@@ -378,6 +378,23 @@ namespace Jtty
     return compileNativeMacro (macroTemplate, context);
   }
 
+  // The text a function key's template expands to, for display on its button.
+  // Matches what the key sends when every value is known. A macro whose value
+  // is blank stays visible as written (%H, say), upper case even under lowerCase.
+  inline QString functionKeyPreview (QString const& macroTemplate,
+                                     NativeMacroContext const& context, bool lowerCase)
+  {
+    QString preview = fromEncoder (Encoder::previewMacro (toEncoder (macroTemplate), toEncoder (context)));
+    if (lowerCase) {
+      preview = preview.toLower ();
+      for (int at = preview.indexOf ('%'); at >= 0 && at + 1 < preview.size ();
+           at = preview.indexOf ('%', at + 1)) {
+        preview[at + 1] = preview.at (at + 1).toUpper ();
+      }
+    }
+    return preview.simplified ();
+  }
+
   // Resolve a JTTY message start from the WAV anchor, preserving the raw-time fallback for test-generated files.
   inline QDateTime jttyLineStartTimeUtc (QDateTime const& diskDateTime,
                                          qint32 utcDiskRaw, float tsyncSeconds)

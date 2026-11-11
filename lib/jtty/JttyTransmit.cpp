@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <utility>
 
 namespace
 {
@@ -356,27 +357,51 @@ namespace Jtty::Encoder
       }
       return configured;
     }
+
+    // The one list of macros. With keepBlank, a macro whose value is blank stays in the text.
+    std::u16string expandMacros (std::u16string macroTemplate, NativeMacroContext const& context,
+                                 bool keepBlank, std::u16string const& exchange)
+    {
+      // As QString::replace: left to right, the inserted text not searched again.
+      auto replace = [&macroTemplate, keepBlank] (std::u16string const& placeholder,
+                                                  std::u16string const& value) {
+        if (keepBlank && trimmed (value).empty ()) return;
+        for (auto at = macroTemplate.find (placeholder); at != std::u16string::npos;
+             at = macroTemplate.find (placeholder, at + value.size ())) {
+          macroTemplate.replace (at, placeholder.size (), value);
+        }
+      };
+      replace (u"%M", context.myCall);
+      replace (u"%H", context.hisCall);
+      replace (u"%Q", context.hisCall);
+      replace (u"%N", formatSerialNumber (context.serialNumber));
+      replace (u"%E", exchange);
+      replace (u"%G", toUpper (trimmed (context.grid)).substr (0, 4));
+      replace (u"%R", formatSnr (context.snr));
+      return macroTemplate;
+    }
   }
 
   std::u16string expandLiteralMacro (std::u16string macroTemplate,
                                      NativeMacroContext const& context)
   {
-    // As QString::replace: left to right, the inserted text not searched again.
-    auto replace = [&macroTemplate] (std::u16string const& placeholder,
-                                     std::u16string const& value) {
-      for (auto at = macroTemplate.find (placeholder); at != std::u16string::npos;
-           at = macroTemplate.find (placeholder, at + value.size ())) {
-        macroTemplate.replace (at, placeholder.size (), value);
-      }
-    };
-    replace (u"%M", context.myCall);
-    replace (u"%H", context.hisCall);
-    replace (u"%Q", context.hisCall);
-    replace (u"%N", formatSerialNumber (context.serialNumber));
-    replace (u"%E", nativeExchangeFieldText (context));
-    replace (u"%G", toUpper (trimmed (context.grid)).substr (0, 4));
-    replace (u"%R", formatSnr (context.snr));
-    return macroTemplate;
+    return expandMacros (std::move (macroTemplate), context, false, nativeExchangeFieldText (context));
+  }
+
+  std::u16string previewMacro (std::u16string const& macroTemplate,
+                               NativeMacroContext const& context)
+  {
+    auto const compiled = compileNativeMacro (macroTemplate, context);
+    if (compiled.isNative ()) return compiled.text;
+
+    // Native exchange forms send "599 007" where a literal %E is just "007".
+    std::u16string exchange = nativeExchangeFieldText (context);
+    NativeForm const form = nativeForm (macroTemplate);
+    if (form == NativeForm::CallExchange || form == NativeForm::TuNowExchange) {
+      auto const native = nativeExchange (context);
+      if (native.valid) exchange = native.text;
+    }
+    return expandMacros (macroTemplate, context, true, exchange);
   }
 
   namespace

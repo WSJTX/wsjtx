@@ -27,7 +27,10 @@ space for up to 5 arbitrary characters, but it can also convey many
 more characters by using the defined formats for special contest-style
 messages. Function keys F1-F8 (and the on-screen buttons with those
 same labels) can be programmed to send messages based on the entry
-fields below the buttons. Use the macros %M and %H as stand-ins for
+fields below the buttons. Each button shows as much of its expanded
+message as fits, and its tooltip shows the whole message; a macro with
+no value yet stays visible as written, for example %H when no DX call
+is entered. Use the macros %M and %H as stand-ins for
 MyCall and HisCall, %E for the contest exchange (currently defined as
 "599 nnn", where nnn is the number in the "Serial Number" spinbox),
 and %Q for a queued callsign that woould be your next-in-line
