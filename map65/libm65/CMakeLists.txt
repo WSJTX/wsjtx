@@ -112,7 +112,6 @@ set (libm65_ka9q_CSRCS
   encode_rs.c
   init_rs.c
 )
-set_source_files_properties (${libm65_ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (libm65_CSRCS
   decode_request_mutex.cpp

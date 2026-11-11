@@ -46,6 +46,7 @@ foreach (codec wsjtx map65)
   target_compile_features (test_rs_${codec} PRIVATE c_std_99)
   set_target_properties (test_rs_${codec} PROPERTIES AUTOMOC OFF)
   add_test (NAME test_rs_${codec} COMMAND test_rs_${codec})
+  set_tests_properties (test_rs_${codec} PROPERTIES TIMEOUT 15)
 endforeach ()
 
 add_executable (test_interleave63

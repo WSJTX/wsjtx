@@ -112,6 +112,22 @@ static void test_erasures(void *rs)
   }
 }
 
+static void test_erasure_bounds(void *rs)
+{
+  const int codeword[63]={0};
+  int received[63]={0},positions[51]={62};
+
+  received[62]=1;
+  expect(decode_rs_int(rs,received,positions,1,1)==1,"last erasure position");
+  expect(!memcmp(received,codeword,sizeof(received)),"last erasure corrected");
+
+  received[62]=1;
+  positions[0]=63;
+  expect(decode_rs_int(rs,received,positions,1,1)==-1,"out-of-range erasure position");
+  expect(received[62]==1,"received symbol unchanged after invalid erasure");
+  ntests+=2;
+}
+
 static void test_syndrome_reuse(void *rs)
 {
   int data[12],codeword[63],corrupted[63],received[63],positions[51],erasures[51];
@@ -142,6 +158,7 @@ int main(void)
   test_vector(rs);
   test_errors(rs);
   test_erasures(rs);
+  test_erasure_bounds(rs);
   test_syndrome_reuse(rs);
   free_rs_int(rs);
   printf("RS codec tests passed: %d\n",ntests);

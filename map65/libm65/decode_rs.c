@@ -39,6 +39,13 @@ int DECODE_RS(
     DTYPE root[NROOTS], reg[NROOTS+1], loc[NROOTS];
     int syn_error, count;
     
+    if (no_eras < 0 || no_eras > NROOTS || (no_eras > 0 && eras_pos == NULL))
+        return -1;
+    for (i = 0; i < no_eras; i++) {
+        if (eras_pos[i] < 0 || eras_pos[i] >= NN)
+            return -1;
+    }
+
     if( calc_syn ) {
         /* form the syndromes; i.e., evaluate data(x) at roots of g(x) */
         for(i=0;i<NROOTS;i++)
