@@ -3606,6 +3606,7 @@ void MainWindow::monitor (bool state)
     }
   }
   m_monitoring = state;
+  updateJttyPttStateLabel ();
   if (!state) cancelPendingFt8Decode ("monitoring stopped");
   if (leavingDiskData) updateDecodeControls ();
   check_button_color();

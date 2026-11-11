@@ -892,7 +892,7 @@ void MainWindow::updateJttyPttStateLabel()
     // PTT is off (or a one-shot send) and queued text is still going out.
     text = tr ("Tx → Rx");
     sheet = style ("#ff9999");
-  } else {
+  } else if (m_monitoring) {
     text = tr ("Rx");
     sheet = style ("#99dd99");
   }
