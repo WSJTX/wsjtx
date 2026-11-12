@@ -787,6 +787,7 @@ if (WSJT_ENABLE_TESTS)
       endif ()
     endif ()
   endif ()
+  add_subdirectory (tests/integration/codec_examples)
 
   # Golden output is pinned to the required GNU/Linux x86-64 decoder path.
   if (EXISTS "${CMAKE_SOURCE_DIR}/samples" AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND

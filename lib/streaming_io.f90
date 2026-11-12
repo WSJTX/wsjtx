@@ -1,4 +1,5 @@
 ! Streaming I/O — framed audio + control on stdin.
+! Adopter reference: doc/codec/. A change to this interface updates it in the same pull request (CONTRIBUTING.md).
 !
 ! Reads framed messages from stdin. After a
 ! one-time 8-byte WSJT session header (4-byte magic 'WSJT' + 1-byte fmt
