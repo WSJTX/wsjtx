@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <utility>
 
 #include <QAction>
@@ -473,24 +474,27 @@ void JttyTxLoopbackTestController::observeTransmittedDisplay ()
   auto const text = display->toPlainText ().simplified ();
   QStringList messages {contestExchangeMessage ()};
   messages.append (longMessageSegments ());
-  qint64 startFrame = 0;
   for (int i = 0; i < messages.size (); ++i)
     {
+      // A segment is echoed once it has been sent, not when it starts playing,
+      // so it may appear from its own playback end until the next one ends.
       auto const endFrame = m_segmentEndFrames.at (i);
+      auto const nextEnd = i + 1 < m_segmentEndFrames.size ()
+        ? m_segmentEndFrames.at (i + 1)
+        : std::numeric_limits<qint64>::max ();
       if (i >= m_displayedFrames.size () && text.contains (messages.at (i)))
         {
           auto const frames = m_output->capturedFrames ();
-          if (i != m_displayedFrames.size () || frames <= startFrame
-              || frames >= endFrame)
+          if (i != m_displayedFrames.size () || frames < endFrame
+              || frames >= nextEnd)
             {
-              m_displayError = tr ("JTTY transmit segment %1 appeared out of order or outside its playback interval (frame %2, interval %3-%4).")
-                .arg (i).arg (frames).arg (startFrame).arg (endFrame);
+              m_displayError = tr ("JTTY transmit segment %1 appeared out of order or outside its echo window (frame %2, window %3-%4).")
+                .arg (i).arg (frames).arg (endFrame).arg (nextEnd);
               QTimer::singleShot (0, this, [this] { fail (m_displayError); });
               return;
             }
           m_displayedFrames.append (frames);
         }
-      startFrame = endFrame;
     }
 }
 
@@ -542,6 +546,17 @@ bool JttyTxLoopbackTestController::verifyCancellationPaths ()
           || !send->toolTip ().contains ("cancelled"))
         {
           fail (tr ("%1 did not cancel pending text exactly once while preserving the newer draft.")
+                .arg (useEscape ? QStringLiteral ("Esc") : QStringLiteral ("Stop Tx")));
+          return false;
+        }
+      // The cancelled chunk repeats the long message, which was legitimately
+      // echoed once during playback. A second occurrence would mean text was
+      // reported as sent for a transmission that was cancelled before air.
+      auto const * display = m_window->findChild<QTextEdit *> ("decodedTextBrowser2");
+      auto const shown = display->toPlainText ().simplified ();
+      if (shown.count (longMessageSegments ().at (0)) != 1)
+        {
+          fail (tr ("%1 left cancelled text in the QSO Frequency pane as if it had been sent.")
                 .arg (useEscape ? QStringLiteral ("Esc") : QStringLiteral ("Stop Tx")));
           return false;
         }
