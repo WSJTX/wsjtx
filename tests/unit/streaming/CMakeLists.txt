@@ -500,7 +500,7 @@ foreach (row IN LISTS streaming_msk144_rows)
 endforeach ()
 
 # Period-mode decodes on the codec's decode thread while the main thread
-# reads, renders and decodes MSK144 and JTTY. The rows run real-time sessions;
+# reads, renders and decodes MSK144 and JTTY. Integration rows run real-time sessions;
 # the timed ones run alone.
 add_executable (test_streaming_decode_thread test_streaming_decode_thread.cpp
   ${CMAKE_SOURCE_DIR}/Ft8MtdDecodeScheduler.cpp)
@@ -525,6 +525,14 @@ if (WSJT_ENABLE_TSAN)
   list (APPEND decode_thread_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 set (decode_thread_fixtures ft8_engine_wav fst4_engine_wav q65_engine_wav jt4_engine_wav)
+add_test (NAME test_streaming_decode_thread_deadline_model
+  COMMAND test_streaming_decode_thread clientDeadlineModel)
+set_tests_properties (test_streaming_decode_thread_deadline_model PROPERTIES
+  LABELS "streaming"
+  ENVIRONMENT "${decode_thread_environment}"
+  TIMEOUT 30
+  PASS_REGULAR_EXPRESSION "PASS   : TestStreamingDecodeThread::clientDeadlineModel\\("
+  FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
 # TIMING rows, the measurements and the rows whose time is mostly the slowest
 # decodes or a cold FFTW_MEASURE plan, register only with
 # WSJT_ENABLE_STREAM_TIMING_TESTS: routine CI runs the behaviour rows. Windows
@@ -654,7 +662,6 @@ if (decode_thread_samples)
     wsjt_add_decode_thread_test (busy_key_mid_session "busyEvents:key mid-session" PROCESSORS 2)
     wsjt_add_decode_thread_test (busy_after_a_drained_final "busyEvents:after a drained final" PROCESSORS 2)
     wsjt_add_decode_thread_test (busy_generation "busyEvents:generation" LONG)
-    wsjt_add_decode_thread_test (deadline_held_decode "clientDeadlines:held decode" SERIAL)
     wsjt_add_decode_thread_test (deadline_held_between "clientDeadlines:held between operations" SERIAL LONG)
     # On a CPU-capped runner its decodes run slower than real time.
     wsjt_add_decode_thread_test (deadline_fast_feeder "clientDeadlines:fast feeder" PROCESSORS 2 TIMEOUT 900 LONG)

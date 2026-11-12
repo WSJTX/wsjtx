@@ -2742,15 +2742,49 @@ private slots:
       }
   }
 
-  // A client's deadlines: a decode held stops pass_progress
-  // while replies go on, and the decode deadline fires; the decode thread
-  // held between operations with busy false lets the period deadline fire; a
+  void clientDeadlineModel_data ()
+  {
+    QTest::addColumn<QString> ("activity");
+    QTest::addColumn<qint64> ("deadline");
+    QTest::newRow ("silence") << QString {"silence"} << qint64 {7000};
+    QTest::newRow ("progress-renews") << QString {"progress"} << qint64 {11000};
+    QTest::newRow ("reply-pauses") << QString {"reply"} << qint64 {17000};
+  }
+
+  void clientDeadlineModel ()
+  {
+    QFETCH (QString, activity);
+    QFETCH (qint64, deadline);
+    Rules const rules {"FT4", 7.5, true};
+    QList<SentPeriod> const sent {{0, "000000"}, {1000, "000007"}};
+    QList<Line> lines {
+      {0, false, R"({"v":1,"t":"busy","busy":true,"mode":"FT4","period_end":"000000","nzhsym":21})"},
+      {100, false, R"({"v":1,"t":"decode_finished","mode":"FT4","period_end":"000000"})"},
+      {100, false, R"({"v":1,"t":"busy","busy":false})"},
+      {1000, false, R"({"v":1,"t":"busy","busy":true,"mode":"FT4","period_end":"000007","nzhsym":21})"}};
+    if (activity == "progress")
+      lines.append ({5000, false,
+        R"({"v":1,"t":"pass_progress","mode":"FT4","period_end":"000007","nzhsym":21})"});
+    else if (activity == "reply")
+      {
+        lines.append ({3000, false, R"({"v":1,"t":"encoded","id":1})"});
+        QVERIFY (liveness (lines, sent, rules, 12000).isEmpty ());
+        lines.append ({13000, false, R"({"v":1,"t":"rendered","id":1})"});
+      }
+    QVERIFY (liveness (lines, sent, rules, deadline - 1).isEmpty ());
+    auto const expired = liveness (lines, sent, rules, deadline);
+    QCOMPARE (expired.size (), 1);
+    QCOMPARE (expired.front ().what, QString {"decode"});
+    QCOMPARE (expired.front ().at, deadline);
+  }
+
+  // The decode thread held between operations with busy false lets the period deadline fire; a
   // fast feeder meets no deadline; a long reply and a stalled reader during
   // a multithreaded final meet no deadline.
   void clientDeadlines_data ()
   {
     QTest::addColumn<QString> ("scenario");
-    for (auto const name : {"held decode", "held between operations", "fast feeder", "long reply", "long hold"})
+    for (auto const name : {"held between operations", "fast feeder", "long reply", "long hold"})
       QTest::newRow (name) << QString {name};
   }
 
@@ -2768,51 +2802,7 @@ private slots:
     options.dropPcm = true;
     QList<SentPeriod> sent;
 
-    if ("held decode" == scenario)
-      {
-        options.environment << "WSJT_CODEC_TEST_HOLD_PASS=21:8000";
-        Codec codec {options};
-        QVERIFY2 (codec.started, qPrintable (codec.failure));
-        auto const at = codec.write (sessionHeader () + configure (ft4Live) + audio (ft4Pcm)
-                                     + configure ({{"utc", "00:00:07"}}) + audio (ft4Pcm));
-        sent << SentPeriod {at, "000000"} << SentPeriod {at, "000007"};
-        Tally busySecond {[] (Line const& line) {
-          return busyLine (true) (line) && json (line.text).value ("period_end").toString () == "000007";
-        }};
-        Tally finished {outType ("decode_finished")};
-        auto const second = [&] {
-          busySecond (codec.lines);
-          return busySecond.first ();
-        };
-        codec.waitFor ([&] {return second () >= 0 || finished (codec.lines) >= 2;}, 3 * waitMs (),
-                       "the second period's pass");
-        QVERIFY2 (second () >= 0, qPrintable ("no busy line for the second period\n" + codec.report ()));
-        auto const start = msOf (codec.lines, second ());
-        qint64 id = 0;
-        while (finished (codec.lines) < 2 && codec.running () && codec.now () - start < waitMs ())
-          {
-            if (codec.now () >= start + 1000 * (id + 1) && id < 5) codec.request (++id, Ft8Render);
-            codec.pump ();
-          }
-        QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
-        QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
-        auto const ended = find (codec.lines, outType ("decode_finished"), second ());
-        auto const end = msOf (codec.lines, ended);
-        // Lines read together share a time, so the hold begins at the held pass's busy line by order.
-        for (int i = second () + 1; i < codec.lines.size (); ++i)
-          QVERIFY2 (!outType ("pass_progress") (codec.lines.at (i)) || codec.lines.at (i).ms >= start + 7000,
-                    qPrintable ("pass_progress during the hold\n" + show (codec.lines)));
-        auto const replies = repliesOf (codec);
-        QVERIFY2 (replies.size () >= 4, qPrintable (show (codec.lines)));
-        for (auto const& reply : replies)
-          QVERIFY2 (reply.terminal == "rendered" && reply.lastIndex < ended && reply.last - reply.sent < 1000,
-                    qPrintable ("a reply waited for the held decode\n" + show (codec.lines)));
-        auto const expired = liveness (codec.lines, sent, {"FT4", 7.5, true}, codec.lines.last ().ms);
-        QVERIFY2 (1 == expired.size () && "decode" == expired.first ().what && expired.first ().at > start + 5900
-                    && expired.first ().at < end,
-                  qPrintable ("expired: " + show (expired) + "\n" + show (codec.lines)));
-      }
-    else if ("held between operations" == scenario)
+    if ("held between operations" == scenario)
       {
         options.environment << "WSJT_CODEC_TEST_HOLD_TAKE_MS=10000";
         Codec codec {options};
