@@ -723,6 +723,10 @@ contains
       integer, parameter             :: NSYNC_SYM  = 13
       integer, parameter             :: NCHAN_SYM  = 46
       integer, parameter             :: NFRAME_SYM = 59
+      ! Symbol-error ceilings for an accepted frame (see decode_and_merge);
+      ! genuine and false overlap inside the QSO window, so only WIDE gates.
+      integer, parameter             :: NSYMERR_MAX_QSO  = 99
+      integer, parameter             :: NSYMERR_MAX_WIDE = 12
       real, parameter                :: FSAMPLE = 6000.0
       real, parameter                :: TWOPI = 6.283185307179586
       character(len=80)              :: msg
@@ -751,7 +755,7 @@ contains
       integer                        :: ja_ch0_ok(16),jb_ch0_ok(16)
       real                            :: f1_ch0_ok(16)
       real(real64)                    :: tsync_ch0_ok(16)
-      integer                        :: nsync,nsymerrs
+      integer                        :: nsync,nsymerrs,max_symerrs
       real                           :: fc,fwid
       real                           :: fpk,pa,pt,pn
       real                           :: fbest,xdtbest
@@ -1162,6 +1166,10 @@ contains
          nsync=count(is13.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
          cand(ncand)%snrdb=snrdb
 
+         if(ndebug.gt.1) write(*,3003) ichan,ipass,ic,cand(ncand)%f1,       &
+              cand(ncand)%xdt,nsync,snrdb,merge(6,8,ichan.eq.0),            &
+              merge(smin,5.0,ichan.eq.0)
+3003     format('sync-gate',3i4,f8.1,f7.3,i4,f7.1,'   need nsync>',i2,' snr>=',f5.1)
          if( ichan.eq.0 .and. (nsync .le. 6 .or. snrdb .lt. smin)) cycle
          if( ichan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
@@ -1272,6 +1280,16 @@ contains
          snrdb=max(db((pt-pn)/pn) - db(2500.0/baud), SNR_FLOOR_DB)
          cand(ncand)%snrdb=snrdb
       endif
+      ! Frame quality: symbols disagreeing with the re-encoded frame. Skipped
+      ! for sticky-sync retries, whose nsync is a -1 sentinel, not a count.
+      max_symerrs=NSYMERR_MAX_QSO
+      if(abs(cand(ncand)%f1-f0).gt.ftol) max_symerrs=NSYMERR_MAX_WIDE
+      if(ndebug.gt.1) write(*,3004) cand(ncand)%f1,nsync,nsymerrs,max_symerrs, &
+           ic_label,trim(cand(ncand)%decoded)
+3004  format('symerr-gate',f8.1,'  nsync=',i3,'  nsymerrs=',i3,'  max=',i3,    &
+           '  ic=',i3,'  |',a,'|')
+      if(ic_label.ge.0 .and. nsymerrs.gt.max_symerrs) return
+
       cand(ncand)%tsync=sample_time(istart) + real(cand(ncand)%xdt,real64)
       if(ic_label.ge.0) then
          rx_frame(1:NSYNC_SYM)=irxsync
