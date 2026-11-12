@@ -17,6 +17,7 @@
 #include <QNetworkDatagram>
 #include <QUdpSocket>
 #include <algorithm>
+#include <limits>
 
 extern bool blocked;
 
@@ -386,8 +387,8 @@ QString MainWindow::checkQsoCompletionTest ()
 
     prepare ("FT8", "W3NEW");
     m_inQSOwith = "W3NEW";
-    stopWRTimer.start (10000);
-    stopWCTimer.start (10000);
+    stopWRTimer.start (std::numeric_limits<int>::max ());
+    stopWCTimer.start (std::numeric_limits<int>::max ());
     m_logDlg->accept ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
     if (!m_openLogQso || m_openLogQso->context != queuedContact
