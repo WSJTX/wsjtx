@@ -6,7 +6,8 @@ module decoded_message
   public :: decoder_message_fields,decoder_message_parse,parse_received_message
 
   integer(c_int), parameter :: call_missing=0,call_literal=1,call_resolved=2,call_unresolved=3,call_malformed=4
-  integer(c_int), parameter :: message_none=0,message_text=1,message_cq=2,message_directed=3,message_dual=4,message_contest=5,message_beacon=6
+  integer(c_int), parameter :: message_none=0,message_text=1,message_cq=2,message_directed=3, &
+       message_dual=4,message_contest=5,message_beacon=6
   integer(c_int), parameter :: exchange_none=0,exchange_other=1,exchange_grid=2,exchange_report=3,exchange_rreport=4
   integer(c_int), parameter :: exchange_ro=5,exchange_rrr=6,exchange_rr73=7,exchange_signoff=8,exchange_contest=9
   integer(c_int), parameter :: exchange_power=10,exchange_ooo=11
