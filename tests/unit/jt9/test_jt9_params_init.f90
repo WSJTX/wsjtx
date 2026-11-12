@@ -4,7 +4,7 @@ end module jt9_params_test_types
 
 program test_jt9_params_init
   use jt9_params_init, only: cli_args_t, init_default_params, init_streaming_extra_fields, &
-       cli_tolerance, cli_exp_decode, normalize_station_options
+       cli_tolerance, cli_exp_decode, normalize_station_options, standard_call
   use jt9_params_test_types, only: params_block
   implicit none
 
@@ -12,6 +12,7 @@ program test_jt9_params_init
   type(cli_args_t) :: args
 
   call assert_cli_defaults()
+  call assert_standard_calls()
 
   args%mycall = 'PJ4/K1ABC'
   args%hiscall = 'W9XYZ/P'
@@ -28,6 +29,8 @@ program test_jt9_params_init
        transfer(params%hiscall, args%hiscall) == args%hiscall .and. &
        transfer(params%mygrid, args%mygrid) == args%mygrid .and. &
        transfer(params%hisgrid, args%hisgrid) == args%hisgrid, 'station identity is copied literally')
+  call assert_true(logical(.not. params%lmycallstd .and. params%lhiscallstd), &
+       'a compound own call is not standard and a partner call with /P is')
 
   args%nrxfreq = 1743
   args%ncycles = 2
@@ -41,8 +44,9 @@ program test_jt9_params_init
   call assert_true(params%nft8cycles == 2 .and. params%nmt == 4 .and. params%nft8rxfsens == 1 .and. &
        params%ndecoderstart == 2, 'streaming tuning options override baseline zeros')
   call assert_true(logical(params%lft8lowth .and. params%lft8subpass .and. params%lhideft8dupes .and. &
-       params%lenabledxcsearch .and. params%lcommonft8b .and. params%lmycallstd .and. params%lhiscallstd), &
-       'streaming enables its decode flags')
+       params%lenabledxcsearch .and. params%lcommonft8b), 'streaming enables its decode flags')
+  call assert_true(logical(.not. params%lmycallstd .and. params%lhiscallstd), &
+       'streaming keeps the standard-call flags the calls give')
   call assert_true(logical(.not. params%lwidedxcsearch), 'streaming preserves the wide-search option')
   call assert_true(params%ncandthin == 100 .and. params%nprepass == 4 .and. params%nsdecatt == 1, &
        'streaming algorithm defaults override baseline zeros')
@@ -86,6 +90,14 @@ program test_jt9_params_init
   args%fsplit = 1800
   call init_default_params(params, 9, 60.d0, args)
   call assert_true(params%nfa == 1800, 'JT9 uses an explicit split as its low search frequency')
+  args%mycall = 'K1ABC'
+  args%hiscall = ' '
+  call init_default_params(params, 8, 15.d0, args)
+  call assert_true(logical(params%lmycallstd .and. .not. params%lhiscallstd), &
+       'a standard own call is standard and no partner call is not')
+  args%hiscall = 'K1AB/M'
+  call init_default_params(params, 8, 15.d0, args)
+  call assert_true(logical(params%lmycallstd .and. .not. params%lhiscallstd), 'a partner call with /M is not standard')
 
 contains
 
@@ -143,6 +155,23 @@ contains
          'an already blank partner call does not clear the grid')
   end subroutine assert_cli_defaults
 
+  ! Standard means FT8 sends the call, as given, in a standard (type 1 or 2) "CQ <call>" (ft8code upper-cases first).
+  subroutine assert_standard_calls()
+    integer :: i
+    character(len=12), parameter :: standard(*) = [character(len=12) :: &
+         'K1ABC', 'K1ABC/P', 'K1ABC/R', 'K1AB/P', 'W9XYZ/R', '2E0ABC', 'G4A']
+    character(len=12), parameter :: nonstandard(*) = [character(len=12) :: &
+         ' ', 'K1AB/M', 'K1A/M', 'G4A/MM', 'W1/MM', 'K1ABC/MM', 'W9XYZ/M', 'PJ4/K1ABC', 'K1ABC/QRP', 'Q1ABC', &
+         'KH6', 'KH6/P', '<K1ABC>', 'k1abc', ' K1ABC']
+
+    do i = 1, size(standard)
+       call assert_true(standard_call(standard(i)), trim(standard(i)) // ' is a standard call')
+    end do
+    do i = 1, size(nonstandard)
+       call assert_true(.not. standard_call(nonstandard(i)), '"' // trim(nonstandard(i)) // '" is not a standard call')
+    end do
+  end subroutine assert_standard_calls
+
   subroutine assert_baseline(value)
     type(params_block), intent(in) :: value
 
@@ -156,7 +185,7 @@ contains
          'unused base calls are blank padded')
     call assert_true(.not. any(logical([value%nagainfil, value%nstophint, value%nhint, value%fmaskact, &
          value%lft8lowth, value%lft8subpass, value%ltxing, value%lhideft8dupes, value%lhound, &
-         value%lcommonft8b, value%lmycallstd, value%lhiscallstd, value%lapmyc, value%lmodechanged, &
+         value%lcommonft8b, value%lapmyc, value%lmodechanged, &
          value%lbandchanged, value%lenabledxcsearch, value%lwidedxcsearch, value%lmultinst, value%lskiptx1])), &
          'unused logical fields have a false baseline')
   end subroutine assert_baseline
