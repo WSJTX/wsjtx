@@ -1,4 +1,5 @@
 ! Streaming NDJSON emitter.
+! Adopter reference: doc/codec/. A change to this interface updates it in the same pull request (CONTRIBUTING.md).
 !
 ! Hand-rolled JSON output for the streaming protocol.
 ! Zero-dependency (no Qt, no nlohmann). One line per message on stdout.
