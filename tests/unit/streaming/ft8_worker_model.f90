@@ -1,6 +1,6 @@
 ! SPDX-License-Identifier: GPL-3.0-or-later
 ! jt9's worker on one FT8 period from a file, for settings jt9's command line
-! cannot give (SuperFox; the station flags its WAV mode leaves unset): the
+! cannot give (SuperFox; station settings its WAV mode leaves off): the
 ! stream's starting params with a configure applied as the stream applies it,
 ! decoded at the file's final pass through multimode_decoder with the stream
 ! off, which prints the lines the worker prints.
@@ -37,7 +37,7 @@ program ft8_worker_model
   ! wsjt-codec's start without options (lib/jt9.f90).
   mode = 8
   trperiod = 15.d0
-  args = cli_args_t(ntol=20, mycall='K1ABC', hiscall='W9XYZ', hisgrid='EN37')
+  args = cli_args_t(ntol=20, mycall='K1ABC')
   call init_default_params(shared%params, mode, trperiod, args)
   call init_streaming_extra_fields(shared%params, args)
   call parse_control_frame(trim(json), action, cfg, terr)

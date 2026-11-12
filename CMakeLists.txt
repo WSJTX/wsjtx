@@ -728,6 +728,20 @@ if (WSJT_ENABLE_TESTS)
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
             -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/StreamOption
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_stream_option.cmake)
+  # Source archives omit samples/.
+  if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+    add_test (NAME test_jt9_partner_default
+      COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
+              -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+              -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/PartnerDefault
+              -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_partner_default.cmake)
+    set_tests_properties (test_jt9_partner_default PROPERTIES
+      LABELS "decoder;ft8;integration" TIMEOUT 120)
+    if (WSJT_ENABLE_TSAN)
+      set_tests_properties (test_jt9_partner_default PROPERTIES
+        ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+    endif ()
+  endif ()
 
   if (EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav" AND
       EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav")

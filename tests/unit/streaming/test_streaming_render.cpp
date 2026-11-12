@@ -484,8 +484,8 @@ private slots:
          {"--q65", "-p", "15", "-f", "1500", "-L", "1300", "-H", "1700", "-d", "1"}, 15,
          {{"mode", "Q65"}, {"trperiod", 15}, {"submode", 0}, {"rxfreq", 1500}, {"nfa", 1300}, {"nfb", 1700},
           {"depth", 1}});
-    QJsonObject const station {{"mycall", "K1ABC"}, {"his_call", "W9XYZ"}, {"qso_progress_state", 3}};
-    QStringList const stationOptions {"-c", "K1ABC", "-x", "W9XYZ", "-Q", "3"};
+    QJsonObject const station {{"mycall", "K1ABC"}, {"his_call", "W9XYZ"}, {"his_grid", "EN37"}, {"qso_progress_state", 3}};
+    QStringList const stationOptions {"-c", "K1ABC", "-x", "W9XYZ", "-g", "EN37", "-Q", "3"};
     auto const simulated = [&range] (QString const& sim) {
       return range ("fixture:streaming/render/" + sim + "/000000_00000%1.wav", {"1", "2", "3", "4", "5", "6", "7", "8"});
     };
@@ -611,10 +611,10 @@ private slots:
       QVERIFY2 (all.contains (QRegularExpression {" (a\\d|q[1-9])"}), qPrintable (all));
   }
 
-  // Settings jt9's command line cannot give (SuperFox; the station flags its
-  // WAV mode leaves unset, which the multithreaded decoder's a priori passes
-  // read): the worker's lines come from ft8_worker_model, the stream's params
-  // through multimode_decoder.
+  // Settings jt9's command line cannot give (SuperFox; the station settings its
+  // WAV mode leaves off, such as ap_my_call, hound and dx_search, which the
+  // multithreaded decoder's a priori passes read): the worker's lines come from
+  // ft8_worker_model, the stream's params through multimode_decoder.
   void matchesTheWorker_data ()
   {
     QTest::addColumn<QStringList> ("wavs");
@@ -641,7 +641,7 @@ private slots:
     QTest::newRow ("mtd-ap") << simulated
       << QJsonObject {{"mode", "FT8"}, {"utc", "00:00:01"}, {"depth", 3}, {"ntol", 20}, {"multithreaded_ft8", true},
                       {"ft8_threads", 4}, {"ft8_decoder_start", 3}, {"mycall", "K1ABC"}, {"his_call", "W9XYZ"},
-                      {"qso_progress_state", 3}}
+                      {"his_grid", "EN37"}, {"qso_progress_state", 3}}
       << 49 << false;
 #endif
   }
