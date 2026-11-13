@@ -107,20 +107,28 @@ macro tokens are available:
 |%G |My grid (four characters)
 |%R |Signal report for his call
 |%[ |Turn PTT on
-|%] |Turn PTT off after everything in the box has been sent
+|%] |Send everything in the box, then turn PTT off
 |%L |Log the QSO and advance the serial number
 |===
 
-A macro with neither *%[* nor *%]* just adds its text to the box. A
-macro using *%H* or *%L* is refused, with a warning on the status bar,
-if *DX Call* is empty; one using *%Q* is refused if *Call next* is
-empty.
+A macro with neither *%[* nor *%]* just adds its text to the box. One
+with *%]* ends the over whether or not PTT was already on, so a macro
+such as *Chat*'s *Over* sends the box and returns to receive in a
+single keystroke. A macro using *%H* or *%L* is refused, with a warning
+on the status bar, if *DX Call* is empty; one using *%Q* is refused if
+*Call next* is empty. Nothing is logged and the serial number does not
+advance if the radio refuses to switch to the transmit mode.
 
 Macros are organized in sets. Choose a set from the drop-down list on
 the JTTY panel. Three sets are built in: *Run* and *S&P* for contests,
 and *Chat* for conversational QSOs. Click *Edit macros...* to change a
 macro or its button label, to create, rename or delete your own sets,
 or to restore a built-in set to its defaults.
+
+NOTE: Macros start afresh in this release. If you customized the JTTY
+function keys in an earlier version, those definitions are not carried
+over: the built-in sets above are installed instead. The older macros
+had no *%[* or *%]*, so they would not have keyed PTT in any case.
 
 The *Run* set's defaults are shown below, with K1ABC as MyCall, W9XYZ
 as HisCall, W7UVW as the next call, and 107 as the serial number. The
