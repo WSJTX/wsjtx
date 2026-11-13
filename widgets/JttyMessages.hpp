@@ -234,8 +234,25 @@ namespace Jtty
     }
   };
 
+  // Upper-cases a token's letter so a macro typed as %l means the token. Only
+  // macros: free text keeps %m as the two characters, which the N1MM and codec
+  // paths rely on (lib/jtty/JttyTransmitHost.cpp).
+  inline QString normalizeMacroTokens (QString macro)
+  {
+    static QString const tokenLetters {QStringLiteral ("MHQNEGRL")};
+    for (int i = 0; i + 1 < macro.size (); ++i) {
+      if (macro.at (i) != QLatin1Char ('%')) continue;
+      QChar const upper = macro.at (i + 1).toUpper ();
+      if (!tokenLetters.contains (upper)) continue;
+      macro[i + 1] = upper;
+      ++i;
+    }
+    return macro;
+  }
+
   inline MacroControl parseMacroControl (QString macro)
   {
+    macro = normalizeMacroTokens (std::move (macro));
     MacroControl result;
     result.pttOn = macro.contains (QStringLiteral ("%["));
     result.pttOff = macro.contains (QStringLiteral ("%]"));

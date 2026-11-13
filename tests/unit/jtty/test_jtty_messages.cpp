@@ -1145,6 +1145,12 @@ private slots:
     QTest::newRow ("open-only") << "%[%H DE %M " << "%H DE %M" << true << false;
     QTest::newRow ("close-only") << "...K%]" << "...K" << false << true;
     QTest::newRow ("no-ptt") << "AGN?" << "AGN?" << false << false;
+    // Lower case is the token, not characters bound for the air.
+    QTest::newRow ("lowercase-log") << "%[TU %M%l%]" << "TU %M" << true << true;
+    QTest::newRow ("lowercase-tokens") << "%[%h %e%]" << "%H %E" << true << true;
+    // A percent not introducing a token is left alone.
+    QTest::newRow ("percent-literal") << "%[100% COPY%]" << "100% COPY" << true << true;
+    QTest::newRow ("percent-then-token") << "%[%%m%]" << "%%M" << true << true;
   }
 
   // pttOff decides both whether the over ends here and whether the commit that
@@ -1160,6 +1166,15 @@ private slots:
     QCOMPARE (control.text, text);
     QCOMPARE (control.pttOn, pttOn);
     QCOMPARE (control.pttOff, pttOff);
+  }
+
+  // The hand-off macro is recognized however its tokens were typed.
+  void lowerCaseTokensStillStartTheNextQso ()
+  {
+    auto const control = Jtty::parseMacroControl (QStringLiteral ("%[TU NOW %q %E%l%]"));
+    QVERIFY (control.logQso);
+    QVERIFY (control.startsNextQso ());
+    QCOMPARE (control.text, QStringLiteral ("TU NOW %Q %E"));
   }
 };
 

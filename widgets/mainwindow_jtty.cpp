@@ -64,6 +64,11 @@ constexpr qint64 kJttyFillerLeadSamples = kJttySamplesPerFrame / 2;
 // Pause after which a trailing unterminated word is released.
 constexpr int kJttyAutoAdvanceIdleMs = 1500;
 
+// Unbroken diddle frames tolerated before PTT drops on its own, about 60 s.
+// Each diddle re-arms the enqueue watchdog, so nothing else would end an over
+// the operator has walked away from until the Runaway Tx watchdog, minutes on.
+constexpr int kJttyMaxDiddleFrames = 32;
+
 #ifdef WIN32
 static QString append_separator(QString message) {
     if (!message.isEmpty()) {
@@ -116,6 +121,7 @@ void MainWindow::setJttyPttEnabled(bool on, bool finalOver)
     setXIT (ui->TxFreqSpinBox->value ());
     m_jttyLiveEntryArmed = true;
     m_jttyDiddling = false;   // stale from the previous session's last filler
+    m_jttyDiddleFrames = 0;
     // Nothing committable (empty box or half-typed word): key with diddle.
     if (!commitJttyLiveEntryPlan (/*forceFlush=*/false, /*holdbackWords=*/0,
                                   /*isFinal=*/finalOver)) {
@@ -169,6 +175,12 @@ void MainWindow::maybeTopUpJttyFiller()
   if (m_jttyTransmitQueue.remainingSegments (
         m_jttyQueueProgress.served_samples) > 1) return;
   if (jttyQueuedSamples () > kJttyFillerLeadSamples) return;
+  if (m_jttyDiddleFrames >= kJttyMaxDiddleFrames) {
+    showStatusMessage (tr ("PTT dropped: JTTY was sending diddle with nothing "
+                           "to transmit. Press F9 to go back on the air."));
+    setJttyPttEnabled (false);
+    return;
+  }
   sendJttyFillerPadding ();
 }
 
@@ -229,6 +241,7 @@ void MainWindow::startJttyLiveStream()
 void MainWindow::sendJttyFillerPadding()
 {
   qint64 const requestId = ++m_jttyTxRequestId;
+  ++m_jttyDiddleFrames;
   execute_jtty_tx (requestId, Jtty::jttyFillerText, /*isFinal=*/false);
 }
 
@@ -248,6 +261,7 @@ bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, boo
   replace.setPosition (m_jttyLiveEntryCommitted + plan.length, QTextCursor::KeepAnchor);
   replace.insertText (expanded);
   qint64 const requestId = ++m_jttyTxRequestId;
+  m_jttyDiddleFrames = 0;   // real text: the unbroken diddle run ends here
   m_jttyLiveEntryPending.append ({requestId, m_jttyLiveEntryCommitted,
                                   m_jttyLiveEntryCommitted + expanded.size ()});
   m_jttyLiveEntryCommitted += expanded.size ();

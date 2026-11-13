@@ -1615,6 +1615,9 @@ private:
   QVector<PendingLiveEntryCommit> m_jttyLiveEntryPending;
   // Frames from commits that have fully drained since the box was last cleared; the frame-count label adds this to still-pending progress.
   int m_jttyLiveEntryFramesSent {0};
+  // Unbroken diddle frames since text last went out; bounds an over the
+  // operator has walked away from.
+  int m_jttyDiddleFrames {0};
   // Requests whose audio had started when a halt cancelled them. Their text
   // stays committed: it was heard, so reopening it would send it twice.
   QSet<qint64> m_jttyRequestsOnAir;
