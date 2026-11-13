@@ -56,6 +56,20 @@ private Q_SLOTS:
     QCOMPARE (displayedDial (frequency, true, false), frequency.tx);
   }
 
+  void external_qsy_compares_previous_nominal_rx_band ()
+  {
+    Controller controller;
+    controller.transition (receiving (), ft8 (), Event::Observation);
+    auto const plan = controller.transition (receiving (7074000, "40m"), ft8 (), Event::Observation);
+    QVERIFY (plan.rxChanged);
+    QVERIFY (plan.rxBandChanged);
+    QVERIFY (plan.bandChanged);
+    QVERIFY (!plan.selectionEffects);
+    QVERIFY (!plan.monitor);
+    QVERIFY (plan.reporting);
+    QCOMPARE (plan.reporting->rx, Frequency {7074000});
+    QCOMPARE (plan.reporting->band, QString {"40m"});
+  }
 
   void same_band_qsy_invalidates_rx_work_without_band_cancellation ()
   {

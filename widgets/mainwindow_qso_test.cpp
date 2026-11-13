@@ -358,6 +358,37 @@ QString MainWindow::checkQsoCompletionTest ()
     }
   }
 
+  auto_tx_mode (false);
+  if (!waitUntil ([&] {
+        auto const state = m_operatingFrequency.snapshot ();
+        return !state.pendingRx && !state.pendingTx && !m_transmitting && !m_rigState.ptt ();
+      })) return "The preceding radio activity did not settle before the external-band repeat check.";
+  if (!m_operatingFrequency.requestNominal (14074000,
+        [] (RigFrequency::Request const&) {return true;}, false))
+    return "External-band repeat setup could not establish its initial RX frequency.";
+  synchronizeOperatingBandState ();
+  if (!prepare ("Q65", "W1AW")) return "External-band repeat setup failed.";
+  auto const externalBandContext = m_qsoCompletion;
+  if (!m_repeatDeadline.isActive ()) return "External-band repeat deadline was not armed.";
+  Q_EMIT m_config.frequency_observation (
+    {m_config.frequency_generation (), 0, RigFrequency::Path::Rx,
+     7074000, RigFrequency::Basis::Readback, {}});
+  if (m_operatingFrequency.rx () != 7074000 || m_qsoCompletion
+      || m_repeatDeadline.isActive () || externalBandContext->waiting ())
+    return QString {"An external RX-band change did not cancel the previous band's repeat: "
+                    "rx=%1 context=%2 deadline=%3 waiting=%4 pending=%5/%6 online=%7."}
+      .arg (m_operatingFrequency.rx ()).arg (bool (m_qsoCompletion))
+      .arg (m_repeatDeadline.isActive ()).arg (externalBandContext->waiting ())
+      .arg (m_operatingFrequency.snapshot ().pendingRx).arg (m_operatingFrequency.snapshot ().pendingTx)
+      .arg (m_config.is_transceiver_online ());
+  auto_tx_mode (false);
+  if (!requestNominalFrequencyChange (14074000, FrequencyRequestOrigin::User)
+      || !waitUntil ([&] {
+           auto const state = m_operatingFrequency.snapshot ();
+           return !state.pendingRx && !state.pendingTx
+             && (!m_monitoring || m_rigState.frequency () == state.correctedRx);
+         })) return "The external-band repeat check did not restore its radio context.";
+
   for (bool autoSequence : {false, true}) {
     if (!prepare ("Q65", "W1AW")) return "Q65 RRR setup failed.";
     endQsoRepeat (QsoRepeatEnd::Superseded);

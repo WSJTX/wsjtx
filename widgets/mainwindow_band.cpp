@@ -118,7 +118,7 @@ void MainWindow::applyOperatingBandPlan (OperatingBand::Plan const& plan,
                                         OperatingBand::Context const& context)
 {
   auto const current = [this, &plan] {return m_operatingBandController.current (plan.revision);};
-  if (plan.selectionEffects && plan.rxBandChanged) endQsoRepeat (QsoRepeatEnd::Superseded);
+  if (plan.rxBandChanged) endQsoRepeat (QsoRepeatEnd::Superseded);
   if (plan.rxChanged)
     {
       if (context.mode == "JTTY") updateJttyReceiveContext ();
