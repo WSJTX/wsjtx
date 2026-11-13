@@ -1019,6 +1019,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
       m_config.set_CTY_DAT_version (cty_version);
       m_config.set_worked_before_status (m_logBook.load_status (), error);
       showStatusMessage (m_logBook.load_status ());
+      showQ65QsoCount ();
     });
 
   // Network message handlers
@@ -1594,10 +1595,6 @@ MainWindow::MainWindow(QDir const& temp_directory,
              check_button_color();
              cancelBestSPForCQSelection ();
            });
-  if(m_mode=="Q65") {
-    m_score=0;
-    read_log();
-  }
   m_audioThread.start (m_audioThreadPriority);
 
   {
@@ -5078,7 +5075,7 @@ void MainWindow::on_actionActiveStations_triggered()
   connect(m_ActiveStationsWidget.data(), SIGNAL(queueActiveWindowHound(QString)),this,SLOT(queueActiveWindowHound2(QString)),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
   connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()));
   m_ActiveStationsWidget->setScore(m_score);
-  if(m_mode=="Q65") m_ActiveStationsWidget->setRate(m_score);
+  showQ65QsoCount();
 }
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
@@ -6951,29 +6948,6 @@ void MainWindow::refreshPileupList()
       m_ActiveStationsWidget->setClickOK(true);
 }
 
-void MainWindow::read_log()
-{
-  QFile f {writable_file_path (m_config.writeable_data_dir (), "wsjtx.log")};
-  f.open(QIODevice::ReadOnly);
-  if(f.isOpen()) {
-    QTextStream in(&f);
-    QString line,callsign;
-    for(int i=0; i<99999; i++) {
-      line=in.readLine();
-      if(line.length()<=0) break;
-      callsign=line.mid(40,6);
-      int n=callsign.indexOf(",");
-      if(n>0) callsign=callsign.left(n);
-      m_EMEworked[callsign]=true;
-      m_score++;
-    }
-    f.close();
-  }
-  if(m_ActiveStationsWidget!=NULL) {
-    m_ActiveStationsWidget->setScore(m_score);
-    if(m_mode=="Q65") m_ActiveStationsWidget->setRate(m_score);
-  }
-}
 
 
 void MainWindow::queueActiveWindowHound2(QString line) {
@@ -10883,17 +10857,15 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
     ui->sbSerialNumber->setValue(ui->sbSerialNumber->value() + 1);
   }
 
-  if (m_ActiveStationsWidget && operatingMode == "Q65") m_EMEworked[call] = true;
   if(m_ActiveStationsWidget!=NULL && sameActivity) {
     if(operatingMode=="Q65") {
-      m_score++;
       if(m_specOp==SpecOp::Q65_PILEUP) {
         auto const fname = QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("tsil.3q")).toLatin1();
         rm_q3list_(const_cast<char *>(fname.constData()),
                     const_cast<char *> (call.toLatin1().constData()), fname.size(), call.size());
         refreshPileupList();
       }
-      m_ActiveStationsWidget->setRate(m_score);
+      showQ65QsoCount();
     } else if (loggedActivity==SpecOp::ARRL_DIGI) {
       QString band=m_config.bands()->find(dial_freq);
       activeWorked(call,band);
@@ -12716,7 +12688,7 @@ void MainWindow::on_reset_cabrillo_log_action_triggered ()
       m_score=0;
       if (m_ActiveStationsWidget) {
         m_ActiveStationsWidget->setScore(0);
-        if(m_mode=="Q65") m_ActiveStationsWidget->setRate(0);
+        showQ65QsoCount();             // from the ADIF log, which keeps its records
       }
     }
 }
@@ -15240,11 +15212,19 @@ void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
   QVector<ActiveStationListItem> rows;
   int maxAge=m_ActiveStationsWidget->maxAge();
 
+  // Worked = in the ADIF log (and history sources) on the current band, any
+  // mode, and only on the chosen days (UTC) if any.
+  QString const band = activeStationsBand ();
+  auto const days = m_ActiveStationsWidget->wantedDays ();
+  auto const worked = [&] (QString const& call) {
+    return m_logBook.call_worked_on_band (call, band, days);
+  };
+
   m_ActiveStationsWidget->setClickOK(false);
 
   for(i=m_EMECall.begin(); i!=m_EMECall.end(); i++) {
     bool bSkip=false;
-    if(m_ActiveStationsWidget->wantedOnly() and m_EMEworked[i.key()]) bSkip=true;
+    if(m_ActiveStationsWidget->wantedOnly() and worked(i.key())) bSkip=true;
     if(m_ActiveStationsWidget->readyOnly() and !i->ready2call) bSkip=true;
     if(!bSkip) {
       int snr=i->nsnr;
@@ -15258,7 +15238,7 @@ void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
       if(age<=maxAge) {
         dxcall=(i.key()+"     ").left(8);
         dxgrid4=(i->grid4+"... ").left(4);
-        if(!m_EMEworked[dxcall.trimmed()]) c2[0]=35;       //# for not in log
+        if(!worked(dxcall.trimmed())) c2[0]=35;            //# for not worked
         if(i->ready2call) c2[1]=42;                        //* for ready to call
         t1=t1.asprintf("%7.3f %5.1f  %+03d  %3s  %8s %4s %3d %3d %2s\n",i->frx,i->fsked,snr,
                        submode.toLatin1().constData(),dxcall.toLatin1().constData(),
@@ -15286,6 +15266,24 @@ void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
     m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65,t);
     m_ActiveStationsWidget->setClickOK(true);
   }
+  showQ65QsoCount();
+}
+
+// Band for the Q65 Active Stations worked checks: the current band, or the
+// band of the Rx dial frequency before one has been set.
+QString MainWindow::activeStationsBand() const
+{
+  return !m_currentBand.isEmpty () ? m_currentBand
+    : m_config.bands ()->find (m_operatingFrequency.rx ());
+}
+
+// Q65 "QSOs:" = different stations worked on this band (ADIF log and history
+// sources, any mode), only on the Active Stations' chosen days if any.
+void MainWindow::showQ65QsoCount()
+{
+  if (!m_ActiveStationsWidget || m_mode != "Q65") return;
+  m_ActiveStationsWidget->setRate (m_logBook.calls_worked_on_band (
+    activeStationsBand (), m_ActiveStationsWidget->wantedDays ()));
 }
 
 // -------------------------- Code for FT8 DXpedition Mode ---------------------------

@@ -434,11 +434,10 @@ QString MainWindow::checkQsoCompletionTest ()
     if (!dialogMode) return "The log dialog mode editor was not found.";
     dialogMode->setText ("RTTY");
     on_actionActiveStations_triggered ();
-    m_EMEworked.remove ("W2XYA");
     m_logDlg->accept ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
     if (!m_auto || m_hisCall != "W2XYZ" || newer->clearDxPending != clearCall
-        || acceptedCalls.last () != "W2XYA" || !m_EMEworked.value ("W2XYA"))
+        || acceptedCalls.last () != "W2XYA" || !m_logBook.call_worked_on_band ("W2XYA", {}, {}))
       return "Editing the logged callsign lost the repeat's ownership.";
     on_stopTxButton_clicked ();
     if (m_hisCall != (clearCall ? QString {} : QString {"W2XYZ"}))
@@ -495,11 +494,10 @@ QString MainWindow::checkQsoCompletionTest ()
     scheduleLogQso ();
     if (!prepare ("Q65", "W4NEW")) return "Later Q65 logging setup failed.";
     auto const nextQsoStart = m_dateTimeQSOOn;
-    m_EMEworked.remove ("W3OLD");
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
     m_logDlg->accept ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
-    if (!m_EMEworked.value ("W3OLD") || m_hisCall != "W4NEW"
+    if (!m_logBook.call_worked_on_band ("W3OLD", {}, {}) || m_hisCall != "W4NEW"
         || m_dateTimeQSOOn != nextQsoStart || !m_auto)
       return "An older same-mode Q65 log lost its worked status or changed the new contact.";
 
@@ -507,11 +505,10 @@ QString MainWindow::checkQsoCompletionTest ()
     scheduleLogQso ();
     if (!prepare ("MSK144", "W6NEW")) return "Changed-mode logging setup failed.";
     auto const scoreBeforeAccept = m_score;
-    m_EMEworked.remove ("W5OLD");
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
     m_logDlg->accept ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
-    if (!m_EMEworked.value ("W5OLD") || m_score != scoreBeforeAccept
+    if (!m_logBook.call_worked_on_band ("W5OLD", {}, {}) || m_score != scoreBeforeAccept
         || m_hisCall != "W6NEW" || !m_auto)
       return "An older Q65 log lost its worked status or changed the new activity.";
 
