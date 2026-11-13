@@ -102,7 +102,9 @@ qint64 MainWindow::submitJttyText(QString message)
 }
 
 // The one PTT control. Off stops gracefully; Esc aborts.
-void MainWindow::setJttyPttEnabled(bool on)
+// finalOver: this call both opens and closes the over, so the text committed
+// here carries EOM. Nothing is left for a following PTT-off to mark final.
+void MainWindow::setJttyPttEnabled(bool on, bool finalOver)
 {
   if (m_mode != "JTTY" || on == m_jttyLiveEntryArmed) return;
 
@@ -116,7 +118,7 @@ void MainWindow::setJttyPttEnabled(bool on)
     m_jttyDiddling = false;   // stale from the previous session's last filler
     // Nothing committable (empty box or half-typed word): key with diddle.
     if (!commitJttyLiveEntryPlan (/*forceFlush=*/false, /*holdbackWords=*/0,
-                                  /*isFinal=*/false)) {
+                                  /*isFinal=*/finalOver)) {
       sendJttyFillerPadding ();
     }
   } else {
@@ -978,9 +980,12 @@ void MainWindow::interruptJttyTx()
     captureJttyTxEvidenceTotals (-1, stop->progress.total_samples,
                                  QStringLiteral ("TCI JTTY committed total captured before abort"));
   }
-  updateJttyTransmitDisplay (stop->backend == JttyTxLifecycle::Backend::Local
-                             ? m_jttyTxQueue->progress ().served_samples
-                             : m_jttyQueueProgress.served_samples);
+  auto const served = stop->backend == JttyTxLifecycle::Backend::Local
+    ? m_jttyTxQueue->progress ().served_samples
+    : m_jttyQueueProgress.served_samples;
+  updateJttyTransmitDisplay (served);
+  // Noted while the queue still holds its segments; cancel() empties it below.
+  m_jttyRequestsOnAir = m_jttyTransmitQueue.requestsOnAir (served);
   endJttyTxEcho ();
   rejectPendingJttyMessages(JttyTxRejectReason::Aborted);
   auto const cancelled = m_jttyTransmitQueue.cancel ();
@@ -994,6 +999,7 @@ void MainWindow::interruptJttyTx()
       Q_EMIT jttyTextRejected (requestId, JttyTxRejectReason::Aborted);
     }
   }
+  m_jttyRequestsOnAir.clear ();
   m_jttyQueueNotice = tr ("JTTY transmission cancelled; some text may already have transmitted.");
   updateJttySendButton ();
   m_jttyTxLifecycle.failAll ();
@@ -1384,7 +1390,7 @@ bool MainWindow::sendJttyFunctionKey(int index)
     appendJttyTxBoxText ((needsSeparator ? QStringLiteral (" ") : QString {}) + text
                          + QStringLiteral (" "));
   }
-  if (control.pttOn) setJttyPttEnabled (true);
+  if (control.pttOn) setJttyPttEnabled (true, control.opensAndClosesOver ());
   if (control.pttOff) setJttyPttEnabled (false);
   m_jttyEnterStep = Jtty::stepAfterKey (m_jttyMacros.current ().enterRole, index, m_jttyEnterStep);
   // Last: the Log QSO dialog may take focus, and logging may clear DX Call.

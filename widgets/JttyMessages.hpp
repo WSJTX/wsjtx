@@ -232,6 +232,13 @@ namespace Jtty
     {
       return logQso && text.contains (QStringLiteral ("%Q"));
     }
+
+    // One self-contained over. Keying PTT commits the whole text, so that
+    // commit must carry EOM; %] would otherwise find an empty box to mark.
+    bool opensAndClosesOver () const
+    {
+      return pttOn && pttOff;
+    }
   };
 
   inline MacroControl parseMacroControl (QString macro)
