@@ -539,13 +539,18 @@ bool JttyTxLoopbackTestController::verifyCancellationPaths ()
         }
       m_checkingCancellation = false;
       if (m_finished) return false;
+      // Stop Tx cancels the over but keeps the draft typed since; Esc clears
+      // the whole box.
+      bool const draftAsExpected = useEscape
+        ? input->toPlainText ().isEmpty ()
+        : input->toPlainText ().endsWith (unsentDraft ());
       if (m_cancelledRequests.size () != cancelledBefore + 1
           || m_completedRequests.size () != 2 || m_acceptedRequests.size () != 2
-          || !input->toPlainText ().endsWith (unsentDraft ())
+          || !draftAsExpected
           || send->text () != QStringLiteral ("Send message")
           || !send->toolTip ().contains ("cancelled"))
         {
-          fail (tr ("%1 did not cancel pending text exactly once while preserving the newer draft.")
+          fail (tr ("%1 did not cancel pending text exactly once, leaving the expected Tx box.")
                 .arg (useEscape ? QStringLiteral ("Esc") : QStringLiteral ("Stop Tx")));
           return false;
         }
@@ -559,6 +564,13 @@ bool JttyTxLoopbackTestController::verifyCancellationPaths ()
           fail (tr ("%1 left cancelled text in the QSO Frequency pane as if it had been sent.")
                 .arg (useEscape ? QStringLiteral ("Esc") : QStringLiteral ("Stop Tx")));
           return false;
+        }
+      // Esc emptied the box; retype the draft so the post-drain checks still
+      // have an unsent draft to protect.
+      if (useEscape)
+        {
+          input->moveCursor (QTextCursor::End);
+          input->insertPlainText (unsentDraft ());
         }
     }
   if (m_output->restartCount () != 1)
