@@ -1362,6 +1362,8 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (band_validator, &LiveFrequencyValidator::valid, this, [this] (Frequency frequency) {
     requestBandChange (frequency, FrequencyRequestOrigin::User);
   });
+  connect (band_validator, &LiveFrequencyValidator::unresolvedSubmission, this,
+           [this] {updateBandEditor (true);});
 
   // hook up configuration signals
   connect (&m_config, &Configuration::leavingSettings, this, &MainWindow::handle_leavingSettings);

@@ -348,7 +348,9 @@ bool OperatingBandApplicationTestController::editorRequests ()
   }, "Activating the selected row did not request its frequency.")) return false;
 
   if (!enter ("7.074", 7074000) || !enter ("20m", 14074000)
-      || !enter ("080k", 14080000)) return false;
+      || !enter ("080k", 14080000) || !enter ("23cm", 14080000)) return false;
+  if (!require (!box->lineEdit ()->styleSheet ().contains ("red"),
+                "An unresolved band submission retained its error style after restoration.")) return false;
   {
     QScopedValueRollback<bool> tuning {window_->m_tune, true};
     if (!require (activate (frequencies->best_working_frequency (Frequency {7074000}))

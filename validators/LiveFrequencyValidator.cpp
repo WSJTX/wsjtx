@@ -108,4 +108,5 @@ void LiveFrequencyValidator::fixup (QString& input) const
       combo_box_->setCurrentText (input);
       if (user_edited && has_requested_frequency) Q_EMIT valid (requested_frequency);
     }
+  if (user_edited && !has_requested_frequency) Q_EMIT unresolvedSubmission ();
 }
