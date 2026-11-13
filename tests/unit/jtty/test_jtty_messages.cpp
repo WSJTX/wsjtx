@@ -1139,30 +1139,27 @@ private slots:
     QTest::addColumn<QString> ("text");
     QTest::addColumn<bool> ("pttOn");
     QTest::addColumn<bool> ("pttOff");
-    QTest::addColumn<bool> ("selfContained");
 
-    QTest::newRow ("cq") << "%[CQ %M CQ%]" << "CQ %M CQ" << true << true << true;
-    QTest::newRow ("tu-cq") << "%[%H TU CQ %M CQ%L%]" << "%H TU CQ %M CQ"
-                            << true << true << true;
-    QTest::newRow ("open-only") << "%[%H DE %M " << "%H DE %M" << true << false << false;
-    QTest::newRow ("close-only") << "73 DE %M%]" << "73 DE %M" << false << true << false;
-    QTest::newRow ("no-ptt") << "AGN?" << "AGN?" << false << false << false;
+    QTest::newRow ("cq") << "%[CQ %M CQ%]" << "CQ %M CQ" << true << true;
+    QTest::newRow ("tu-cq") << "%[%H TU CQ %M CQ%L%]" << "%H TU CQ %M CQ" << true << true;
+    QTest::newRow ("open-only") << "%[%H DE %M " << "%H DE %M" << true << false;
+    QTest::newRow ("close-only") << "...K%]" << "...K" << false << true;
+    QTest::newRow ("no-ptt") << "AGN?" << "AGN?" << false << false;
   }
 
-  // A self-contained over commits when PTT keys, so that commit carries EOM.
+  // pttOff decides both whether the over ends here and whether the commit that
+  // keys PTT carries EOM; the Chat sets rely on the close-only row.
   void macroControlSeparatesPttFromText ()
   {
     QFETCH (QString, macro);
     QFETCH (QString, text);
     QFETCH (bool, pttOn);
     QFETCH (bool, pttOff);
-    QFETCH (bool, selfContained);
 
     auto const control = Jtty::parseMacroControl (macro);
     QCOMPARE (control.text, text);
     QCOMPARE (control.pttOn, pttOn);
     QCOMPARE (control.pttOff, pttOff);
-    QCOMPARE (control.opensAndClosesOver (), selfContained);
   }
 };
 

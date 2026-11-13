@@ -1390,8 +1390,15 @@ bool MainWindow::sendJttyFunctionKey(int index)
     appendJttyTxBoxText ((needsSeparator ? QStringLiteral (" ") : QString {}) + text
                          + QStringLiteral (" "));
   }
-  if (control.pttOn) setJttyPttEnabled (true, control.opensAndClosesOver ());
-  if (control.pttOff) setJttyPttEnabled (false);
+  if (control.pttOn || control.pttOff) {
+    // A macro that ends the over has to key it too: pressed from receive, %]
+    // alone would otherwise queue text that nothing ever sends. The keying
+    // commit is final whenever the macro closes the over, so it carries EOM.
+    setJttyPttEnabled (true, control.pttOff);
+    // The radio refused the mode change, so nothing went out: no step, no log.
+    if (!m_jttyLiveEntryArmed) return true;
+    if (control.pttOff) setJttyPttEnabled (false);
+  }
   m_jttyEnterStep = Jtty::stepAfterKey (m_jttyMacros.current ().enterRole, index, m_jttyEnterStep);
   // Last: the Log QSO dialog may take focus, and logging may clear DX Call.
   if (control.logQso) logJttyQso ();
