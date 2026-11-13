@@ -110,7 +110,7 @@ void MainWindow::completeBandReportingTransition (quint64 identity)
   m_currentBandPeriod = report->band;
   m_displayBand = true;
   no_decodes_to_UDP = false;
-  pskSetLocal ();
+  pskSetLocal (report->band);
 }
 
 void MainWindow::applyOperatingBandPlan (OperatingBand::Plan const& plan,

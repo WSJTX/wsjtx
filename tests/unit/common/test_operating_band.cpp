@@ -350,6 +350,29 @@ private Q_SLOTS:
       }
   }
 
+  void split_display_change_preserves_rx_identity_and_captured_reporting_band ()
+  {
+    Controller controller;
+    auto context = ft8 ();
+    context.rememberTxPower = true;
+    auto state = receiving (10489540000ULL, "3cm");
+    state.frequency.tx = state.frequency.correctedTx = 2301065000;
+    auto const receivingPlan = controller.transition (state, context, Event::Observation);
+    state.dial = displayedDial (state.frequency, true, true);
+    state.band = "13cm";
+    auto const transmittingPlan = controller.transition (state, context, Event::Observation);
+    QVERIFY (transmittingPlan.bandChanged);
+    QVERIFY (!transmittingPlan.rxChanged);
+    QVERIFY (!transmittingPlan.rxBandChanged);
+    QVERIFY (transmittingPlan.restorePower);
+    QVERIFY (transmittingPlan.reporting);
+    QVERIFY (!controller.completeReporting (receivingPlan.reporting->identity, state.frequency.rx));
+    auto const report = controller.completeReporting (transmittingPlan.reporting->identity, state.frequency.rx);
+    QVERIFY (report);
+    QCOMPARE (report->rx, Frequency {10489540000ULL});
+    QCOMPARE (report->band, QString {"3cm"});
+    QVERIFY (!controller.completeReporting (transmittingPlan.reporting->identity, state.frequency.rx));
+  }
 
   void corrected_display_band_does_not_cancel_rx_qso ()
   {

@@ -3438,7 +3438,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     on_dxGridEntry_textChanged (m_hisGrid); // recalculate distances in case of units change
     enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
 
-    pskSetLocal ();
+    pskSetLocal (nominalRxBand ());
     // this will close the connection to PSKReporter if it has been
     // disabled
     if (psk_on && !m_config.spot_to_psk_reporter ())
@@ -12800,7 +12800,7 @@ bool MainWindow::shortList(QString callsign) const
   return b;
 }
 
-void MainWindow::pskSetLocal ()
+void MainWindow::pskSetLocal (QString const& rx_band)
 {
   if (!m_config.spot_to_psk_reporter ()) return;
 
@@ -12808,7 +12808,7 @@ void MainWindow::pskSetLocal ()
   auto stations = m_config.stations ();
   auto matches = stations->match (stations->index (0, StationList::band_column)
                                   , Qt::DisplayRole
-                                  , operatingBandName ()
+                                  , rx_band
                                   , 1
                                   , Qt::MatchExactly);
   QString antenna_description;
@@ -13187,7 +13187,7 @@ void MainWindow::locationChange (QString const& location)
     if (m_config.my_grid () != grid) {
       m_config.set_location (grid);
       genStdMsgs (m_rpt, false);
-      pskSetLocal ();
+      pskSetLocal (nominalRxBand ());
       statusUpdate ();
     }
   } else {

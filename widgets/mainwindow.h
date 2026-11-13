@@ -1702,7 +1702,7 @@ private:
   bool shortList(QString callsign) const;
   void transmit (double snr = 99.);
   void rigFailure (QString const& reason);
-  void pskSetLocal ();
+  void pskSetLocal (QString const& rx_band);
   void pskPost(DecodedText const& decodedtext);
   void pskPost(DecodedText const& decodedtext,
                DecodeOperatingContext const& context);
