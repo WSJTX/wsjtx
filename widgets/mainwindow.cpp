@@ -748,7 +748,10 @@ MainWindow::MainWindow(QDir const& temp_directory,
     for (int i = 0; i < m_jttyLiveEntryPending.size (); ++i) {
       if (m_jttyLiveEntryPending[i].requestId != requestId) continue;
       auto const entry = m_jttyLiveEntryPending[i];
+      bool const heardOnAir = m_jttyRequestsOnAir.contains (requestId);
       m_jttyLiveEntryPending.remove (i);
+      // Audio already played: leave it committed, or the next over repeats it.
+      if (heardOnAir) break;
       // Only the most recently committed span can be cleanly reopened for editing.
       if (entry.end == m_jttyLiveEntryCommitted) {
         m_guardingJttyLiveEntryLock = true;

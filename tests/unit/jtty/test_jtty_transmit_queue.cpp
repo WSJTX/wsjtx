@@ -205,6 +205,35 @@ private slots:
     QCOMPARE (history.overs ().size (), Jtty::TransmitHistory::capacity);
     QCOMPARE (history.overs ().constLast (), QStringLiteral ("29"));
   }
+
+  // Halting cancels every queued request; only those still silent may have
+  // their text reopened for editing, or the next over repeats what was heard.
+  void requestsOnAirCoversStartedButUnfinishedSegments ()
+  {
+    Jtty::TransmitQueue queue;
+    queue.append (41, {segment ("SENT")});         // 0..3072
+    queue.append (42, {segment ("PLAYING")});      // 3072..6144
+    queue.append (43, {segment ("SILENT")});       // 6144..9216
+    QVERIFY (queue.commitNext (3072));
+    QVERIFY (queue.commitNext (6144));
+    QVERIFY (queue.commitNext (9216));
+
+    // Nothing played yet.
+    QCOMPARE (queue.requestsOnAir (0), QSet<qint64> {});
+    // 41 fully played; 42 part-way; 43 untouched.
+    QCOMPARE (queue.requestsOnAir (4000), (QSet<qint64> {41, 42}));
+    // Exactly at a boundary: 42 has finished, 43 has not begun.
+    QCOMPARE (queue.requestsOnAir (6144), (QSet<qint64> {41, 42}));
+    QCOMPARE (queue.requestsOnAir (9216), (QSet<qint64> {41, 42, 43}));
+  }
+
+  // An uncommitted segment has no endSample, so it cannot have been heard.
+  void requestsOnAirIgnoresUncommittedSegments ()
+  {
+    Jtty::TransmitQueue queue;
+    queue.append (51, {segment ("QUEUED")});
+    QCOMPARE (queue.requestsOnAir (1 << 20), QSet<qint64> {});
+  }
 };
 
 QTEST_GUILESS_MAIN (TestJttyTransmitQueue)
