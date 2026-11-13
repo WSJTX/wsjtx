@@ -196,6 +196,7 @@ set (wsjtx_CXXSRCS
   FastDecode.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
+  widgets/mainwindow_modes.cpp
   widgets/mainwindow_jtty.cpp
   widgets/mainwindow_jtty_receive.cpp
   JttyReceiveResultController.cpp
