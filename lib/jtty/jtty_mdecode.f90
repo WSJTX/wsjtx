@@ -720,6 +720,11 @@ contains
       use jtty_fec
       implicit none
       integer, parameter             :: MAXCAND = 100
+      ! Fixed channels tile the Wide Graph range at about the width channels
+      ! 1 and 2 had when they sat at 1350 and 1650 Hz. PLACEHOLDERS: neither
+      ! value has been chosen on evidence (see the branch's first commit).
+      real, parameter                :: CHANWIDTH = 300.0
+      integer, parameter             :: MAXCHAN = 16
       integer, parameter             :: NSYNC_SYM  = 13
       integer, parameter             :: NCHAN_SYM  = 46
       integer, parameter             :: NFRAME_SYM = 59
@@ -882,7 +887,7 @@ contains
       ntz=nint(0.016*6000.0/12.0)   !  8
 
       ! Every channel reads inside this span; unsearched bins may remain stale.
-      nchan=2
+      nchan=max(2,min(MAXCHAN,nint(real(nfb-nfa)/CHANWIDTH)))
       first_sync_bin=nh2-2
       last_sync_bin=3
       do ichan=0,nchan
@@ -1073,9 +1078,8 @@ contains
          fc=f0
          fwid=ftol
       else
-         fc=1350
-         if(ichan.eq.2) fc=1650
-         fwid=150
+         fwid=0.5*real(nfb-nfa)/real(nchan)
+         fc=real(nfa)+(2*ichan-1)*fwid
       endif
       call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
            ubound(s0,1)-2,ja,jb,usable)
