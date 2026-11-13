@@ -927,7 +927,12 @@ void MainWindow::logJttyQso()
 void MainWindow::jttyEnterSendsMessage()
 {
   auto const role = m_jttyMacros.current ().enterRole;
-  if (role == Jtty::EnterRole::Off) {
+  // Text the operator typed is what Enter sends, in every set. Appending the
+  // sequence's next macro to it put words on the air nobody asked for, and a
+  // TU macro's %L logged the QSO as a side effect of sending a sentence.
+  bool const typed = !ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted)
+    .trimmed ().isEmpty ();
+  if (role == Jtty::EnterRole::Off || typed) {
     commitJttyLiveEntry ();  // as Send message: send the box, or end the over
     return;
   }

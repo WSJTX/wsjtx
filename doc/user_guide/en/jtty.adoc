@@ -200,6 +200,12 @@ call starts it again. *Enter* works from the *Tx message* box, from
 *Call*, *Sent*, *Rcvd* and *DX Call*, and from anywhere else that is not
 an entry field.
 
+The sequence applies only when you have nothing of your own waiting to
+go out. If the *Tx message* box holds text you typed, *Enter* sends
+just that text, in every set, and the contest sequence stays where it
+was. Send the next contest message with its own function key, or press
+*Enter* again once the box is empty.
+
 TIP: For a fast run, type or click the next station's call into *Call
 next* while you are still working the current one. *F6* (TU NOW) logs
 the current QSO, sends the exchange to the next station with the next
