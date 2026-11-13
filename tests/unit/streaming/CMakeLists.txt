@@ -595,7 +595,7 @@ set (decode_thread_samples TRUE)
 foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav JT65/JT65B/000000_0001.wav
     JT65/JT65B/000000_0002.wav JT65/JT65B/000000_0003.wav JT65/JT65B/000000_0004.wav JT65/JT65B/000000_0005.wav
     JT65/JT65B/000000_0006.wav FST4+FST4W/210115_0058.wav FST4+FST4W/201230_0300.wav
-    Q65/300A_Optical_Scatter/201210_0505.wav MSK144/181211_120800.wav JTTY/260807_134110.wav)
+    Q65/300A_Optical_Scatter/201210_0505.wav MSK144/181211_120800.wav JTTY/261105_101915_567.wav)
   if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/${sample}")
     set (decode_thread_samples FALSE)
   endif ()
@@ -819,7 +819,7 @@ endfunction ()
 # Source archives omit samples/: the rows need every recording they read.
 set (streaming_spectrum_samples TRUE)
 foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav JT65/JT65B/000000_0004.wav
-    FST4+FST4W/210115_0058.wav MSK144/181211_120500.wav MSK144/181211_120800.wav JTTY/260807_134110.wav)
+    FST4+FST4W/210115_0058.wav MSK144/181211_120500.wav MSK144/181211_120800.wav JTTY/261105_101915_567.wav)
   if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/${sample}")
     set (streaming_spectrum_samples FALSE)
   endif ()

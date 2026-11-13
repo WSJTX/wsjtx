@@ -1582,7 +1582,7 @@ private slots:
     QFETCH (bool, lowSidelobes);
     QFETCH (int, before);
     QFETCH (int, frame);
-    auto const pcm = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+    auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
     auto const ft8 = period (wavPcm (modeOf ("ft8").wav), Ft8PeriodSamples);
     QVERIFY2 (!pcm.isEmpty () && !ft8.isEmpty (), "no recording");
     QByteArray input = sessionHeader ();
@@ -1670,7 +1670,7 @@ private slots:
   void jttyRowsNearTheGuisJttySpectrum ()
   {
     QFETCH (bool, lowSidelobes);
-    auto const pcm = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+    auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
     auto const codec = runInput (sessionHeader () + configure (with (JttySettings, spectrumKeys (lowSidelobes)))
                                  + audio (pcm, FrameSamples) + halt ());
@@ -1799,7 +1799,7 @@ private slots:
   void jttyRowsWhenTurnedOnMidSession ()
   {
     QFETCH (QList<int>, toggles);
-    auto const pcm = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+    auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
     // The second turn-on changes the other keys too.
     QList<QJsonObject> const on {{{"spectrum", true}}, {{"spectrum", true}, {"low_sidelobes", true}}};
@@ -1980,7 +1980,7 @@ private slots:
   // equalized audio.
   void jttyRowsOnMidBlockWhileEqualizing ()
   {
-    auto const pcm = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+    auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
     auto const reference = measuredReference (modelDir ("held block measure"));
     QVERIFY2 (!reference.isEmpty (), "no reference spectrum");
@@ -2038,7 +2038,7 @@ private slots:
     QStringList script = modelSettings (false) << "datadir " + applyDir;
     if ("jtty" == kind)
       {
-        auto const pcm = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+        auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
         QVERIFY2 (!pcm.isEmpty (), "no recording");
         input += configure (with (JttySettings, {{"live_audio", true}, {"spectrum", true},
                                                  {"ref_spectrum", references.first ()}}))
@@ -2119,7 +2119,7 @@ private slots:
     QStringList script {"datadir " + modelPath, "reference measure"};
     if ("jtty" == kind)
       {
-        sent = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+        sent = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
         input += configure (with (JttySettings, {{"live_audio", true}, {"ref_spectrum", "measure"}}))
           + audio (sent, FrameSamples);
         script << QString {"jtty 0 %1 1 0"}.arg (sent.size () / 2);
@@ -2272,7 +2272,7 @@ private slots:
     QVERIFY2 (!reference.isEmpty (), "no reference spectrum");
     auto const m = modeOf ("ft4");
     auto const ft4 = period (wavPcm (m.wav), m.samples);
-    auto const jtty = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+    auto const jtty = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
     QVERIFY2 (!ft4.isEmpty () && !jtty.isEmpty (), "no recording");
     using Input = std::function<QByteArray (QString const&, QString const&)>;
     QMap<QString, Input> const cases {
@@ -2465,7 +2465,7 @@ private slots:
     bool sorted = false;
     if ("jtty" == mode)
       {
-        auto const pcm = wavPcm (inSamples ("JTTY/260807_134110.wav"));
+        auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav"));
         QVERIFY2 (!pcm.isEmpty (), "no recording");
         input = [=] (QJsonObject const& on) {
           return sessionHeader () + configure (with (JttySettings, on)) + audio (pcm, FrameSamples) + halt ();
@@ -2621,7 +2621,7 @@ private slots:
     std::function<QByteArray (QJsonObject const&)> input;
     if ("jtty" == mode)
       {
-        auto const pcm = wavPcm (inSamples ("JTTY/260807_134110.wav")).left (2 * 15 * SampleRate);
+        auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
         QVERIFY2 (!pcm.isEmpty (), "no recording");
         input = [=] (QJsonObject const& on) {
           return sessionHeader () + configure (with (JttySettings, on)) + audio (pcm, FrameSamples) + halt ();
@@ -2800,7 +2800,7 @@ private slots:
 #else
     QFETCH (QString, mode);
     auto const jtty = "jtty" == mode;
-    auto const pcm = jtty ? wavPcm (inSamples ("JTTY/260807_134110.wav"))
+    auto const pcm = jtty ? wavPcm (inSamples ("JTTY/261105_101915_567.wav"))
                           : period (wavPcm (inSamples ("MSK144/181211_120800.wav")), Ft8PeriodSamples);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
     QTemporaryDir directory;
