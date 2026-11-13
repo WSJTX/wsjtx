@@ -124,7 +124,7 @@ QString MainWindow::checkQsoCompletionTest ()
     return QString {" auto=%1 call=%2 ntx=%3 message=[%4] tx4=[%5] band=%6/%7 "
                     "period=%8/%9 phase=%10 clear=%11 open=%12 automatic=%13 log=%14 current=%15"}
       .arg (m_auto).arg (m_hisCall).arg (m_ntx).arg (m_currentMessage)
-      .arg (ui->tx4->text ()).arg (m_currentBand).arg (context ? context->band : "none")
+      .arg (ui->tx4->text ()).arg (nominalRxBand ()).arg (context ? context->band : "none")
       .arg (m_TRperiod).arg (context ? context->trPeriod : -1)
       .arg (context ? int (context->phase) : -1).arg (context && context->clearDxPending)
       .arg (bool (m_openLogQso)).arg (m_openLogQso && m_openLogQso->automatic)
@@ -135,7 +135,6 @@ QString MainWindow::checkQsoCompletionTest ()
     auto_tx_mode (false);
     m_mode = mode;
     m_specOp = SpecOp::NONE;
-    m_currentBand = m_config.bands ()->find (m_operatingFrequency.rx ());
     m_TRperiod = period;
     m_baseCall = "K1ABC";
     m_bShMsgs = false;
@@ -341,8 +340,11 @@ QString MainWindow::checkQsoCompletionTest ()
       if (!prepare (mode, "W1AW")) return mode + ": stale-timeout setup failed.";
       if (!logFirst ()) return "First RR73 logging did not settle.";
       auto const stale = m_qsoCompletion;
+      auto const previousFrequency = m_operatingFrequency.rx ();
       if (change == 0) ui->dxCallEntry->setText ("W2XYZ");
-      if (change == 1) m_currentBand = "2m";
+      if (change == 1)
+        m_operatingFrequency.requestNominal (144174000,
+          [] (RigFrequency::Request const&) {return true;}, false);
       if (change == 2) m_TRperiod = 30.0;
       if (change == 3) m_mode = "FT8";
       expireRepeat ();
@@ -350,6 +352,9 @@ QString MainWindow::checkQsoCompletionTest ()
           || stale->clearDxPending)
         return mode + QString {": a stale deadline affected a changed QSO context (%1)."}.arg (change)
           + describe (stale);
+      if (change == 1)
+        m_operatingFrequency.requestNominal (previousFrequency,
+          [] (RigFrequency::Request const&) {return true;}, false);
     }
   }
 

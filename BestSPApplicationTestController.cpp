@@ -298,8 +298,7 @@ bool BestSPApplicationTestController::startRequest (quint64 frequency, QString c
   window_->m_operatingFrequency = OperatingFrequency {frequency};
   window_->m_operatingFrequency.requestNominal (frequency, {}, false);
   window_->m_freqNominalPeriod = frequency;
-  window_->m_currentBand = window_->m_config.bands ()->find (frequency);
-  window_->m_currentBandPeriod = window_->m_currentBand;
+  window_->m_currentBandPeriod = window_->nominalRxBand ();
   window_->m_dateTimeSeqStart = QDateTime::currentDateTimeUtc ();
   window_->m_diskData = false;
   window_->m_QSOProgress = QsoProgress::Calling;
@@ -368,7 +367,7 @@ bool BestSPApplicationTestController::complete (QString const& expectedCall)
   if (!require (window_->ui->dxCallEntry->text () == expectedCall,
                 QString {"Expected selected call '%1', got '%2'; mode=%3 band=%4 armed=%5 feedback=%6."}
                   .arg (expectedCall, window_->ui->dxCallEntry->text (), window_->m_mode,
-                        window_->m_currentBand).arg (window_->m_bestSP.armed ())
+                        window_->nominalRxBand ()).arg (window_->m_bestSP.armed ())
                   .arg (window_->ui->pbBestSP->accessibleDescription ()))) return false;
   std::cerr << "WSJT-X Best S+P integration: " << scenario_.toStdString () << " passed" << std::endl;
   return true;
@@ -399,7 +398,7 @@ bool BestSPApplicationTestController::run ()
 
   if (!startRequest (1000000, "unknown band has no callsign-on-band eligibility")) return false;
   auto const knownEntity = classifyDecode (DecodedText {"120000 -10  0.3 1900 +  CQ W1AW FN31"},
-                                          "FT4", window_->m_currentBand, window_->m_logBook);
+                                          "FT4", window_->nominalRxBand (), window_->m_logBook);
   if (!require (knownEntity.worked && knownEntity.worked->entity && !knownEntity.workedOnBand,
                 "Fixture must have worked entity facts and absent band facts.")
       || !record ("CQ W1AW FN31") || !complete ({})) return false;
@@ -410,7 +409,7 @@ bool BestSPApplicationTestController::run ()
   if (!startRequest (1000000, "unknown band retains new DXCC eligibility")) return false;
   window_->ui->actionIgnoreB4->setChecked (true);
   auto const newEntity = classifyDecode (DecodedText {"120000 -10  0.3 1900 +  CQ JA1ABC PM95"},
-                                        "FT4", window_->m_currentBand, window_->m_logBook);
+                                        "FT4", window_->nominalRxBand (), window_->m_logBook);
   if (!require (newEntity.worked && !newEntity.worked->entity && !newEntity.workedOnBand,
                  "Fixture must have new entity facts and absent band facts.")
       || !record ("CQ JA1ABC PM95") || !complete ("JA1ABC")) return false;

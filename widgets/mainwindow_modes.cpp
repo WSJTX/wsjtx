@@ -9,6 +9,8 @@
 #include "Modulator/Modulator.hpp"
 #include "models/Bands.hpp"
 #include <QSettings>
+#include <QSignalBlocker>
+#include <utility>
 
 extern bool blocked;
 extern bool HoldTxFreqStatus;
@@ -24,11 +26,129 @@ namespace
   constexpr int fox_queue_tab_index {1};
 }
 
+void MainWindow::requestModeChange (ModeEntry::Request request, std::function<void()> setup)
+{
+  auto const identity = m_modeEntries.submit (std::move (request));
+  if (setup) m_modeSetupContinuations.insert (identity, std::move (setup));
+  while (auto operation = m_modeEntries.takeNext ())
+    {
+      m_modeSetupActive = true;
+      auto const configured = configureMode (operation->request.mode);
+      if (configured)
+        {
+          m_modeEntries.accept (operation->identity);
+          m_pendingModeRetune.cancel ();
+        }
+      auto const continuation = m_modeSetupContinuations.take (operation->identity);
+      if (configured && continuation) continuation ();
+      m_modeSetupActive = false;
+      if (configured) completeModeFrequencyChange (*operation);
+      m_modeEntries.finish (operation->identity);
+    }
+  resumeModeRetune ();
+}
+
+bool MainWindow::configureMode (QString const& mode)
+{
+  if (jttyDrainInProgress ())
+    {
+      ui->actionJTTY->setChecked (true);
+      return false;
+    }
+  if (mode == "FST4") setupFST4 ();
+  else if (mode == "FST4W") setupFST4W ();
+  else if (mode == "FT4") setupFT4 ();
+  else if (mode == "FT8") setupFT8 ();
+  else if (mode == "JT4") setupJT4 ();
+  else if (mode == "JT9") setupJT9 ();
+  else if (mode == "JT65") setupJT65 ();
+  else if (mode == "Q65") setupQ65 ();
+  else if (mode == "JTTY") setupJTTY ();
+  else if (mode == "MSK144") return setupMSK144 ();
+  else if (mode == "WSPR") setupWSPR ();
+  else if (mode == "Echo") setupEcho ();
+  else if (mode == "FreqCal") setupFreqCal ();
+  else return false;
+  return true;
+}
+
+void MainWindow::scheduleModeRefresh (int delay, QString const& mode, std::function<void()> refresh)
+{
+  auto const identity = m_modeEntries.activeIdentity ();
+  QTimer::singleShot (delay, this, [this, identity, mode, refresh = std::move (refresh)] {
+    if (m_modeEntries.current (identity) && m_mode == mode) refresh ();
+  });
+}
+
 void MainWindow::on_actionFST4_triggered()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
+  requestModeChange ({QStringLiteral ("FST4")});
+}
+
+void MainWindow::on_actionFST4W_triggered()
+{
+  requestModeChange ({QStringLiteral ("FST4W")});
+}
+
+void MainWindow::on_actionFT4_triggered()
+{
+  requestModeChange ({QStringLiteral ("FT4")});
+}
+
+void MainWindow::on_actionFT8_triggered()
+{
+  requestModeChange ({QStringLiteral ("FT8")});
+}
+
+void MainWindow::on_actionJT4_triggered()
+{
+  requestModeChange ({QStringLiteral ("JT4")});
+}
+
+void MainWindow::on_actionJT9_triggered()
+{
+  requestModeChange ({QStringLiteral ("JT9")});
+}
+
+void MainWindow::on_actionJT65_triggered()
+{
+  requestModeChange ({QStringLiteral ("JT65")});
+}
+
+void MainWindow::on_actionQ65_triggered()
+{
+  requestModeChange ({QStringLiteral ("Q65")});
+}
+
+void MainWindow::on_actionJTTY_triggered()
+{
+  requestModeChange ({QStringLiteral ("JTTY")});
+}
+
+void MainWindow::on_actionMSK144_triggered()
+{
+  requestModeChange ({QStringLiteral ("MSK144")});
+}
+
+void MainWindow::on_actionWSPR_triggered()
+{
+  requestModeChange ({QStringLiteral ("WSPR")});
+}
+
+void MainWindow::on_actionEcho_triggered()
+{
+  requestModeChange ({QStringLiteral ("Echo")});
+}
+
+void MainWindow::on_actionFreqCal_triggered()
+{
+  requestModeChange ({QStringLiteral ("FreqCal")});
+}
+
+void MainWindow::setupFST4()
+{
   noteTxModeChange (QStringLiteral ("FST4"));
-  QTimer::singleShot (50, this, [=] {
+  scheduleModeRefresh (50, QStringLiteral ("FST4"), [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
@@ -44,8 +164,6 @@ void MainWindow::on_actionFST4_triggered()
   m_bFastMode=false;
   m_fastGraph->hide();
   m_wideGraph->show();
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   initializeFFT(6912);
   setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   WSPR_config(false);
@@ -81,16 +199,16 @@ void MainWindow::on_actionFST4_triggered()
   m_wideGraph->setMode(m_mode);
   ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
   ui->sbTR->setValue (m_settings->value ("TRPeriod_FST4", 60).toInt());    // remember sbTR settings by mode
-  QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
+  m_TRperiod=ui->sbTR->value();
+  scheduleModeRefresh (50, QStringLiteral ("FST4"), [=] {on_sbTR_valueChanged (ui->sbTR->value());});
   setTxFirstModeEnabled (true);
   statusChanged();
   m_bOK_to_chk=true;
   chk_FST4_freq_range();
 }
 
-void MainWindow::on_actionFST4W_triggered()
+void MainWindow::setupFST4W()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("FST4W"));
   m_mode="FST4W";
   if(m_specOp==SpecOp::HOUND) {
@@ -102,8 +220,6 @@ void MainWindow::on_actionFST4W_triggered()
   m_bFastMode=false;
   m_fastGraph->hide();
   m_wideGraph->show();
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   initializeFFT(6912);
   WSPR_config(true);
   applyModeUiState({ModeUiControl::WsprControls, ModeUiControl::DecodeDepth,
@@ -124,12 +240,10 @@ void MainWindow::on_actionFST4W_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionFT4_triggered()
+void MainWindow::setupFT4()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("FT4"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT4_triggered();});
-  QTimer::singleShot (50, this, [=] {
+  scheduleModeRefresh (50, QStringLiteral ("FT4"), [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
@@ -158,8 +272,6 @@ void MainWindow::on_actionFT4_triggered()
   m_fastGraph->hide();
   m_wideGraph->show();
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -178,12 +290,10 @@ void MainWindow::on_actionFT4_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionFT8_triggered()
+void MainWindow::setupFT8()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("FT8"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT8_triggered();});
-  QTimer::singleShot (50, this, [=] {
+  scheduleModeRefresh (50, QStringLiteral ("FT8"), [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
     if(SpecOp::HOUND == m_specOp && m_config.superFox()) {
@@ -230,8 +340,6 @@ void MainWindow::on_actionFT8_triggered()
   m_wideGraph->show();
   ui->rh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -350,11 +458,10 @@ void MainWindow::on_actionFT8_triggered()
   configActiveStations();
 }
 
-void MainWindow::on_actionJT4_triggered()
+void MainWindow::setupJT4()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("JT4"));
-  QTimer::singleShot (50, this, [=] {
+  scheduleModeRefresh (50, QStringLiteral ("JT4"), [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
   });
@@ -367,8 +474,6 @@ void MainWindow::on_actionJT4_triggered()
   WSPR_config(false);
   switch_mode (Modes::JT4);
   m_TRperiod=60.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -391,7 +496,7 @@ void MainWindow::on_actionJT4_triggered()
     ui->sbFtol->setValue (m_settings->value ("Ftol_JT4", 50).toInt());
     m_nSubMode=m_settings->value("SubMode_JT4",0).toInt();
     ui->sbSubmode->setValue(m_settings->value("SubMode_JT4",0).toInt());
-    QTimer::singleShot (50, this, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
+    scheduleModeRefresh (50, QStringLiteral ("JT4"), [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
     m_bShMsgs=m_settings->value("ShMsgs_JT4",false).toBool();
     ui->cbShMsgs->setChecked(m_bShMsgs);
   } else {
@@ -419,9 +524,8 @@ void MainWindow::on_actionJT4_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionJT9_triggered()
+void MainWindow::setupJT9()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("JT9"));
   m_mode="JT9";
   if(m_specOp==SpecOp::HOUND) {
@@ -437,7 +541,7 @@ void MainWindow::on_actionJT9_triggered()
     ui->sbFtol->setValue (m_settings->value ("Ftol_JT9", 50).toInt());
     m_nSubMode=m_settings->value("SubMode",0).toInt();
     ui->sbSubmode->setValue(m_nSubMode);
-    QTimer::singleShot (50, this, [=] {
+    scheduleModeRefresh (50, QStringLiteral ("JT9"), [=] {
       on_sbTR_valueChanged (ui->sbTR->value());
       on_sbSubmode_valueChanged(ui->sbSubmode->value());
     });
@@ -479,8 +583,6 @@ void MainWindow::on_actionJT9_triggered()
       }
   }
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -509,16 +611,14 @@ void MainWindow::on_actionJT9_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionJT65_triggered()
+void MainWindow::setupJT65()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("JT65"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionJT65_triggered();});
-  QTimer::singleShot (50, this, [=] {
+  scheduleModeRefresh (50, QStringLiteral ("JT65"), [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
   });
-  on_actionJT9_triggered();
+  setupJT9();
   m_mode="JT65";
   m_jt65ClearAveragesPending = true;
   if(m_specOp==SpecOp::HOUND) {
@@ -529,8 +629,6 @@ void MainWindow::on_actionJT65_triggered()
   WSPR_config(false);
   switch_mode (Modes::JT65);
   m_TRperiod=60.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -555,7 +653,7 @@ void MainWindow::on_actionJT65_triggered()
     ui->sbFtol->setValue (m_settings->value ("Ftol_JT65", 50).toInt());
     m_nSubMode=m_settings->value("SubMode_JT65",0).toInt();
     ui->sbSubmode->setValue(m_settings->value("SubMode_JT65",0).toInt());
-    QTimer::singleShot (50, this, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
+    scheduleModeRefresh (50, QStringLiteral ("JT65"), [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
     m_bShMsgs=m_settings->value("ShMsgs_JT65",false).toBool();
     ui->cbShMsgs->setChecked(m_bShMsgs);
   } else {
@@ -591,12 +689,10 @@ void MainWindow::on_actionJT65_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionQ65_triggered()
+void MainWindow::setupQ65()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("Q65"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionQ65_triggered();});
-  QTimer::singleShot (50, this, [=] {
+  scheduleModeRefresh (50, QStringLiteral ("Q65"), [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
   });
@@ -618,10 +714,11 @@ void MainWindow::on_actionQ65_triggered()
   ui->sbTR->values ({15, 30, 60, 120, 300});
   // restore last used parameters
   ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());
+  m_TRperiod=ui->sbTR->value();
   ui->sbFtol->setValue (m_settings->value ("Ftol_Q65", 50).toInt());
   ui->sbSubmode->setValue(m_settings->value("SubMode_Q65",0).toInt());
   m_nSubMode=ui->sbSubmode->value();
-  QTimer::singleShot (50, this, [=] {
+  scheduleModeRefresh (50, QStringLiteral ("Q65"), [=] {
     on_sbTR_valueChanged (ui->sbTR->value());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
   });
@@ -646,8 +743,6 @@ void MainWindow::on_actionQ65_triggered()
                     ModeUiControl::Respond, ModeUiControl::AutoClearAverage,
                     ModeUiControl::MaxDrift});
   setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
 
   m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
@@ -672,9 +767,8 @@ void MainWindow::on_actionQ65_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionJTTY_triggered()
+void MainWindow::setupJTTY()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   bool const enteringJtty = m_mode != "JTTY";
   noteTxModeChange (QStringLiteral ("JTTY"));
   on_stopButton_clicked();
@@ -698,7 +792,7 @@ void MainWindow::on_actionJTTY_triggered()
   m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   if (enteringJtty)
     {
-      QTimer::singleShot (50, this, [=] {
+      scheduleModeRefresh (50, QStringLiteral ("JTTY"), [=] {
         ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
         ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
       });
@@ -725,14 +819,11 @@ void MainWindow::on_actionJTTY_triggered()
   ui->actionQuickDecode->setEnabled(false);
   ui->actionDeepestDecode->setEnabled(false);
   setup_status_bar (false);
-  monitor(true);
 }
 
-void MainWindow::on_actionMSK144_triggered()
+
+bool MainWindow::setupMSK144()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  m_hsymStop=105;
-  m_TRperiod=ui->sbTR->value();
   if(SpecOp::EU_VHF < m_specOp) {
 // We are rejecting the requested mode change, so re-check the old mode
     if("FT8"==m_mode) ui->actionFT8->setChecked(true);
@@ -749,8 +840,10 @@ void MainWindow::on_actionMSK144_triggered()
     ui->actionMSK144->setChecked(false);
     MessageBox::warning_message (this, tr ("Improper mode"),
        "MSK144 not available if Fox, Hound, Field Day, FT Roundup, WW Digi. or ARRL Digi contest is selected.");
-    return;
+    return false;
   }
+  m_hsymStop=105;
+  m_TRperiod=ui->sbTR->value();
   noteTxModeChange (QStringLiteral ("MSK144"));
   m_mode="MSK144";
   if(m_specOp==SpecOp::HOUND) {
@@ -770,12 +863,17 @@ void MainWindow::on_actionMSK144_triggered()
   ui->sbTR->values ({5, 10, 15, 30});
   // restore last used parameters
   if (!programStart) {
-    if (m_currentBand=="2m") ui->sbTR->setValue (m_msk144_tr2);
-    else if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_msk144_tr6);
+    auto const request = m_modeEntries.activeRequest ();
+    auto const frequency = request && request->frequency
+      ? *request->frequency : m_operatingFrequency.rx ();
+    auto const band = m_config.bands ()->find (frequency);
+    if (band=="2m") ui->sbTR->setValue (m_msk144_tr2);
+    else if (band=="6m" or band=="4m") ui->sbTR->setValue (m_msk144_tr6);
     else ui->sbTR->setValue (m_msk144_tr);
   }
+  m_TRperiod=ui->sbTR->value();
   setTxFirstModeEnabled (true);
-  QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
+  scheduleModeRefresh (50, QStringLiteral ("MSK144"), [=] {on_sbTR_valueChanged (ui->sbTR->value());});
   ui->sbFtol->setValue (m_settings->value ("Ftol_MSK144", 50).toInt());   // restore last used parameter
   m_bShMsgs=m_settings->value("ShMsgs_MSK144",false).toBool();
   ui->cbShMsgs->setChecked(m_bShMsgs);
@@ -787,8 +885,6 @@ void MainWindow::on_actionMSK144_triggered()
   ui->RxFreqSpinBox->setMaximum(1600);
   ui->RxFreqSpinBox->setSingleStep(10);
   setDecodeHeadings("  UTC   dB    T Freq    " + tr ("Message"), "  UTC   dB    T Freq    " + tr ("Message"));
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -818,12 +914,11 @@ void MainWindow::on_actionMSK144_triggered()
     ui->labDXped->setText(t0);
     on_contest_log_action_triggered();
   }
-  if(!(programStart or m_operatingFrequency.rx () == 0)) m_msk144basefreq = m_operatingFrequency.rx ();  // MSK144 QSY
+  return true;
 }
 
-void MainWindow::on_actionWSPR_triggered()
+void MainWindow::setupWSPR()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("WSPR"));
   m_mode="WSPR";
   if(m_specOp==SpecOp::HOUND) {
@@ -833,8 +928,6 @@ void MainWindow::on_actionWSPR_triggered()
   WSPR_config(true);
   switch_mode (Modes::WSPR);
   m_TRperiod=120.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -858,12 +951,11 @@ void MainWindow::on_actionWSPR_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionEcho_triggered()
+void MainWindow::setupEcho()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
   noteTxModeChange (QStringLiteral ("Echo"));
   int nd=int(m_ndepth&3);
-  on_actionJT4_triggered();
+  setupJT4();
   // Don't allow decoding depth to be changed just because Echo mode was entered:
   if(nd==1) ui->actionQuickDecode->setChecked (true);
   if(nd==2) ui->actionMediumDecode->setChecked (true);
@@ -876,8 +968,6 @@ void MainWindow::on_actionEcho_triggered()
   }
   ui->actionEcho->setChecked(true);
   m_TRperiod=3.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
@@ -902,27 +992,15 @@ void MainWindow::on_actionEcho_triggered()
   fast_config(false);
   ui->sbEchoAvg->values ({1, 2, 5, 10, 20, 50, 100});
   statusChanged();
-  monitor(false);  //Don't auto-start Monitor in Echo mode.
-
-  // Ensure that the correct frequency is set and displayed
-  QTimer::singleShot (500, this, [=] {
-    auto const& row = m_config.frequencies ()->best_working_frequency (m_operatingFrequency.rx ());
-    Frequency frequency;
-    if (workingFrequencyAt (row, frequency)
-        && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic))
-      {
-        ui->bandComboBox->setCurrentIndex (row);
-        requestBandChange (frequency, FrequencyRequestOrigin::Automatic);
-      }
-    if (m_monitoring) ui->monitorButton->click();
-  });
 }
 
-void MainWindow::on_actionFreqCal_triggered()
+void MainWindow::setupFreqCal()
 {
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
+  auto const request = m_modeEntries.activeRequest ();
+  auto const rx_audio = request && request->retune == ModeEntry::RetunePolicy::Preserve
+    ? ui->RxFreqSpinBox->value () : 1500;
   noteTxModeChange (QStringLiteral ("FreqCal"));
-  on_actionJT9_triggered();
+  setupJT9();
   m_mode="FreqCal";
   if(m_specOp==SpecOp::HOUND) {
     m_config.setSpecial_None();
@@ -933,16 +1011,19 @@ void MainWindow::on_actionFreqCal_triggered()
   m_wideGraph->setMode(m_mode);
   ui->sbTR->values ({5, 10, 15, 30});
   on_sbTR_valueChanged (ui->sbTR->value());
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   }
   initializeFFT(6912);
   m_hsymStop=((int(m_TRperiod/0.288))/8)*8;
-  m_frequency_list_fcal_iter = m_config.frequencies ()->begin ();
-  ui->RxFreqSpinBox->setValue(1500);
+  {
+    QSignalBlocker const primary {ui->RxFreqSpinBox};
+    QSignalBlocker const secondary {ui->RxFreqSpinBox_2};
+    ui->RxFreqSpinBox->setValue(rx_audio);
+    ui->RxFreqSpinBox_2->setValue(rx_audio);
+    m_wideGraph->setRxFreq(rx_audio);
+  }
   setup_status_bar (true);
 //                               18:15:47      0  1  1500  1550.349     0.100    3.5   10.2
   ui->lh_decodes_headings_label->setText("  UTC      Freq CAL Offset  fMeas       DF     Level   S/N");

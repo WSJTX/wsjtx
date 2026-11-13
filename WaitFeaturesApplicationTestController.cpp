@@ -131,8 +131,7 @@ bool WaitFeaturesApplicationTestController::startReception (
   window_->m_operatingFrequency = OperatingFrequency {14074000};
   window_->m_operatingFrequency.requestNominal (14074000, {}, false);
   window_->m_freqNominalPeriod = 14074000;
-  window_->m_currentBand = window_->m_config.bands ()->find (14074000);
-  window_->m_currentBandPeriod = window_->m_currentBand;
+  window_->m_currentBandPeriod = window_->nominalRxBand ();
   window_->m_dateTimeSeqStart = QDateTime {QDate {2026, 11, 8}, QTime {12, 0}, Qt::UTC};
   window_->m_diskData = false;
   window_->m_tune = false;
@@ -797,7 +796,7 @@ bool WaitFeaturesApplicationTestController::msk144Scenarios ()
   auto const& retained = *window_->m_waitCallAttempt;
   if (!require (retained.generation == attempt.generation && window_->m_waitCallTimeoutOwner == owner
                 && retained.call == window_->m_hisCall && retained.mode == window_->m_mode
-                && retained.band == window_->m_currentBand && retained.period == window_->m_TRperiod
+                && retained.band == window_->nominalRxBand () && retained.period == window_->m_TRperiod
                 && retained.period == window_->ui->sbTR->value ()
                 && retained.receivedPeriod == callingPeriod,
                 "Settings changed the MSK144 attempt or its mode/period preconditions.")) return false;

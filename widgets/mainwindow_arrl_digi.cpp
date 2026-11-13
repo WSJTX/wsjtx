@@ -118,13 +118,13 @@ void MainWindow::ARRL_Digi_Display()
 
       QString bands=m_activeCall[deCall].bands;
       bool bWorkedOnBand=false;
-      if(m_currentBand=="160m" and bands.mid(0,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="80m"  and bands.mid(1,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="40m"  and bands.mid(2,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="20m"  and bands.mid(3,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="15m"  and bands.mid(4,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="10m"  and bands.mid(5,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="6m"   and bands.mid(6,1)!=".") bWorkedOnBand=true;
+      if(nominalRxBand ()=="160m" and bands.mid(0,1)!=".") bWorkedOnBand=true;
+      if(nominalRxBand ()=="80m"  and bands.mid(1,1)!=".") bWorkedOnBand=true;
+      if(nominalRxBand ()=="40m"  and bands.mid(2,1)!=".") bWorkedOnBand=true;
+      if(nominalRxBand ()=="20m"  and bands.mid(3,1)!=".") bWorkedOnBand=true;
+      if(nominalRxBand ()=="15m"  and bands.mid(4,1)!=".") bWorkedOnBand=true;
+      if(nominalRxBand ()=="10m"  and bands.mid(5,1)!=".") bWorkedOnBand=true;
+      if(nominalRxBand ()=="6m"   and bands.mid(6,1)!=".") bWorkedOnBand=true;
 
       if((bReady or !m_ActiveStationsWidget->readyOnly()) and !bWorkedOnBand) {
         int az=m_activeCall[deCall].az;

@@ -397,8 +397,8 @@ void MainWindow::readSettings()
     m_msk144_tr6=m_settings->value ("TRPeriod_MSK144_6m", 15).toInt();
     m_msk144_tr=m_settings->value ("TRPeriod_MSK144", 30).toInt();
     QTimer::singleShot (3000, [=] {
-      if (m_currentBand=="2m") ui->sbTR->setValue (m_msk144_tr2);
-      else if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_msk144_tr6);
+      if (nominalRxBand ()=="2m") ui->sbTR->setValue (m_msk144_tr2);
+      else if (nominalRxBand ()=="6m" or nominalRxBand ()=="4m") ui->sbTR->setValue (m_msk144_tr6);
       else ui->sbTR->setValue (m_msk144_tr);
     });
   }

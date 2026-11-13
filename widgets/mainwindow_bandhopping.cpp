@@ -15,7 +15,6 @@
 #include <QTimer>
 
 extern bool m_displayBand;
-extern bool keep_frequency;
 
 namespace
 {
@@ -170,23 +169,9 @@ void MainWindow::bandHopping(bool user_requested)
     }
   if (entry.mode_ == BandHopMode::CustomQRG)
     {
-      keep_frequency = true;
-      if (!RigFrequencyChangePolicy::requestWhileMonitoring (
-            m_monitoring,
-            [this] (bool state) {monitor (state);},
-            [this, frequency, origin] {
-              return requestNominalFrequencyChange (frequency, origin);
-            }))
-        {
-          keep_frequency = false;
-          skip_hop ();
-          return;
-        }
-      m_displayBand = false;
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-      setXIT (ui->TxFreqSpinBox->value ());
-      on_actionFT8_triggered ();
       ui->pbBandHopping->setChecked (true);
+      requestModeChange ({"FT8", ModeEntry::RetunePolicy::Explicit, frequency, false,
+                         origin == FrequencyRequestOrigin::User});
       startIndex = hop_index + 1;
       return;
     }
@@ -202,35 +187,8 @@ void MainWindow::bandHopping(bool user_requested)
       return;
     }
 
-  auto const previous_frequency = m_operatingFrequency.rx ();
-  if (!RigFrequencyChangePolicy::requestWhileMonitoring (
-        m_monitoring,
-        [this] (bool state) {monitor (state);},
-        [this, requested_frequency, origin] {
-          return requestNominalFrequencyChange (requested_frequency, origin);
-        }))
-    {
-      skip_hop ();
-      return;
-    }
-
-  m_displayBand = false;
-  keep_frequency = true;
-  switch (entry.mode_)
-    {
-    case BandHopMode::FT8: on_actionFT8_triggered (); break;
-    case BandHopMode::FT4: on_actionFT4_triggered (); break;
-    case BandHopMode::MSK144: on_actionMSK144_triggered (); break;
-    case BandHopMode::CustomQRG: Q_UNREACHABLE ();
-    }
-  keep_frequency = false;
-
-  auto const& row = m_config.frequencies ()->best_working_frequency (requested_frequency);
-  if (row >= 0) ui->bandComboBox->setCurrentIndex (row);
-  m_bandEdited = true;
-  applyBandChange (requested_frequency, previous_frequency);
-  setXIT (ui->TxFreqSpinBox->value ());
-  m_wideGraph->setRxBand (m_config.bands ()->find (requested_frequency));
   ui->pbBandHopping->setChecked (true);
+  requestModeChange ({Modes::name (mode), ModeEntry::RetunePolicy::Explicit, requested_frequency, true,
+                     origin == FrequencyRequestOrigin::User});
   startIndex = hop_index + 1;
 }

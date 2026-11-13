@@ -1136,7 +1136,8 @@ wsjt_enable_qt_automoc (wsjtx)
 target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
 if (WSJT_ENABLE_TESTS)
-  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp WaitFeaturesApplicationTestController.cpp)
+  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp WaitFeaturesApplicationTestController.cpp
+    OperatingBandApplicationTestController.cpp)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
   add_test (NAME test_wsjtx_best_sp
     COMMAND $<TARGET_FILE:wsjtx> --best-sp-test --rig-name CTEST-BEST-SP)
@@ -1150,6 +1151,20 @@ if (WSJT_ENABLE_TESTS)
   set_tests_properties (test_wsjtx_wait_features PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_wait_features"
     LABELS "gui;qso;integration"
+    PROCESSORS 1
+    TIMEOUT 30)
+  add_test (NAME test_wsjtx_operating_band
+    COMMAND $<TARGET_FILE:wsjtx> --operating-band-test --rig-name CTEST-OPERATING-BAND)
+  set_tests_properties (test_wsjtx_operating_band PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_operating_band"
+    LABELS "gui;frequency-control;integration"
+    PROCESSORS 1
+    TIMEOUT 60)
+  add_test (NAME test_wsjtx_operating_band_echo_startup
+    COMMAND $<TARGET_FILE:wsjtx> --operating-band-test --rig-name CTEST-OPERATING-BAND-ECHO)
+  set_tests_properties (test_wsjtx_operating_band_echo_startup PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_operating_band_echo_startup;WSJT_OPERATING_BAND_START_ECHO=1"
+    LABELS "gui;frequency-control;integration"
     PROCESSORS 1
     TIMEOUT 30)
 endif ()
