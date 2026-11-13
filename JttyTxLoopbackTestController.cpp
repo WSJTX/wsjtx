@@ -529,6 +529,8 @@ bool JttyTxLoopbackTestController::verifyCancellationPaths ()
       m_checkingCancellation = true;
       if (useEscape)
         {
+          // As under a bare X server: no active window and no focus widget.
+          QApplication::setActiveWindow (nullptr);
           QKeyEvent escape {QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier};
           QCoreApplication::sendEvent (m_window, &escape);
         }

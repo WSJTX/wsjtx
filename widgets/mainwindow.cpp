@@ -3655,7 +3655,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     QMainWindow::keyPressEvent (e);
   }
   if(m_mode=="JTTY") {
-    bool handled = jtty_key_struck(e);
+    bool handled = jtty_key_struck(e, this);
     if(handled) return;
   }
   int n;
@@ -4265,7 +4265,7 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
           }
 
         auto const key_event = static_cast<QKeyEvent *> (event);
-        if (jtty_key_struck (key_event)) return true;
+        if (jtty_key_struck (key_event, object)) return true;
         if (object == ui->Tx_Message && !key_event->isAutoRepeat ()
             && key_event->key () == Qt::Key_K
             && key_event->modifiers () == (Qt::ControlModifier | Qt::ShiftModifier))

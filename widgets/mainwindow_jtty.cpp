@@ -1237,15 +1237,17 @@ void MainWindow::jttyDecodeAgainAtSample(quint64 reception, qint64 sample)
 
 // Called for every key press in the main window and the Wide Graph, before
 // the focused widget sees it. Returns true when the key has been consumed.
-bool MainWindow::jtty_key_struck(QKeyEvent * e)
+bool MainWindow::jtty_key_struck(QKeyEvent * e, QObject * receiver)
 {
   if (m_mode != "JTTY") return false;
-  // Child dialogs (Log QSO, message boxes) also pass through MainWindow's filter.
-  auto * const focusWidget = QApplication::focusWidget ();
-  auto * const window = focusWidget ? focusWidget->window () : QApplication::activeWindow ();
+  // Child dialogs (Log QSO, message boxes) also pass through MainWindow's
+  // filter. Judge by the receiver: focus and active window can both be null.
+  auto * const target = qobject_cast<QWidget *> (receiver);
+  auto * const window = target ? target->window () : nullptr;
   if (window != this && window != m_wideGraph.data ()) return false;
+  auto * const focusWidget = QApplication::focusWidget ();
   auto const focus = Jtty::classifyKeyFocus (
-    focusWidget, ui->Tx_Message, {ui->dxCallEntry, ui->jttyCallEntry, ui->jttySentEntry, ui->jttyReceivedEntry});
+    focusWidget ? focusWidget : target, ui->Tx_Message, {ui->dxCallEntry, ui->jttyCallEntry, ui->jttySentEntry, ui->jttyReceivedEntry});
   // A set without a QSO sequence (Chat) sends the Tx box, so Enter in DX Call
   // keeps its usual meaning there.
   bool const enterSends = ui->cbJttyEnterSends->isChecked ()
@@ -1348,7 +1350,7 @@ namespace
     : public QObject
   {
   public:
-    JttyKeyForwarder (std::function<bool (QKeyEvent *)> handler, QObject * parent)
+    JttyKeyForwarder (std::function<bool (QKeyEvent *, QObject *)> handler, QObject * parent)
       : QObject {parent}
       , m_handler {std::move (handler)}
     {
@@ -1358,12 +1360,12 @@ namespace
     bool eventFilter (QObject * object, QEvent * event) override
     {
       if (event->type () == QEvent::KeyPress
-          && m_handler (static_cast<QKeyEvent *> (event))) return true;
+          && m_handler (static_cast<QKeyEvent *> (event), object)) return true;
       return QObject::eventFilter (object, event);
     }
 
   private:
-    std::function<bool (QKeyEvent *)> m_handler;
+    std::function<bool (QKeyEvent *, QObject *)> m_handler;
   };
 }
 
@@ -1372,7 +1374,8 @@ namespace
 void MainWindow::installJttyWideGraphKeyFilter()
 {
   auto * forwarder = new JttyKeyForwarder {
-    [this] (QKeyEvent * e) { return jtty_key_struck (e); }, m_wideGraph.data ()};
+    [this] (QKeyEvent * e, QObject * receiver) { return jtty_key_struck (e, receiver); },
+    m_wideGraph.data ()};
   m_wideGraph->installEventFilter (forwarder);
   for (auto * child : m_wideGraph->findChildren<QWidget *> ()) {
     child->installEventFilter (forwarder);
