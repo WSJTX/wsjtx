@@ -173,8 +173,8 @@ automatically prevents working dupes. Information for this
 worked-before decision is obtained from from file `wsjtx.log` in the
 log directory. Stations in this file will be ignored by *Wait and
 Pounce* and when you are calling CQ. To reset everything, click on
-*File | Erase wsjtx.log*. Do not accidentally erase the file
-`wsjtx_log.adi`, which contains your primary logbook!
+*File | Erase wsjtx.log*. Do not accidentally click *File | Erase ADIF
+log*, which erases your primary logbook (by default `wsjtx_log.adi`)!
 
 *Wait and Pounce* works in concert with the *Filters* feature. For
 example, you can wait for CQ messages containing a certain prefix,

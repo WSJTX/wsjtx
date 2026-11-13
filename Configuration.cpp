@@ -850,6 +850,10 @@ private:
   void update_PWR_and_SWR_control_availability ();
   void apply_color_preset (DecodeHighlightingModel::ColorPreset const& preset);
   void reset_highlighting (QString const& confirmation, DecodeHighlightingModel::HighlightItems const& items);
+  QString adif_log_path (QString const& custom) const
+  {
+    return custom.isEmpty () ? writable_file_path (writeable_data_dir_, "wsjtx_log.adi") : custom;
+  }
   Q_SLOT void on_move_highlighting_up_push_button_clicked (bool = false);
   Q_SLOT void on_move_highlighting_down_push_button_clicked (bool = false);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
@@ -1021,6 +1025,8 @@ private:
   bool highlight_by_mode_;
   bool best_sp_new_dxcc_ {true};
   bool best_sp_new_call_on_band_ {true};
+  QString adif_log_file_;
+  QString next_adif_log_file_;
   QStringList supplemental_history_files_;
   QStringList next_supplemental_history_files_;
   HistoryFolders supplemental_history_folders_;
@@ -1412,6 +1418,7 @@ DecodeHighlightingModel const& Configuration::decode_highlighting () const {retu
 bool Configuration::highlight_by_mode () const {return m_->highlight_by_mode_;}
 bool Configuration::best_sp_new_dxcc () const {return m_->best_sp_new_dxcc_;}
 bool Configuration::best_sp_new_call_on_band () const {return m_->best_sp_new_call_on_band_;}
+QString Configuration::adif_log_file_path () const {return m_->adif_log_path (m_->adif_log_file_);}
 QStringList const& Configuration::supplemental_history_files () const {return m_->supplemental_history_files_;}
 HistoryFolders const& Configuration::supplemental_history_folders () const {return m_->supplemental_history_folders_;}
 void Configuration::set_worked_before_status (QString const& status, QString const& errors)
@@ -3509,6 +3516,7 @@ void Configuration::impl::initialize_models ()
   ui_->highlight_by_mode_check_box->setChecked (highlight_by_mode_);
   ui_->best_sp_new_dxcc_check_box->setChecked (best_sp_new_dxcc_);
   ui_->best_sp_new_call_on_band_check_box->setChecked (best_sp_new_call_on_band_);
+  next_adif_log_file_ = adif_log_file_;
   next_supplemental_history_files_ = supplemental_history_files_;
   next_supplemental_history_folders_ = supplemental_history_folders_;
   ui_->only_fields_check_box->setChecked (highlight_only_fields_);
@@ -3819,9 +3827,12 @@ void Configuration::impl::read_settings ()
   best_sp_new_dxcc_ = selection_setting ("BestSPNewDXCC", DecodeHighlightingModel::Highlight::DXCC);
   best_sp_new_call_on_band_ = selection_setting ("BestSPNewCallOnBand", DecodeHighlightingModel::Highlight::CallBand);
   highlight_by_mode_ = settings_->value("HighlightByMode", false).toBool ();
+  adif_log_file_ = settings_->value ("AdifLogFile").toString ().trimmed ();
+  if (!adif_log_file_.isEmpty ())
+    adif_log_file_ = QDir::cleanPath (writeable_data_dir_.absoluteFilePath (adif_log_file_));
   supplemental_history_files_ = WorkedBefore::normalize_history_files (
     settings_->value ("SupplementalHistoryFiles").toStringList (),
-    writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
+    adif_log_path (adif_log_file_));
   supplemental_history_folders_.clear ();
   auto const history_folder_count = settings_->beginReadArray ("SupplementalHistoryFolders");
   for (int index = 0; index < history_folder_count; ++index)
@@ -4133,6 +4144,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("HighlightByMode", highlight_by_mode_);
   settings_->setValue ("BestSPNewDXCC", best_sp_new_dxcc_);
   settings_->setValue ("BestSPNewCallOnBand", best_sp_new_call_on_band_);
+  settings_->setValue ("AdifLogFile", adif_log_file_);
   settings_->setValue ("SupplementalHistoryFiles", supplemental_history_files_);
   settings_->beginWriteArray ("SupplementalHistoryFolders", supplemental_history_folders_.size ());
   for (int index = 0; index < supplemental_history_folders_.size (); ++index)
@@ -5068,11 +5080,16 @@ void Configuration::impl::accept ()
       Q_EMIT self_->ui_language_preference_changed (language);
     }
 
+  auto const adif_log_file = next_adif_log_file_.trimmed ().isEmpty ()
+    ? QString {} : QDir::cleanPath (writeable_data_dir_.absoluteFilePath (next_adif_log_file_.trimmed ()));
   auto history_files = WorkedBefore::normalize_history_files (
-    next_supplemental_history_files_, writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
+    next_supplemental_history_files_, adif_log_path (adif_log_file));
   auto history_folders = WorkedBefore::normalize_history_folders (next_supplemental_history_folders_);
-  bool history_changed = history_files != supplemental_history_files_
+  bool history_changed = adif_log_file != adif_log_file_
+    || history_files != supplemental_history_files_
     || history_folders != supplemental_history_folders_;
+  adif_log_file_ = adif_log_file;
+  next_adif_log_file_ = adif_log_file;
   supplemental_history_files_ = history_files;
   next_supplemental_history_files_ = history_files;
   supplemental_history_folders_ = history_folders;
@@ -5162,6 +5179,9 @@ void Configuration::impl::on_rescan_log_push_button_clicked (bool /*clicked*/)
 
 void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked*/)
 {
+  // These outlive the dialog's child widgets, whose handlers refer to them.
+  QString primary_path = adif_log_path (next_adif_log_file_);
+  QString chosen_log = next_adif_log_file_;
   QDialog dialog {this};
   dialog.setWindowTitle (tr ("Worked-before history sources"));
   auto outer_layout = new QVBoxLayout {&dialog};
@@ -5175,12 +5195,10 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   auto explanation = new QLabel {tr ("The WSJT-X log receives new QSOs. Additional ADIF sources supply read-only "
                                     "worked-before history; contacts are not copied into the WSJT-X log. "
                                     "Aliases of the primary log refer to the same writable file. "
-                                    "Source changes take effect after Settings OK."), &dialog};
+                                    "Source and log file changes take effect after Settings OK."), &dialog};
   explanation->setWordWrap (true);
   layout->addWidget (explanation);
 
-  auto const primary_path = logbook_ ? logbook_->path ()
-    : writable_file_path (writeable_data_dir_, "wsjtx_log.adi");
   auto primary_label = new QLabel {tr ("WSJT-X log (new QSOs are saved here):"), &dialog};
   primary_label->setWordWrap (true);
   layout->addWidget (primary_label);
@@ -5196,9 +5214,31 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   primary_folder->setAccessibleName (tr ("Open writable log folder"));
   primary_layout->addWidget (primary_folder);
   layout->addLayout (primary_layout);
-  connect (primary_folder, &QPushButton::clicked, &dialog, [primary_path] {
-      QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {primary_path}.absolutePath ()));
+  connect (primary_folder, &QPushButton::clicked, &dialog, [primary] {
+      QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {QDir::fromNativeSeparators (primary->text ())}.absolutePath ()));
     });
+  auto log_actions = new QHBoxLayout;
+  auto change_log = new QPushButton {tr ("Change &log..."), &dialog};
+  auto default_log = new QPushButton {tr ("Default log"), &dialog};
+  change_log->setObjectName ("adif_log_change");
+  default_log->setObjectName ("adif_log_default");
+  change_log->setAccessibleName (tr ("Choose a different writable ADIF log file"));
+  default_log->setAccessibleName (tr ("Use the default writable ADIF log file"));
+  for (auto button : {change_log, default_log})
+    {
+      button->setAutoDefault (false);
+      button->setFocusPolicy (Qt::StrongFocus);
+    }
+  default_log->setEnabled (!chosen_log.isEmpty ());
+  log_actions->addWidget (change_log);
+  log_actions->addWidget (default_log);
+  log_actions->addStretch ();
+  layout->addLayout (log_actions);
+  change_log->setToolTip (tr ("Choose the file that receives new QSOs. To share one log between WSJT-X instances, "
+                             "choose the same file in each. Appends use a lock file next to it, so that folder must be writable."));
+  default_log->setToolTip (tr ("Go back to wsjtx_log.adi in the log directory."));
+  change_log->setAccessibleDescription (change_log->toolTip ());
+  default_log->setAccessibleDescription (default_log->toolTip ());
 
   auto sources_label = new QLabel {tr ("Additional ADIF &history sources (read-only):"), &dialog};
   sources_label->setWordWrap (true);
@@ -5213,7 +5253,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   sources->setMinimumHeight (sources->fontMetrics ().lineSpacing () * 4 + sources->frameWidth () * 2);
   sources->setMaximumHeight (140);
   sources_label->setBuddy (sources);
-  auto update_item = [primary_path] (QListWidgetItem * item) {
+  auto update_item = [&primary_path] (QListWidgetItem * item) {
       auto const path = item->data (Qt::UserRole).toString ();
       auto const is_folder = item->data (Qt::UserRole + 1).toBool ();
       auto label = (is_folder ? tr ("Folder") : tr ("File")) + " — " + QDir::toNativeSeparators (path);
@@ -5273,7 +5313,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   recursive->setFocusPolicy (Qt::StrongFocus);
   layout->addWidget (recursive);
   auto discovery_hint = new QLabel {tr ("All .adi and .adif files in added folders are used for worked-before history. "
-                                       "New files are included at startup or when you rescan."), &dialog};
+                                       "New files in added folders are included at startup, when you rescan, or when another change triggers a reload."), &dialog};
   discovery_hint->setWordWrap (true);
   auto actions = new QHBoxLayout;
   auto add = new QPushButton {tr ("Add &files..."), &dialog};
@@ -5325,7 +5365,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
           update_item (selected.first ());
         }
     });
-  connect (add, &QPushButton::clicked, &dialog, [&dialog, sources, hint, append_item, selected_paths, primary_path] {
+  connect (add, &QPushButton::clicked, &dialog, [&dialog, sources, hint, append_item, selected_paths, &primary_path] {
       auto paths = QFileDialog::getOpenFileNames (&dialog, tr ("Add read-only ADIF history"),
                                                  QFileInfo {primary_path}.absolutePath (),
                                                  tr ("ADIF files (*.adi *.adif);;All files (*)"));
@@ -5341,7 +5381,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
       sources->setFocus ();
     });
   connect (add_folder, &QPushButton::clicked, &dialog,
-           [&dialog, sources, hint, append_item, selected_folders, primary_path] {
+           [&dialog, sources, hint, append_item, selected_folders, &primary_path] {
       auto const path = QFileDialog::getExistingDirectory (&dialog, tr ("Add read-only ADIF history folder"),
                                                           QFileInfo {primary_path}.absolutePath (),
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
@@ -5411,6 +5451,36 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   rescan->setToolTip (tr ("Scan the currently saved sources. This dialog's source changes take effect after Settings OK."));
   connect (rescan, &QPushButton::clicked, &dialog, [this] { on_rescan_log_push_button_clicked (false); });
   layout->addWidget (rescan);
+  auto apply_log_choice = [this, primary, default_log, sources, update_item, hint, &primary_path, &chosen_log] {
+      auto const previous = primary_path;
+      primary_path = adif_log_path (chosen_log);
+      if (primary_path != previous)
+        hint->setText (tr ("The previous log is no longer read for worked-before status unless you add it as a history source."));
+      primary->setText (QDir::toNativeSeparators (primary_path));
+      primary->setCursorPosition (0);
+      default_log->setEnabled (!chosen_log.isEmpty ());
+      for (int row = 0; row != sources->count (); ++row) update_item (sources->item (row));
+    };
+  connect (change_log, &QPushButton::clicked, &dialog, [this, &dialog, primary, apply_log_choice, &chosen_log] {
+      auto const path = QFileDialog::getSaveFileName (&dialog, tr ("Writable WSJT-X ADIF log"),
+                                                     QDir::fromNativeSeparators (primary->text ()),
+                                                     tr ("ADIF files (*.adi *.adif);;All files (*)"),
+                                                     nullptr, QFileDialog::DontConfirmOverwrite);
+      if (path.isEmpty ()) return;
+      auto absolute = [] (QString const& file) {return QDir::cleanPath (QFileInfo {file}.absoluteFilePath ());};
+      chosen_log = absolute (path);
+      auto const default_path = absolute (adif_log_path ({}));
+#ifdef Q_OS_WIN
+      if (chosen_log.compare (default_path, Qt::CaseInsensitive) == 0) chosen_log.clear ();
+#else
+      if (chosen_log == default_path) chosen_log.clear ();
+#endif
+      apply_log_choice ();
+    });
+  connect (default_log, &QPushButton::clicked, &dialog, [apply_log_choice, &chosen_log] {
+      chosen_log.clear ();
+      apply_log_choice ();
+    });
   auto buttons = new QDialogButtonBox {QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog};
   buttons->button (QDialogButtonBox::Ok)->setFocusPolicy (Qt::StrongFocus);
   buttons->button (QDialogButtonBox::Cancel)->setFocusPolicy (Qt::StrongFocus);
@@ -5424,6 +5494,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   sources->setFocus ();
   if (dialog.exec () == QDialog::Accepted)
     {
+      next_adif_log_file_ = chosen_log;
       next_supplemental_history_files_ = selected_paths ();
       next_supplemental_history_folders_ = selected_folders ();
     }

@@ -24,11 +24,18 @@ public:
   ~WorkedBefore ();
 
   Q_SLOT void reload ();
+  // How often the log and history source files are checked for changes made by
+  // other programs or other WSJT-X instances; zero or less disables the check.
+  // Tests use this to make the check quick or to turn it off.
+  void set_source_poll_interval (int milliseconds);
   Q_SLOT bool add (QString const& call
                    , QString const& grid
                    , QString const& band
                    , QString const& mode
                    , QByteArray const& ADIF_record);
+
+  // Remove the log file (under the same lock as appends) and rescan.
+  bool erase_log ();
 
   QString const& path () const;
   QString const& load_status () const;
