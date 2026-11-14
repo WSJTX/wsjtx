@@ -80,6 +80,15 @@ set_tests_properties (test_jtty_adjacent_decode PROPERTIES
   TIMEOUT 180
 )
 
+add_executable (test_jtty_wide_channel_search test_jtty_wide_channel_search.f90)
+target_include_directories (test_jtty_wide_channel_search PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_wide_channel_search)
+add_test (NAME test_jtty_wide_channel_search COMMAND test_jtty_wide_channel_search)
+set_tests_properties (test_jtty_wide_channel_search PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_wide_channel_search: all checks passed"
+  TIMEOUT 180
+)
+
 add_executable (test_jtty_structured_decode
   test_jtty_structured_decode.f90
   jtty_cpp_n1mm_smoke.cpp)

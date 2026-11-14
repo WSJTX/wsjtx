@@ -720,9 +720,8 @@ contains
       use jtty_fec
       implicit none
       integer, parameter             :: MAXCAND = 100
-      ! Fixed channels tile the Wide Graph range at about the width channels
-      ! 1 and 2 had when they sat at 1350 and 1650 Hz. PLACEHOLDERS: neither
-      ! value has been chosen on evidence (see the branch's first commit).
+      ! Fixed channels tile nfa..nfb, two candidates each per pass. MAXCHAN
+      ! keeps their 4*MAXCHAN plus channel 0's 16 within MAXCAND.
       real, parameter                :: CHANWIDTH = 300.0
       integer, parameter             :: MAXCHAN = 16
       integer, parameter             :: NSYNC_SYM  = 13
@@ -904,7 +903,7 @@ contains
 
       ! Phase A: channel 0 gets first claim on every signal -- runs its own
       ! full up-to-2-pass sweep to completion, accumulating n_ch0_ok across
-      ! both passes, before channels 1/2 (Phase B) ever run.
+      ! both passes, before the fixed channels (Phase B) ever run.
       n_ch0_ok=0
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
@@ -914,7 +913,7 @@ contains
       enddo
 
       ! Channel 0 masks candidates privately, so an unchanged surface can
-      ! also serve channels 1/2. Their suppression modifies s0 directly.
+      ! also serve the fixed channels. Their suppression modifies s0 directly.
       any_subtracted=.false.
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
@@ -1080,6 +1079,9 @@ contains
       else
          fwid=0.5*real(nfb-nfa)/real(nchan)
          fc=real(nfa)+(2*ichan-1)*fwid
+         ! Overlap past the sync peak's width, so a signal just over a
+         ! boundary is found at its peak rather than the lower channel's edge.
+         fwid=fwid+10.0
       endif
       call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
            ubound(s0,1)-2,ja,jb,usable)
@@ -1100,7 +1102,7 @@ contains
 
       if(ichan.ne.0 .and. n_ch0_ok.gt.0) then
          ! Erase only channel 0's actual successful-decode neighborhoods
-         ! (not its whole nominal band) so channels 1/2 can't rediscover
+         ! (not its whole nominal band) so the fixed channels can't rediscover
          ! them, while staying free to catch what channel 0 missed.
          do i=1,n_ch0_ok
             if(max(ja,ja_ch0_ok(i)) .le. min(jb,jb_ch0_ok(i))) &
@@ -1114,7 +1116,7 @@ contains
          if(ichan.eq.0) then
             ! Channel 0 uses a private mask instead of zeroing s0
             ! directly, so candidates that never pass the decode gate
-            ! don't eat into channels 1/2's shared search surface.
+            ! don't eat into the fixed channels' shared search surface.
             nsloc=maxloc(s0(ja:jb,0:nstep_search), &
                  mask=mask0(ja:jb,0:nstep_search))
             mask0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),  &
