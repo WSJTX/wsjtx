@@ -15213,11 +15213,12 @@ void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
   int maxAge=m_ActiveStationsWidget->maxAge();
 
   // Worked = in the ADIF log (and history sources) on the current band, any
-  // mode, and only on the chosen days (UTC) if any.
+  // mode, and only on the chosen days (UTC) if any. With no known band,
+  // nothing counts as worked (an empty band would match every band).
   QString const band = activeStationsBand ();
   auto const days = m_ActiveStationsWidget->wantedDays ();
   auto const worked = [&] (QString const& call) {
-    return m_logBook.call_worked_on_band (call, band, days);
+    return !band.isEmpty () && m_logBook.call_worked_on_band (call, band, days);
   };
 
   m_ActiveStationsWidget->setClickOK(false);
@@ -15270,20 +15271,24 @@ void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
 }
 
 // Band for the Q65 Active Stations worked checks: the current band, or the
-// band of the Rx dial frequency before one has been set.
+// band of the Rx dial frequency before one has been set; empty when neither
+// is a known band (out of band).
 QString MainWindow::activeStationsBand() const
 {
-  return !m_currentBand.isEmpty () ? m_currentBand
+  auto band = !m_currentBand.isEmpty () ? m_currentBand
     : m_config.bands ()->find (m_operatingFrequency.rx ());
+  return band == Bands::oob () ? QString {} : band;
 }
 
 // Q65 "QSOs:" = different stations worked on this band (ADIF log and history
-// sources, any mode), only on the Active Stations' chosen days if any.
+// sources, any mode), only on the Active Stations' chosen days if any; 0 with
+// no known band.
 void MainWindow::showQ65QsoCount()
 {
   if (!m_ActiveStationsWidget || m_mode != "Q65") return;
-  m_ActiveStationsWidget->setRate (m_logBook.calls_worked_on_band (
-    activeStationsBand (), m_ActiveStationsWidget->wantedDays ()));
+  auto const band = activeStationsBand ();
+  m_ActiveStationsWidget->setRate (band.isEmpty () ? 0
+    : m_logBook.calls_worked_on_band (band, m_ActiveStationsWidget->wantedDays ()));
 }
 
 // -------------------------- Code for FT8 DXpedition Mode ---------------------------
