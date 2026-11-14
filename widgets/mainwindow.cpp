@@ -5113,6 +5113,8 @@ void MainWindow::read_wav_file (QString const& fname)
   if (jttyDrainInProgress()) return;
   if (m_wav_load_coordinator.isLoading ()) return;
 
+  m_pendingModeRetune.cancel ();
+
   if (m_mode=="FT8" && (m_multithreadFT8 or m_operatingFrequency.rx ()>45000000)) {
     m_nDecodes=0;                  // reset the decodes counter
     ndecodes_label.setText("");
