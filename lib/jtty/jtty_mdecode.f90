@@ -1519,7 +1519,7 @@ contains
          if( cand(i)%decoded .eq. cand(ncand)%decoded .and. &
          abs(cand(i)%tsync - cand(ncand)%tsync).lt. 0.032 ) dupe=.true.
       enddo
-      ! A channel-1/2 candidate matching a frame channel 0 already decoded
+      ! A fixed-channel candidate matching a frame channel 0 already decoded
       ! this call is sync-estimation noise, not a distinct signal. 3.0 Hz
       ! tracks jtty_peakup's coherent-combining frequency precision.
       if(ichan.ne.0) then
