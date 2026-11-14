@@ -154,6 +154,7 @@ void Modulator::startAt (TxEvidence::TxRequest request, AudioOutputSink * stream
   m_bFastMode=request.fast_mode;
   m_TRperiod=request.tr_period_s;
   m_tuning=request.tuning;
+  m_silent=request.silent;
   m_cwId=request.cw_id;
   m_cwLevel = false;
   m_fastCwActive = false;
@@ -507,6 +508,7 @@ qint64 Modulator::readDataAt (char * data, qint64 maxSize, qint64 utcMs)
 
 qint16 Modulator::postProcessSample (qint16 sample) const
 {
+  if (m_silent) return 0;       // footswitch TX: operator supplies the modulation
   if (m_addNoise) {  // Test frame, we'll add noise
     qint32 s = m_fac * (gran () + sample * m_snr / 32768.0);
     if (s > std::numeric_limits<qint16>::max ()) {

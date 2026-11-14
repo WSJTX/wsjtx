@@ -227,6 +227,12 @@ public:
   int watchdog () const;
   int tune_watchdog_time () const;
   bool tune_watchdog () const;
+
+  // Footswitch manual TX input on a serial port status line
+  bool footswitch_enabled () const;
+  QString footswitch_port () const;
+  int footswitch_pin () const;  // 0=CTS 1=DSR 2=DCD 3=RI
+  bool footswitch_port_clash () const; // footswitch port is also the CAT or PTT port
   bool TX_messages () const;
   bool split_mode () const;
   bool enable_VHF_features () const;
@@ -538,6 +544,8 @@ public:
   Q_SIGNAL void tx_inhibit_command (QString const& controller, quint32 ttl_ms,
                                     QString const& station) const;
   Q_SIGNAL void tx_inhibit_invalid (quint64 count) const;
+  // CAT or PTT is about to be opened on the port the live footswitch uses
+  Q_SIGNAL void footswitch_port_needed () const;
   Q_SIGNAL void transceiver_closing (bool failed) const;
   Q_SIGNAL void leavingSettings (bool) const;
 

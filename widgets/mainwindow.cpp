@@ -1545,6 +1545,50 @@ MainWindow::MainWindow(QDir const& temp_directory,
   tuneATU_Timer.setSingleShot(true);
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
 
+  // Checked before every open of the footswitch port, including reconnects:
+  // on Linux a /dev/serial/by-id/... name only resolves once its adapter is
+  // plugged in, so a clash can appear after the check in Settings.
+  m_footswitch.setPortGuard ([this] (QString const&) {
+      return m_config.footswitch_port_clash ()
+        ? tr ("it is also the CAT or PTT port") : QString {};
+    });
+  connect (&m_footswitch, &FootswitchInput::pressed, this, &MainWindow::footswitchPressed);
+  connect (&m_footswitch, &FootswitchInput::released, this, &MainWindow::footswitchReleased);
+  connect (&m_footswitch, &FootswitchInput::error, this, [this] (QString const& reason) {
+      statusBar ()->showMessage (reason); // stays until the next message
+    });
+  connect (&m_footswitch, &FootswitchInput::waitingForRelease, this, [this] {
+      statusBar ()->showMessage (tr ("Footswitch is closed: release it to arm it"));
+    });
+  connect (&m_footswitch, &FootswitchInput::readyAfterRelease, this, [this] {
+      showStatusMessage (tr ("Footswitch released: ready"));
+    });
+  m_footswitchLimitTimer.setSingleShot (true);
+  m_footswitchLimitTimer.setInterval (footswitch_tx_limit_ms);
+  connect (&m_footswitchLimitTimer, &QTimer::timeout, this, [this] {
+      if (m_footswitchTune && m_tune)
+        {
+          stopFootswitchTx ();
+          m_footswitchLimitReached = true;
+          statusBar ()->showMessage (tr ("Footswitch transmission stopped after 3 minutes: "
+                                         "release and press again to transmit"));
+        }
+    });
+  connect (&m_footswitch, &FootswitchInput::restored, this, [this] (QString const& port) {
+      showStatusMessage (tr ("Footswitch active again on %1").arg (port));
+    });
+  // Settings is about to open CAT or PTT (e.g. Test CAT) on the port the
+  // running footswitch holds: let go of it first. It is started again
+  // when Settings closes (applyFootswitchSettings refuses a clashing port).
+  connect (&m_config, &Configuration::footswitch_port_needed, this, [this] {
+      if (!(m_footswitch.isActive () || m_footswitch.isRetrying ())) return;
+      stopFootswitchTx ();
+      m_footswitch.stop ();
+      m_footswitchPortReleased = true;
+      statusBar ()->showMessage (tr ("Footswitch released: its port is needed for CAT or PTT"));
+    });
+  applyFootswitchSettings ();
+
   killFileTimer.setSingleShot(true);
   connect(&killFileTimer, &QTimer::timeout, this, &MainWindow::killWaveFile);
 
@@ -1917,6 +1961,8 @@ void MainWindow::on_the_minute ()
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
 {
+  m_footswitch.disconnect (this);
+  m_footswitch.stop ();
   m_config.set_frequency_activity_provider ({});
   PerformanceTrace::Phase destructor {"mainwindow.destructor_body"};
   // wav12 shares FFT state that main() releases after this window is destroyed.
@@ -3391,6 +3437,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   auto psk_on = m_config.spot_to_psk_reporter ();
   if (QDialog::Accepted == m_config.exec ()) {
     cancelPendingFt8Decode ("settings changed");
+    applyFootswitchSettings ();
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
       m_baseCall = Radio::base_callsign (m_config.my_callsign ());
@@ -3539,6 +3586,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   } else {
     keep_frequency = false;
     inSettings = false;
+    if (m_footswitchPortReleased) applyFootswitchSettings ();  // Test CAT/PTT released its port
   }
 }
 
@@ -8532,7 +8580,7 @@ void MainWindow::guiUpdate()
       }
     }
 
-    if (m_tune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+    if (m_tune && !m_footswitchTune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
         QString remtime;
         remtime = QString::asprintf("%.0f s",tuneATU_Timer.remainingTime()/1000.0);
         ui->tuneButton->setText(remtime);  // display Tune watchdog countdog
@@ -13025,6 +13073,10 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 
 void MainWindow::end_tuning ()
 {
+  // Footswitch TX never switched to the Tune power, so must not record
+  // or restore it. Captured here because the stop below clears flags.
+  auto const footswitch_tune = m_footswitchPowerBypass;
+  m_footswitchPowerBypass = false;
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   if (m_mode == "WSPR" || m_mode == "FST4W")
     {
@@ -13036,7 +13088,7 @@ void MainWindow::end_tuning ()
       on_stopTxButton_clicked ();
     }
   // we're turning off so remember our Tune pwr setting and reset to Tx pwr
-  if (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory()) {
+  if (!footswitch_tune && (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory())) {
     auto const& curBand = ui->bandComboBox->currentText();
     m_pwrBandTuneMemory[curBand] = ui->outAttenuation->value(); // remember our Tune pwr
     m_PwrBandSetOK = false;
@@ -13047,11 +13099,105 @@ void MainWindow::end_tuning ()
 
 void MainWindow::stop_tuning ()
 {
+  m_footswitchTune = false;
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   on_tuneButton_clicked(false);
   ui->tuneButton->setChecked (false);
   m_bTxTime=false;
   m_tune=false;
+}
+
+void MainWindow::applyFootswitchSettings ()
+{
+  stopFootswitchTx ();           // drop any footswitch TX first
+  m_footswitch.stop ();
+  m_footswitchPortReleased = false;
+  if (!m_config.footswitch_enabled ()) return;
+  auto const port = m_config.footswitch_port ();
+  if (port.isEmpty ())
+    {
+      statusBar ()->showMessage (tr ("Footswitch: no port selected"));
+      return;
+    }
+  if (m_config.footswitch_port_clash ())
+    {
+      // Opening it would assert DTR on the CAT or PTT port.
+      statusBar ()->showMessage (tr ("Footswitch not started: %1 is also the CAT or PTT port").arg (port));
+      return;
+    }
+  if (m_footswitch.start (port, static_cast<FootswitchInput::Pin> (m_config.footswitch_pin ())))
+    {
+      showStatusMessage (tr ("Footswitch active on %1").arg (port));
+    }
+}
+
+void MainWindow::footswitchPressed ()
+{
+  if (!m_footswitch.isPressed ()) return; // released before a retry fired
+  // A previous Tune may still be ending (Tune-off delay, PTT release
+  // delay); wait for it to finish so quick re-presses between overs work.
+  bool const ending = tuneButtonTimer.isActive () || ptt0Timer.isActive ();
+  if (ending && !m_auto && m_footswitchRetries < 40)
+    {
+      ++m_footswitchRetries;
+      QTimer::singleShot (50, this, &MainWindow::footswitchPressed);
+      return;
+    }
+  m_footswitchRetries = 0;
+  // Act only when idle; never interrupt a digital transmission or a
+  // Tune started from the button.
+  if (m_tune || m_auto || m_transmitting || m_tx_when_ready || g_iptt == 1)
+    {
+      if (!m_tune) showStatusMessage (tr ("Footswitch ignored while WSJT-X is transmitting"));
+      return;
+    }
+  m_footswitchTune = true;
+  ui->tuneButton->setChecked (true);
+  on_tuneButton_clicked (true); // same path as clicking Tune
+  if (m_tune)
+    {
+      m_footswitchPowerBypass = true;
+      ui->tuneButton->setText (tr ("Foot TX"));
+      m_footswitchLimitTimer.start ();
+    }
+  else
+    {
+      m_footswitchTune = false; // Tune was refused (e.g. Tx blocked)
+      ui->tuneButton->setChecked (false);
+    }
+}
+
+void MainWindow::footswitchReleased ()
+{
+  stopFootswitchTx ();
+  if (m_footswitchLimitReached)
+    {
+      m_footswitchLimitReached = false;
+      showStatusMessage (tr ("Footswitch released: ready"));
+    }
+}
+
+void MainWindow::stopFootswitchTx ()
+{
+  m_footswitchLimitTimer.stop ();
+  // Decide from our own state, not the button: a rig tune can uncheck the
+  // button while footswitch TX is still running.
+  if (!(m_footswitchTune && m_tune)) return;
+  // Must not be lost: logging a QSO sets 'blocked' for 50 ms, which makes
+  // on_tuneButton_clicked() return early, and the 3-minute limit timer is
+  // already stopped. Stopping TX overrides it.
+  QScopedValueRollback<bool> unblock {blocked, false};
+  ui->tuneButton->setChecked (false);
+  on_tuneButton_clicked (false); // same path as clicking Tune off
+  // A quick tap can press and release between two guiUpdate () ticks, so
+  // PTT has not been asserted yet. Tune-off leaves m_tune set for its
+  // 250 ms delay, and the next tick would then key the transmitter with
+  // the pedal already up, so end it now instead.
+  if (0 == g_iptt && tuneButtonTimer.isActive ())
+    {
+      tuneButtonTimer.stop ();
+      end_tuning ();
+    }
 }
 
 void MainWindow::stopTuneATU()
@@ -13499,6 +13645,7 @@ void MainWindow::transmit (double snr)
   request.queue_epoch = jttyTx ? m_jttyTxLifecycle.epoch ()
                                : TxAudioQueueEpoch::invalid ();
   request.tuning = m_tune;
+  request.silent = m_tune && m_footswitchTune;
   int const cwSymbols = qBound (0, int (icw[0]), NUM_CW_SYMBOLS - 1);
   request.cw_id.reserve (cwSymbols);
   for (int i = 1; i <= cwSymbols; ++i) request.cw_id.append (int (icw[i]));
@@ -13738,7 +13885,10 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
 {
   QString tt_str;
   qreal dBAttn {a / 10.};
-  if (m_tune && m_config.pwrBandTuneMemory()) {
+  // Footswitch TX runs at the transmit drive, so slider moves during it
+  // must not change the saved Tune power.
+  bool const tuneDrive = m_tune && !m_footswitchPowerBypass;
+  if (tuneDrive && m_config.pwrBandTuneMemory()) {
     tt_str = tr ("Tune drive ");
   } else {
     tt_str = tr ("Transmit drive ");
@@ -13748,10 +13898,10 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
     QToolTip::showText (QCursor::pos (), tt_str, ui->outAttenuation);
   }
   QString curBand = ui->bandComboBox->currentText();
-  if (m_PwrBandSetOK && !m_tune && m_config.pwrBandTxMemory ()) {
+  if (m_PwrBandSetOK && !tuneDrive && m_config.pwrBandTxMemory ()) {
     m_pwrBandTxMemory[curBand] = a; // remember our Tx pwr
   }
-  if (m_PwrBandSetOK && m_tune && m_config.pwrBandTuneMemory()) {
+  if (m_PwrBandSetOK && tuneDrive && m_config.pwrBandTuneMemory()) {
     m_pwrBandTuneMemory[curBand] = a; // remember our Tune pwr
   }
   // Updating attenuation for tuning is done in stop_tuning

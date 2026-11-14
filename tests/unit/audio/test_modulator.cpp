@@ -128,6 +128,38 @@ private slots:
         }
   }
 
+  void silentTuneKeepsRunningWithZeroSamples_data ()
+  {
+    QTest::addColumn<double> ("snr");
+    QTest::newRow ("clean") << 99.0;
+    QTest::newRow ("noise") << -6.0;
+  }
+
+  void silentTuneKeepsRunningWithZeroSamples ()
+  {
+    QFETCH (double, snr);
+    itone[0] = 0;
+    auto audible = tuneRequest ();
+    audible.snr_db = snr;
+    auto silent = audible;
+    silent.silent = true;
+    ScriptedOutput audibleOutput, silentOutput;
+    Modulator reference {48000, 60}, modulator {48000, 60};
+    reference.startAt (audible, &audibleOutput, 0);
+    modulator.startAt (silent, &silentOutput, 0);
+
+    auto const expected = readFrames (reference, 4099);
+    auto const pcm = readFrames (modulator, 4099);
+    QCOMPARE (pcm.size (), expected.size ()); // same timing as an audible Tune
+    QVERIFY (modulator.isActive ());          // still transmitting
+    auto const samples = reinterpret_cast<qint16 const *> (pcm.constData ());
+    for (int i = 0; i < 4099; ++i) QCOMPARE (samples[i], qint16 {0});
+
+    modulator.stop (true);                    // a later normal Tune is audible again
+    modulator.startAt (audible, &silentOutput, 0);
+    QCOMPARE (readFrames (modulator, 4099), expected);
+  }
+
   void tuneFrequencyChangeAndRestart ()
   {
     itone[0] = 0;

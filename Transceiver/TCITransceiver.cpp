@@ -1727,6 +1727,7 @@ void TCITransceiver::do_modulator_start (TxEvidence::TxRequest const& request)
   m_bFastMode=request.fast_mode;
   m_TRperiod=request.tr_period_s;
   m_tuning=request.tuning;
+  m_silent=request.silent;
   m_cwId=request.cw_id;
   unsigned delay_ms=1000;
 
@@ -2060,6 +2061,7 @@ quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, quint32
 
 qint16 TCITransceiver::postProcessSample (qint16 sample) const
 {
+  if (m_silent) return 0;       // footswitch TX: operator supplies the modulation
   if (m_addNoise) {  // Test frame, we'll add noise
     qint32 s = m_fac * (gran () + sample * m_snr / 32768.0);
     if (s > std::numeric_limits<qint16>::max ()) {

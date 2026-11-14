@@ -191,6 +191,7 @@ set (wsjtx_CXXSRCS
   DecoderProcessSupervisor.cpp
   ShmemDecoderBackend.cpp
   OperatingFrequency.cpp
+  FootswitchInput.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
   widgets/SpecOpLabel.cpp

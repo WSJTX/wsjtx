@@ -164,6 +164,13 @@ add_executable (test_beacon_tx_controller
 target_link_libraries (test_beacon_tx_controller Qt5::Test)
 add_test (NAME test_beacon_tx_controller COMMAND test_beacon_tx_controller)
 
+add_executable (test_footswitch_input
+  test_footswitch_input.cpp
+  ${CMAKE_SOURCE_DIR}/FootswitchInput.cpp
+)
+target_link_libraries (test_footswitch_input Qt5::Test Qt5::SerialPort)
+add_test (NAME test_footswitch_input COMMAND test_footswitch_input)
+
 add_executable (test_round_robin_selection
   test_round_robin_selection.cpp
   ${CMAKE_SOURCE_DIR}/widgets/RoundRobinSelection.cpp
