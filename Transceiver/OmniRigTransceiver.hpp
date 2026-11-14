@@ -42,6 +42,8 @@ public:
   void do_tx_frequency (Frequency, MODE, bool no_ignore) override;
   void do_mode (MODE) override;
   void do_ptt (bool on) override;
+  bool mode_readback_expected () const override;
+  void refresh_mode_observation () override;
 
 private:
   Q_SLOT void handle_COM_exception (int,  QString, QString, QString);

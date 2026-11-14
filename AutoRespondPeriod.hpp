@@ -20,6 +20,7 @@ public:
   void disarm();
 
   bool accepts(QDateTime const& decodePeriodStart) const;
+  bool canClaimFirst(QDateTime const& decodePeriodStart) const;
   bool claimFirst(QDateTime const& decodePeriodStart);
   AutoRespondPolicy policy() const;
 

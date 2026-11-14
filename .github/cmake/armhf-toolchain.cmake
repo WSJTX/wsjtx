@@ -42,8 +42,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
-# crosstool-NG uses a conventional sysroot layout. Debian keeps ARMHF
-# headers and start files in triplet-qualified directories instead.
+# Debian keeps target headers and start files in triplet-qualified directories.
 set(_wsjt_armhf_include "${WSJT_ARMHF_SYSROOT}/usr/include/${_wsjt_armhf_triplet}")
 set(_wsjt_armhf_lib "${WSJT_ARMHF_SYSROOT}/usr/lib/${_wsjt_armhf_triplet}")
 set(_wsjt_armhf_base_lib "${WSJT_ARMHF_SYSROOT}/lib/${_wsjt_armhf_triplet}")

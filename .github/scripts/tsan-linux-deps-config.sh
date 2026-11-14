@@ -3,7 +3,7 @@
 # Shared, pinned build tuple for Linux ThreadSanitizer dependencies.
 # shellcheck disable=SC2034
 
-TSAN_CACHE_EPOCH=1
+TSAN_CACHE_EPOCH=2
 TSAN_RUNTIME_BASE=ubuntu24.04
 TSAN_ARCH=x86_64
 
@@ -19,15 +19,16 @@ TSAN_QT_VERSION=5.15.18
 TSAN_QT_SOURCE_SHA256=cea1fbabf02455f3f0e8eaa839f5d6f45cdb56b62c8a83af5c1d00ac05f912ea
 TSAN_QT_SOURCE_URL="https://download.qt.io/archive/qt/5.15/${TSAN_QT_VERSION}/single/qt-everywhere-opensource-src-${TSAN_QT_VERSION}.tar.xz"
 
-TSAN_BOOST_VERSION=1.83.0
-TSAN_BOOST_SOURCE_SHA256=6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e
-TSAN_BOOST_SOURCE_URL="https://archives.boost.io/release/${TSAN_BOOST_VERSION}/source/boost_1_83_0.tar.bz2"
-
 TSAN_HAMLIB_REF=4.7.2
 TSAN_HAMLIB_COMMIT=40f63488fe0bd751b147f48d62fd217bf53713a0
 TSAN_HAMLIB_PATCH_COMMIT=141e1b19a0e2d65571e5b0783c43ab2615c0cdf7
 
 tsan_config_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=.github/scripts/boost-version.sh
+. "${tsan_config_dir}/boost-version.sh"
+TSAN_BOOST_VERSION=$BOOST_VERSION
+TSAN_BOOST_SOURCE_SHA256=$BOOST_SOURCE_SHA256
+TSAN_BOOST_SOURCE_URL=$BOOST_SOURCE_URL
 
 tsan_sha256_files() {
   local file digest hashes=
@@ -103,10 +104,17 @@ tsan_dependency_recipe_hash() {
       ;;
   esac
 
-  tsan_sha256_files \
+  local recipe_files=(
     "${tsan_config_dir}/tsan-linux-deps-config.sh" \
     "${tsan_config_dir}/${build_script}" \
     "${tsan_config_dir}/verify-tsan-deps-linux.sh"
+  )
+  if [ "$dependency" = boost ]; then
+    recipe_files+=("${tsan_config_dir}/boost-version.sh"
+                   "${tsan_config_dir}/boost-log-queue.patch"
+                   "${tsan_config_dir}/linux-boost-validation.sh")
+  fi
+  tsan_sha256_files "${recipe_files[@]}"
 }
 
 tsan_dependency_version() {

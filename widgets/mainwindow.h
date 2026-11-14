@@ -40,6 +40,7 @@
 #include <optional>
 
 class QHBoxLayout;
+class WaitFeaturesApplicationTestController;
 namespace DecoderIpc {class Session;}
 
 #include "DecodedGridHistory.hpp"
@@ -86,6 +87,8 @@ namespace DecoderIpc {class Session;}
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
+#include "DecodeOutputPlan.hpp"
+#include "BestSPController.hpp"
 #include "DecoderBackend.hpp"
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
@@ -169,6 +172,8 @@ class Cloudlog;
 
 #include "Audio/TxAudioQueue.hpp"
 #include "Modulator/JttyTxStream.hpp"
+#include "QsoCompletion.hpp"
+#include <deque>
 
 #ifdef WIN32
 class MMTTYIF;
@@ -208,6 +213,9 @@ public:
                       std::unique_ptr<AudioInputSource> audio_input_source = {},
                       std::unique_ptr<AudioOutputSink> sound_output = {},
                       QString decoder_data_path = {},
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+                      std::unique_ptr<DecoderBackend> decoder_backend = {},
+#endif
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -263,6 +271,7 @@ public:
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
   QString checkLiveAudioTestOutputFaults ();
+  QString checkQsoCompletionTest ();
   bool liveAudioTestJttyStreamActive () const
   {
     return m_jttyTxStream && m_jttyTxStream->isActive ();
@@ -344,6 +353,10 @@ public:
   void jttyDecodeAgainAtSample(quint64 reception, qint64 sample);
 
 private:
+#if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
+  friend class BestSPApplicationTestController;
+  friend class WaitFeaturesApplicationTestController;
+#endif
   enum class DecodeOwner
   {
     None,
@@ -418,6 +431,7 @@ private slots:
   void on_pb10G_clicked();
   void on_pb24G_clicked();
   void check_button_color();
+  void refreshWaitFeatureControls();
   void reset_transmit_controls_after_stop ();
   void stopWRTimeout();
   void stopWCTimeout();
@@ -465,6 +479,7 @@ private slots:
   void on_actionDecode_remaining_files_in_directory_triggered();
   void on_actionDelete_all_wav_files_in_SaveDir_triggered();
   void on_actionOpen_log_directory_triggered ();
+  void on_actionOpen_ADIF_log_folder_triggered ();
   void on_actionNone_triggered();
   void on_actionSave_all_triggered();
   void on_actionDefault_event_logging_triggered();
@@ -608,6 +623,7 @@ private slots:
   void on_outAttenuation_valueChanged (int);
   void rigOpen ();
   void handle_transceiver_update (Transceiver::TransceiverState const&);
+  void handleRadioModeControl (bool yielded, bool ready);
   void handle_transceiver_closing (bool failed);
   void handle_transceiver_failure (QString const& reason);
   void handle_leavingSettings();
@@ -690,13 +706,14 @@ private slots:
   void FoxReset(QString reason);
   void on_comboBoxHoundSort_activated (int index);
   void checkMSK144ContestType();
-  void on_pbBestSP_clicked();
+  void on_pbBestSP_toggled (bool checked);
   void on_RoundRobin_currentTextChanged(QString);
   void setTxMsg(int n);
   bool stdCall(QString const& w);
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
                          , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
                          , QString const& dx_grid, bool generate_messages);
+  void annotate_callsign (QString const& callsign, bool sort_order_provided, quint32 sort_order);
   void callSandP2(int nline);
   void qmapCallSandP(QMapDecodeRecord const& record, bool doubleClick);
   void refreshHoundQueueDisplay();
@@ -747,9 +764,18 @@ private:
   DecodedMessageReaction::ReactionDisposition processWaitReplyCall(
     DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
     bool * block_right_display = nullptr);
-  bool applyFiltering(const DecodedText& dt, bool& filtered);
+  bool applyFiltering(const DecodedText& dt, bool& filtered, DecodeClassification const * classification = nullptr);
+  DecodeOutputPlan::KeywordFilterDecision decodeFilterDecision (
+    DecodedText const&, bool initiallyFiltered, DecodeClassification const *) const;
+  void setBestSPArmed (bool armed, QString const& feedback = {});
+  void cancelAutomaticCQSelection ();
+  void selectTx6Message ();
+  enum class CompetingCQSelection {None, WaitAndCall, WaitAndPounce};
+  CompetingCQSelection competingCQSelection () const;
+  void cancelBestSPForCQSelection ();
+  void completeBestSP (quint64 backendRequest);
   void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
-                         bool& play_Wanted, bool& play_DXcall);
+                         bool& play_Wanted, bool& play_DXcall, DecodeClassification const * classification = nullptr);
   void cycleRespondMode();
   static DecodeAlertSound selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled, bool wantedAlertEnabled,
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
@@ -760,7 +786,9 @@ private:
   QString selectedTxMessage() const;
   AutoRespondPolicy autoRespondPolicy() const;
   bool pendingCqAutoRespondIntent() const;
-  void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
+  void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance,
+                              bool haveFSpread, float fSpread, bool bDisplayPoints,
+                              DecodeClassification const& classification);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt);
 
@@ -793,6 +821,19 @@ private:
   Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
 
 private:
+  enum class TxControlOrigin { Automatic, Local };
+  enum class TxEnableIntent { Ordinary, DecodedSelection };
+  bool canEnableAutoTx (TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary) const;
+  bool prepareAutoTxEnable (TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary);
+  bool installAutoTxEnabled (bool);
+  bool setAutoTxEnabled (bool, TxControlOrigin, TxEnableIntent = TxEnableIntent::Ordinary);
+  bool tryAutomaticSelection (DecodedText const&, bool * block_right_display = nullptr);
+  bool applyWaitReactionPlan (DecodedMessageReaction::QsoReactionPlan const&, DecodedText const&,
+                              bool * block_right_display);
+  void setTuneEnabled (bool, TxControlOrigin);
+  void startPendingRigTune ();
+  void cancelRigTune ();
+  void updateRadioModeStatus ();
   void set_mode (QString const& mode);
   void dispatchTxRequest (TxEvidence::TxRequest const& request);
   void beginTxEvidenceSession ();
@@ -820,6 +861,19 @@ private:
   bool rr73_tx4_allowed () const;
   bool send_rr73_for_tx4 () const;
   void set_rr73_tx4 (bool enabled);
+  void scheduleLogQso (bool automatic = true);
+  void showNextLogQso ();
+  void processLogRequests ();
+  void applyLogCompletionEffects (QsoLogRequest const&);
+  bool ownsQsoContact (QsoLogRequest const&) const;
+  QsoLogData captureLogQso ();
+  std::shared_ptr<QsoCompletion> currentQsoCompletion ();
+  bool repeatIsCurrent (std::shared_ptr<QsoCompletion> const&) const;
+  bool repeatContextIsCurrent (std::shared_ptr<QsoCompletion> const&) const;
+  void recordFinalConfirmation ();
+  void applyPendingQsoClear (std::shared_ptr<QsoCompletion> const&);
+  bool updateRepeatTransmission (QStringList const& messageParts);
+  void endQsoRepeat (QsoRepeatEnd, std::shared_ptr<QsoCompletion> context = {});
   void readWidebandDecodes();
   void refreshQmapActiveStations(QDateTime const& nowUtc);
   void configActiveStations();
@@ -1223,7 +1277,7 @@ private:
   bool    m_contestModeHintShown;
   bool    m_bWarnedSplit=false;
   bool    m_bTUmsg;
-  bool    m_bBestSPArmed=false;
+  BestSPController m_bestSP;
   bool    m_bOK_to_chk=false;
   bool    m_bSentReport=false;
   bool    m_discard_decoded_hounds_this_cycle=false;     // if something changes, like frequency, discard decoded messages that may be in-flight.
@@ -1257,6 +1311,8 @@ private:
 
   // labels in status bar
   QLabel tx_status_label;
+  bool m_radioModeStatusVisible {false};
+  bool m_pendingRigTune {false};
   bool m_tx_inhibited {false};
   QLabel config_label;
   QLabel mode_label;
@@ -1299,9 +1355,30 @@ private:
   QTimer m_guiTimer;
   QTimer stopWRTimer;               //Wait & Reply
   QTimer stopWCTimer;               //Wait & Call
+  QTimer m_pounceSelectionTimer;
+  struct WaitRetryContext
+  {
+    QString call;
+    QString mode;
+    QString band;
+    double period {0};
+    QDateTime receivedPeriod;
+    quint64 generation {0};
+    bool acknowledgeReply {true};
+  };
+  enum class WaitCallTimeoutOwner {None, WaitAndCall, Pounce};
+  WaitCallTimeoutOwner m_waitCallTimeoutOwner {WaitCallTimeoutOwner::None};
+  std::optional<WaitRetryContext> m_waitReplyAttempt;
+  std::optional<WaitRetryContext> m_waitCallAttempt;
+  quint64 m_waitRetryGeneration {0};
   QTimer ptt1Timer;                 //StartTx delay
   QTimer ptt0Timer;                 //StopTx delay
   QTimer logQSOTimer;
+  QTimer m_repeatDeadline;
+  bool m_processingLogRequests {false};
+  std::shared_ptr<QsoCompletion> m_qsoCompletion;
+  std::deque<QsoLogRequest> m_pendingLogQsos;
+  std::optional<QsoLogRequest> m_openLogQso;
   QTimer killFileTimer;
   QTimer tuneButtonTimer;
   QTimer rigTuneTimer;
@@ -1353,7 +1430,6 @@ private:
   QString m_nextGrid;
   QString m_fileDateTime;
   QString m_inQSOwith;
-  QString m_BestCQpriority;
   QString m_deCall;
   QString m_deGrid;
   QString m_freeTextMsg;
@@ -1445,7 +1521,6 @@ private:
   QDateTime m_dateTimeLastTX;
   QDateTime m_dateTimeSentTx3;
   QDateTime m_dateTimeRcvdRR73;
-  QDateTime m_dateTimeBestSP;
   QDateTime m_dateTimeSeqStart;        //Nominal start time of Rx sequence about to be decoded
 
   std::unique_ptr<DecoderBackend> m_decoderBackend;
@@ -1600,10 +1675,16 @@ private:
   DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
     Qt::KeyboardModifiers modifiers,
     DecodedMessageReaction::SelectionOrigin selection_origin) const;
-  void applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
+  bool applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
                             DecodedText const& message, bool * block_right_display = nullptr);
-  void applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
+  bool applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
                               DecodedText const& message, bool * block_right_display);
+  void startWaitRetry (bool reply, int milliseconds, QDateTime const& receivedPeriod,
+                       bool acknowledge = true,
+                       WaitCallTimeoutOwner owner = WaitCallTimeoutOwner::WaitAndCall);
+  void cancelWaitRetry (bool reply);
+  void acknowledgeWaitReply (DecodedText const&, QDateTime const&);
+  void invalidateWaitRetries ();
   void showContestHint(DecodedMessageReaction::ContestHint hint);
   void refreshQsoPane(DecodedText const& message);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);

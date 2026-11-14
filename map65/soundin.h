@@ -25,6 +25,8 @@ protected:
 
 public:
   std::atomic_bool m_dataSinkBusy;
+  // A stream whose start failed is never closed; see run().
+  std::atomic_bool m_streamLeftOpen {false};
 
   SoundInThread():
     quitExecution(false),

@@ -1,24 +1,14 @@
 subroutine chkcrc14a(decoded,nbadcrc)
+  use, intrinsic :: iso_fortran_env, only: int8
+  use crc, only: crc14
+  implicit none
+  integer(int8), intent(in) :: decoded(91)
+  integer, intent(out) :: nbadcrc
+  integer(int8) :: crc_bits(96)
 
-  use crc
-  integer*1 decoded(91)
-  integer*1, target:: i1Dec8BitBytes(12)
-  character*91 cbits
-
-! Write decoded bits into cbits: 77-bit message plus 14-bit CRC
-  write(cbits,1000) decoded
-1000 format(91i1)
-  read(cbits,1001) i1Dec8BitBytes
-1001 format(12b8)
-  read(cbits,1002) ncrc14                         !Received CRC14
-1002 format(77x,b14)
-
-  i1Dec8BitBytes(10)=iand(i1Dec8BitBytes(10),transfer(128+64+32+16+8,0_1))
-  i1Dec8BitBytes(11:12)=0
-  icrc14=crc14(c_loc(i1Dec8BitBytes),12)          !CRC14 computed from 77 msg bits
-
-  nbadcrc=1
-  if(ncrc14.eq.icrc14) nbadcrc=0
-  
-  return
+  ! CRC division includes 5 zero padding bits between the payload and check bits.
+  crc_bits=0
+  crc_bits(1:77)=decoded(1:77)
+  crc_bits(83:96)=decoded(78:91)
+  nbadcrc=merge(0,1,crc14(crc_bits).eq.0)
 end subroutine chkcrc14a

@@ -2,13 +2,13 @@ program test_map65_symspec_contract
   use iso_fortran_env, only: int8, real32
   use, intrinsic :: ieee_arithmetic, only: ieee_quiet_nan, ieee_value
   use datcom_ptrs_mod, only: dd, ss, savg
-  use npar_ptrs_mod, only: set_runtime_params
+  use npar_ptrs_mod, only: set_runtime_params, symspec_fft_size
   use symspec_mod, only: symspec
   implicit none
 
   integer, parameter :: bins(5) = [4000, 4300, 4600, 4900, 5200]
   real(real32), parameter :: pi = 3.14159265358979323846_real32
-  integer :: rate, fft_size, i, k, ihsym, nzap, nkhz
+  integer :: rate, fft_size, expected_fft_size, i, k, ihsym, nzap, nkhz
   integer(int8) :: lstrong(0:1023)
   character(len=16) :: rate_text
   real(real32), allocatable :: waterfall(:)
@@ -18,8 +18,15 @@ program test_map65_symspec_contract
 
   call get_command_argument(1, rate_text)
   read(rate_text, *) rate
-  call require(rate == 96000 .or. rate == 192000, 'supported sample rate')
-  fft_size = 32768 * (rate / 96000)
+  call require(any(rate == [96000, 128000, 192000, 256000]), 'supported sample rate')
+  fft_size = symspec_fft_size(rate)
+  select case (rate)
+  case (96000);  expected_fft_size = 32768
+  case (128000); expected_fft_size = 65536
+  case (192000); expected_fft_size = 65536
+  case (256000); expected_fft_size = 131072
+  end select
+  call require(fft_size == expected_fft_size, 'symspec FFT size for this sample rate')
   call set_runtime_params(rate, fft_size, 56 * rate)
   allocate(dd(4, fft_size + 1024), ss(4, 1, fft_size), savg(4, fft_size), waterfall(fft_size))
   dd = 0.0

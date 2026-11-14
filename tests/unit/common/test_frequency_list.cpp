@@ -100,6 +100,10 @@ void TestFrequencyList::json_round_trip ()
   auto const document = QJsonDocument::fromJson (file.readAll ());
   QCOMPARE (document.object ()["frequencies"].toArray ()[0].toObject ()["frequency"].toString (),
             QStringLiteral ("1.000001"));
+  QCOMPARE (document.object ()["frequencies"].toArray ()[0].toObject ()["region"].toString (),
+            QStringLiteral ("Region 1"));
+  QCOMPARE (document.object ()["frequencies"].toArray ()[0].toObject ()["mode"].toString (),
+            QStringLiteral ("FreqCal"));
   QVERIFY (file.seek (0));
   auto const actual = WorkingFrequencies::from_json_file (&file);
   QCOMPARE (actual.size (), expected.size ());

@@ -212,10 +212,7 @@ void LogQSO::storeSettings () const
   m_settings->endGroup ();
 }
 
-void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString mode,
-                        QString const& rptSent, QString const& rptRcvd,
-                        QDateTime const& dateTimeOn, QDateTime const& dateTimeOff,
-                        Radio::Frequency dialFreq, bool noSuffix, QString xSent, QString xRcvd)
+void LogQSO::initLogQSO(QsoLogData const& data)
 {
 
   if (!isHidden ())
@@ -225,6 +222,12 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
       activateWindow ();
       return;
     }
+  m_data = data;
+  auto const& hisCall = data.call;
+  auto const& hisGrid = data.grid;
+  auto mode = data.mode;
+  auto const& rptSent = data.rptSent;
+  auto const& rptRcvd = data.rptRcvd;
   QPushButton* okBtn = ui->buttonBox->button(QDialogButtonBox::Ok);
   okBtn->setAutoDefault(true);
   okBtn->setDefault(true);
@@ -273,20 +276,17 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), t);
   }
-  if(noSuffix and mode.mid(0,3)=="JT9") mode="JT9";
+  if(data.noSuffix and mode.mid(0,3)=="JT9") mode="JT9";
   if(m_config->log_as_RTTY() and mode.mid(0,3)=="JT9") mode="RTTY";
   ui->mode->setText(mode);
   ui->sent->setText(rptSent);
   ui->rcvd->setText(rptRcvd);
-  ui->start_date_time->setDateTime (dateTimeOn);
-  ui->end_date_time->setDateTime (dateTimeOff);
-  m_dialFreq=dialFreq;
-  m_myCall=m_config->my_callsign();
-  m_myGrid=m_config->my_grid();
-  ui->band->setText (m_config->bands ()->find (dialFreq));
-  ui->loggedOperator->setText(m_config->opCall());
-  ui->exchSent->setText (xSent);
-  ui->exchRcvd->setText (xRcvd);
+  ui->start_date_time->setDateTime (data.dateTimeOn);
+  ui->end_date_time->setDateTime (data.dateTimeOff);
+  ui->band->setText (m_config->bands ()->find (data.dialFreq));
+  ui->loggedOperator->setText(data.operatorCall);
+  ui->exchSent->setText (data.xSent);
+  ui->exchRcvd->setText (data.xRcvd);
   if (!ui->cbPropMode->isChecked ())
     {
       ui->comboBoxPropMode->setCurrentIndex (-1);
@@ -298,47 +298,47 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
     }
 
   using SpOp = Configuration::SpecialOperatingActivity;
-  auto special_op = m_config->special_op_id ();
+  auto special_op = data.specOp;
 
   // put contest name in comments
   if (SpOp::NONE != special_op && SpOp::HOUND != special_op && SpOp::FOX != special_op
-      && m_config->Individual_Contest_Name() && !m_config->report_in_comments()
-      && m_config->Contest_Name() !="" && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
-    QString Contest_Name = (m_config->Contest_Name() + " Contest");
+      && data.individualContestName && !m_config->report_in_comments()
+      && !data.contestName.isEmpty() && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
+    QString Contest_Name = (data.contestName + " Contest");
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
-  if (SpOp::NA_VHF == special_op && !m_config->Individual_Contest_Name() && !m_config->report_in_comments()
+  if (SpOp::NA_VHF == special_op && !data.individualContestName && !m_config->report_in_comments()
       && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
     QString Contest_Name = ("NA VHF Contest");
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
-  if (SpOp::EU_VHF == special_op && !m_config->Individual_Contest_Name() && !m_config->report_in_comments()
+  if (SpOp::EU_VHF == special_op && !data.individualContestName && !m_config->report_in_comments()
       && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
     QString Contest_Name = ("EU VHF Contest");
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
-  if (SpOp::WW_DIGI == special_op && !m_config->Individual_Contest_Name() && !m_config->report_in_comments()
+  if (SpOp::WW_DIGI == special_op && !data.individualContestName && !m_config->report_in_comments()
       && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
     QString Contest_Name = ("WW Digi Contest");
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
-  if (SpOp::FIELD_DAY == special_op && !m_config->Individual_Contest_Name() && !m_config->report_in_comments()
+  if (SpOp::FIELD_DAY == special_op && !data.individualContestName && !m_config->report_in_comments()
       && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
     QString Contest_Name = ("ARRL Field Day");
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
-  if (SpOp::RTTY == special_op && !m_config->Individual_Contest_Name() && !m_config->report_in_comments()
+  if (SpOp::RTTY == special_op && !data.individualContestName && !m_config->report_in_comments()
       && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
     QString Contest_Name = ("FT Roundup messages");
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
-  if (SpOp::ARRL_DIGI == special_op && !m_config->Individual_Contest_Name() && !m_config->report_in_comments()
+  if (SpOp::ARRL_DIGI == special_op && !data.individualContestName && !m_config->report_in_comments()
       && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
     QString Contest_Name = ("ARRL Digi Contest");
     ui->comments->setCurrentIndex(0);
@@ -347,7 +347,7 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
   if (SpOp::HOUND == special_op && !m_config->report_in_comments()
       && !ui->cbComments->isChecked() && m_config->specOp_in_comments()) {
     QString Contest_Name = ("F/H mode");
-    if (m_config->superFox()) Contest_Name = ("SF/H mode");
+    if (data.superFox) Contest_Name = ("SF/H mode");
     ui->comments->setCurrentIndex(0);
     ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
@@ -381,13 +381,13 @@ void LogQSO::accept()
   auto band = ui->band->text ();
   auto name = ui->name->text ();
   m_txPower = ui->txPower->text ();
-  auto strDialFreq = QString::number (m_dialFreq / 1.e6,'f',6);
+  auto strDialFreq = QString::number (m_data.dialFreq / 1.e6,'f',6);
   auto operator_call = ui->loggedOperator->text ();
   auto xsent = ui->exchSent->text ().trimmed ();
   auto xrcvd = ui->exchRcvd->text ().trimmed ();
 
   using SpOp = Configuration::SpecialOperatingActivity;
-  auto special_op = m_config->special_op_id ();
+  auto special_op = m_data.specOp;
 
   if (special_op == SpOp::NA_VHF or special_op == SpOp::WW_DIGI) {
     if(xrcvd!="" and hisGrid!=xrcvd) hisGrid=xrcvd;
@@ -423,7 +423,7 @@ void LogQSO::accept()
           return;               // without accepting
         }
 
-      if (!m_log->contest_log ()->add_QSO (m_dialFreq, mode, dateTimeOff, hisCall, xsent, xrcvd))
+      if (!m_log->contest_log ()->add_QSO (m_data.dialFreq, mode, dateTimeOff, hisCall, xsent, xrcvd))
         {
           show ();
           MessageBox::warning_message (this, tr ("Invalid QSO Data"),
@@ -472,7 +472,7 @@ void LogQSO::accept()
   Q_EMIT acceptQSO (dateTimeOff
                     , hisCall
                     , hisGrid
-                    , m_dialFreq
+                    , m_data.dialFreq
                     , mode
                     , rptSent
                     , rptRcvd
@@ -481,8 +481,8 @@ void LogQSO::accept()
                     , name
                     , dateTimeOn
                     , operator_call
-                    , m_myCall
-                    , m_myGrid
+                    , m_data.myCall
+                    , m_data.myGrid
                     , xsent
                     , xrcvd
                     , prop_mode
@@ -500,8 +500,8 @@ void LogQSO::accept()
                                         , m_comments
                                         , name
                                         , strDialFreq
-                                        , m_myCall
-                                        , m_myGrid
+                                        , m_data.myCall
+                                        , m_data.myGrid
                                         , m_txPower
                                         , operator_call
                                         , xsent
@@ -509,7 +509,8 @@ void LogQSO::accept()
                                         , prop_mode
                                         , satellite
                                         , sat_mode
-                                        , m_freqRx));
+                                        , m_freqRx
+                                        , m_data.specOp));
   QDialog::accept();
 }
 

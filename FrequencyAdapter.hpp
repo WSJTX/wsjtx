@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <optional>
+#include <vector>
 #include "FrequencyControl.hpp"
 
 class FrequencyAdapter
@@ -151,6 +152,20 @@ public:
           path.state.queued.reset ();
           path.deferred = false;
         }
+  }
+
+  std::vector<RigFrequency::Request> cancel_pending ()
+  {
+    std::vector<RigFrequency::Request> cancelled;
+    for (auto& path : paths_)
+      {
+        if (path.state.pending) cancelled.push_back (path.state.pending->request);
+        if (path.state.queued) cancelled.push_back (path.state.queued->request);
+        path.state.pending.reset ();
+        path.state.queued.reset ();
+        path.sent = path.ambiguous = path.deferred = false;
+      }
+    return cancelled;
   }
 
   std::optional<RigFrequency::Evidence> observe (RigFrequency::Evidence const& evidence)

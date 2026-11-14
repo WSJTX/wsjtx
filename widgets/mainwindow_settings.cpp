@@ -375,8 +375,8 @@ void MainWindow::readSettings()
     ui->sbFtol->setValue (m_settings->value("Ftol_SF", 50).toInt());
   }
   if (m_mode=="Q65") {
-    m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
-    ui->sbSubmode->setValue(m_nSubMode);
+    ui->sbSubmode->setValue(m_settings->value("SubMode_Q65",0).toInt());
+    m_nSubMode=ui->sbSubmode->value();
     ui->sbFtol->setValue (m_settings->value("Ftol_Q65", 50).toInt());
     ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());
   }

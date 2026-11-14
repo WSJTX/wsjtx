@@ -105,6 +105,16 @@ NOTE: When using a proxy application for rig control, *CAT* is usually
   set to *Data/Pkt* mode.  Select *None* if you do not want _WSJT-X_
   to change the radio's Mode setting.
 
++
+When CAT reports that the radio has been changed to an incompatible mode
+outside _WSJT-X_, the program leaves that mode unchanged and turns off
+*Enable Tx*. Reception and frequency display continue. To resume digital
+operation at the current dial frequency, click *Enable Tx* or *Tune*, or
+use a local transmit shortcut or station selection that enables transmission.
+_WSJT-X_ then applies the configured mode and waits for the radio to settle.
+Automatic replies, timers, and UDP Reply requests do not resume transmission
+after such a mode change. Selecting *None* retains manual mode control.
+
 * _Split Operation_: Significant advantages result from using *Split*
   mode (separate VFOs for Rx and Tx) if your radio supports it.  If it
   does not, _WSJT-X_ can emulate such behavior.  Either method will

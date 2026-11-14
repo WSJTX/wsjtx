@@ -1,5 +1,6 @@
 //------------------------------------------------------------------ MainWindow
 #include "mainwindow.h"
+#include "sample_rates.h"
 #include <fftw3.h>
 #include <QDir>
 #include <QRegularExpression>
@@ -448,17 +449,28 @@ MainWindow::MainWindow(QWidget *parent) :
   watcher2 = new QFutureWatcher<void>;
   connect(watcher2, SIGNAL(finished()),this,SLOT(diskWriteFinished()));
 
+  findSavedDevices();
+
 // Assign input device and start input thread
+  if(!m_network) cacheInputDeviceRates(m_paInDevice);
   soundInThread.setInputDevice(m_paInDevice);
-  if(m_fs96000 == 1) soundInThread.setRate(96000.0);
-  else if(m_fs96000 ==0) soundInThread.setRate(95238.1);
-  else if(m_fs96000 ==2) soundInThread.setRate(192000.0);
+  soundInThread.setRate(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)));
   soundInThread.setBufSize(10*7056);
   soundInThread.setNetwork(m_network);
   soundInThread.setPort(m_udpPort);
   if(!m_xpol) soundInThread.setNrx(1);
   if(m_xpol) soundInThread.setNrx(2);
-  soundInThread.start(QThread::HighestPriority);
+  if(m_network or m_paInDevice >= 0) {
+    soundInThread.start(QThread::HighestPriority);
+    m_soundInDevice = m_network ? -1 : m_paInDevice;
+    m_soundInChannels = m_xpol ? 4 : 2;
+    if (!m_network) {
+      m_lastCardDevice = m_soundInDevice;
+      m_lastCardChannels = m_soundInChannels;
+    }
+  } else {
+    m_soundInStopped = true;            // Settings starts it once a device is chosen
+  }
 
   // Assign output device and start output thread
   soundOutThread.setOutputDevice(m_paOutDevice);
@@ -530,16 +542,19 @@ MainWindow::~MainWindow()
   if (stdoutReaderThread.joinable())
       stdoutReaderThread.join();
   writeSettings();
-  if (soundInThread.isRunning()) {
-    soundInThread.quit();
-    soundInThread.wait(3000);
-  }
+  fftwf_export_wisdom_to_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
+  bool stopped = !soundInThread.isRunning() || stopSoundIn(false);
   if (soundOutThread.isRunning()) {
     soundOutThread.quitExecution=true;
-    soundOutThread.wait(3000);
+    stopped = soundOutThread.wait(3000) && stopped;
   }
-  Pa_Terminate();
-  fftwf_export_wisdom_to_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
+  // A thread stuck in PortAudio (e.g. on a stream that never delivered) can't
+  // be stopped, and destroying a running QThread aborts. Settings are saved,
+  // so end here.
+  if (!stopped) std::_Exit(0);
+  // Pa_Terminate closes every open stream, and closing one whose start
+  // failed waits forever.
+  if (!soundInThread.m_streamLeftOpen && !soundOutThread.m_streamLeftOpen) Pa_Terminate();
   delete ui;
 }
 
@@ -917,6 +932,19 @@ void MainWindow::onDiskDecodeFinished()
         on_actionOpen_next_in_directory_triggered();
 }
 
+static QString paDeviceName(int device)
+{
+  PaDeviceInfo const* info = Pa_GetDeviceInfo(device);
+  return info ? QString(info->name) : QString();
+}
+
+static QString paHostApiName(int device)
+{
+  PaDeviceInfo const* info = Pa_GetDeviceInfo(device);
+  PaHostApiInfo const* api = info ? Pa_GetHostApiInfo(info->hostApi) : nullptr;
+  return api ? QString(api->name) : QString();
+}
+
 //-------------------------------------------------------- writeSettings()
 void MainWindow::writeSettings()
 {
@@ -950,11 +978,18 @@ void MainWindow::writeSettings()
   settings.setValue("Fcal",m_fCal);
   settings.setValue("Fadd",m_fAdd);
   settings.setValue("NetworkInput", m_network);
-  settings.setValue("FSam96000", QString::number(m_pendingFs96000 >= 0 ? m_pendingFs96000 : m_fs96000));
+  settings.setValue("FSam96000", QString::number(dialogSampleRateCode(m_fs96000, m_pendingFs96000)));
   settings.setValue("SoundInIndex",m_nDevIn);
-  settings.setValue("paInDevice",m_paInDevice);
+  int const inDevice = savedInputDevice(m_paInDevice, m_pendingPaInDevice);
+  settings.setValue("paInDevice",inDevice);
+  settings.setValue("paInDeviceName",inDevice >= 0 ? paDeviceName(inDevice) : m_paInDeviceName);
+  settings.setValue("paInDeviceApi",inDevice >= 0 ? paHostApiName(inDevice) : m_paInDeviceApi);
   settings.setValue("SoundOutIndex",m_nDevOut);
   settings.setValue("paOutDevice",m_paOutDevice);
+  settings.setValue("paOutDeviceName",m_paOutDevice >= 0 ? paDeviceName(m_paOutDevice)
+                                                         : m_paOutDeviceName);
+  settings.setValue("paOutDeviceApi",m_paOutDevice >= 0 ? paHostApiName(m_paOutDevice)
+                                                       : m_paOutDeviceApi);
   settings.setValue("IQswap",m_IQswap);
   settings.setValue("Scale_dB",m_dB);
   settings.setValue("IQxt",m_bIQxt);
@@ -1061,11 +1096,16 @@ void MainWindow::readSettings()
   soundInThread.setFadd(m_fAdd);
   m_network = settings.value("NetworkInput",true).toBool();
   m_fs96000 = readFSam96000(settings,1);
+  m_fs96000 = startupSampleRateCode(m_network, m_fs96000);
   qDebug() << "In MainWindow::readSettings FSam96000 is read as:" << m_fs96000;
   m_nDevIn = settings.value("SoundInIndex", 0).toInt();
   m_paInDevice = settings.value("paInDevice",0).toInt();
+  m_paInDeviceName = settings.value("paInDeviceName").toString();
+  m_paInDeviceApi = settings.value("paInDeviceApi").toString();
   m_nDevOut = settings.value("SoundOutIndex", 0).toInt();
   m_paOutDevice = settings.value("paOutDevice",0).toInt();
+  m_paOutDeviceName = settings.value("paOutDeviceName").toString();
+  m_paOutDeviceApi = settings.value("paOutDeviceApi").toString();
   m_IQswap = settings.value("IQswap",false).toBool();
   m_dB = settings.value("Scale_dB",0).toInt();
   m_initIQplus = settings.value("InitIQplus",false).toBool();
@@ -1184,10 +1224,7 @@ void MainWindow::dataSink(int k)
   static int nzap=0;
   static int ntrz=0;
   static int nkhz;
-  int nfsample = 96000; 
-  if (m_fs96000 == 0) nfsample = 95238;
-  else if(m_fs96000 == 2) nfsample = 192000;
-  setNfsample(nfsample);
+  setNfsample(sampleRateForCode(m_fs96000));
   int nxpol= m_xpol ? 1 : 0;
   setNxpol(nxpol);
   static int nsec0=0;
@@ -1238,7 +1275,7 @@ void MainWindow::dataSink(int k)
   nsec0=nsec;
 
   QString t;
-  m_pctZap=nzap/178.3;
+  m_pctZap=zapPercent(nzap,g_sampleRate);
   ui->yMeterFrame->setVisible(m_xpol);
   if(m_xpol) {
     lab4->setText (
@@ -1507,6 +1544,60 @@ void MainWindow::getfile(QString fname, bool xpol, int dbDgrd)
     }
 }
 
+// SoundIn ignores new settings while it runs and a stream it still holds
+// can't be reopened, so wait until it has really finished (closing an ALSA
+// plugin stream can take more than a second).
+bool MainWindow::stopSoundIn(bool report)
+{
+  soundInThread.quit();
+  if (soundInThread.wait(5000)) return true;
+  if (report) msgBox("Sound input did not stop. Please exit MAP65 and start it again.");
+  return false;
+}
+
+// map65.ini keeps the device numbers of the run that saved them; find the
+// same devices by name in this run. A device that isn't found is not opened.
+void MainWindow::findSavedDevices()
+{
+  int const count = Pa_GetDeviceCount();
+  // Windows lists one device under several host APIs with the same name, so
+  // a name is matched only under the host API it was saved with. Both sides
+  // go through QString, so names that aren't UTF-8 still compare equal.
+  auto nameIf = [](int device, bool input, QString const& api) {
+    PaDeviceInfo const* info = Pa_GetDeviceInfo(device);
+    if (!info || (input ? info->maxInputChannels : info->maxOutputChannels) < 1) return std::string();
+    if (!api.isEmpty() && paHostApiName(device) != api) return std::string();
+    return QString(info->name).toStdString();
+  };
+  int const in = resolveSavedDevice(m_paInDevice, m_paInDeviceName.toStdString(), count,
+                                    [&](int i) { return nameIf(i, true, m_paInDeviceApi); });
+  int out = resolveSavedDevice(m_paOutDevice, m_paOutDeviceName.toStdString(), count,
+                               [&](int i) { return nameIf(i, false, m_paOutDeviceApi); });
+  // A number saved without a name (older map65.ini) is used only if that
+  // device has inputs (outputs). An output never chosen falls back to the
+  // default output quietly, so network-only users aren't asked about it.
+  auto described = [](QString const& name, int number) {
+    return name.isEmpty() ? QString("number %1").arg(number) : QString("\"%1\"").arg(name);
+  };
+  bool const inFound = in >= 0 && !nameIf(in, true, m_paInDeviceApi).empty();
+  bool outFound = out >= 0 && !nameIf(out, false, m_paOutDeviceApi).empty();
+  QStringList missing;
+  if (!inFound && !m_network)
+    missing << "input device " + described(m_paInDeviceName, m_paInDevice);
+  if (!outFound && m_paOutDeviceName.isEmpty()) {
+    out = Pa_GetDefaultOutputDevice();
+    outFound = out >= 0;
+  }
+  if (!outFound)
+    missing << "output device " + described(m_paOutDeviceName, m_paOutDevice);
+  m_paInDevice = inFound ? in : -1;
+  m_paOutDevice = outFound ? out : -1;
+  if (!missing.isEmpty())
+    msgBox(QString("The saved %1 %2 not found.\nChoose %3 in Setup > Options > I/O Devices.")
+           .arg(missing.join(" and the saved "), missing.size() > 1 ? "were" : "was",
+                missing.size() > 1 ? "them" : "one"));
+}
+
 void MainWindow::showSoundInError(const QString& errorMsg)
  {QMessageBox::critical(this, tr("Error in SoundIn"), errorMsg);}
 
@@ -1524,50 +1615,101 @@ void MainWindow::on_actionDeviceSetup_triggered()
 
     if (dlg.exec() == QDialog::Accepted)
     {
-        if (dlg.m_restartRequired)
+        m_pendingFs96000 = dlg.m_pendingFs96000;
+
+        // The selected input device can't run at the running rate: no input
+        // until the restart, rather than data that doesn't match the settings.
+        if (dlg.m_stopSoundIn && stopSoundIn())
         {
-            m_pendingFs96000 = dlg.m_pendingFs96000;
-            writeSettings();
-            if (m_messages_window) {
-                m_messages_window->setPSKReportingEnabled(m_spot_to_psk_reporter);
-            }
-            return;
+            m_soundInDevice = -1;
+            m_soundInStopped = true;
         }
-        m_pendingFs96000 = -1;
 
         //
         // Apply runtime effects for SoundIn
         //
-        if (dlg.m_restartSoundIn)
+        // notify false: SoundIn's own start-failure box is already on its way.
+        auto holdSoundIn = [this](bool stoppedNow, bool notify = true) {
+            if (stoppedNow) {
+                m_soundInDevice = -1;
+                m_soundInStopped = true;
+            }
+            if (notify && (!m_soundInFailedNoticeShown || stoppedNow))
+                msgBox("Sound input failed to start earlier, so the new input settings take "
+                       "effect only after a restart. They have been saved. Please exit MAP65 "
+                       "and start it again.");
+            m_soundInFailedNoticeShown = true;
+        };
+        if (dlg.m_restartSoundIn && soundInThread.m_streamLeftOpen && !m_network)
         {
-      soundInThread.quit();
-      soundInThread.wait(1000);
+            // Network input may be running (chosen after the failed start);
+            // it stops too, so input matches the settings until the restart.
+            holdSoundIn(soundInThread.isRunning() && stopSoundIn());
+        }
+        else if (dlg.m_restartSoundIn && stopSoundIn())
+        {
+            // SoundIn may still have been opening its stream when Settings was
+            // accepted; m_streamLeftOpen is final only once the thread has stopped.
+            if (!m_network && soundInThread.m_streamLeftOpen)
+            {
+                holdSoundIn(true, false);
+            }
+            else
+            {
+                if(!m_network) cacheInputDeviceRates(m_paInDevice);
+                soundInThread.setInputDevice(m_paInDevice);
+                soundInThread.setNetwork(m_network);
+                soundInThread.setFadd(m_fAdd);
+                soundInThread.setRate(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)));
+                soundInThread.setSwapIQ(m_IQswap);
+                soundInThread.setScale(m_dB);
+                soundInThread.setPort(m_udpPort);
+                soundInThread.setNrx(m_xpol ? 2 : 1);
 
-            soundInThread.setInputDevice(m_paInDevice);
-      soundInThread.setNetwork(m_network);
-      soundInThread.setFadd(m_fAdd);
-            if (m_fs96000 == 1) soundInThread.setRate(96000.0);
-            else if (m_fs96000 == 0) soundInThread.setRate(95238.1);
-            else if (m_fs96000 == 2) soundInThread.setRate(192000.0);
-            soundInThread.setSwapIQ(m_IQswap);
-            soundInThread.setScale(m_dB);
-            soundInThread.setPort(m_udpPort);
-            soundInThread.setNrx(m_xpol ? 2 : 1);
-
-      soundInThread.start(QThread::HighestPriority);
-    }
+                soundInThread.start(QThread::HighestPriority);
+                m_soundInDevice = m_network ? -1 : m_paInDevice;
+                m_soundInChannels = m_xpol ? 4 : 2;
+                m_soundInStopped = false;
+                if (!m_network) {
+                    m_lastCardDevice = m_soundInDevice;
+                    m_lastCardChannels = m_soundInChannels;
+                }
+            }
+        }
 
         //
         // Apply runtime effects for SoundOut
         //
         if (dlg.m_restartSoundOut)
         {
-      soundOutThread.quitExecution=true;
-      soundOutThread.wait(1000);
-
-      soundOutThread.setOutputDevice(m_paOutDevice);
-            soundOutThread.start();
-    }
+            bool stopped = true;
+            if (!soundOutThread.m_streamLeftOpen)
+            {
+                soundOutThread.quitExecution=true;
+                stopped = soundOutThread.wait(1000);
+            }
+            // SoundOut may still have been opening its stream when Settings was
+            // accepted; m_streamLeftOpen is final only once the thread has stopped.
+            if (soundOutThread.m_streamLeftOpen)
+            {
+                if (!m_soundOutFailedNoticeShown)
+                    msgBox("Sound output failed to start earlier, so the new output settings take "
+                           "effect only after a restart. They have been saved. Please exit MAP65 "
+                           "and start it again.");
+                m_soundOutFailedNoticeShown = true;
+            }
+            else if (!stopped)
+            {
+                msgBox("Sound output is still starting, so the new output settings take "
+                       "effect only after a restart. They have been saved. Please exit MAP65 "
+                       "and start it again.");
+            }
+            else
+            {
+                soundOutThread.setOutputDevice(m_paOutDevice);
+                soundOutThread.start();
+            }
+        }
 
         //
         // GUI updates
@@ -1603,10 +1745,7 @@ void MainWindow::onSampleRateChanged(int newRate)
     if (!m_wide_graph_window)
         return;
 
-    if (newRate == 96000 || newRate == 95238)
-        m_wide_graph_window->setFreqSpanLimits(60, 90);
-    else
-        m_wide_graph_window->setFreqSpanLimits(60, 190);
+    m_wide_graph_window->setFreqSpanLimits(60, maxFreqSpanKHz(newRate));
 
     m_wide_graph_window->updateSpanFromSpinbox();
 }
@@ -1795,6 +1934,44 @@ void MainWindow::createStatusBar()                           //createStatusBar
   lab8->setMinimumSize(QSize(50,10));
   lab8->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab8);
+
+  labLag = new QLabel("Decoder OK");
+  labLag->setAlignment(Qt::AlignHCenter);
+  labLag->setMinimumSize(QSize(50,10));
+  labLag->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  labLag->setToolTip("Decoder keeping up with the minute");
+  statusBar()->addWidget(labLag);
+}
+
+// Shows when the decoder cannot keep up: a decode pass was dropped or cut
+// short. Stays on for three minutes after the last event.
+void MainWindow::updateDecoderLagIndicator()
+{
+  constexpr qint64 holdMs = 180000;
+  qint64 const now = QDateTime::currentMSecsSinceEpoch();
+  int const count = get_decoder_lag_count();
+  if (count != m_lagSeen) {
+    m_lagTotal += count - m_lagSeen;
+    m_lagSeen = count;
+    m_lagLastMs = now;
+    QString what;
+    switch (get_decoder_lag_kind()) {
+    case 1:  what = "a decode pass was dropped because the previous one was still running"; break;
+    case 2:  what = "a queued decode pass was skipped"; break;
+    default: what = "a decode pass was stopped at its 40 s time limit"; break;
+    }
+    labLag->setText("Decoder behind");
+    labLag->setStyleSheet("QLabel{background-color: #ffb266}");
+    labLag->setToolTip(QString("Last event: %1.\n%2 decoder-behind events so far this session. Some stations may be "
+                               "missing from the Messages window.\nTry closing other programs, "
+                               "a lower sample rate, or single polarization.").arg(what).arg(m_lagTotal));
+  } else if (m_lagLastMs != 0 and now - m_lagLastMs > holdMs) {
+    m_lagLastMs = 0;
+    labLag->setText("Decoder OK");
+    labLag->setStyleSheet("");
+    labLag->setToolTip(QString("Decoder keeping up with the minute (%1 decoder-behind events so far this session)")
+                       .arg(m_lagTotal));
+  }
 }
 
 void MainWindow::on_tolSpinBox_valueChanged(int i)             //tolSpinBox
@@ -2018,9 +2195,8 @@ void MainWindow::diskDat()                                   //diskDat()
     setFcenter(m_wide_graph_window->m_dForceCenterFreq);
   }
 
-  hsym=2048.0*96000.0/11025.0;   //Samples per JT65 half-symbol if SR = 96000
-  if(m_fs96000 == 0) hsym=2048.0*95238.1/11025.0; // Samples per JT65 half-symbol if SR =  95238.1
-  else if(m_fs96000 == 2) hsym=2048.0*192000.0/11025.0;   //Samples per JT65 half-symbol if SR = 192000
+  // Samples per JT65 half-symbol at the active sample rate
+  hsym=2048.0*(m_fs96000 == 0 ? 95238.1 : double(sampleRateForCode(m_fs96000)))/11025.0;
   for(int i=0; i<304; i++) {           // Do the half-symbol FFTs
     int k = i*hsym + 2048.5;
     dataSink(k);
@@ -2252,9 +2428,7 @@ void MainWindow::decode()                                       //decode()
   if(getNutc() < m_nutc0) m_map65RxLog |= 1;  //Date and Time to map65_rx.log
   m_nutc0=getNutc();
   setMap65RxLog(m_map65RxLog);
-  if(m_fs96000 == 1) setNfsample(96000);
-  if(m_fs96000 == 0) setNfsample(95238);
-  else if(m_fs96000 == 2) setNfsample(192000);
+  setNfsample(sampleRateForCode(m_fs96000));
  // qDebug() << "MainWindow::decode setting nfsample to " << m_fs96000;
   setNxpol(0);
   if(m_xpol) setNxpol(1);
@@ -2393,6 +2567,8 @@ void MainWindow::guiUpdate()
   static int nsendingsh=0;
   int khsym=0;
 
+  updateDecoderLagIndicator();
+
   double tx1=0.0;
   double tx2=126.0*4096.0/11025.0 + 1.8;
   if(m_modeTx=="Q65") tx2=85.0*7200.0/12000.0 + 1.8;
@@ -2448,7 +2624,27 @@ void MainWindow::guiUpdate()
   }
 
   if((m_auto or bTune) && !pttReleasePending) {
-    if ((bTxTime or bTune) && iptt == 0 && !m_txMute) {
+    if ((bTxTime or bTune) && iptt == 0 && !m_txMute && m_paOutDevice < 0) {
+      // No output device (the saved one wasn't found): don't key a silent carrier.
+      on_stopTxButton_clicked();
+      if (bTune && g_pTxTune) g_pTxTune->accept();
+      bTune = false;
+      if (!m_noOutputShown) {
+        m_noOutputShown = true;
+        msgBox("No output device is selected, so MAP65 can't transmit.\n"
+               "Choose one in Setup > Options > I/O Devices.");
+      }
+    } else if ((bTxTime or bTune) && iptt == 0 && !m_txMute && soundOutThread.m_streamLeftOpen) {
+      // Its start failed and the stream is still held: don't key a silent carrier.
+      on_stopTxButton_clicked();
+      if (bTune && g_pTxTune) g_pTxTune->accept();
+      bTune = false;
+      if (!m_soundOutTxNoticeShown) {
+        m_soundOutTxNoticeShown = true;
+        msgBox("Sound output failed to start, so MAP65 can't transmit.\n"
+               "Please exit MAP65 and start it again.");
+      }
+    } else if ((bTxTime or bTune) && iptt == 0 && !m_txMute) {
       pttPath = m_pttPath;
       pttPortNumber = m_pttPortNumber;
       int itx = 1;

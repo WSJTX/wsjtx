@@ -3,7 +3,7 @@
 #include <float.h>
 #include <limits.h>
 #include <stdlib.h>
-#include "rs.h"
+#include "rs2.h"
 
 static void *rs;
 static int first=1;
@@ -17,7 +17,7 @@ void rs_encode_(int *dgen, int *sent)
 
   if(first) {
     // Initialize the JT65 codec
-    rs=init_rs_int(6,0x43,3,1,51,0);
+    rs=init_rs_int(6,0x43,3,1,51);
     first=0;
   }
 
@@ -44,7 +44,7 @@ void rs_decode_(int *recd0, int *era0, int *numera0, int *decoded, int *nerr)
   int recd[63];
 
   if(first) {
-    rs=init_rs_int(6,0x43,3,1,51,0);
+    rs=init_rs_int(6,0x43,3,1,51);
     first=0;
   }
 
@@ -53,7 +53,7 @@ void rs_decode_(int *recd0, int *era0, int *numera0, int *decoded, int *nerr)
   for(i=0; i<51; i++) recd[12+i]=recd0[50-i];
   if(numera) 
     for(i=0; i<numera; i++) era_pos[i]=era0[i];
-  *nerr=decode_rs_int(rs,recd,era_pos,numera);
+  *nerr=decode_rs_int(rs,recd,era_pos,numera,1);
   for(i=0; i<12; i++) decoded[i]=recd[11-i];
 }
 

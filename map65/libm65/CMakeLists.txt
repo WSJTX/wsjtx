@@ -112,7 +112,6 @@ set (libm65_ka9q_CSRCS
   encode_rs.c
   init_rs.c
 )
-set_source_files_properties (${libm65_ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (libm65_CSRCS
   decode_request_mutex.cpp
@@ -248,7 +247,7 @@ if (WSJT_ENABLE_TESTS)
     ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_filbig_boundary.f90)
   target_include_directories (test_map65_filbig_boundary PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   target_link_libraries (test_map65_filbig_boundary PRIVATE m65impl)
-  foreach (rate IN ITEMS 96000 192000)
+  foreach (rate IN ITEMS 96000 128000 192000 256000)
     add_test (NAME test_map65_filbig_boundary_${rate} COMMAND test_map65_filbig_boundary ${rate})
     set_tests_properties (test_map65_filbig_boundary_${rate} PROPERTIES
       PASS_REGULAR_EXPRESSION "MAP65 filter boundary tests passed" TIMEOUT 30)
@@ -357,7 +356,9 @@ if (WSJT_ENABLE_TESTS)
   target_include_directories (test_map65_symspec_contract PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   target_link_libraries (test_map65_symspec_contract PRIVATE m65impl)
   add_test (NAME test_map65_symspec_96 COMMAND test_map65_symspec_contract 96000)
+  add_test (NAME test_map65_symspec_128 COMMAND test_map65_symspec_contract 128000)
   add_test (NAME test_map65_symspec_192 COMMAND test_map65_symspec_contract 192000)
+  add_test (NAME test_map65_symspec_256 COMMAND test_map65_symspec_contract 256000)
   add_executable (test_map65_pass_snapshots
     ${CMAKE_SOURCE_DIR}/tests/unit/map65/test_map65_pass_snapshots.f90)
   target_include_directories (test_map65_pass_snapshots PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

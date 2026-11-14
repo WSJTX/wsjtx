@@ -1,4 +1,5 @@
 #include "runtime_paths.h"
+#include "sample_rates.h"
 
 #include <QDir>
 #include <QFile>
@@ -70,7 +71,7 @@ int readFSam96000(QSettings const& settings, int defaultValue)
   if (text.compare("false", Qt::CaseInsensitive) == 0) return 0;   // legacy bool: false == 95238
   bool ok = false;
   int value = text.toInt(&ok);
-  if (ok && value >= 0 && value <= 2) return value;                // current int: 0/1/2
+  if (ok && value >= 0 && value <= kMaxSampleRateCode) return usableSampleRateCode(value);   // current int: 0..4
   return defaultValue;
 }
 

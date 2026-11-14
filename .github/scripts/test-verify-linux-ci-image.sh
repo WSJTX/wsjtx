@@ -65,11 +65,12 @@ write_manifest() {
 
 run_verify() {
   local allow_stale_image=${1:-false}
+  local verify_arch=${2:-x86_64}
   WSJTX_CI_IMAGE_MANIFEST="$manifest" \
     WSJTX_CI_PREFIX_OVERRIDE="$fixture/prefix" \
     WSJTX_CI_IMAGE_SKIP_RUNTIME_CHECKS=true \
     WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH="$allow_stale_image" \
-    .github/scripts/verify-linux-ci-image.sh normal x86_64 "$LINUX_HAMLIB_REF"
+    .github/scripts/verify-linux-ci-image.sh normal "$verify_arch" "$LINUX_HAMLIB_REF"
 }
 
 write_manifest
@@ -122,12 +123,40 @@ grep -qx 'recipe_match=false' "$output"
 grep -qx "ccache_compatibility_id=$toolchain_id" "$output"
 grep -qx 'ccache_compiler_check=mtime' "$output"
 
+(
+  recipe="$(.github/scripts/linux-ci-image-fingerprint.sh normal-bookworm)"
+  compiler_version=12.2.0
+  ccache_compatibility_id=gcc12-v2
+  write_manifest
+  echo 'architecture=aarch64' >> "$manifest"
+  run_verify false aarch64 >/dev/null
+
+  compiler_version=13.4.0
+  ccache_compatibility_id=gcc13-v2
+  write_manifest
+  echo 'architecture=aarch64' >> "$manifest"
+  if run_verify false aarch64 >"$fixture/bookworm-rejection" 2>&1; then
+    echo "Expected Bookworm image verification to reject GCC 13" >&2
+    exit 1
+  fi
+  grep -q 'compiler_major mismatch: expected 12, got 13' "$fixture/bookworm-rejection"
+
+  write_manifest "$LINUX_HAMLIB_COMMIT" 0000000000000000000000000000000000000000000000000000000000000000 false
+  echo 'architecture=aarch64' >> "$manifest"
+  if run_verify true aarch64 >"$fixture/bookworm-rejection" 2>&1; then
+    echo "Expected stale image allowance to reject Bookworm GCC 13" >&2
+    exit 1
+  fi
+  grep -q 'compiler_major mismatch: expected 12, got 13' "$fixture/bookworm-rejection"
+)
+
 tsan_config_dir="$fixture/tsan-config"
-mkdir -p "$tsan_config_dir" "$fixture/prefix/tsan/boost/cmake"
+mkdir -p "$tsan_config_dir" "$fixture/prefix/tsan/boost-static/lib/cmake/Boost-$BOOST_VERSION"
 cp .github/scripts/verify-linux-ci-image.sh \
   .github/scripts/linux-ccache-compiler-signature.sh \
   .github/scripts/linux-ci-image-config.sh \
   .github/scripts/fftw-version.sh \
+  .github/scripts/boost-version.sh \
   .github/scripts/tsan-linux-deps-config.sh \
   "$tsan_config_dir/"
 cp .github/scripts/linux-ci-image-fingerprint.sh "$tsan_config_dir/"
@@ -136,7 +165,7 @@ cat > "$tsan_config_dir/verify-tsan-deps-linux.sh" <<'EOF'
 set -euo pipefail
 EOF
 chmod +x "$tsan_config_dir/verify-tsan-deps-linux.sh"
-touch "$fixture/prefix/tsan/boost/cmake/BoostConfig.cmake"
+touch "$fixture/prefix/tsan/boost-static/lib/cmake/Boost-$BOOST_VERSION/BoostConfig.cmake"
 
 tsan_manifest="$fixture/tsan-image.env"
 cat > "$tsan_manifest" <<EOF

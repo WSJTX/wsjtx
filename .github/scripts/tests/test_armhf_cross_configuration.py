@@ -1,6 +1,7 @@
 import pathlib
 import os
 import subprocess
+import tempfile
 import unittest
 
 
@@ -11,30 +12,11 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding="utf-8")
 
-    def test_cross_toolchain_pins_armv7_hard_float_and_bookworm_abi(self):
-        config = self.read(".github/images/linux-ci/armhf-cross-toolchain.config")
-        for setting in (
-            "CT_ARCH_ARM=y",
-            "CT_ARCH_ARM_MODE_THUMB=y",
-            'CT_ARCH_ARCH="armv7-a+fp"',
-            "CT_ARCH_FLOAT_HW=y",
-            "CT_LINUX_V_6_1=y",
-            "CT_BINUTILS_V_2_40=y",
-            "CT_GLIBC_V_2_36=y",
-            'CT_GLIBC_MIN_KERNEL_VERSION="3.2.0"',
-            "CT_GCC_V_13=y",
-            "CT_CC_GCC_LIBGOMP=y",
-            "CT_CC_LANG_CXX=y",
-            "CT_CC_LANG_FORTRAN=y",
-            "CT_PARALLEL_JOBS=1",
-            'CT_TARGET_CFLAGS="-g0"',
-        ):
-            self.assertIn(setting, config)
-        self.assertNotIn("CT_CC_GCC_LIBQUADMATH=y", config)
-
+    def test_cross_toolchain_preserves_bookworm_abi(self):
         image_config = self.read(".github/scripts/armhf-toolchain-config.sh")
-        self.assertIn("ARMHF_GCC_VERSION=13.4.0", image_config)
+        self.assertIn("ARMHF_GCC_VERSION=12", image_config)
         self.assertIn("ARMHF_GLIBC_VERSION=2.36", image_config)
+        self.assertIn("ARMHF_MIN_KERNEL_VERSION=3.2.0", image_config)
         self.assertIn("ARMHF_TARGET_TRIPLET=arm-linux-gnueabihf", image_config)
 
         verifier = self.read(".github/scripts/verify-armhf-ci-image.sh")
@@ -45,7 +27,7 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
         self.assertIn('READELF="$readelf"', audit)
 
     def test_distro_profiles_select_compiler_and_time_abi(self):
-        for distro, expected in (("bookworm", "13.4.0:2.36:32:"),
+        for distro, expected in (("bookworm", "12:2.36:32:"),
                                 ("trixie", "14:2.41:64:-D_TIME_BITS=64 -D_FILE_OFFSET_BITS=64")):
             with self.subTest(distro=distro):
                 result = subprocess.run(
@@ -94,8 +76,7 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
     def test_runtime_package_names_match_each_distro_time_abi(self):
         installer = self.read(".github/images/linux-ci/install-armhf-runtime-packages.sh")
         selection = installer.split("/usr/local/bin/run-apt-get update", 1)[0]
-        for distro, version, suffix in (("bookworm", "1.74.0", ""),
-                                        ("trixie", "1.83.0", "t64")):
+        for distro, suffix in (("bookworm", ""), ("trixie", "t64")):
             with self.subTest(distro=distro):
                 result = subprocess.run(
                     ["bash", "-c", selection + '\nprintf "%s\\n" "${packages[@]}"'],
@@ -103,44 +84,60 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
                     capture_output=True, text=True, check=True,
                 )
                 packages = result.stdout.splitlines()
-                expected_boost = {f"libboost-{name}{version}" for name in
-                                  ("atomic", "filesystem", "log", "regex", "thread")}
-                expected_boost.add(f"libboost-chrono{version}{suffix}")
-                self.assertEqual({name for name in packages if name.startswith("libboost-")},
-                                 expected_boost)
+                self.assertFalse(any(name.startswith("libboost-") for name in packages))
                 for name in ("widgets", "network", "printsupport", "test", "concurrent"):
                     self.assertIn(f"libqt5{name}5{suffix}", packages)
 
-    def test_toolchain_stage_is_independent_of_image_refresh_inputs(self):
+    def test_bookworm_uses_distribution_compilers_and_matching_target_runtime(self):
         builder = self.read(".github/images/linux-ci/Dockerfile.armhf-cross")
-        toolchain, image = builder.split("FROM debian:bookworm AS cross_builder", 1)
-        self.assertRegex(
-            toolchain.splitlines()[0],
-            r"^FROM debian:bookworm@sha256:[0-9a-f]{64} AS toolchain$",
-        )
-        for unrelated_input in (
-            "IMAGE_REFRESH_EPOCH",
-            "IMAGE_RECIPE_SHA256",
-            "IMAGE_GENERATION",
-            "armhf-ci-image-config.sh",
-            "linux-ci-image-config.sh",
-            "build-hamlib-armhf-cross.sh",
-        ):
-            self.assertNotIn(unrelated_input, toolchain)
-        self.assertLess(
-            toolchain.index('test -n "$ARMHF_TOOLCHAIN_REBUILD_REVISION"'),
-            toolchain.index("run-apt-get update"),
-        )
-        self.assertIn("armhf-cross-toolchain.config", toolchain)
-        self.assertNotIn("target=/tmp/wsjtx-ctng-build", toolchain)
-        self.assertIn('mkdir "$build_dir"', toolchain)
-        self.assertIn('rm -rf "$build_dir"', toolchain)
-        self.assertIn(
-            "COPY --from=toolchain /opt/wsjtx/armhf-toolchain "
-            "/opt/wsjtx/armhf-toolchain", image,
-        )
-        self.assertIn("IMAGE_REFRESH_EPOCH", image)
-        self.assertIn("IMAGE_RECIPE_SHA256", image)
+        for compiler in ("gcc", "g++", "gfortran"):
+            self.assertIn(f"{compiler}-12-arm-linux-gnueabihf", builder)
+        self.assertIn('arm-linux-gnueabihf-$tool-12', builder)
+        self.assertNotIn("crosstool-ng", builder)
+        self.assertNotIn("COPY --from=toolchain", builder)
+        self.assertFalse((ROOT / ".github/images/linux-ci/armhf-cross-toolchain.config").exists())
+        installer = self.read(".github/images/linux-ci/install-armhf-sysroot.sh")
+        self.assertIn('source_path="$(armhf_sysroot_runtime_path "$library")"', installer)
+        self.assertIn('-print-file-name=libquadmath.so.0', installer)
+        verifier = self.read(".github/scripts/verify-armhf-ci-image.sh")
+        self.assertIn('cmp -s "$ARMHF_RUNTIME_PREFIX/$library" "$(armhf_sysroot_runtime_path "$library")"', verifier)
+        self.assertIn('OS: Linux, ABI: $ARMHF_MIN_KERNEL_VERSION', verifier)
+
+    def test_compiler_policy_rejects_other_major_versions(self):
+        for distro, accepted, rejected in (("bookworm", "12.2.0", "13.4.0"),
+                                          ("trixie", "14.2.0", "12.2.0")):
+            for version, expected in ((accepted, 0), (rejected, 1)):
+                with self.subTest(distro=distro, version=version):
+                    result = subprocess.run(
+                        ["bash", "-c", '. .github/scripts/armhf-toolchain-config.sh; '
+                         'armhf_gcc_version_matches "$1"', "bash", version],
+                        cwd=ROOT, env={**os.environ, "ARMHF_DISTRO": distro},
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, expected)
+
+    def test_runtime_lookup_uses_only_target_sysroot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            sysroot = pathlib.Path(temporary)
+            for directory in ("usr/lib", "lib"):
+                path = sysroot / directory / "arm-linux-gnueabihf" / "libstdc++.so.6"
+                path.parent.mkdir(parents=True)
+                path.write_bytes(b"target runtime")
+                result = subprocess.run(
+                    ["bash", "-c", '. .github/scripts/armhf-ci-image-config.sh; '
+                     'ARMHF_SYSROOT=$1; armhf_sysroot_runtime_path libstdc++.so.6',
+                     "bash", str(sysroot)], cwd=ROOT, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), str(path))
+                path.unlink()
+            result = subprocess.run(
+                ["bash", "-c", '. .github/scripts/armhf-ci-image-config.sh; '
+                 'ARMHF_SYSROOT=$1; armhf_sysroot_runtime_path libstdc++.so.6',
+                 "bash", str(sysroot)], cwd=ROOT, capture_output=True, text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("target runtime library is missing", result.stderr)
 
     def test_shared_toolchain_config_is_copied_to_both_image_roles(self):
         config = self.read(".github/scripts/armhf-ci-image-config.sh")
@@ -215,7 +212,6 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
         self.assertIn("--architectures=armhf", sysroot)
         self.assertIn("qemu-user-static", builder)
         self.assertIn("normalize-armhf-sysroot-symlinks.sh", builder)
-        self.assertIn("tail -n 300 build.log", builder)
         self.assertIn("ARG CROSS_BUILDER_PLATFORM=linux/amd64", runtime)
         self.assertIn(
             "FROM --platform=${CROSS_BUILDER_PLATFORM} ${CROSS_BUILDER_IMAGE}",

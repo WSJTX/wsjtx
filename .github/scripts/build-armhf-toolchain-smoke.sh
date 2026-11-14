@@ -74,7 +74,8 @@ EOF
 
 "${compiler_prefix}-gcc" "${common_flags[@]}" "${ARMHF_ABI_FLAGS[@]}" -DWSJT_TIME_BITS="$ARMHF_TIME_BITS" "$source_dir/c.c" -latomic \
   -o "$output_dir/c-smoke"
-"${compiler_prefix}-g++" "${common_flags[@]}" "${ARMHF_ABI_FLAGS[@]}" -DWSJT_TIME_BITS="$ARMHF_TIME_BITS" "$source_dir/cxx.cpp" \
+"${compiler_prefix}-g++" -O2 -ffunction-sections -fdata-sections \
+  -Wl,--gc-sections -Wl,--as-needed "${common_flags[@]}" "${ARMHF_ABI_FLAGS[@]}" -DWSJT_TIME_BITS="$ARMHF_TIME_BITS" "$source_dir/cxx.cpp" \
   -o "$output_dir/cxx-smoke"
 "${compiler_prefix}-gfortran" "${common_flags[@]}" -fopenmp \
   "$source_dir/fortran.f90" -o "$output_dir/fortran-smoke"

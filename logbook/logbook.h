@@ -11,6 +11,7 @@
 #include <QScopedPointer>
 
 #include "WorkedBefore.hpp"
+#include "SpecialOperatingActivity.hpp"
 
 class Configuration;
 class QByteArray;
@@ -37,6 +38,7 @@ public:
             , QByteArray const& ADIF_record);
   AD1CCty const * countries () const {return worked_before_.countries ();}
   void rescan ();
+  bool erase_log () {return worked_before_.erase_log ();}
   void match (QString const& call, QString const& mode, QString const& grid,
               AD1CCty::Record const&, bool& callB4, bool& countryB4,
               bool &gridB4, bool &continentB4, bool& CQZoneB4, bool& ITUZoneB4,
@@ -47,7 +49,8 @@ public:
                         QString const& name, QString const& strDialFreq, QString const& myCall,
                         QString const& m_myGrid, QString const& m_txPower, QString const& operator_call,
                         QString const& xSent, QString const& xRcvd, QString const& propmode,
-                        QString const& satellite, QString const& satmode, QString const& freqRx);
+                        QString const& satellite, QString const& satmode, QString const& freqRx,
+                        SpecialOperatingActivity activity);
 
   QString const cty_version() const;
 

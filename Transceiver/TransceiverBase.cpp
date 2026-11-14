@@ -73,6 +73,8 @@ void TransceiverBase::set (TransceiverState const& s,
         }
       if (requested_.online ())
         {
+          bool const prepare_mode = s.mode () != UNK && !s.ptt ();
+          if (prepare_mode) begin_mode_command (s, sequence_number);
           bool audio_cmd {false};
           if (requested_.receive_policy () != s.receive_policy ()) {
             do_receive_policy (s.receive_policy ());
@@ -196,6 +198,7 @@ void TransceiverBase::set (TransceiverState const& s,
                   requested_.split (actual_.split ());
                 }
             }
+          if (prepare_mode) finish_mode_command (sequence_number);
           if (ptt_on)
             {
               do_ptt (true);
@@ -210,6 +213,12 @@ void TransceiverBase::set (TransceiverState const& s,
         }
           else
             {
+              if (prepare_mode)
+                {
+                  do_mode (s.mode ());
+                  do_post_mode (s.mode ());
+                  finish_mode_command (sequence_number);
+                }
               for (auto path : {RigFrequency::Path::Rx, RigFrequency::Path::Tx})
                 {
                   auto const request = s.frequency_request (path);
@@ -288,6 +297,14 @@ void TransceiverBase::startup ()
 void TransceiverBase::shutdown ()
 {
   CAT_TRACE ("shutdown\n");
+  if (mode_timer_) mode_timer_->stop ();
+  mode_command_active_ = false;
+  mode_settling_ = false;
+  mode_observation_pending_ = false;
+  mode_expected_ = UNK;
+  mode_observed_ = UNK;
+  mode_published_ = UNK;
+  mode_published_kind_ = ModeStatusKind::Unavailable;
   may_update u {this};
   if (requested_.online ())
     {
@@ -507,6 +524,91 @@ void TransceiverBase::update_mode (MODE m)
   requested_.mode (m);    // track rig changes
 }
 
+void TransceiverBase::observe_mode (MODE m)
+{
+  update_mode (m);
+  if (m == UNK) return;
+  mode_observed_ = m;
+  mode_observation_sequence_ = last_sequence_number_;
+  mode_observation_pending_ = true;
+}
+
+void TransceiverBase::begin_mode_command (TransceiverState const& s, unsigned sequence_number)
+{
+  bool const same_pending = mode_settling_ && mode_expected_ == s.mode ()
+    && mode_frequency_ == s.frequency ();
+  mode_expected_ = s.mode ();
+  mode_frequency_ = s.frequency ();
+  mode_sequence_ = sequence_number;
+  mode_command_active_ = true;
+  mode_observation_pending_ = false;
+  publish_mode_status (mode_expected_, ModeStatusKind::Preparing, sequence_number);
+  if (same_pending) return;
+  if (!mode_timer_)
+    {
+      mode_timer_ = new QTimer {this};
+      mode_timer_->setSingleShot (true);
+      connect (mode_timer_, &QTimer::timeout, this, &TransceiverBase::settle_mode);
+    }
+  mode_settling_ = true;
+  mode_settling_clock_.start ();
+  mode_timer_->start (polls_to_stabilize * 500);
+}
+
+void TransceiverBase::finish_mode_command (unsigned sequence_number)
+{
+  if (!mode_command_active_ || sequence_number != mode_sequence_) return;
+  refresh_mode_observation ();
+  mode_command_active_ = false;
+  if (!mode_readback_expected ())
+    {
+      mode_timer_->stop ();
+      mode_settling_ = false;
+      publish_mode_status (mode_expected_, ModeStatusKind::Applied, mode_sequence_);
+    }
+  else if (mode_settling_clock_.elapsed () >= polls_to_stabilize * 500)
+    {
+      settle_mode ();
+    }
+  else
+    {
+      publish_mode_observation ();
+    }
+}
+
+void TransceiverBase::settle_mode ()
+{
+  if (mode_command_active_ || !mode_settling_) return;
+  mode_settling_ = false;
+  if (mode_observation_pending_)
+    publish_mode_observation ();
+  else
+    publish_mode_status (UNK, ModeStatusKind::Unavailable, mode_sequence_);
+}
+
+void TransceiverBase::publish_mode_observation ()
+{
+  if (!mode_observation_pending_ || mode_command_active_) return;
+  if (!actual_.online () || actual_.ptt ())
+    {
+      mode_observation_pending_ = false;
+      return;
+    }
+  if (mode_settling_ && (mode_observed_ != mode_expected_
+                          || mode_observation_sequence_ < mode_sequence_)) return;
+  publish_mode_status (mode_observed_, ModeStatusKind::Observed, mode_observation_sequence_);
+  if (!mode_settling_) mode_observation_pending_ = false;
+}
+
+void TransceiverBase::publish_mode_status (MODE mode, ModeStatusKind kind, unsigned sequence_number)
+{
+  if (kind != ModeStatusKind::Preparing
+      && mode_published_ == mode && mode_published_kind_ == kind) return;
+  mode_published_ = mode;
+  mode_published_kind_ = kind;
+  Q_EMIT mode_status ({mode, kind}, sequence_number);
+}
+
 void TransceiverBase::update_PTT (bool state)
 {
   CAT_TRACE ("state: " << state);
@@ -535,6 +637,7 @@ void TransceiverBase::update_swr (unsigned int p)
 void TransceiverBase::update_complete (bool force_signal)
 {
   CAT_TRACE ("force signal: " << force_signal) << '\n';
+  publish_mode_observation ();
   if ((do_pre_update () && actual_ != last_) || force_signal)
     {
       Q_EMIT update (actual_, last_sequence_number_);

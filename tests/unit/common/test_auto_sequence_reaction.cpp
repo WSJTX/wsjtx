@@ -26,6 +26,273 @@ class TestAutoSequenceReaction final
   Q_OBJECT
 
 private slots:
+  void supersededRepeatCannotStopNewSelection()
+  {
+    for (auto const& mode : {QString {"MSK144"}, QString {"Q65"}}) {
+      auto snapshot = baseSnapshot();
+      snapshot.mode = mode;
+      snapshot.repeatTx = true;
+      snapshot.sendRr73 = true;
+      snapshot.qsoProgress = QsoProgress::Rogers;
+      snapshot.selectedTxMessage = 6;
+      snapshot.completion.phase = QsoCompletionPhase::Cancelled;
+      snapshot.completion.logRequested = true;
+      DecodedText message {QString {"060500 -10  0.3 1500 %1  K1ABC W1AW 73"}
+        .arg(mode == "MSK144" ? "&" : ":")};
+      auto const plan = DecodedMessageReaction::planAutoSequence(
+        message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+      QVERIFY(plan.effects.isEmpty());
+    }
+  }
+
+  void cancelledRepeatDoesNotSuppressAnotherContact()
+  {
+    for (auto const& mode : {QString {"MSK144"}, QString {"Q65"}}) {
+      auto snapshot = baseSnapshot();
+      snapshot.mode = mode;
+      snapshot.qsoProgress = QsoProgress::Rogers;
+      snapshot.completion = {QsoCompletionPhase::Cancelled, true, "W2XYZ"};
+      auto const plan = DecodedMessageReaction::planAutoSequence(
+        decode("K1ABC W1AW 73", mode == "MSK144" ? "&" : ":"), snapshot,
+        DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+      QVERIFY(hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow));
+      QVERIFY(!hasEffect(plan, Effect::Kind::FinishRepeat));
+
+      auto const lateReply = DecodedMessageReaction::planAutoSequence(
+        decode("<K1ABC> <W2XYZ/P> 73 ?", mode == "MSK144" ? "&" : ":"), snapshot,
+        DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+      QVERIFY(lateReply.effects.isEmpty());
+    }
+  }
+
+  void timedOutRepeatAcceptsLateConfirmation()
+  {
+    for (auto const& mode : {QString {"MSK144"}, QString {"Q65"}}) {
+      for (bool logRequested : {false, true}) {
+        auto snapshot = baseSnapshot();
+        snapshot.mode = mode;
+        snapshot.autoEnabled = false;
+        snapshot.autoSequenceEnabled = false;
+        snapshot.repeatTx = true;
+        snapshot.sendRr73 = true;
+        snapshot.loggingEnabled = true;
+        snapshot.completion = {QsoCompletionPhase::TimedOut, logRequested, "W1AW"};
+        auto const plan = DecodedMessageReaction::planAutoSequence(
+          decode("K1ABC W1AW 73", mode == "MSK144" ? "&" : ":"), snapshot,
+          DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+        QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+        QCOMPARE(effectIndex(plan, Effect::Kind::RecordFinalConfirmation), 0);
+        QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQso), int(!logRequested));
+        QCOMPARE(effectIndex(plan, Effect::Kind::FinishRepeat), logRequested ? 1 : 2);
+        QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleRepeatFinish));
+      }
+    }
+  }
+
+  void confirmedContactIgnoresRepeated73AfterSelectingCq()
+  {
+    for (auto const& mode : {QString {"MSK144"}, QString {"Q65"}}) {
+      auto snapshot = baseSnapshot();
+      snapshot.mode = mode;
+      snapshot.qsoProgress = QsoProgress::Calling;
+      snapshot.selectedTxMessage = 6;
+      snapshot.callingCq = true;
+      snapshot.autoReply = true;
+      snapshot.completion = {QsoCompletionPhase::Finished, true, "W1AW", true};
+      auto const plan = DecodedMessageReaction::planAutoSequence(
+        decode("K1ABC W1AW 73", mode == "MSK144" ? "&" : ":"), snapshot,
+        DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+      QVERIFY(plan.effects.isEmpty());
+    }
+  }
+
+  void repeatFinal73Admission_data()
+  {
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<bool>("matches");
+    for (auto const& mode : {QString {"MSK144"}, QString {"Q65"}}) {
+      auto const prefix = mode.toLatin1() + '-';
+      QTest::newRow((prefix + "direct").constData()) << mode << "K1ABC W1AW 73" << true;
+      QTest::newRow((prefix + "confidence").constData()) << mode << "K1ABC W1AW 73 ?" << true;
+      QTest::newRow((prefix + "ap-a1").constData()) << mode << "K1ABC W1AW 73 a1" << true;
+      QTest::newRow((prefix + "ap-q3").constData()) << mode << "K1ABC W1AW 73 q3" << true;
+      QTest::newRow((prefix + "confidence-ap").constData()) << mode << "K1ABC W1AW 73 ? q3" << true;
+      QTest::newRow((prefix + "bracketed").constData()) << mode << "<K1ABC> <W1AW> 73" << true;
+      QTest::newRow((prefix + "portable").constData()) << mode << "K1ABC/P W1AW/P 73" << true;
+      QTest::newRow((prefix + "wrong-recipient").constData()) << mode << "K2ABC W1AW 73" << false;
+      QTest::newRow((prefix + "wrong-sender").constData()) << mode << "K1ABC W2XYZ 73" << false;
+      QTest::newRow((prefix + "recipient-substring").constData()) << mode << "K1ABCD W1AW 73" << false;
+      QTest::newRow((prefix + "sender-substring").constData()) << mode << "K1ABC XW1AW 73" << false;
+      QTest::newRow((prefix + "reversed").constData()) << mode << "W1AW K1ABC 73" << false;
+      QTest::newRow((prefix + "unresolved-recipient").constData()) << mode << "<...> W1AW 73" << false;
+      QTest::newRow((prefix + "unresolved-sender").constData()) << mode << "K1ABC <...> 73" << false;
+      QTest::newRow((prefix + "rr73").constData()) << mode << "K1ABC W1AW RR73" << false;
+      QTest::newRow((prefix + "bare73").constData()) << mode << "73" << false;
+      QTest::newRow((prefix + "free-text").constData()) << mode << "K1ABC W1AW 73 GL" << false;
+    }
+  }
+
+  void repeatFinal73Admission()
+  {
+    QFETCH(QString, mode);
+    QFETCH(QString, payload);
+    QFETCH(bool, matches);
+    auto snapshot = baseSnapshot();
+    snapshot.mode = mode;
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.autoSequenceEnabled = false;
+    snapshot.sentFirst73 = true;
+    snapshot.repeatTx = true;
+    snapshot.sendRr73 = true;
+    snapshot.loggingEnabled = true;
+    snapshot.completion = {QsoCompletionPhase::AwaitingFinal73, true};
+    auto const message = decode(payload, mode == "MSK144" ? "&" : ":");
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+
+    QCOMPARE(plan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted, matches);
+    QCOMPARE(hasEffect(plan, Effect::Kind::ScheduleRepeatFinish), matches && mode == "MSK144");
+    QCOMPARE(hasEffect(plan, Effect::Kind::FinishRepeat), matches && mode == "Q65");
+    QVERIFY(!hasEffect(plan, Effect::Kind::RequestLogQso));
+    QVERIFY(!hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow));
+
+    if (payload.split(' ').contains("73")) {
+      snapshot.autoSequenceEnabled = true;
+      snapshot.sentFirst73 = false;
+      auto const admission = DecodedMessageReaction::planAutoSequence(
+        message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+      auto const reaction = DecodedMessageReaction::planProcessMessage(message, snapshot);
+      for (auto const& finalReplyPlan : {admission, reaction}) {
+        QCOMPARE(finalReplyPlan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted,
+                 matches);
+        QCOMPARE(hasEffect(finalReplyPlan, Effect::Kind::ScheduleRepeatFinish),
+                 matches && mode == "MSK144");
+        QCOMPARE(hasEffect(finalReplyPlan, Effect::Kind::FinishRepeat), matches && mode == "Q65");
+        QVERIFY(!hasEffect(finalReplyPlan, Effect::Kind::RequestLogQso));
+        QVERIFY(!hasEffect(finalReplyPlan, Effect::Kind::ProcessSyntheticMessageNow));
+        QVERIFY(!hasEffect(finalReplyPlan, Effect::Kind::SetTxMessageIndex));
+      }
+    }
+  }
+
+  void repeatFinal73RejectsOtherModeDecode()
+  {
+    auto snapshot = baseSnapshot();
+    snapshot.mode = "MSK144";
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.repeatTx = true;
+    snapshot.sendRr73 = true;
+    snapshot.completion = {QsoCompletionPhase::AwaitingFinal73, true};
+    auto const message = decode("K1ABC W1AW 73", ":");
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
+    QVERIFY(plan.effects.isEmpty());
+  }
+
+  void repeatFinal73RequiresCurrentRepeat_data()
+  {
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<bool>("autoEnabled");
+    QTest::addColumn<bool>("repeatTx");
+    QTest::addColumn<bool>("sendRr73");
+    QTest::newRow("auto-off") << QString {"MSK144"} << false << true << true;
+    QTest::newRow("repeat-off") << QString {"MSK144"} << true << false << true;
+    QTest::newRow("rrr") << QString {"MSK144"} << true << true << false;
+    QTest::newRow("other-mode") << QString {"FT8"} << true << true << true;
+    QTest::newRow("Q65 auto-off") << QString {"Q65"} << false << true << true;
+  }
+
+  void repeatFinal73RequiresCurrentRepeat()
+  {
+    QFETCH(QString, mode);
+    QFETCH(bool, autoEnabled);
+    QFETCH(bool, repeatTx);
+    QFETCH(bool, sendRr73);
+    auto snapshot = baseSnapshot();
+    snapshot.mode = mode;
+    snapshot.autoEnabled = autoEnabled;
+    snapshot.repeatTx = repeatTx;
+    snapshot.sendRr73 = sendRr73;
+    snapshot.autoSequenceEnabled = false;
+    snapshot.sentFirst73 = true;
+    snapshot.completion = {QsoCompletionPhase::AwaitingFinal73, true};
+    auto const message = decode("K1ABC W1AW 73", mode == "MSK144" ? "&" : mode == "Q65" ? ":" : "~");
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleRepeatFinish));
+    QVERIFY(!hasEffect(plan, Effect::Kind::FinishRepeat));
+  }
+
+  void q65RrrFinal73Logging_data()
+  {
+    QTest::addColumn<bool>("autoSequence");
+    QTest::addColumn<bool>("logRequested");
+    QTest::addColumn<bool>("tuning");
+    for (bool sequencing : {false, true}) {
+      for (bool requested : {false, true}) {
+        for (bool tuning : {false, true}) {
+          auto const name = QString {"sequence%1-requested%2-tuning%3"}
+            .arg(sequencing).arg(requested).arg(tuning).toLatin1();
+          QTest::newRow(name.constData()) << sequencing << requested << tuning;
+        }
+      }
+    }
+  }
+
+  void q65RrrFinal73Logging()
+  {
+    QFETCH(bool, autoSequence);
+    QFETCH(bool, logRequested);
+    QFETCH(bool, tuning);
+    auto snapshot = baseSnapshot();
+    snapshot.mode = "Q65";
+    snapshot.qsoProgress = QsoProgress::Rogers;
+    snapshot.autoSequenceEnabled = autoSequence;
+    snapshot.repeatTx = true;
+    snapshot.sendRr73 = false;
+    snapshot.selectedTxMessage = 4;
+    snapshot.loggingEnabled = true;
+    snapshot.tuning = tuning;
+    snapshot.completion.logRequested = logRequested;
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      decode("K1ABC W1AW 73", ":"), snapshot,
+      DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+
+    if (tuning) {
+      QVERIFY(plan.effects.isEmpty());
+      return;
+    }
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QCOMPARE(effectCount(plan, Effect::Kind::RequestLogQso), int(!logRequested && !tuning));
+    QCOMPARE(effectIndex(plan, Effect::Kind::RecordFinalConfirmation), 0);
+    QCOMPARE(effectIndex(plan, Effect::Kind::FinishRepeat), logRequested ? 1 : 2);
+    QVERIFY(!hasEffect(plan, Effect::Kind::CeaseAutoTx));
+    QVERIFY(!hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow));
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleAutoFlagOff));
+    QVERIFY(!hasEffect(plan, Effect::Kind::ScheduleRepeatFinish));
+  }
+
+  void q65RrrFinal73DoesNotFinishOtherActivity()
+  {
+    for (int changed : {0, 1, 2}) {
+      auto snapshot = baseSnapshot();
+      snapshot.mode = "Q65";
+      snapshot.repeatTx = true;
+      snapshot.sendRr73 = false;
+      snapshot.selectedTxMessage = changed == 0 ? 6 : 4;
+      snapshot.autoEnabled = changed != 1;
+      snapshot.qsoProgress = changed == 2 ? QsoProgress::Report : QsoProgress::Rogers;
+      auto const plan = DecodedMessageReaction::planAutoSequence(
+        decode("K1ABC W1AW 73", ":"), snapshot,
+        DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+      QVERIFY(!hasEffect(plan, Effect::Kind::RecordFinalConfirmation));
+      QVERIFY(!hasEffect(plan, Effect::Kind::FinishRepeat));
+    }
+  }
+
   void unresolvedCallsCannotAdvanceExchange_data()
   {
     QTest::addColumn<QString>("payload");

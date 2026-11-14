@@ -89,6 +89,24 @@ public:
   bool    m_xpolx;
   int     m_fs96000;
   int     m_pendingFs96000 {-1};
+  int     m_pendingPaInDevice {-1};
+  // Saved device names; kept for map65.ini while the device isn't found.
+  QString m_paInDeviceName;
+  QString m_paOutDeviceName;
+  QString m_paInDeviceApi;              // host API of the saved device
+  QString m_paOutDeviceApi;
+  bool    m_noOutputShown = false;
+  // What SoundIn was last started with: the sound-card device and channel
+  // count, or device -1 for network input or while input is stopped until a
+  // restart.
+  int     m_soundInDevice {-1};
+  int     m_soundInChannels {0};
+  bool    m_soundInStopped {false};
+  int     m_lastCardDevice {-1};     // last sound-card device SoundIn was started with
+  int     m_lastCardChannels {0};
+  bool    m_soundInFailedNoticeShown {false};
+  bool    m_soundOutFailedNoticeShown {false};
+  bool    m_soundOutTxNoticeShown {false};
   bool    m_IQswap;
   bool    m_initIQplus;
   bool    m_bIQxt;
@@ -114,6 +132,7 @@ public slots:
   void freezeDecode(int n);
   void editor_error();
   void guiUpdate();
+  void updateDecoderLagIndicator();
   void doubleClickOnCall(QString hiscall, bool ctrl);
   void doubleClickOnMessages(QString hiscall, QString t2, bool ctrl);
   void startDecoder();
@@ -303,6 +322,10 @@ private:
   QLabel* lab6;
   QLabel* lab7;
   QLabel* lab8;
+  QLabel* labLag;
+  int     m_lagSeen {0};
+  int     m_lagTotal {0};
+  qint64  m_lagLastMs {0};
 
   QMessageBox msgBox0;
 
@@ -339,6 +362,22 @@ private:
   void createStatusBar();
   void updateStatusBar();
   void msgBox(QString t);
+  bool stopSoundIn(bool report = true);
+public:
+  bool soundInRunning() const { return soundInThread.isRunning(); }
+  // SoundIn has its device open: running, or its start failed and the stream is held.
+  // The sound-card device SoundIn has open, and its channel count: while it
+  // runs, or after a failed start, when the stream stays open until exit
+  // (whatever input runs meanwhile). -1 when none.
+  int soundInOpenDevice() const {
+    if (soundInThread.m_streamLeftOpen) return m_lastCardDevice;
+    return soundInThread.isRunning() ? m_soundInDevice : -1;
+  }
+  int soundInOpenChannels() const {
+    return soundInThread.m_streamLeftOpen ? m_lastCardChannels : m_soundInChannels;
+  }
+private:
+  void findSavedDevices();
   void genStdMsgs(QString rpt);
   void lookup();
   void ba2msg(QByteArray ba, char* message);

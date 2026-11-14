@@ -1,5 +1,6 @@
 #ifndef SOUNDOUT_H
 #define SOUNDOUT_H
+#include <atomic>
 #include <QtCore>
 #include <QDebug>
 
@@ -29,6 +30,7 @@ public:
   void setOutputDevice(qint32 n);
   void setPeriod(int n);
   bool quitExecution;           //If true, thread exits gracefully
+  std::atomic_bool m_streamLeftOpen {false};   // see SoundInThread::run()
 
 
 // Private members

@@ -68,7 +68,8 @@ public:
   // config_name will be  selected if it is  an existing configuration
   // name otherwise  the last used  configuration will be  selected or
   // the default configuration if none exist
-  explicit MultiSettings (QString const& config_name = QString {});
+  explicit MultiSettings (QString const& config_name = QString {},
+                          QString const& settings_file = QString {});
 
   MultiSettings (MultiSettings const&) = delete;
   MultiSettings& operator = (MultiSettings const&) = delete;

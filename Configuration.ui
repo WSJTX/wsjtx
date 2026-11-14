@@ -1047,42 +1047,42 @@ or bandwidth is selected).</string>
                  </property>
                  <item>
                   <property name="text">
-                   <string>1200</string>
+                   <string notr="true">1200</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>2400</string>
+                   <string notr="true">2400</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>4800</string>
+                   <string notr="true">4800</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>9600</string>
+                   <string notr="true">9600</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>19200</string>
+                   <string notr="true">19200</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>38400</string>
+                   <string notr="true">38400</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>57600</string>
+                   <string notr="true">57600</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>115200</string>
+                   <string notr="true">115200</string>
                   </property>
                  </item>
                 </widget>
@@ -1361,44 +1361,46 @@ a few, particularly some Kenwood rigs, require it).</string>
         </widget>
        </item>
        <item row="10" column="2">
-        <layout class="QHBoxLayout" name="horizontalLayout_11">
+        <layout class="QVBoxLayout" name="ptt_test_layout">
          <item>
-          <widget class="QPushButton" name="test_CAT_push_button">
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Test CAT</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_3">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Preferred</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QPushButton" name="test_PTT_push_button">
-           <property name="toolTip">
-            <string>Attempt to activate the transmitter.
+          <layout class="QHBoxLayout" name="horizontalLayout_11">
+           <item>
+            <widget class="QPushButton" name="test_CAT_push_button">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Test CAT</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Preferred</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="test_PTT_push_button">
+             <property name="toolTip">
+              <string>Attempt to activate the transmitter.
 Click again to deactivate. Normally no power should be
 output since there is no audio being generated at this time.
 Check that any Tx indication on your radio and/or your
 radio interface behave as expected.</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton:checked {
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton:checked {
 	background-color: red;
 	border-style	: outset;
 	border-width: 1px;
@@ -1407,11 +1409,32 @@ radio interface behave as expected.</string>
 	min-width: 5em;
 	padding: 3px;
 }</string>
+             </property>
+             <property name="text">
+              <string>Test PTT</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QLabel" name="test_PTT_status_label">
+           <property name="visible">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <property name="text">
-            <string>Test PTT</string>
+            <string/>
            </property>
-           <property name="checkable">
+           <property name="wordWrap">
             <bool>true</bool>
            </property>
           </widget>
@@ -3283,7 +3306,7 @@ Right click for insert and delete options.</string>
             <item>
              <widget class="QPushButton" name="history_sources_push_button">
               <property name="toolTip">
-               <string>Select additional ADIF files to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
+               <string>Select additional ADIF files and folders to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
               </property>
               <property name="text">
                <string>History sources...</string>
@@ -3612,6 +3635,49 @@ Right click for insert and delete options.</string>
        <string>Advanced</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_9">
+       <item row="1" column="0" colspan="2">
+        <widget class="QGroupBox" name="best_sp_group_box">
+         <property name="title">
+          <string>Best S+P</string>
+         </property>
+         <layout class="QGridLayout" name="best_sp_layout">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="best_sp_new_dxcc_check_box">
+            <property name="text">
+             <string>New DXCC entity</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="best_sp_new_call_on_band_check_box">
+            <property name="text">
+             <string>Callsign not worked on this band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_explanation_label">
+            <property name="text">
+             <string>New DXCC entities have priority. Highlight colors, enabled rules, and rule order do not affect selection.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_matching_explanation_label">
+            <property name="text">
+             <string>Worked-before matching follows 'Highlight by Mode' and 'Include extra WAE entities' on Colors.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QGroupBox" name="gbCloudlog">
          <property name="sizePolicy">
@@ -3786,7 +3852,7 @@ Right click for insert and delete options.</string>
          </layout>
         </widget>
        </item>
-       <item row="0" column="1" rowspan="2">
+       <item row="0" column="1">
         <widget class="QGroupBox" name="groupBox_5">
          <property name="title">
           <string>Miscellaneous</string>
@@ -5614,6 +5680,8 @@ Right click for insert and delete options.</string>
   <tabstop>cbx4ToneSpacing</tabstop>
   <tabstop>rbLowSidelobes</tabstop>
   <tabstop>rbMaxSensitivity</tabstop>
+  <tabstop>best_sp_new_dxcc_check_box</tabstop>
+  <tabstop>best_sp_new_call_on_band_check_box</tabstop>
   <tabstop>cbSpecialOpActivity</tabstop>
   <tabstop>rbFox</tabstop>
   <tabstop>cbSuperFox</tabstop>

@@ -10,6 +10,7 @@ Verifies Mach-O files under PATH for:
   * deployment target not newer than --target
   * no package-manager runtime library references
   * no Qt load dependencies in jt9
+  * no Boost runtime dependencies or bundled Boost library files
 
 Package-manager paths are always rejected:
   /opt/homebrew, /usr/local/Cellar, /usr/local/opt, /opt/local
@@ -153,6 +154,12 @@ check_file() {
   fi
   while IFS= read -r ref; do
     [ -n "$ref" ] || continue
+    case "${ref##*/}" in
+      libboost*.dylib|libboost*.so*)
+        echo "::error file=${file}::Boost must be linked statically: ${ref}"
+        fail=1
+        ;;
+    esac
     if [ "${file##*/}" = jt9 ]; then
       case "${ref##*/}" in
         Qt*|libQt*)
@@ -184,16 +191,22 @@ check_file() {
 }
 
 overall=0
-while IFS= read -r file; do
+while IFS= read -r -d '' file; do
+  case "${file##*/}" in
+    libboost*.dylib|libboost*.so*|libboost*.a)
+      echo "::error file=${file}::Bundled Boost library is not allowed"
+      overall=1
+      ;;
+  esac
   if is_macho "$file"; then
     check_file "$file" || overall=1
   fi
 done < <(
   for path in "${paths[@]}"; do
     if [ -d "$path" ]; then
-      find "$path" -type f \( -perm +111 -o -name "*.dylib" -o -name "*.so" \)
+      find "$path" \( -type f -o -type l \) -print0
     elif [ -f "$path" ]; then
-      printf '%s\n' "$path"
+      printf '%s\0' "$path"
     fi
   done
 )

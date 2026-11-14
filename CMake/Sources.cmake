@@ -226,6 +226,7 @@ if (WSJT_ENABLE_TESTS)
     WavDecodeTestController.cpp
     LiveAudioTestController.cpp
     ReceiveHandoffTestController.cpp
+    BestSPApplicationTestController.cpp
     )
 endif ()
 
@@ -237,9 +238,6 @@ set (wsjt_CXXSRCS
   lib/NativeSharedMemory.cpp
   lib/DecoderWorkerLock.cpp
   lib/ft8var/ft8_coarse_mutex.cpp
-  lib/crc10.cpp
-  lib/crc13.cpp
-  lib/crc14.cpp
   ${wsjt_fox_CXXSRCS}
   )
 
@@ -251,13 +249,6 @@ set (wsjt_jtty_CXXSRCS
   lib/jtty/JttyUnicode.cpp
   lib/stream_slot_audio.cpp
   )
-
-# deal with a GCC v6 UB error message
-set_source_files_properties (
-  lib/crc10.cpp
-  lib/crc13.cpp
-  lib/crc14.cpp
-  PROPERTIES COMPILE_FLAGS -fpermissive)
 
 if (WIN32)
   set (wsjt_qt_CXXSRCS
@@ -681,7 +672,6 @@ set (ka9q_CSRCS
   lib/ftrsd/encode_rs.c
   lib/ftrsd/init_rs.c
   )
-set_source_files_properties (${ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (qra_CSRCS
   lib/qra/qracodes/qra12_63_64_irr_b.c

@@ -224,12 +224,32 @@ fi
 If this check fails, inspect the `hamlib_branch` setting in
 `.github/workflows/ci.yml` before continuing.
 
+Windows CI applies compatibility patches from the WSJT-X checkout before
+building Hamlib. These fix FUNcube Windows HID handling and a clock-selection
+check that otherwise prevents Hamlib 4.7.2 from building with current MSYS2
+UCRT64 packages. Apply the same patches below.
+
 [source,bash]
 ----
 cd ~/wsjtx-dev
 git clone --depth 1 --branch "$HAMLIB_BRANCH" \
   https://github.com/Hamlib/Hamlib.git hamlib-src
 cd hamlib-src
+git apply --check \
+  ../src/.github/patches/hamlib-funcube-windows-hid.patch \
+  ../src/.github/patches/hamlib-windows-precise-time.patch
+git apply \
+  ../src/.github/patches/hamlib-funcube-windows-hid.patch \
+  ../src/.github/patches/hamlib-windows-precise-time.patch
+----
+
+If cloning or either patch command fails, stop and check the selected Hamlib
+revision and the patches in the WSJT-X checkout. Apply the patches only once
+to a fresh Hamlib source checkout. After both patch commands succeed, build
+and install Hamlib:
+
+[source,bash]
+----
 ./bootstrap
 ./configure --prefix="$HOME/wsjtx-dev/hamlib-prefix" \
   --enable-shared --disable-static \
@@ -244,9 +264,9 @@ This creates an isolated Hamlib installation under
 `~/wsjtx-dev/hamlib-prefix`; it does not replace another Hamlib installation
 on the computer.
 
-If the CI pin changes, remove or rename `hamlib-src` and
-`hamlib-prefix`, then repeat this section. A shallow clone made for an older
-tag may not contain the new revision.
+If the CI pin or either compatibility patch changes, remove or rename
+`hamlib-src` and `hamlib-prefix`, then repeat this section. A shallow clone
+made for an older tag may not contain the new revision.
 
 === Configure and build WSJT-X
 
@@ -395,7 +415,8 @@ cd ~/wsjtx-dev/src
 git pull --ff-only
 ----
 
-Rebuild Hamlib when the CI-selected revision changes.
+Rebuild Hamlib when the CI-selected revision or either compatibility patch
+changes.
 
 Use a new build directory after a major MSYS2 update changes GCC, gfortran,
 CMake, Qt, the MinGW runtime, or foundational libraries. Cached compiler and
@@ -420,6 +441,36 @@ For Windows build failures, check the following:
   `lib/libhamlib.dll.a`, and `bin/libhamlib-4.dll`.
 
 After fixing a configuration error, rerun the configure command.
+
+An existing Git for Windows or Sourcetree clone may contain CRLF line endings
+in the Hamlib patch files, causing `git apply --check` to report a corrupt
+patch. The fresh-clone instructions above avoid this conversion. For an
+existing clone, export the committed patches from Git instead of using the
+working-tree copies:
+
+[source,bash]
+----
+cd ~/wsjtx-dev/hamlib-src
+git -C ../src show HEAD:.github/patches/hamlib-funcube-windows-hid.patch \
+  > funcube.patch
+git -C ../src show HEAD:.github/patches/hamlib-windows-precise-time.patch \
+  > precise-time.patch
+----
+
+Stop if either export fails. On a fresh, unpatched Hamlib source checkout,
+use `funcube.patch` and `precise-time.patch` as the inputs to both
+`git apply --check` and `git apply` in the Hamlib section, then continue the
+build. These exports contain the patches from `HEAD`, without any uncommitted
+patch edits.
+
+If the version unexpectedly includes `-dirty`, run `git status --short` in
+the UCRT64 shell. Git for Windows and MSYS2 Git can use different
+`core.autocrlf` settings, so an unchanged CRLF checkout can appear modified
+to the Git used by the build even when Sourcetree reports it as clean. Keep
+the Git clients' line-ending settings consistent with how the checkout was
+created. Changing `core.autocrlf` alone does not convert files already checked
+out; preserve local work before recreating a checkout with the clone
+instructions above.
 
 For a useful support report, include:
 

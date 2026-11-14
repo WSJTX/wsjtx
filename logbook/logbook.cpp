@@ -93,11 +93,11 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
                                QString const& name, QString const& strDialFreq, QString const& myCall,
                                QString const& myGrid, QString const& txPower, QString const& operator_call,
                                QString const& xSent, QString const& xRcvd, QString const& propmode,
-                               QString const& satellite, QString const& satmode, QString const& freqRx)
+                               QString const& satellite, QString const& satmode, QString const& freqRx,
+                               SpecialOperatingActivity activity)
 {
-  Q_ASSERT (config_);
   auto contest = AdifQso::Contest::None;
-  switch (config_->special_op_id ())
+  switch (activity)
     {
     case Configuration::SpecialOperatingActivity::FIELD_DAY:
       contest = AdifQso::Contest::FieldDay;

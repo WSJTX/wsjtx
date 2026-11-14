@@ -76,8 +76,6 @@ case "$role" in
       printf 'hamlib_sha256=%s\n' "$hamlib_sha256"
       printf 'glibc_version=%s\n' "$ARMHF_GLIBC_VERSION"
       if [ "$ARMHF_DISTRO" = bookworm ]; then
-        printf 'binutils_version=%s\n' "$ARMHF_BINUTILS_VERSION"
-        printf 'linux_headers_version=%s\n' "$ARMHF_LINUX_HEADERS_VERSION"
         printf 'minimum_kernel_version=%s\n' "$ARMHF_MIN_KERNEL_VERSION"
       fi
       printf 'quadmath_runtime=%s\n' unavailable-on-arm

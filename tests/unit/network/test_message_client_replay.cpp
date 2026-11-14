@@ -270,12 +270,19 @@ private Q_SLOTS:
     if (field == "uppercase-annotation") reply += " A1";
     if (field == "annotation-followed-by-content") reply += " a1 EXTRA";
     if (field == "embedded-question") reply = "CQ JA2XYZ? PM95";
+    CapturedLog log;
+    log.setSeverity (boost::log::trivial::debug);
     sendReply (receiver, field == "time" ? time.addSecs (15) : time,
                field == "snr" ? -11 : -12, field == "dt" ? 0.3f : 0.2f,
                field == "df" ? 1426 : 1425, field == "mode" ? "+" : "~", reply);
-    sendReply (receiver, time, -12, 0.2f, 1425, "~", sent);
+    QTRY_VERIFY_WITH_TIMEOUT (!replies.isEmpty () || log.text ().contains ("UDP Reply refused:"), 10000);
+    QCOMPARE (replies.size (), 0);
+    QVERIFY (log.text ().contains ("UDP Reply refused:"));
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", sent, false, 0x02);
     QTRY_COMPARE (replies.size (), 1);
     QCOMPARE (replies.front ().at (5).toString (), sent);
+    QCOMPARE (replies.front ().at (6).toBool (), false);
+    QCOMPARE (replies.front ().at (7).value<quint8> (), quint8 {0x02});
   }
 
   void refusedReplyLogsOnlyAtDebug ()

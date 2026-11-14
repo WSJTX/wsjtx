@@ -46,7 +46,7 @@ add_test (NAME test_configuration_radio COMMAND test_configuration_radio)
 set_tests_properties (test_configuration_radio PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   LABELS "frequency-control;threading"
-  TIMEOUT 60)
+  TIMEOUT 90)
 if (WSJT_ENABLE_TSAN)
   set_property (TEST test_configuration_radio APPEND PROPERTY ENVIRONMENT
     "TSAN_OPTIONS=halt_on_error=1:exitcode=66")
@@ -117,6 +117,19 @@ add_executable (test_waterfall_scale
 )
 target_link_libraries (test_waterfall_scale Qt5::Test)
 add_test (NAME test_waterfall_scale COMMAND test_waterfall_scale)
+
+add_executable (test_plotter_timestamps
+  test_plotter_timestamps.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/plotter.cpp)
+target_link_libraries (test_plotter_timestamps PRIVATE wsjt_qt Qt5::Test)
+wsjt_link_common_fortran (test_plotter_timestamps)
+add_test (NAME test_plotter_timestamps COMMAND test_plotter_timestamps)
+if (WIN32)
+  # The Windows offscreen plugin does not load system fonts.
+  set_tests_properties (test_plotter_timestamps PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+else ()
+  set_tests_properties (test_plotter_timestamps PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif ()
 
 add_executable (test_http_user_agent
   test_http_user_agent.cpp
@@ -243,6 +256,10 @@ target_include_directories (test_transceiver_frequency PRIVATE ${CMAKE_BINARY_DI
 target_link_libraries (test_transceiver_frequency Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_transceiver_frequency COMMAND test_transceiver_frequency)
 
+add_executable (test_radio_mode_policy test_radio_mode_policy.cpp)
+target_link_libraries (test_radio_mode_policy wsjt_qt Qt5::Test)
+add_test (NAME test_radio_mode_policy COMMAND test_radio_mode_policy)
+
 add_executable (test_hamlib_mode
   test_hamlib_mode.cpp
 )
@@ -274,7 +291,7 @@ add_executable (test_frequency_editors
   test_frequency_editors.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp
 )
-target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets)
+target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets Qt5::Sql)
 add_test (NAME test_frequency_editors COMMAND test_frequency_editors)
 
 add_executable (test_frequency_suggestions
@@ -291,6 +308,10 @@ add_executable (test_decoded_message_reaction
 )
 target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)
+
+add_executable (test_best_sp_controller test_best_sp_controller.cpp)
+target_link_libraries (test_best_sp_controller wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_best_sp_controller COMMAND test_best_sp_controller)
 
 add_executable (test_decode_output_plan
   test_decode_output_plan.cpp
@@ -437,13 +458,18 @@ target_link_libraries (test_l10n_loader Boost::log_setup Qt5::Test Qt5::Widgets 
 add_test (NAME test_l10n_loader COMMAND test_l10n_loader)
 set_tests_properties (test_l10n_loader PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable (test_configuration_language test_configuration_language.cpp)
-target_link_libraries (test_configuration_language wsjt_qt wsjt_cxx wsjt_fort_common
+add_executable (test_configuration_preferences test_configuration_preferences.cpp)
+target_link_libraries (test_configuration_preferences wsjt_qt wsjt_cxx wsjt_fort_common
   Boost::log_setup Qt5::Test)
-add_test (NAME test_configuration_language COMMAND test_configuration_language)
-set_tests_properties (test_configuration_language PROPERTIES
+add_test (NAME test_configuration_preferences COMMAND test_configuration_preferences)
+set_tests_properties (test_configuration_preferences PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
+
+foreach (target test_displaytext test_frequency_editors)
+  add_dependencies (${target} translations)
+  target_compile_definitions (${target} PRIVATE WSJT_JAPANESE_QM="${CMAKE_BINARY_DIR}/wsjtx_ja.qm")
+endforeach ()
 
 add_executable (test_configuration_udp_destinations test_configuration_udp_destinations.cpp)
 target_link_libraries (test_configuration_udp_destinations wsjt_qt wsjt_cxx wsjt_fort_common
