@@ -991,8 +991,12 @@ contains
   ! An end, clean or fatal: every queued line written, the writer thread
   ! stopped, and lines written at once again.
   subroutine streaming_emit_rows_end()
+    ! Called through a copy: GCC 12 rejects nullifying a module-level
+    ! procedure pointer that the same procedure has called.
+    procedure(emit_rows_wait), pointer :: end_rows
     call hold_(.true.)
-    if (associated(rows_end_)) call rows_end_()
+    end_rows => rows_end_
+    if (associated(end_rows)) call end_rows()
     nullify(rows_put_, rows_quiet_, rows_end_)
     call hold_(.false.)
   end subroutine streaming_emit_rows_end
