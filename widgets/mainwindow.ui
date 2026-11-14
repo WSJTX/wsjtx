@@ -4995,7 +4995,7 @@ QLabel[oob=&quot;true&quot;] {
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Q65 mode.&lt;br&gt; Right-click to switch to Q65 Pileup mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Q65 mode.&lt;br&gt; Ctrl+right-click to switch to Q65 Pileup mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
              <property name="text">
               <string>Q65</string>
@@ -5279,6 +5279,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="reset_cabrillo_log_action"/>
     <addaction name="actionExport_Cabrillo_log"/>
     <addaction name="actionOpen_log_directory"/>
+    <addaction name="actionOpen_ADIF_log_folder"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
     <addaction name="separator"/>
@@ -5679,7 +5680,7 @@ QPushButton[state=&quot;ok&quot;] {
   </action>
   <action name="actionErase_wsjtx_log_adi">
    <property name="text">
-    <string>Erase wsjtx_log.adi</string>
+    <string>Erase ADIF log</string>
    </property>
   </action>
   <action name="actionErase_Tx_Log">
@@ -5729,6 +5730,14 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionOpen_log_directory">
    <property name="text">
     <string>Open log directory</string>
+   </property>
+  </action>
+  <action name="actionOpen_ADIF_log_folder">
+   <property name="text">
+    <string>Open ADIF log folder</string>
+   </property>
+   <property name="toolTip">
+    <string>Open the folder containing the ADIF log in use</string>
    </property>
   </action>
   <action name="actionJT4">

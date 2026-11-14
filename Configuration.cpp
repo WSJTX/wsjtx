@@ -771,7 +771,10 @@ private:
   void enumerate_rigs ();
   void normalize_rig_selections (bool restore = false);
   void set_rig_invariants ();
-  enum class RadioValidationError { none, invalid_ptt_method, invalid_ptt_port };
+  enum class RadioValidationError { none, invalid_ptt_method, invalid_ptt_port, invalid_footswitch_port };
+  static bool footswitch_port_clashes (QString const& footswitch_port, QString const& cat_serial_port,
+                                       TransceiverFactory::PTTMethod, QString const& ptt_port);
+  void update_footswitch_controls ();
   RadioValidationError validate_radio_settings ();
   bool validate ();
   void fill_port_combo_box (QComboBox *);
@@ -850,6 +853,10 @@ private:
   void update_PWR_and_SWR_control_availability ();
   void apply_color_preset (DecodeHighlightingModel::ColorPreset const& preset);
   void reset_highlighting (QString const& confirmation, DecodeHighlightingModel::HighlightItems const& items);
+  QString adif_log_path (QString const& custom) const
+  {
+    return custom.isEmpty () ? writable_file_path (writeable_data_dir_, "wsjtx_log.adi") : custom;
+  }
   Q_SLOT void on_move_highlighting_up_push_button_clicked (bool = false);
   Q_SLOT void on_move_highlighting_down_push_button_clicked (bool = false);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
@@ -1021,6 +1028,8 @@ private:
   bool highlight_by_mode_;
   bool best_sp_new_dxcc_ {true};
   bool best_sp_new_call_on_band_ {true};
+  QString adif_log_file_;
+  QString next_adif_log_file_;
   QStringList supplemental_history_files_;
   QStringList next_supplemental_history_files_;
   HistoryFolders supplemental_history_folders_;
@@ -1167,6 +1176,9 @@ private:
   int watchdog_;
   int tune_watchdog_time_;
   bool tune_watchdog_;
+  bool footswitch_enabled_ {false};
+  QString footswitch_port_;
+  int footswitch_pin_ {0};
   bool TX_messages_;
   bool enable_VHF_features_;
   bool decode_at_52s_;
@@ -1351,6 +1363,17 @@ bool Configuration::alternate_bindings() const {return m_->alternate_bindings_;}
 int Configuration::watchdog () const {return m_->watchdog_;}
 int Configuration::tune_watchdog_time () const {return m_->tune_watchdog_time_;}
 bool Configuration::tune_watchdog () const {return m_->tune_watchdog_;}
+bool Configuration::footswitch_enabled () const {return m_->footswitch_enabled_;}
+QString Configuration::footswitch_port () const {return m_->footswitch_port_;}
+int Configuration::footswitch_pin () const {return m_->footswitch_pin_;}
+bool Configuration::footswitch_port_clash () const
+{
+  auto const serial_CAT = TransceiverFactory::Capabilities::serial
+    == m_->transceiver_factory_.CAT_port_type (m_->rig_params_.rig_name);
+  return impl::footswitch_port_clashes (m_->footswitch_port_,
+                                        serial_CAT ? m_->rig_params_.serial_port : QString {},
+                                        m_->rig_params_.ptt_type, m_->rig_params_.ptt_port);
+}
 bool Configuration::TX_messages () const {return m_->TX_messages_;}
 bool Configuration::enable_VHF_features () const {return m_->enable_VHF_features_;}
 bool Configuration::decode_at_52s () const {return m_->decode_at_52s_;}
@@ -1412,6 +1435,7 @@ DecodeHighlightingModel const& Configuration::decode_highlighting () const {retu
 bool Configuration::highlight_by_mode () const {return m_->highlight_by_mode_;}
 bool Configuration::best_sp_new_dxcc () const {return m_->best_sp_new_dxcc_;}
 bool Configuration::best_sp_new_call_on_band () const {return m_->best_sp_new_call_on_band_;}
+QString Configuration::adif_log_file_path () const {return m_->adif_log_path (m_->adif_log_file_);}
 QStringList const& Configuration::supplemental_history_files () const {return m_->supplemental_history_files_;}
 HistoryFolders const& Configuration::supplemental_history_folders () const {return m_->supplemental_history_folders_;}
 void Configuration::set_worked_before_status (QString const& status, QString const& errors)
@@ -2530,6 +2554,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->split_rig_radio_button->setAccessibleName (tr ("Rig split operation"));
   ui_->split_emulate_radio_button->setAccessibleName (tr ("Fake It split operation"));
   ui_->CAT_poll_interval_spin_box->setAccessibleName (tr ("CAT poll interval"));
+  ui_->footswitch_group_box->setAccessibleName (tr ("Footswitch T/R"));
+  ui_->footswitch_enable_check_box->setAccessibleName (tr ("Use footswitch"));
+  ui_->footswitch_port_combo_box->setAccessibleName (tr ("Footswitch port"));
+  ui_->footswitch_pin_combo_box->setAccessibleName (tr ("Footswitch input line"));
   ui_->calibration_slope_ppm_spin_box->setAccessibleName (tr ("Frequency calibration slope"));
   ui_->calibration_intercept_spin_box->setAccessibleName (tr ("Frequency calibration intercept"));
   ui_->frequencies_table_view->setAccessibleName (tr ("Working frequencies table"));
@@ -2645,6 +2673,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->PTT_CAT_radio_button,
     ui_->PTT_RTS_radio_button,
     ui_->PTT_port_combo_box,
+    ui_->footswitch_enable_check_box,
+    ui_->footswitch_port_combo_box,
+    ui_->footswitch_pin_combo_box,
     ui_->TX_source_data_radio_button,
     ui_->TX_source_mic_radio_button,
     ui_->mode_none_radio_button,
@@ -3061,6 +3092,14 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->PTT_port_combo_box->setItemData (ui_->PTT_port_combo_box->count () - 1, "Delegate to proxy CAT service", Qt::ToolTipRole);
 
   //
+  // setup footswitch port and input pin combo boxes
+  //
+  fill_port_combo_box (ui_->footswitch_port_combo_box);
+  ui_->footswitch_pin_combo_box->addItems ({"CTS", "DSR", "DCD", "RI"});
+  connect (ui_->footswitch_enable_check_box, &QCheckBox::toggled,
+           this, &Configuration::impl::update_footswitch_controls);
+
+  //
   // setup hooks to keep audio channels aligned with devices
   //
   {
@@ -3386,6 +3425,10 @@ void Configuration::impl::initialize_models ()
   ui_->alternate_bindings_check_box->setChecked (alternate_bindings_);
   ui_->tx_watchdog_spin_box->setValue (watchdog_);
   ui_->tune_watchdog_check_box->setChecked(tune_watchdog_);
+  ui_->footswitch_enable_check_box->setChecked (footswitch_enabled_);
+  ui_->footswitch_port_combo_box->setCurrentText (footswitch_port_);
+  ui_->footswitch_pin_combo_box->setCurrentIndex (footswitch_pin_);
+  update_footswitch_controls ();
   ui_->tune_watchdog_spin_box->setValue (tune_watchdog_time_);
   ui_->TX_messages_check_box->setChecked (TX_messages_);
   ui_->enable_VHF_features_check_box->setChecked(enable_VHF_features_);
@@ -3509,6 +3552,7 @@ void Configuration::impl::initialize_models ()
   ui_->highlight_by_mode_check_box->setChecked (highlight_by_mode_);
   ui_->best_sp_new_dxcc_check_box->setChecked (best_sp_new_dxcc_);
   ui_->best_sp_new_call_on_band_check_box->setChecked (best_sp_new_call_on_band_);
+  next_adif_log_file_ = adif_log_file_;
   next_supplemental_history_files_ = supplemental_history_files_;
   next_supplemental_history_folders_ = supplemental_history_folders_;
   ui_->only_fields_check_box->setChecked (highlight_only_fields_);
@@ -3819,9 +3863,12 @@ void Configuration::impl::read_settings ()
   best_sp_new_dxcc_ = selection_setting ("BestSPNewDXCC", DecodeHighlightingModel::Highlight::DXCC);
   best_sp_new_call_on_band_ = selection_setting ("BestSPNewCallOnBand", DecodeHighlightingModel::Highlight::CallBand);
   highlight_by_mode_ = settings_->value("HighlightByMode", false).toBool ();
+  adif_log_file_ = settings_->value ("AdifLogFile").toString ().trimmed ();
+  if (!adif_log_file_.isEmpty ())
+    adif_log_file_ = QDir::cleanPath (writeable_data_dir_.absoluteFilePath (adif_log_file_));
   supplemental_history_files_ = WorkedBefore::normalize_history_files (
     settings_->value ("SupplementalHistoryFiles").toStringList (),
-    writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
+    adif_log_path (adif_log_file_));
   supplemental_history_folders_.clear ();
   auto const history_folder_count = settings_->beginReadArray ("SupplementalHistoryFolders");
   for (int index = 0; index < history_folder_count; ++index)
@@ -3885,6 +3932,9 @@ void Configuration::impl::read_settings ()
   alternate_bindings_ = settings_->value ("AlternateBindings", false).toBool ();
   watchdog_ = settings_->value ("TxWatchdog", 6).toInt ();
   tune_watchdog_ = settings_->value("TuneWatchdog",true).toBool ();
+  footswitch_enabled_ = settings_->value ("FootswitchEnabled", false).toBool ();
+  footswitch_port_ = settings_->value ("FootswitchPort").toString ();
+  footswitch_pin_ = qBound (0, settings_->value ("FootswitchPin", 0).toInt (), 3);
   tune_watchdog_time_ = settings_->value ("TuneWatchdogTime", 90).toInt ();
   TX_messages_ = settings_->value ("Tx2QSO", true).toBool ();
   enable_VHF_features_ = settings_->value("VHFUHF",false).toBool ();
@@ -4133,6 +4183,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("HighlightByMode", highlight_by_mode_);
   settings_->setValue ("BestSPNewDXCC", best_sp_new_dxcc_);
   settings_->setValue ("BestSPNewCallOnBand", best_sp_new_call_on_band_);
+  settings_->setValue ("AdifLogFile", adif_log_file_);
   settings_->setValue ("SupplementalHistoryFiles", supplemental_history_files_);
   settings_->beginWriteArray ("SupplementalHistoryFolders", supplemental_history_folders_.size ());
   for (int index = 0; index < supplemental_history_folders_.size (); ++index)
@@ -4183,6 +4234,10 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("AlternateBindings", alternate_bindings_);
   settings_->setValue ("TxWatchdog", watchdog_);
   settings_->setValue ("TuneWatchdog", tune_watchdog_);
+  settings_->setValue ("FootswitchEnabled", footswitch_enabled_);
+  settings_->setValue ("FootswitchPort", footswitch_port_);
+  settings_->setValue ("FootswitchPin", footswitch_pin_);
+  settings_->remove ("FootswitchInvert"); // option withdrawn: normally open switch only
   settings_->setValue ("TuneWatchdogTime", tune_watchdog_time_);
   settings_->setValue ("Tx2QSO", TX_messages_);
   settings_->setValue ("CATForceDTR", rig_params_.force_dtr);
@@ -4464,7 +4519,63 @@ auto Configuration::impl::validate_radio_settings () -> RadioValidationError
       return RadioValidationError::invalid_ptt_port;
     }
 
+  if (ui_->footswitch_enable_check_box->isChecked ())
+    {
+      auto const serial_CAT = TransceiverFactory::Capabilities::serial
+        == transceiver_factory_.CAT_port_type (ui_->rig_combo_box->currentText ());
+      auto const footswitch_port = ui_->footswitch_port_combo_box->currentText ().trimmed ();
+      if (footswitch_port.isEmpty ()
+          || footswitch_port_clashes (footswitch_port,
+                                      serial_CAT ? ui_->CAT_port_combo_box->currentText () : QString {},
+                                      ptt_method, ptt_port))
+        {
+          return RadioValidationError::invalid_footswitch_port;
+        }
+    }
+
   return RadioValidationError::none;
+}
+
+bool Configuration::impl::footswitch_port_clashes (QString const& footswitch_port,
+                                                   QString const& cat_serial_port,
+                                                   TransceiverFactory::PTTMethod ptt_method,
+                                                   QString const& ptt_port)
+{
+  // Reduce a port name to the device it identifies, so different names for
+  // the same adapter match: \\.\COM4 and COM4 on Windows; on Linux and
+  // macOS symlinks such as /dev/serial/by-id/... resolve to /dev/ttyUSB0.
+  auto device = [] (QString port) {
+    port = port.trimmed ().remove (QRegularExpression {R"(^\\\\\.\\)"});
+#ifndef Q_OS_WIN
+    if (!port.isEmpty () && !port.startsWith ('/')) port.prepend ("/dev/");
+    auto const canonical = QFileInfo {port}.canonicalFilePath ();
+    if (!canonical.isEmpty ()) port = canonical;
+#endif
+    return port;
+  };
+#ifdef Q_OS_WIN
+  auto constexpr case_sensitivity = Qt::CaseInsensitive;
+#else
+  auto constexpr case_sensitivity = Qt::CaseSensitive;
+#endif
+  auto same = [&] (QString const& a, QString const& b) {
+    return !b.trimmed ().isEmpty ()
+      && 0 == QString::compare (device (a), device (b), case_sensitivity);
+  };
+  if (footswitch_port.trimmed ().isEmpty ()) return false;
+  if (same (footswitch_port, cat_serial_port)) return true;
+  return (TransceiverFactory::PTT_method_DTR == ptt_method
+          || TransceiverFactory::PTT_method_RTS == ptt_method)
+    && same (footswitch_port, ptt_port);
+}
+
+void Configuration::impl::update_footswitch_controls ()
+{
+  auto const enabled = ui_->footswitch_enable_check_box->isChecked ();
+  ui_->footswitch_port_label->setEnabled (enabled);
+  ui_->footswitch_port_combo_box->setEnabled (enabled);
+  ui_->footswitch_pin_label->setEnabled (enabled);
+  ui_->footswitch_pin_combo_box->setEnabled (enabled);
 }
 
 bool Configuration::impl::validate ()
@@ -4564,6 +4675,15 @@ bool Configuration::impl::validate ()
       return false;
     }
 
+  if (RadioValidationError::invalid_footswitch_port == radio_error)
+    {
+      find_tab (ui_->footswitch_port_combo_box);
+      MessageBox::critical_message (this, tr ("Invalid footswitch port"),
+                                    tr ("Select a serial port for the footswitch that is not "
+                                        "used for CAT or PTT."));
+      return false;
+    }
+
   if (ui_->rbField_Day->isEnabled () && ui_->rbField_Day->isChecked () &&
       !ui_->Field_Day_Exchange->hasAcceptableInput ())
     {
@@ -4602,6 +4722,9 @@ int Configuration::impl::exec ()
                                    // require the Transceiver to be
                                    // re-opened
   rig_changed_ = false;
+
+  // pick up USB serial adapters plugged in since the dialog was last shown
+  fill_port_combo_box (ui_->footswitch_port_combo_box);
 
   initialize_models ();
 
@@ -4884,6 +5007,9 @@ void Configuration::impl::accept ()
   alternate_bindings_ = ui_->alternate_bindings_check_box->isChecked ();
   watchdog_ = ui_->tx_watchdog_spin_box->value ();
   tune_watchdog_ = ui_->tune_watchdog_check_box->isChecked ();
+  footswitch_enabled_ = ui_->footswitch_enable_check_box->isChecked ();
+  footswitch_port_ = ui_->footswitch_port_combo_box->currentText ().trimmed ();
+  footswitch_pin_ = qMax (0, ui_->footswitch_pin_combo_box->currentIndex ());
   tune_watchdog_time_ = ui_->tune_watchdog_spin_box->value ();
   TX_messages_ = ui_->TX_messages_check_box->isChecked ();
   data_mode_ = static_cast<DataMode> (ui_->TX_mode_button_group->checkedId ());
@@ -5068,11 +5194,16 @@ void Configuration::impl::accept ()
       Q_EMIT self_->ui_language_preference_changed (language);
     }
 
+  auto const adif_log_file = next_adif_log_file_.trimmed ().isEmpty ()
+    ? QString {} : QDir::cleanPath (writeable_data_dir_.absoluteFilePath (next_adif_log_file_.trimmed ()));
   auto history_files = WorkedBefore::normalize_history_files (
-    next_supplemental_history_files_, writable_file_path (writeable_data_dir_, "wsjtx_log.adi"));
+    next_supplemental_history_files_, adif_log_path (adif_log_file));
   auto history_folders = WorkedBefore::normalize_history_folders (next_supplemental_history_folders_);
-  bool history_changed = history_files != supplemental_history_files_
+  bool history_changed = adif_log_file != adif_log_file_
+    || history_files != supplemental_history_files_
     || history_folders != supplemental_history_folders_;
+  adif_log_file_ = adif_log_file;
+  next_adif_log_file_ = adif_log_file;
   supplemental_history_files_ = history_files;
   next_supplemental_history_files_ = history_files;
   supplemental_history_folders_ = history_folders;
@@ -5162,6 +5293,9 @@ void Configuration::impl::on_rescan_log_push_button_clicked (bool /*clicked*/)
 
 void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked*/)
 {
+  // These outlive the dialog's child widgets, whose handlers refer to them.
+  QString primary_path = adif_log_path (next_adif_log_file_);
+  QString chosen_log = next_adif_log_file_;
   QDialog dialog {this};
   dialog.setWindowTitle (tr ("Worked-before history sources"));
   auto outer_layout = new QVBoxLayout {&dialog};
@@ -5175,12 +5309,10 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   auto explanation = new QLabel {tr ("The WSJT-X log receives new QSOs. Additional ADIF sources supply read-only "
                                     "worked-before history; contacts are not copied into the WSJT-X log. "
                                     "Aliases of the primary log refer to the same writable file. "
-                                    "Source changes take effect after Settings OK."), &dialog};
+                                    "Source and log file changes take effect after Settings OK."), &dialog};
   explanation->setWordWrap (true);
   layout->addWidget (explanation);
 
-  auto const primary_path = logbook_ ? logbook_->path ()
-    : writable_file_path (writeable_data_dir_, "wsjtx_log.adi");
   auto primary_label = new QLabel {tr ("WSJT-X log (new QSOs are saved here):"), &dialog};
   primary_label->setWordWrap (true);
   layout->addWidget (primary_label);
@@ -5196,9 +5328,31 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   primary_folder->setAccessibleName (tr ("Open writable log folder"));
   primary_layout->addWidget (primary_folder);
   layout->addLayout (primary_layout);
-  connect (primary_folder, &QPushButton::clicked, &dialog, [primary_path] {
-      QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {primary_path}.absolutePath ()));
+  connect (primary_folder, &QPushButton::clicked, &dialog, [primary] {
+      QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {QDir::fromNativeSeparators (primary->text ())}.absolutePath ()));
     });
+  auto log_actions = new QHBoxLayout;
+  auto change_log = new QPushButton {tr ("Change &log..."), &dialog};
+  auto default_log = new QPushButton {tr ("Default log"), &dialog};
+  change_log->setObjectName ("adif_log_change");
+  default_log->setObjectName ("adif_log_default");
+  change_log->setAccessibleName (tr ("Choose a different writable ADIF log file"));
+  default_log->setAccessibleName (tr ("Use the default writable ADIF log file"));
+  for (auto button : {change_log, default_log})
+    {
+      button->setAutoDefault (false);
+      button->setFocusPolicy (Qt::StrongFocus);
+    }
+  default_log->setEnabled (!chosen_log.isEmpty ());
+  log_actions->addWidget (change_log);
+  log_actions->addWidget (default_log);
+  log_actions->addStretch ();
+  layout->addLayout (log_actions);
+  change_log->setToolTip (tr ("Choose the file that receives new QSOs. To share one log between WSJT-X instances, "
+                             "choose the same file in each. Appends use a lock file next to it, so that folder must be writable."));
+  default_log->setToolTip (tr ("Go back to wsjtx_log.adi in the log directory."));
+  change_log->setAccessibleDescription (change_log->toolTip ());
+  default_log->setAccessibleDescription (default_log->toolTip ());
 
   auto sources_label = new QLabel {tr ("Additional ADIF &history sources (read-only):"), &dialog};
   sources_label->setWordWrap (true);
@@ -5213,7 +5367,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   sources->setMinimumHeight (sources->fontMetrics ().lineSpacing () * 4 + sources->frameWidth () * 2);
   sources->setMaximumHeight (140);
   sources_label->setBuddy (sources);
-  auto update_item = [primary_path] (QListWidgetItem * item) {
+  auto update_item = [&primary_path] (QListWidgetItem * item) {
       auto const path = item->data (Qt::UserRole).toString ();
       auto const is_folder = item->data (Qt::UserRole + 1).toBool ();
       auto label = (is_folder ? tr ("Folder") : tr ("File")) + " — " + QDir::toNativeSeparators (path);
@@ -5273,7 +5427,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   recursive->setFocusPolicy (Qt::StrongFocus);
   layout->addWidget (recursive);
   auto discovery_hint = new QLabel {tr ("All .adi and .adif files in added folders are used for worked-before history. "
-                                       "New files are included at startup or when you rescan."), &dialog};
+                                       "New files in added folders are included at startup, when you rescan, or when another change triggers a reload."), &dialog};
   discovery_hint->setWordWrap (true);
   auto actions = new QHBoxLayout;
   auto add = new QPushButton {tr ("Add &files..."), &dialog};
@@ -5325,7 +5479,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
           update_item (selected.first ());
         }
     });
-  connect (add, &QPushButton::clicked, &dialog, [&dialog, sources, hint, append_item, selected_paths, primary_path] {
+  connect (add, &QPushButton::clicked, &dialog, [&dialog, sources, hint, append_item, selected_paths, &primary_path] {
       auto paths = QFileDialog::getOpenFileNames (&dialog, tr ("Add read-only ADIF history"),
                                                  QFileInfo {primary_path}.absolutePath (),
                                                  tr ("ADIF files (*.adi *.adif);;All files (*)"));
@@ -5341,7 +5495,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
       sources->setFocus ();
     });
   connect (add_folder, &QPushButton::clicked, &dialog,
-           [&dialog, sources, hint, append_item, selected_folders, primary_path] {
+           [&dialog, sources, hint, append_item, selected_folders, &primary_path] {
       auto const path = QFileDialog::getExistingDirectory (&dialog, tr ("Add read-only ADIF history folder"),
                                                           QFileInfo {primary_path}.absolutePath (),
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
@@ -5411,6 +5565,36 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   rescan->setToolTip (tr ("Scan the currently saved sources. This dialog's source changes take effect after Settings OK."));
   connect (rescan, &QPushButton::clicked, &dialog, [this] { on_rescan_log_push_button_clicked (false); });
   layout->addWidget (rescan);
+  auto apply_log_choice = [this, primary, default_log, sources, update_item, hint, &primary_path, &chosen_log] {
+      auto const previous = primary_path;
+      primary_path = adif_log_path (chosen_log);
+      if (primary_path != previous)
+        hint->setText (tr ("The previous log is no longer read for worked-before status unless you add it as a history source."));
+      primary->setText (QDir::toNativeSeparators (primary_path));
+      primary->setCursorPosition (0);
+      default_log->setEnabled (!chosen_log.isEmpty ());
+      for (int row = 0; row != sources->count (); ++row) update_item (sources->item (row));
+    };
+  connect (change_log, &QPushButton::clicked, &dialog, [this, &dialog, primary, apply_log_choice, &chosen_log] {
+      auto const path = QFileDialog::getSaveFileName (&dialog, tr ("Writable WSJT-X ADIF log"),
+                                                     QDir::fromNativeSeparators (primary->text ()),
+                                                     tr ("ADIF files (*.adi *.adif);;All files (*)"),
+                                                     nullptr, QFileDialog::DontConfirmOverwrite);
+      if (path.isEmpty ()) return;
+      auto absolute = [] (QString const& file) {return QDir::cleanPath (QFileInfo {file}.absoluteFilePath ());};
+      chosen_log = absolute (path);
+      auto const default_path = absolute (adif_log_path ({}));
+#ifdef Q_OS_WIN
+      if (chosen_log.compare (default_path, Qt::CaseInsensitive) == 0) chosen_log.clear ();
+#else
+      if (chosen_log == default_path) chosen_log.clear ();
+#endif
+      apply_log_choice ();
+    });
+  connect (default_log, &QPushButton::clicked, &dialog, [apply_log_choice, &chosen_log] {
+      chosen_log.clear ();
+      apply_log_choice ();
+    });
   auto buttons = new QDialogButtonBox {QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog};
   buttons->button (QDialogButtonBox::Ok)->setFocusPolicy (Qt::StrongFocus);
   buttons->button (QDialogButtonBox::Cancel)->setFocusPolicy (Qt::StrongFocus);
@@ -5424,6 +5608,7 @@ void Configuration::impl::on_history_sources_push_button_clicked (bool /*clicked
   sources->setFocus ();
   if (dialog.exec () == QDialog::Accepted)
     {
+      next_adif_log_file_ = chosen_log;
       next_supplemental_history_files_ = selected_paths ();
       next_supplemental_history_folders_ = selected_folders ();
     }
@@ -7198,6 +7383,17 @@ bool Configuration::impl::open_rig (bool force)
       try
         {
           if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
+          // The running footswitch still holds its saved port, which the
+          // settings being opened (e.g. Test CAT) may now use for CAT or PTT.
+          if (footswitch_enabled_
+              && footswitch_port_clashes (footswitch_port_,
+                                          TransceiverFactory::Capabilities::serial
+                                          == transceiver_factory_.CAT_port_type (rig_data.rig_name)
+                                          ? rig_data.serial_port : QString {},
+                                          rig_data.ptt_type, rig_data.ptt_port))
+            {
+              Q_EMIT self_->footswitch_port_needed ();
+            }
           close_rig ();
           frequency_adapter_.default_projection (
             {0, calibration_.intercept, calibration_.slope_ppm, !frequency_calibration_disabled_});

@@ -17,8 +17,7 @@ extern "C" {
 void MainWindow::ARRL_Digi_Update(DecodedText dt)
 {
   if(m_mode=="Q65") {
-    m_fetched=0;
-    readWidebandDecodes();
+    displayQ65ActiveStations();
     return;
   }
 
@@ -86,8 +85,7 @@ void MainWindow::ARRL_Digi_Update(DecodedText dt)
 void MainWindow::ARRL_Digi_Display()
 {
   if(m_mode=="Q65") {
-    m_fetched=0;
-    readWidebandDecodes();
+    displayQ65ActiveStations();
     return;
   }
   if (m_mode == "FT8" && m_specOp == SpecOp::FOX) {

@@ -36,6 +36,7 @@ program apply_routing_test
   nfail = 0
 
   call frame_flat()
+  call frame_call_flags()
   call frame_npts_c0_guard()
   call frame_rxfreq()
   call frame_decouple()
@@ -136,7 +137,7 @@ contains
     write(*,'(a)') 'Frame FLAT: every flat field -> its own slot (no mode/trperiod)'
     call fresh(p)
     ! Defeat baseline-collision vacuity: lmycallstd/lhiscallstd
-    ! default .true. (init_streaming_extra_fields), and mybcall/hisbcall are
+    ! start from the start calls (blank here, so false), and mybcall/hisbcall are
     ! undefined after init. Plant sentinels OPPOSITE to each asserted value, so a
     ! dropped/mis-routed apply leaves the sentinel and the assert fails.
     p%lmycallstd  = .false.   ! asserted .true.
@@ -334,6 +335,44 @@ contains
     call ok('candthin_threshold 1.5 -> ncandthin = 150',  p%ncandthin .eq. 150)
     call ok('dt_center_seconds 0.2 -> ndtcenter = 20',    p%ndtcenter .eq. 20)
   end subroutine frame_flat
+
+  ! Frame CALL FLAGS: a call sent without its standard-call key sets that flag
+  ! from the call, as the start values do; a key sent with it wins.
+  subroutine frame_call_flags()
+    type(params_block)     :: p
+    type(configure_fields) :: cfg, cfg_my, cfg_his
+    integer :: md
+    real(8) :: tr
+    write(*,'(a)') 'Frame CALL FLAGS: a call without its flag sets the flag from the call'
+    call fresh(p)
+    call ok('blank start calls -> both flags false', &
+         .not. logical(p%lmycallstd) .and. .not. logical(p%lhiscallstd))
+    md = 8; tr = 15.d0
+    p%lmycallstd  = .true.    ! asserted .false.
+    p%lhiscallstd = .false.   ! asserted .true.
+    cfg%mycall_set = .true.;   cfg%mycall = 'PJ4/K1ABC'
+    cfg%his_call_set = .true.; cfg%his_call = 'W9XYZ'
+    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call ok('mycall PJ4/K1ABC alone -> lmycallstd false', .not. logical(p%lmycallstd))
+    call ok('his_call W9XYZ alone -> lhiscallstd true', logical(p%lhiscallstd))
+    cfg%mycall = 'K1ABC'
+    cfg%his_call = ' '
+    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call ok('mycall K1ABC alone -> lmycallstd true', logical(p%lmycallstd))
+    call ok('his_call empty alone -> lhiscallstd false', .not. logical(p%lhiscallstd))
+    ! A standard call with its key false: the key wins. One side per frame, so a
+    ! guard that reads the other side's key is caught.
+    p%lmycallstd  = .true.    ! asserted .false.
+    cfg_my%mycall_set = .true.; cfg_my%mycall = 'K1ABC'
+    cfg_my%my_call_standard_set = .true.; cfg_my%my_call_standard = .false.
+    call apply_configure_fields(cfg_my, md, tr, p, BNFA, BNFB)
+    call ok('mycall K1ABC with my_call_standard false -> false', .not. logical(p%lmycallstd))
+    p%lhiscallstd = .true.    ! asserted .false.
+    cfg_his%his_call_set = .true.; cfg_his%his_call = 'W9XYZ'
+    cfg_his%his_call_standard_set = .true.; cfg_his%his_call_standard = .false.
+    call apply_configure_fields(cfg_his, md, tr, p, BNFA, BNFB)
+    call ok('his_call W9XYZ with his_call_standard false -> false', .not. logical(p%lhiscallstd))
+  end subroutine frame_call_flags
 
   ! Frame RXFREQ: rxfreq sets BOTH nfqso and nftx.
   subroutine frame_rxfreq()

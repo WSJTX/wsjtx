@@ -1359,6 +1359,10 @@ private slots:
               {
                 if (i >= nsps && i < (nsym + 1) * nsps)
                   {
+                    bool const finite = icmplx == 0 ? std::isfinite (wave[i])
+                      : std::isfinite (complexWave[2 * i]) && std::isfinite (complexWave[2 * i + 1]);
+                    QVERIFY2 (finite, qPrintable (QString {"Nonfinite FT4 sample: nsps %1, frequency %2, complex %3, sample %4"}
+                                                 .arg (nsps).arg (frequency).arg (icmplx).arg (i)));
                     if (icmplx == 0) error = std::max (error, std::abs (wave[i] - std::sin (float (phi))));
                     else
                       {

@@ -728,6 +728,20 @@ if (WSJT_ENABLE_TESTS)
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
             -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/StreamOption
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_stream_option.cmake)
+  # Source archives omit samples/.
+  if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+    add_test (NAME test_jt9_partner_default
+      COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
+              -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+              -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/PartnerDefault
+              -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_partner_default.cmake)
+    set_tests_properties (test_jt9_partner_default PROPERTIES
+      LABELS "decoder;ft8;integration" TIMEOUT 120)
+    if (WSJT_ENABLE_TSAN)
+      set_tests_properties (test_jt9_partner_default PROPERTIES
+        ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+    endif ()
+  endif ()
 
   if (EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav" AND
       EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav")
@@ -787,6 +801,7 @@ if (WSJT_ENABLE_TESTS)
       endif ()
     endif ()
   endif ()
+  add_subdirectory (tests/integration/codec_examples)
 
   # Golden output is pinned to the required GNU/Linux x86-64 decoder path.
   if (EXISTS "${CMAKE_SOURCE_DIR}/samples" AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
@@ -1244,6 +1259,19 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
       TIMEOUT ${wsjtx_startup_test_timeout}
     )
   endforeach ()
+endif ()
+
+if (WSJT_ENABLE_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSSCOMPILING)
+  add_test (NAME test_q65_submode_startup
+    COMMAND ${CMAKE_COMMAND}
+      -DAPPLICATION=$<TARGET_FILE:wsjtx>
+      -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/Q65Submode
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/q65/test_submode_startup.cmake)
+  set_tests_properties (test_q65_submode_startup PROPERTIES TIMEOUT 30)
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (test_q65_submode_startup PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
 endif ()
 
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS AND NOT WIN32)

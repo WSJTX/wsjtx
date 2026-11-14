@@ -144,7 +144,12 @@ private Q_SLOTS:
     QCOMPARE (settings_->value ("Configuration/BestSPNewDXCC").toBool (), dxcc);
     QCOMPARE (settings_->value ("Configuration/BestSPNewCallOnBand").toBool (), call);
     configuration_.reset ();
-    for (auto& item : highlights) item.enabled_ = !item.enabled_;
+    for (auto& item : highlights)
+      {
+        if (item.type_ == DecodeHighlightingModel::Highlight::DXCC
+            || item.type_ == DecodeHighlightingModel::Highlight::CallBand)
+          item.enabled_ = !item.enabled_;
+      }
     settings_->setValue ("Configuration/DecodeHighlighting", QVariant::fromValue (highlights));
     settings_->setValue ("Configuration/DXCCEntity", false);
     loadConfiguration ();

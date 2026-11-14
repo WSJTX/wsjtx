@@ -1598,6 +1598,48 @@ private slots:
     QCOMPARE (dialog ().next_supplemental_history_files_, QStringList {source});
   }
 
+  void adifLogLocationRequiresAcceptanceAndRestore ()
+  {
+    auto const default_log = writable_file_path (configuration_->writeable_data_dir (), "wsjtx_log.adi");
+    auto const shared_log = QDir::cleanPath (directory_.filePath ("shared/our_log.adi"));
+    auto& d = dialog ();
+    ui ().rig_combo_box->setCurrentText ("None");
+    d.rig_params_ = d.gather_rig_data ();
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
+    QCOMPARE (configuration_->adif_log_file_path (), default_log);
+    d.next_adif_log_file_ = shared_log;
+    d.reject ();
+    QVERIFY (d.next_adif_log_file_.isEmpty ());
+    QCOMPARE (configuration_->adif_log_file_path (), default_log);
+    QCOMPARE (changed.count (), 0);
+
+    {
+      WorkedBefore worked {configuration_.get ()};
+      QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+      QTRY_COMPARE (finished.count (), 1);
+      QCOMPARE (worked.path (), default_log);
+      d.next_adif_log_file_ = shared_log;
+      d.next_supplemental_history_files_ = QStringList {shared_log};
+      d.accept ();
+      QTRY_COMPARE (worked.path (), shared_log);
+      QByteArray const record {"<call:5>K3NEW<gridsquare:4>FN20<band:3>20m<mode:3>FT8"};
+      QVERIFY (worked.add ("K3NEW", "FN20", "20m", "FT8", record));
+      QVERIFY (QFile::exists (shared_log));
+    }
+    QCOMPARE (configuration_->adif_log_file_path (), shared_log);
+    QCOMPARE (changed.count (), 1);
+    // the chosen log is the primary, so it is not also kept as a history source
+    QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
+    d.accept ();
+    QCOMPARE (changed.count (), 1);
+
+    configuration_.reset ();
+    settings_->sync ();
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QCOMPARE (configuration_->adif_log_file_path (), shared_log);
+    QCOMPARE (dialog ().next_adif_log_file_, shared_log);
+  }
+
   void folderSettingsRequireAcceptanceAndPreserveIndependentScopes ()
   {
     auto const exports = directory_.filePath ("unavailable-exports");
@@ -1844,6 +1886,12 @@ private slots:
             }
             QVERIFY2 (scroll->viewport ()->rect ().contains (geometry_in (action, scroll->viewport ())),
                       qPrintable (diagnostic));
+          }
+        for (auto const& name : {"adif_log_change", "adif_log_default"})
+          {
+            auto action = nested.findChild<QPushButton *> (name);
+            QVERIFY2 (action, name);
+            layout_controls.append (action);
           }
         auto layout_overlap = [&] {
             auto control_rect = [&] (QWidget * control) {

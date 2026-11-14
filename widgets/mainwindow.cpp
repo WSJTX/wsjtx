@@ -709,6 +709,10 @@ MainWindow::MainWindow(QDir const& temp_directory,
   updateJttySendButton ();
   ui->Tx_Message->setToolTip (tr ("Ctrl+K sends now (one-shot). Alt+J starts a live session that keeps sending as you type, until Alt+K signs off. Ctrl+Shift+K clears the box. Ctrl+H inserts a chat opener. Ctrl+Up and Ctrl+Down recall earlier overs. Ctrl+= and Ctrl+- change the JTTY font size; Ctrl+0 restores it."));
   ui->Tx_Message->installEventFilter (this);
+#ifdef Q_OS_MAC
+  // Qt maps the Command key to ControlModifier on macOS, so the shortcut is Cmd+right-click there
+  ui->q65Button->setToolTip (tr ("<html><head/><body><p>Switch to Q65 mode.<br> Cmd+right-click to switch to Q65 Pileup mode.</p></body></html>"));
+#endif
   configureModeControlsLayout ();
   // A non-editable QComboBox always left-aligns its closed-box text, so fake a
   // centered "label" via a read-only editable line edit; the dropdown list's
@@ -1027,6 +1031,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
       m_config.set_CTY_DAT_version (cty_version);
       m_config.set_worked_before_status (m_logBook.load_status (), error);
       showStatusMessage (m_logBook.load_status ());
+      showQ65QsoCount ();
     });
 
   // Network message handlers
@@ -1552,6 +1557,50 @@ MainWindow::MainWindow(QDir const& temp_directory,
   tuneATU_Timer.setSingleShot(true);
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
 
+  // Checked before every open of the footswitch port, including reconnects:
+  // on Linux a /dev/serial/by-id/... name only resolves once its adapter is
+  // plugged in, so a clash can appear after the check in Settings.
+  m_footswitch.setPortGuard ([this] (QString const&) {
+      return m_config.footswitch_port_clash ()
+        ? tr ("it is also the CAT or PTT port") : QString {};
+    });
+  connect (&m_footswitch, &FootswitchInput::pressed, this, &MainWindow::footswitchPressed);
+  connect (&m_footswitch, &FootswitchInput::released, this, &MainWindow::footswitchReleased);
+  connect (&m_footswitch, &FootswitchInput::error, this, [this] (QString const& reason) {
+      statusBar ()->showMessage (reason); // stays until the next message
+    });
+  connect (&m_footswitch, &FootswitchInput::waitingForRelease, this, [this] {
+      statusBar ()->showMessage (tr ("Footswitch is closed: release it to arm it"));
+    });
+  connect (&m_footswitch, &FootswitchInput::readyAfterRelease, this, [this] {
+      showStatusMessage (tr ("Footswitch released: ready"));
+    });
+  m_footswitchLimitTimer.setSingleShot (true);
+  m_footswitchLimitTimer.setInterval (footswitch_tx_limit_ms);
+  connect (&m_footswitchLimitTimer, &QTimer::timeout, this, [this] {
+      if (m_footswitchTune && m_tune)
+        {
+          stopFootswitchTx ();
+          m_footswitchLimitReached = true;
+          statusBar ()->showMessage (tr ("Footswitch transmission stopped after 3 minutes: "
+                                         "release and press again to transmit"));
+        }
+    });
+  connect (&m_footswitch, &FootswitchInput::restored, this, [this] (QString const& port) {
+      showStatusMessage (tr ("Footswitch active again on %1").arg (port));
+    });
+  // Settings is about to open CAT or PTT (e.g. Test CAT) on the port the
+  // running footswitch holds: let go of it first. It is started again
+  // when Settings closes (applyFootswitchSettings refuses a clashing port).
+  connect (&m_config, &Configuration::footswitch_port_needed, this, [this] {
+      if (!(m_footswitch.isActive () || m_footswitch.isRetrying ())) return;
+      stopFootswitchTx ();
+      m_footswitch.stop ();
+      m_footswitchPortReleased = true;
+      statusBar ()->showMessage (tr ("Footswitch released: its port is needed for CAT or PTT"));
+    });
+  applyFootswitchSettings ();
+
   killFileTimer.setSingleShot(true);
   connect(&killFileTimer, &QTimer::timeout, this, &MainWindow::killWaveFile);
 
@@ -1602,10 +1651,6 @@ MainWindow::MainWindow(QDir const& temp_directory,
              check_button_color();
              cancelBestSPForCQSelection ();
            });
-  if(m_mode=="Q65") {
-    m_score=0;
-    read_log();
-  }
   m_audioThread.start (m_audioThreadPriority);
 
   {
@@ -1720,7 +1765,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
     });
   }
 
-  ui->sbSubmode->setValue (vhf ? m_nSubMode : 0);  //Submodes require VHF features
+  ui->sbSubmode->setValue (vhf || m_mode == "Q65" ? m_nSubMode : 0);
 
   if(m_mode=="MSK144") {
     if (m_tci_audio) {
@@ -1928,6 +1973,8 @@ void MainWindow::on_the_minute ()
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
 {
+  m_footswitch.disconnect (this);
+  m_footswitch.stop ();
   m_config.set_frequency_activity_provider ({});
   PerformanceTrace::Phase destructor {"mainwindow.destructor_body"};
   // wav12 shares FFT state that main() releases after this window is destroyed.
@@ -3403,6 +3450,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   if (QDialog::Accepted == m_config.exec ()) {
     cancelPendingFt8Decode ("settings changed");
     updateJttySentExchange ();  // the contest exchange may have changed
+    applyFootswitchSettings ();
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
       m_baseCall = Radio::base_callsign (m_config.my_callsign ());
@@ -3482,7 +3530,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     if (rigFailed or ui->bandComboBox->currentText()=="OOB") displayDialFrequency ();   // reset frequency only when needed
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
-    if (!vhf) ui->sbSubmode->setValue (0);
+    if (!vhf && m_mode != "Q65") ui->sbSubmode->setValue (0);
 
     setup_status_bar (vhf);
     bool b = vhf && (m_mode=="JT4" or m_mode=="JT65" or
@@ -3551,6 +3599,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   } else {
     keep_frequency = false;
     inSettings = false;
+    if (m_footswitchPortReleased) applyFootswitchSettings ();  // Test CAT/PTT released its port
   }
 }
 
@@ -3666,7 +3715,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       if(m_mode=="Q65" && e->modifiers() & Qt::AltModifier) {
         m_EMECall.clear();
         qmapcom.ndecodes=0;
-        readWidebandDecodes();
+        displayQ65ActiveStations();
       }
     return;
   case Qt::Key_B:
@@ -3846,8 +3895,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       if(m_specOp==SpecOp::Q65_PILEUP) {
         refreshPileupList();
       } else {
-        m_fetched=0;
-        readWidebandDecodes();
+        displayQ65ActiveStations();
       }
       return;
     }
@@ -4583,7 +4631,7 @@ void MainWindow::update_generated_message_error ()
 void MainWindow::setup_status_bar (bool vhf)
 {
   auto submode = current_submode ();
-  if (vhf && submode != QChar::Null) {
+  if ((vhf || m_mode == "Q65") && submode != QChar::Null) {
     QString t{m_mode + " " + submode};
     if(m_mode=="Q65") t=m_mode + "-" + QString::number(m_TRperiod) + submode;
     mode_label.setText (t);
@@ -5084,12 +5132,12 @@ void MainWindow::on_actionActiveStations_triggered()
   m_ActiveStationsWidget->raise();
   m_ActiveStationsWidget->activateWindow();
   configActiveStations();
-  connect(m_ActiveStationsWidget.data(), SIGNAL(callSandP(int)),this,SLOT(callSandP2(int)));
+  connect(m_ActiveStationsWidget.data(), SIGNAL(callSandP(int)),this,SLOT(callSandP2(int)),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
   // connect up another signal to handle clicks in the Activity window when in Fox mode
   connect(m_ActiveStationsWidget.data(), SIGNAL(queueActiveWindowHound(QString)),this,SLOT(queueActiveWindowHound2(QString)),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
-  connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()));
+  connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
   m_ActiveStationsWidget->setScore(m_score);
-  if(m_mode=="Q65") m_ActiveStationsWidget->setRate(m_score);
+  showQ65QsoCount();
 }
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
@@ -6962,29 +7010,6 @@ void MainWindow::refreshPileupList()
       m_ActiveStationsWidget->setClickOK(true);
 }
 
-void MainWindow::read_log()
-{
-  QFile f {writable_file_path (m_config.writeable_data_dir (), "wsjtx.log")};
-  f.open(QIODevice::ReadOnly);
-  if(f.isOpen()) {
-    QTextStream in(&f);
-    QString line,callsign;
-    for(int i=0; i<99999; i++) {
-      line=in.readLine();
-      if(line.length()<=0) break;
-      callsign=line.mid(40,6);
-      int n=callsign.indexOf(",");
-      if(n>0) callsign=callsign.left(n);
-      m_EMEworked[callsign]=true;
-      m_score++;
-    }
-    f.close();
-  }
-  if(m_ActiveStationsWidget!=NULL) {
-    m_ActiveStationsWidget->setScore(m_score);
-    if(m_mode=="Q65") m_ActiveStationsWidget->setRate(m_score);
-  }
-}
 
 
 void MainWindow::queueActiveWindowHound2(QString line) {
@@ -8569,7 +8594,7 @@ void MainWindow::guiUpdate()
       }
     }
 
-    if (m_tune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+    if (m_tune && !m_footswitchTune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
         QString remtime;
         remtime = QString::asprintf("%.0f s",tuneATU_Timer.remainingTime()/1000.0);
         ui->tuneButton->setText(remtime);  // display Tune watchdog countdog
@@ -10519,7 +10544,8 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
      ui->decodedTextBrowser2->erase ();
      ui->EraseButton->clearFocus();
   }
-  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {       // switch to Q65_Pileup mode
+  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)
+     && (event->modifiers() & Qt::ControlModifier)) {                          // Ctrl+right-click: switch to Q65_Pileup mode
       if (m_specOp != SpecOp::Q65_PILEUP) {
         m_q65PileupCopiedLastRxCall.clear();
         m_q65PileupCopiedCallers.clear();
@@ -10604,12 +10630,13 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       } else {
         m_config.setSpecial_None();
         if(ui->txrb1->isChecked()) on_txb2_clicked();
-        ui->tx1->setEnabled(m_tx1_enabled_preference);
-        ui->txb1->setEnabled(true);
         if (m_specOp==SpecOp::HOUND) {
         ui->houndButton->setChecked(false);
         m_config.setSpecial_None();
         }
+        m_specOp=m_config.special_op_id();
+        ui->tx1->setEnabled(elide_tx1_not_allowed () || m_tx1_enabled_preference);
+        ui->txb1->setEnabled(true);
       }
       m_specOp=m_config.special_op_id();
       SpecOp nContest0=m_specOp;
@@ -10857,7 +10884,7 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
   if (!m_logBook.add (call, grid, m_config.bands()->find(dial_freq), mode, ADIF))
     {
       MessageBox::warning_message (this, tr ("Log file error"),
-                                   tr ("Cannot open \"%1\"").arg (m_logBook.path ()));
+                                   tr ("Cannot write to \"%1\"").arg (m_logBook.path ()));
     }
 
   m_messageClient->qso_logged (QSO_date_off, call, grid, dial_freq, mode, rpt_sent, rpt_received
@@ -10908,17 +10935,15 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
     ui->sbSerialNumber->setValue(ui->sbSerialNumber->value() + 1);
   }
 
-  if (m_ActiveStationsWidget && operatingMode == "Q65") m_EMEworked[call] = true;
   if(m_ActiveStationsWidget!=NULL && sameActivity) {
     if(operatingMode=="Q65") {
-      m_score++;
       if(m_specOp==SpecOp::Q65_PILEUP) {
         auto const fname = QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("tsil.3q")).toLatin1();
         rm_q3list_(const_cast<char *>(fname.constData()),
                     const_cast<char *> (call.toLatin1().constData()), fname.size(), call.size());
         refreshPileupList();
       }
-      m_ActiveStationsWidget->setRate(m_score);
+      showQ65QsoCount();
     } else if (loggedActivity==SpecOp::ARRL_DIGI) {
       QString band=m_config.bands()->find(dial_freq);
       activeWorked(call,band);
@@ -12059,8 +12084,8 @@ void MainWindow::on_actionQ65_triggered()
   // restore last used parameters
   ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());
   ui->sbFtol->setValue (m_settings->value ("Ftol_Q65", 50).toInt());
-  m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
   ui->sbSubmode->setValue(m_settings->value("SubMode_Q65",0).toInt());
+  m_nSubMode=ui->sbSubmode->value();
   QTimer::singleShot (50, this, [=] {
     on_sbTR_valueChanged (ui->sbTR->value());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
@@ -12138,8 +12163,10 @@ void MainWindow::on_actionJTTY_triggered()
   m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
   if (enteringJtty)
     {
-      ui->TxFreqSpinBox_2->setValue(1500);
-      ui->RxFreqSpinBox_2->setValue(1500);
+      QTimer::singleShot (50, this, [=] {
+        ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
+        ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
+      });
     }
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({2, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
@@ -12407,7 +12434,7 @@ void MainWindow::switch_mode (Mode mode)
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
-      ui->tx1->setEnabled(m_tx1_enabled_preference);
+      ui->tx1->setEnabled(elide_tx1_not_allowed () || m_tx1_enabled_preference);
       ui->txb1->setEnabled(true);
    }
   m_fastGraph->setMode(m_mode);
@@ -12744,7 +12771,7 @@ void MainWindow::on_reset_cabrillo_log_action_triggered ()
       m_score=0;
       if (m_ActiveStationsWidget) {
         m_ActiveStationsWidget->setScore(0);
-        if(m_mode=="Q65") m_ActiveStationsWidget->setRate(0);
+        showQ65QsoCount();             // from the ADIF log, which keeps its records
       }
     }
 }
@@ -12761,10 +12788,14 @@ void MainWindow::on_actionExport_Cabrillo_log_triggered()
 void MainWindow::on_actionErase_wsjtx_log_adi_triggered()
 {
   int ret = MessageBox::query_message (this, tr ("Confirm Erase"),
-                                       tr ("Are you sure you want to erase file wsjtx_log.adi?"));
+                                       tr ("Are you sure you want to erase file %1?\n\n"
+                                           "If other WSJT-X instances share this log, they lose these contacts too.")
+                                       .arg (QDir::toNativeSeparators (m_config.adif_log_file_path ())));
   if(ret==MessageBox::Yes) {
-    QFile f {m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_log.adi")};
-    f.remove();
+    if (!m_logBook.erase_log ()) {
+      MessageBox::warning_message (this, tr ("Erase Failed"),
+                                   tr ("The log file could not be erased. It may be in use by another program or another WSJT-X instance."));
+    }
   }
 }
 
@@ -12782,6 +12813,11 @@ void MainWindow::on_actionErase_WSPR_hashtable_triggered()
 void MainWindow::on_actionOpen_log_directory_triggered ()
 {
   QDesktopServices::openUrl (QUrl::fromLocalFile (m_config.writeable_data_dir ().absolutePath ()));
+}
+
+void MainWindow::on_actionOpen_ADIF_log_folder_triggered ()
+{
+  QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {m_config.adif_log_file_path ()}.absolutePath ()));
 }
 
 void MainWindow::on_bandComboBox_currentIndexChanged (int index)
@@ -13070,6 +13106,10 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 
 void MainWindow::end_tuning ()
 {
+  // Footswitch TX never switched to the Tune power, so must not record
+  // or restore it. Captured here because the stop below clears flags.
+  auto const footswitch_tune = m_footswitchPowerBypass;
+  m_footswitchPowerBypass = false;
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   if (m_mode == "WSPR" || m_mode == "FST4W")
     {
@@ -13081,7 +13121,7 @@ void MainWindow::end_tuning ()
       on_stopTxButton_clicked ();
     }
   // we're turning off so remember our Tune pwr setting and reset to Tx pwr
-  if (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory()) {
+  if (!footswitch_tune && (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory())) {
     auto const& curBand = ui->bandComboBox->currentText();
     m_pwrBandTuneMemory[curBand] = ui->outAttenuation->value(); // remember our Tune pwr
     m_PwrBandSetOK = false;
@@ -13092,11 +13132,105 @@ void MainWindow::end_tuning ()
 
 void MainWindow::stop_tuning ()
 {
+  m_footswitchTune = false;
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   on_tuneButton_clicked(false);
   ui->tuneButton->setChecked (false);
   m_bTxTime=false;
   m_tune=false;
+}
+
+void MainWindow::applyFootswitchSettings ()
+{
+  stopFootswitchTx ();           // drop any footswitch TX first
+  m_footswitch.stop ();
+  m_footswitchPortReleased = false;
+  if (!m_config.footswitch_enabled ()) return;
+  auto const port = m_config.footswitch_port ();
+  if (port.isEmpty ())
+    {
+      statusBar ()->showMessage (tr ("Footswitch: no port selected"));
+      return;
+    }
+  if (m_config.footswitch_port_clash ())
+    {
+      // Opening it would assert DTR on the CAT or PTT port.
+      statusBar ()->showMessage (tr ("Footswitch not started: %1 is also the CAT or PTT port").arg (port));
+      return;
+    }
+  if (m_footswitch.start (port, static_cast<FootswitchInput::Pin> (m_config.footswitch_pin ())))
+    {
+      showStatusMessage (tr ("Footswitch active on %1").arg (port));
+    }
+}
+
+void MainWindow::footswitchPressed ()
+{
+  if (!m_footswitch.isPressed ()) return; // released before a retry fired
+  // A previous Tune may still be ending (Tune-off delay, PTT release
+  // delay); wait for it to finish so quick re-presses between overs work.
+  bool const ending = tuneButtonTimer.isActive () || ptt0Timer.isActive ();
+  if (ending && !m_auto && m_footswitchRetries < 40)
+    {
+      ++m_footswitchRetries;
+      QTimer::singleShot (50, this, &MainWindow::footswitchPressed);
+      return;
+    }
+  m_footswitchRetries = 0;
+  // Act only when idle; never interrupt a digital transmission or a
+  // Tune started from the button.
+  if (m_tune || m_auto || m_transmitting || m_tx_when_ready || g_iptt == 1)
+    {
+      if (!m_tune) showStatusMessage (tr ("Footswitch ignored while WSJT-X is transmitting"));
+      return;
+    }
+  m_footswitchTune = true;
+  ui->tuneButton->setChecked (true);
+  on_tuneButton_clicked (true); // same path as clicking Tune
+  if (m_tune)
+    {
+      m_footswitchPowerBypass = true;
+      ui->tuneButton->setText (tr ("Foot TX"));
+      m_footswitchLimitTimer.start ();
+    }
+  else
+    {
+      m_footswitchTune = false; // Tune was refused (e.g. Tx blocked)
+      ui->tuneButton->setChecked (false);
+    }
+}
+
+void MainWindow::footswitchReleased ()
+{
+  stopFootswitchTx ();
+  if (m_footswitchLimitReached)
+    {
+      m_footswitchLimitReached = false;
+      showStatusMessage (tr ("Footswitch released: ready"));
+    }
+}
+
+void MainWindow::stopFootswitchTx ()
+{
+  m_footswitchLimitTimer.stop ();
+  // Decide from our own state, not the button: a rig tune can uncheck the
+  // button while footswitch TX is still running.
+  if (!(m_footswitchTune && m_tune)) return;
+  // Must not be lost: logging a QSO sets 'blocked' for 50 ms, which makes
+  // on_tuneButton_clicked() return early, and the 3-minute limit timer is
+  // already stopped. Stopping TX overrides it.
+  QScopedValueRollback<bool> unblock {blocked, false};
+  ui->tuneButton->setChecked (false);
+  on_tuneButton_clicked (false); // same path as clicking Tune off
+  // A quick tap can press and release between two guiUpdate () ticks, so
+  // PTT has not been asserted yet. Tune-off leaves m_tune set for its
+  // 250 ms delay, and the next tick would then key the transmitter with
+  // the pedal already up, so end it now instead.
+  if (0 == g_iptt && tuneButtonTimer.isActive ())
+    {
+      tuneButtonTimer.stop ();
+      end_tuning ();
+    }
 }
 
 void MainWindow::stopTuneATU()
@@ -13544,6 +13678,7 @@ void MainWindow::transmit (double snr)
   request.queue_epoch = jttyTx ? m_jttyTxLifecycle.epoch ()
                                : TxAudioQueueEpoch::invalid ();
   request.tuning = m_tune;
+  request.silent = m_tune && m_footswitchTune;
   int const cwSymbols = qBound (0, int (icw[0]), NUM_CW_SYMBOLS - 1);
   request.cw_id.reserve (cwSymbols);
   for (int i = 1; i <= cwSymbols; ++i) request.cw_id.append (int (icw[i]));
@@ -13783,7 +13918,10 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
 {
   QString tt_str;
   qreal dBAttn {a / 10.};
-  if (m_tune && m_config.pwrBandTuneMemory()) {
+  // Footswitch TX runs at the transmit drive, so slider moves during it
+  // must not change the saved Tune power.
+  bool const tuneDrive = m_tune && !m_footswitchPowerBypass;
+  if (tuneDrive && m_config.pwrBandTuneMemory()) {
     tt_str = tr ("Tune drive ");
   } else {
     tt_str = tr ("Transmit drive ");
@@ -13793,10 +13931,10 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
     QToolTip::showText (QCursor::pos (), tt_str, ui->outAttenuation);
   }
   QString curBand = ui->bandComboBox->currentText();
-  if (m_PwrBandSetOK && !m_tune && m_config.pwrBandTxMemory ()) {
+  if (m_PwrBandSetOK && !tuneDrive && m_config.pwrBandTxMemory ()) {
     m_pwrBandTxMemory[curBand] = a; // remember our Tx pwr
   }
-  if (m_PwrBandSetOK && m_tune && m_config.pwrBandTuneMemory()) {
+  if (m_PwrBandSetOK && tuneDrive && m_config.pwrBandTuneMemory()) {
     m_pwrBandTuneMemory[curBand] = a; // remember our Tune pwr
   }
   // Updating attenuation for tuning is done in stop_tuning
@@ -14024,7 +14162,7 @@ QChar MainWindow::current_submode () const
 {
   QChar submode {0};
   if (m_mode.contains (QRegularExpression {R"(^(JT65|JT9|JT4|Q65)$)"})
-      && (m_config.enable_VHF_features () || "JT4" == m_mode))
+      && (m_config.enable_VHF_features () || "JT4" == m_mode || "Q65" == m_mode))
     {
       submode = m_nSubMode + 65;
     }
@@ -15242,69 +15380,81 @@ void MainWindow::readWidebandDecodes()
       QString::fromLatin1(qmapcom.result[qmap_decodes - 1], 6), nowUtc, 60);
     if (recordedTime.isValid()) displayTime = recordedTime;
   }
+  m_qmapDisplayTime = displayTime;
   refreshQmapActiveStations(displayTime);
 }
 
+// Redraw only; rereading qmapcom here would leave m_fetched past the next batch.
 void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
 {
   if (!m_ActiveStationsWidget) return;
 
 // Displayed row numbers index m_ready2call, so the rendered QMAP list must
 // stay within the same capacity as its click-target storage.
-  QMap<QString,EMECall>::iterator i;
-  QString t="";
-  QString t1;
-  QString dxcall;
-  QString dxgrid4;
-  QVector<ActiveStationListItem> rows;
-  int maxAge=m_ActiveStationsWidget->maxAge();
+  // Worked = in the ADIF log (and history sources) on the current band, any
+  // mode, and only on the chosen days (UTC) if any. With no known band,
+  // nothing counts as worked (an empty band would match every band).
+  QString const band = activeStationsBand ();
+  auto const days = m_ActiveStationsWidget->wantedDays ();
+  auto const worked = [&] (QString const& call) {
+    return !band.isEmpty () && m_logBook.call_worked_on_band (call, band, days);
+  };
+
+  QVector<Q65ActiveStation> stations;
+  for(auto i=m_EMECall.cbegin(); i!=m_EMECall.cend(); ++i) {
+    stations.append({i.key(), i->grid4, i->frx, i->fsked, i->nsnr, i->lastHeard,
+                     i->submode, i->ready2call, worked(i.key())});
+  }
+  Q65ActiveStationFilter const filter {nowUtc,
+                                       m_ActiveStationsWidget->maxAge(),
+                                       m_ActiveStationsWidget->wantedOnly(),
+                                       m_ActiveStationsWidget->readyOnly()};
 
   m_ActiveStationsWidget->setClickOK(false);
-
-  for(i=m_EMECall.begin(); i!=m_EMECall.end(); i++) {
-    bool bSkip=false;
-    if(m_ActiveStationsWidget->wantedOnly() and m_EMEworked[i.key()]) bSkip=true;
-    if(m_ActiveStationsWidget->readyOnly() and !i->ready2call) bSkip=true;
-    if(!bSkip) {
-      int snr=i->nsnr;
-      QString submode=i->submode;
-      int odd=0;
-      int const secondsSinceMidnight = QTime {0, 0}.secsTo(i->lastHeard.time());
-      if(submode.left(2)=="30" and (secondsSinceMidnight%60)==0) odd=1;
-      if(submode.left(2)=="60" and (secondsSinceMidnight%120)==0) odd=1;
-      int const age = int(qMax(qint64 {0}, i->lastHeard.secsTo(nowUtc)) / 60);
-      char c2[3]={32,32,0};
-      if(age<=maxAge) {
-        dxcall=(i.key()+"     ").left(8);
-        dxgrid4=(i->grid4+"... ").left(4);
-        if(!m_EMEworked[dxcall.trimmed()]) c2[0]=35;       //# for not in log
-        if(i->ready2call) c2[1]=42;                        //* for ready to call
-        t1=t1.asprintf("%7.3f %5.1f  %+03d  %3s  %8s %4s %3d %3d %2s\n",i->frx,i->fsked,snr,
-                       submode.toLatin1().constData(),dxcall.toLatin1().constData(),
-                       dxgrid4.toLatin1().constData(),odd,age,c2);
-        rows.append({float(i->fsked), t1});
-      }
-      m_ActiveStationsWidget->setClickOK(true);
-    }
-  }
-
+  auto const rows=sorted_limited_active_station_items(
+    q65_active_station_items(stations, filter), MaxActiveStationRows, false);
   std::fill(m_ready2call.begin(), m_ready2call.end(), QString {});
-  rows=sorted_limited_active_station_items(rows, MaxActiveStationRows, false);
-  if(!rows.isEmpty()) {
-    t1="";
-    for(int k=0; k<rows.size(); k++) {
-      t1=t1.asprintf("%2d. ",k+1);
-      t1+=rows[k].text;
-      m_ready2call[k]=rows[k].text;
-      t+=t1;
-    }
+  QString t;
+  for(int k=0; k<rows.size(); k++) {
+    m_ready2call[k]=rows[k].text;
+    t+=QString::asprintf("%2d. ",k+1) + rows[k].text;
   }
 
-  if(m_ActiveStationsWidget != NULL) {
-    m_ActiveStationsWidget->erase();
-    m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65,t);
-    m_ActiveStationsWidget->setClickOK(true);
-  }
+  m_ActiveStationsWidget->erase();
+  m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65,t);
+  m_ActiveStationsWidget->setClickOK(true);
+  showQ65QsoCount();
+}
+
+// Redraw only, without rereading qmapcom (so m_fetched isn't disturbed and the
+// batch's PSK Reporter spots aren't queued again). File playback's stations
+// are timestamped on the recording's clock, so reuse readWidebandDecodes()'s
+// last "now" rather than the real current time, or every station reads as
+// hours old and the list goes blank.
+void MainWindow::displayQ65ActiveStations()
+{
+  refreshQmapActiveStations(qmapcom.nQDecoderDone==2 ? m_qmapDisplayTime : QDateTime::currentDateTimeUtc());
+}
+
+// Band for the Q65 Active Stations worked checks: the current band, or the
+// band of the Rx dial frequency before one has been set; empty when neither
+// is a known band (out of band).
+QString MainWindow::activeStationsBand() const
+{
+  auto band = !m_currentBand.isEmpty () ? m_currentBand
+    : m_config.bands ()->find (m_operatingFrequency.rx ());
+  return band == Bands::oob () ? QString {} : band;
+}
+
+// Q65 "QSOs:" = different stations worked on this band (ADIF log and history
+// sources, any mode), only on the Active Stations' chosen days if any; 0 with
+// no known band.
+void MainWindow::showQ65QsoCount()
+{
+  if (!m_ActiveStationsWidget || m_mode != "Q65") return;
+  auto const band = activeStationsBand ();
+  m_ActiveStationsWidget->setRate (band.isEmpty () ? 0
+    : m_logBook.calls_worked_on_band (band, m_ActiveStationsWidget->wantedDays ()));
 }
 
 // -------------------------- Code for FT8 DXpedition Mode ---------------------------

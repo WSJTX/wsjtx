@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <utility>
 
 #include <QAction>
@@ -23,6 +24,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTimer>
 #include <QTimerEvent>
 #include <QTranslator>
 #include <QVector>
@@ -797,7 +799,27 @@ bool BestSPApplicationTestController::pounceSelections ()
       if (!require (pounce, "A canceled selection timeout cleared the new Pounce intent.")) return false;
       scripted->record ("CQ W1AW FN31", -15);
       if (!require (window_->ui->dxCallEntry->text () == "W1AW",
-                    "Fresh Pounce arming retained an earlier First latch or better score.")
+                    "Fresh Pounce arming retained an earlier First latch or better score.")) return false;
+      auto& replacement = window_->m_pounceSelectionTimer;
+      if (!require (replacement.isActive (), "The replacement selection window did not start.")) return false;
+      auto const replacementId = replacement.timerId ();
+      auto const replacementInterval = replacement.interval ();
+      auto const selected = window_->m_autoRespondSelectionLatch.isSelected ();
+      // Simultaneously active timers have distinct IDs even when canceled IDs are reused.
+      QTimer stale;
+      stale.start (std::numeric_limits<int>::max ());
+      auto const staleId = stale.timerId ();
+      stale.stop ();
+      QTimerEvent staleTimeout {staleId};
+      QApplication::sendEvent (&replacement, &staleTimeout);
+      if (!require (pounce && replacement.isActive () && replacement.timerId () == replacementId
+                    && replacement.interval () == replacementInterval
+                    && window_->ui->dxCallEntry->text () == "W1AW"
+                    && window_->m_autoRespondSelectionLatch.isSelected () == selected,
+                    "A stale timeout changed the replacement selection window.")) return false;
+      QTimerEvent replacementTimeout {replacementId};
+      QApplication::sendEvent (&replacement, &replacementTimeout);
+      if (!require (!pounce && !replacement.isActive (), "The replacement selection window did not expire.")
           || !complete ("W1AW")) return false;
     }
   return true;

@@ -152,8 +152,9 @@ program jt9
         'FLAGS') ]
 
   type(dec_data), allocatable :: shared_data
-  character(len=12) :: mycall='K1ABC', hiscall='W9XYZ'
-  character(len=6) :: mygrid='', hisgrid='EN37'
+  ! No QSO partner unless -x/-g name one, as in WSJT-X: a partner adds AP decoding (FT8's a8 pass).
+  character(len=12) :: mycall='K1ABC', hiscall=''
+  character(len=6) :: mygrid='', hisgrid=''
   common/patience/npatience,nthreads
   common/decstats/ntry65a,ntry65b,n65a,n65b,num9,numfano
   data npatience/1/,nthreads/1/,wisfile/' '/
