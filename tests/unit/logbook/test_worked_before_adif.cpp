@@ -69,6 +69,9 @@ private Q_SLOTS:
   void reports_incomplete_sources ();
   void primary_rescan_recovers_records_and_preserves_live_qsos ();
   void comment_cannot_supply_a_missing_band ();
+  void call_worked_on_days_uses_every_qso_date ();
+  void added_qso_carries_its_date ();
+  void qmap_contest_views_from_a_history_log ();
   void country_views_survive_loading_and_live_additions ();
   void logbook_changes_country_view_without_rescanning ();
   void cancels_worker_without_partial_results_data ();
@@ -83,6 +86,7 @@ private Q_SLOTS:
   void change_polling_can_be_disabled ();
   void foreign_and_own_appends_between_checks_are_both_seen ();
   void appended_records_are_read_without_a_full_reload ();
+  void appended_records_carry_their_qso_dates ();
   void a_replaced_log_triggers_a_full_reload ();
   void erasing_the_log_removes_file_and_history ();
   void a_half_written_record_is_picked_up_once_completed ();
@@ -552,6 +556,157 @@ void TestWorkedBeforeAdif::comment_cannot_supply_a_missing_band ()
   QCOMPARE (count, 1);
   QVERIFY (worked.call_worked ("K1ABC", "FT8", {}));
   QVERIFY (!worked.call_worked ("K1ABC", "FT8", "20M"));
+}
+
+void TestWorkedBeforeAdif::call_worked_on_days_uses_every_qso_date ()
+{
+  // A contest over two weekends: 2026-10-31/11-01 and 2026-11-28/29.
+  // Primary log: K1ABC long before, W2UYH in weekend 1, K1ABC on 13cm in
+  // weekend 1, W4NOD without a date, K3XYZ old here and again BETWEEN the
+  // weekends in the supplemental file (not a contest QSO), W5TWO in
+  // weekend 2 and also before the contest (two dates on one entry).
+  QVERIFY (write_data_file ("wsjtx_log.adi", QByteArray {
+    "<CALL:5>K1ABC<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<QSO_DATE:8>20251109<EOR>\n"
+    "<CALL:5>W2UYH<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<QSO_DATE:8>20261031<EOR>\n"
+    "<CALL:5>K1ABC<BAND:4>13cm<MODE:3>FT8<QSO_DATE:8>20261101<EOR>\n"
+    "<CALL:5>W4NOD<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<EOR>\n"
+    "<CALL:5>K3XYZ<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<QSO_DATE:8>20250101<EOR>\n"
+    "<CALL:5>W5TWO<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<QSO_DATE:8>20261129<EOR>\n"
+    "<CALL:5>W5TWO<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<QSO_DATE:8>20260601<EOR>\n"}));
+  {
+    QFile station {settings_dir_.filePath ("station.adi")};
+    QVERIFY (station.open (QIODevice::WriteOnly));
+    QByteArray const between {"<CALL:5>K3XYZ<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<QSO_DATE:8>20261105<EOR>\n"};
+    QCOMPARE (station.write (between), static_cast<qint64> (between.size ()));
+  }
+  WorkedBefore worked {supplemental_configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (worked, count, error), qPrintable (error));
+
+  QSet<QDate> const any;
+  QSet<QDate> const contest {QDate {2026, 10, 31}, QDate {2026, 11, 1},
+                             QDate {2026, 11, 28}, QDate {2026, 11, 29}};
+  // No days: every QSO counts, as call_worked.
+  for (auto const& call : {"K1ABC", "W2UYH", "W4NOD", "K3XYZ", "W5TWO"})
+    QVERIFY2 (worked.call_worked_on_days (call, {}, "23cm", any), call);
+  QVERIFY (!worked.call_worked_on_days ("N0NOT", {}, "23cm", any));
+  // Contest days: only QSOs on those days, on that band.
+  QVERIFY (!worked.call_worked_on_days ("K1ABC", {}, "23cm", contest));
+  QVERIFY (worked.call_worked_on_days ("K1ABC", {}, "13cm", contest));
+  QVERIFY (worked.call_worked_on_days ("K1ABC", {}, {}, contest));
+  QVERIFY (worked.call_worked_on_days ("W2UYH", {}, "23CM", contest));
+  QVERIFY (worked.call_worked_on_days ("W2UYH", "Q65", "23cm", contest));
+  QVERIFY (!worked.call_worked_on_days ("W2UYH", "FT8", "23cm", contest));
+  QVERIFY (!worked.call_worked_on_days ("W2UYH", {}, "23cm", QSet<QDate> {QDate {2026, 11, 1}}));
+  // A QSO without QSO_DATE does not count once days are chosen.
+  QVERIFY (!worked.call_worked_on_days ("W4NOD", {}, "23cm", contest));
+  // Worked between the weekends only: still wanted in the contest.
+  QVERIFY (!worked.call_worked_on_days ("K3XYZ", {}, "23cm", contest));
+  QVERIFY (worked.call_worked_on_days ("K3XYZ", {}, "23cm", QSet<QDate> {QDate {2026, 11, 5}}));
+  QVERIFY (worked.call_worked_on_days ("K3XYZ", {}, "23cm", QSet<QDate> {QDate {2025, 1, 1}}));
+  // One entry with two dates: each date counts.
+  QVERIFY (worked.call_worked_on_days ("W5TWO", {}, "23cm", contest));
+  QVERIFY (worked.call_worked_on_days ("W5TWO", {}, "23cm", QSet<QDate> {QDate {2026, 6, 1}}));
+  QVERIFY (!worked.call_worked_on_days ("W5TWO", {}, "23cm", QSet<QDate> {QDate {2026, 10, 31}}));
+
+  // Different calls worked: each call once, whatever its bands and modes.
+  QCOMPARE (worked.calls_worked_on_days ("23cm", any), 5);     // K1ABC K3XYZ W2UYH W4NOD W5TWO
+  QCOMPARE (worked.calls_worked_on_days ("23CM", contest), 2); // W2UYH, W5TWO
+  QCOMPARE (worked.calls_worked_on_days ({}, contest), 3);     // + K1ABC on 13cm
+  QCOMPARE (worked.calls_worked_on_days ({}, any), 5);         // K1ABC counted once
+  QCOMPARE (worked.calls_worked_on_days ("13cm", any), 1);
+  QCOMPARE (worked.calls_worked_on_days ("13cm", QSet<QDate> {QDate {2026, 11, 28}}), 0);
+  QCOMPARE (worked.calls_worked_on_days ("70cm", any), 0);
+
+  // LogBook's band query (any mode) gives the same answers.
+  LogBook logbook {supplemental_configuration_.get ()};
+  QSignalSpy finished {&logbook, &LogBook::finished_loading};
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QVERIFY (!logbook.call_worked_on_band ("K1ABC", "23cm", contest));
+  QVERIFY (logbook.call_worked_on_band ("K1ABC", "23cm", any));
+  QVERIFY (logbook.call_worked_on_band ("W2UYH", "23cm", contest));
+  QVERIFY (!logbook.call_worked_on_band ("K3XYZ", "23cm", contest));
+  QVERIFY (!logbook.call_worked_on_band ("W2UYH", "13cm", any));
+  QCOMPARE (logbook.calls_worked_on_band ("23cm", contest), 2);
+}
+
+void TestWorkedBeforeAdif::qmap_contest_views_from_a_history_log ()
+{
+  // The 23cm contest log from another PC, added as a history source; the
+  // primary log is empty. Five QMAP decodes: VK7MO, G3LTF and K1JT never
+  // worked, KA1GT worked a year before the contest, K2UYH in it.
+  QVERIFY (write_data_file ("wsjtx_log.adi", {}));
+  {
+    QFile contest_log {settings_dir_.filePath ("station.adi")};
+    QVERIFY (contest_log.open (QIODevice::WriteOnly));
+    QByteArray const records {
+      "<CALL:5>KA1GT <GRIDSQUARE:4>FN54 <MODE:4>MFSK <SUBMODE:3>Q65 <QSO_DATE:8>20251109 "
+      "<TIME_ON:6>034415 <BAND:4>23cm <FREQ:11>1296.061495 <EOR>\n"
+      "<CALL:5>K2UYH <GRIDSQUARE:4>FN20 <MODE:4>MFSK <SUBMODE:3>Q65 <QSO_DATE:8>20261031 "
+      "<TIME_ON:6>072030 <BAND:4>23cm <FREQ:11>1296.060995 <EOR>\n"};
+    QCOMPARE (contest_log.write (records), static_cast<qint64> (records.size ()));
+  }
+  LogBook logbook {supplemental_configuration_.get ()};
+  QSignalSpy finished {&logbook, &LogBook::finished_loading};
+  QVERIFY (finished.count () >= 1 || finished.wait (5000));
+  QVERIFY2 (finished.at (0).at (2).toString ().isEmpty (), qPrintable (finished.at (0).at (2).toString ()));
+
+  QStringList const decoded {"VK7MO", "KA1GT", "G3LTF", "K1JT", "K2UYH"};
+  auto wanted = [&] (QSet<QDate> const& days) {
+    QStringList result;
+    for (auto const& call : decoded)
+      if (!logbook.call_worked_on_band (call, "23cm", days)) result << call;
+    return result;
+  };
+  // No days: # (and Wanted only) on the three never worked.
+  QCOMPARE (wanted ({}), (QStringList {"VK7MO", "G3LTF", "K1JT"}));
+  QCOMPARE (logbook.calls_worked_on_band ("23cm", {}), 2);
+  // Contest days 2026-10-31/11-01: KA1GT is wanted again, K2UYH stays worked.
+  QSet<QDate> const contest {QDate {2026, 10, 31}, QDate {2026, 11, 1}};
+  QCOMPARE (wanted (contest), (QStringList {"VK7MO", "KA1GT", "G3LTF", "K1JT"}));
+  QCOMPARE (logbook.calls_worked_on_band ("23cm", contest), 1);
+  // Not worked on another band.
+  for (auto const& call : decoded)
+    QVERIFY2 (!logbook.call_worked_on_band (call, "13cm", {}), qPrintable (call));
+}
+
+void TestWorkedBeforeAdif::added_qso_carries_its_date ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", QByteArray {
+    "<CALL:5>K1ABC<BAND:4>23cm<MODE:4>MFSK<SUBMODE:3>Q65<GRIDSQUARE:4>FN42<QSO_DATE:8>20251109<EOR>\n"}));
+  WorkedBefore worked {configuration_.get ()};
+  int count {0};
+  QString error;
+  QVERIFY2 (wait_for_load (worked, count, error), qPrintable (error));
+  QSet<QDate> const contest {QDate {2026, 11, 7}, QDate {2026, 11, 8}};
+  auto on = [] (QDate const& day) {return QSet<QDate> {day};};
+  QVERIFY (!worked.call_worked_on_days ("K1ABC", {}, "23cm", contest));
+
+  auto const time = QDateTime {QDate {2026, 11, 7}, QTime {6, 12}, Qt::UTC};
+  auto record = [&] (QString const& call) {
+    return AdifQso::to_adif (call, "FN42", "Q65", "-20", "-21", time, time, "23cm", {}, {},
+                             "1296.100000", "W1AW", "FN31", {}, {}, {}, {}, {}, {}, {}, {},
+                             AdifQso::Contest::None);
+  };
+  // Worked again in the contest: the existing entry now carries both dates.
+  QVERIFY (worked.add ("K1ABC", "FN42", "23cm", "Q65", record ("K1ABC")));
+  QVERIFY (worked.call_worked_on_days ("K1ABC", {}, "23cm", contest));
+  QVERIFY (worked.call_worked_on_days ("K1ABC", {}, "23cm", on (QDate {2025, 11, 9})));
+  QVERIFY (worked.add ("W5NEW", "EM12", "23cm", "Q65", record ("W5NEW")));
+  QVERIFY (worked.call_worked_on_days ("W5NEW", {}, "23cm", on (QDate {2026, 11, 7})));
+  QVERIFY (!worked.call_worked_on_days ("W5NEW", {}, "23cm", on (QDate {2026, 11, 8})));
+  // A record without QSO_DATE is taken as logged today (UTC).
+  QVERIFY (worked.add ("W6NOW", "DM12", "23cm", "Q65", "<CALL:5>W6NOW<BAND:4>23cm"));
+  QVERIFY (worked.call_worked_on_days ("W6NOW", {}, "23cm", on (QDateTime::currentDateTimeUtc ().date ())));
+
+  // The dates survive a rescan of the written log.
+  worked.reload ();
+  QVERIFY2 (wait_for_load (worked, count, error), qPrintable (error));
+  QVERIFY (worked.call_worked_on_days ("K1ABC", {}, "23cm", contest));
+  QVERIFY (worked.call_worked_on_days ("K1ABC", {}, "23cm", on (QDate {2025, 11, 9})));
+  QVERIFY (worked.call_worked_on_days ("W5NEW", {}, "23cm", on (QDate {2026, 11, 7})));
+  QVERIFY (!worked.call_worked_on_days ("W5NEW", {}, "23cm", on (QDate {2026, 11, 8})));
 }
 
 void TestWorkedBeforeAdif::country_views_survive_loading_and_live_additions ()
@@ -1053,6 +1208,35 @@ void TestWorkedBeforeAdif::appended_records_are_read_without_a_full_reload ()
   QVERIFY (add_qso (a, "W1XYZ"));
   QTRY_VERIFY_WITH_TIMEOUT (b.call_worked ("K1ABC", "FT8", "20M") && b.call_worked ("W1XYZ", "FT8", "20M"), 5000);
   QVERIFY (b.call_worked ("N2AAA", "FT8", "20M"));
+  QCOMPARE (b_started.count (), 0);
+}
+
+void TestWorkedBeforeAdif::appended_records_carry_their_qso_dates ()
+{
+  // QSOs another instance appends to a shared log are read by the tail check
+  // with their QSO_DATE, and a station worked again gains the new date.
+  WorkedBefore a {configuration_.get ()};
+  QSignalSpy a_loaded {&a, &WorkedBefore::finished_loading};
+  WorkedBefore b {supplemental_configuration_.get ()};
+  QSignalSpy b_loaded {&b, &WorkedBefore::finished_loading};
+  QTRY_VERIFY_WITH_TIMEOUT (!a_loaded.isEmpty () && !b_loaded.isEmpty (), 5000);
+  auto dated = [&] (QByteArray const& call, QByteArray const& date) {
+    return a.add (call, "FN42", "20m", "FT8", shared_log_record (call) + " <qso_date:8>" + date);
+  };
+  QVERIFY (dated ("N2AAA", "20251109"));
+  b.reload ();
+  QTRY_COMPARE_WITH_TIMEOUT (b_loaded.count (), 2, 5000);
+  QSet<QDate> const contest {QDate {2026, 11, 28}, QDate {2026, 11, 29}};
+  QVERIFY (!b.call_worked_on_days ("N2AAA", {}, "20M", contest));
+  QSignalSpy b_started {&b, &WorkedBefore::loading_started};
+  b.set_source_poll_interval (50);
+  QVERIFY (dated ("K1ABC", "20261128"));
+  QVERIFY (dated ("N2AAA", "20261129"));
+  QTRY_VERIFY_WITH_TIMEOUT (b.call_worked_on_days ("K1ABC", {}, "20M", contest)
+                            && b.call_worked_on_days ("N2AAA", {}, "20M", contest), 5000);
+  QVERIFY (b.call_worked_on_days ("N2AAA", {}, "20M", QSet<QDate> {QDate {2025, 11, 9}}));
+  QVERIFY (!b.call_worked_on_days ("K1ABC", {}, "20M", QSet<QDate> {QDate {2026, 11, 29}}));
+  QCOMPARE (b.calls_worked_on_days ("20M", contest), 2);
   QCOMPARE (b_started.count (), 0);
 }
 

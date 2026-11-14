@@ -15,6 +15,7 @@
 #include <QHostAddress>
 #include <QLineEdit>
 #include <QNetworkDatagram>
+#include <QRegularExpression>
 #include <QUdpSocket>
 #include <algorithm>
 #include <limits>
@@ -92,6 +93,25 @@ QString MainWindow::checkQsoCompletionTest ()
     return file.open (QIODevice::ReadOnly) ? file.readAll ().toUpper ().count ("<EOR>") : 0;
   };
   auto const initialRecords = adifRecords ();
+  // The test's log persists between runs, so a call may already be worked
+  // before it is logged here; proof of logging is a new last record for it.
+  auto lastLoggedCall = [&] {
+    QFile file {m_logBook.path ()};
+    if (!file.open (QIODevice::ReadOnly)) return QString {};
+    auto const text = QString::fromUtf8 (file.readAll ());
+    QRegularExpression const field {"<call:(\\d+)>", QRegularExpression::CaseInsensitiveOption};
+    QString call;
+    for (auto it = field.globalMatch (text); it.hasNext ();)
+      {
+        auto const m = it.next ();
+        call = text.mid (m.capturedEnd (), m.captured (1).toInt ()).trimmed ().toUpper ();
+      }
+    return call;
+  };
+  auto loggedAndWorked = [&] (QString const& call, int recordsBefore) {
+    return adifRecords () == recordsBefore + 1 && lastLoggedCall () == call
+      && m_logBook.call_worked_on_band (call, {}, {});
+  };
   bool const logging = m_config.autoLog () || m_config.prompt_to_log ();
   bool const prompting = m_config.prompt_to_log ();
   bool const clearCall = m_config.clear_DXcall ();
@@ -434,11 +454,11 @@ QString MainWindow::checkQsoCompletionTest ()
     if (!dialogMode) return "The log dialog mode editor was not found.";
     dialogMode->setText ("RTTY");
     on_actionActiveStations_triggered ();
-    m_EMEworked.remove ("W2XYA");
+    auto const recordsBeforeEdited = adifRecords ();
     m_logDlg->accept ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
     if (!m_auto || m_hisCall != "W2XYZ" || newer->clearDxPending != clearCall
-        || acceptedCalls.last () != "W2XYA" || !m_EMEworked.value ("W2XYA"))
+        || acceptedCalls.last () != "W2XYA" || !loggedAndWorked ("W2XYA", recordsBeforeEdited))
       return "Editing the logged callsign lost the repeat's ownership.";
     on_stopTxButton_clicked ();
     if (m_hisCall != (clearCall ? QString {} : QString {"W2XYZ"}))
@@ -495,11 +515,11 @@ QString MainWindow::checkQsoCompletionTest ()
     scheduleLogQso ();
     if (!prepare ("Q65", "W4NEW")) return "Later Q65 logging setup failed.";
     auto const nextQsoStart = m_dateTimeQSOOn;
-    m_EMEworked.remove ("W3OLD");
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
+    auto const recordsBeforeW3OLD = adifRecords ();
     m_logDlg->accept ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
-    if (!m_EMEworked.value ("W3OLD") || m_hisCall != "W4NEW"
+    if (!loggedAndWorked ("W3OLD", recordsBeforeW3OLD) || m_hisCall != "W4NEW"
         || m_dateTimeQSOOn != nextQsoStart || !m_auto)
       return "An older same-mode Q65 log lost its worked status or changed the new contact.";
 
@@ -507,11 +527,11 @@ QString MainWindow::checkQsoCompletionTest ()
     scheduleLogQso ();
     if (!prepare ("MSK144", "W6NEW")) return "Changed-mode logging setup failed.";
     auto const scoreBeforeAccept = m_score;
-    m_EMEworked.remove ("W5OLD");
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
+    auto const recordsBeforeW5OLD = adifRecords ();
     m_logDlg->accept ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
-    if (!m_EMEworked.value ("W5OLD") || m_score != scoreBeforeAccept
+    if (!loggedAndWorked ("W5OLD", recordsBeforeW5OLD) || m_score != scoreBeforeAccept
         || m_hisCall != "W6NEW" || !m_auto)
       return "An older Q65 log lost its worked status or changed the new activity.";
 

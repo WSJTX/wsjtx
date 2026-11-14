@@ -876,6 +876,8 @@ private:
   void endQsoRepeat (QsoRepeatEnd, std::shared_ptr<QsoCompletion> context = {});
   void readWidebandDecodes();
   void refreshQmapActiveStations(QDateTime const& nowUtc);
+  QString activeStationsBand() const;
+  void showQ65QsoCount();
   void configActiveStations();
   bool sfox_tx();
   void clearSuperFoxPreparedTx();
@@ -1491,8 +1493,6 @@ private:
   };
   QMap<QString,EMECall> m_EMECall;
 
-  QMap<QString,bool> m_EMEworked;
-
   DecodedGridHistory m_decodedGridHistory;
 
   struct RecentCall
@@ -1863,7 +1863,6 @@ private:
   Q_SLOT void ARRL_Digi_Display();
   void ARRL_Digi_Update(DecodedText dt);
   void activeWorked(QString call, QString band);
-  void read_log();
   void refreshPileupList();
   void handleVerifyMsg(int status, QDateTime ts, QString callsign, QString code, unsigned int hz, QString const &response);
   void writeFoxTxMsgs();

@@ -1,5 +1,6 @@
 #include "WorkedBefore.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <functional>
 #include <stdexcept>
@@ -29,6 +30,7 @@
 #include <QDateTime>
 #include <QPointer>
 #include <QSet>
+#include <QVector>
 #include "Configuration.hpp"
 #include "PerformanceTrace.hpp"
 #include "revision_utils.hpp"
@@ -54,7 +56,8 @@ std::size_t hash_value (QString const& s)
 struct worked_entry
 {
   explicit worked_entry (QString const& call, QString const& grid, QString const& band
-                         , QString const& mode, AD1CCty::Record const& entity)
+                         , QString const& mode, AD1CCty::Record const& entity
+                         , QDate const& date = {})
     : call_ {call}
     , grid_ {grid}
     , band_ {band}
@@ -65,6 +68,26 @@ struct worked_entry
     , CQ_zone_ {entity.CQ_zone}
     , ITU_zone_ {entity.ITU_zone}
   {
+    add_date (date);
+  }
+
+  // Note a QSO_DATE for this entry (invalid dates are ignored).
+  void add_date (QDate const& date) const
+  {
+    if (!date.isValid ()) return;
+    auto const pos = std::lower_bound (dates_.begin (), dates_.end (), date);
+    if (pos == dates_.end () || *pos != date) dates_.insert (pos, date);
+  }
+
+  // Worked on one of days; an empty set means on any date.
+  bool worked_on (QSet<QDate> const& days) const
+  {
+    if (days.isEmpty ()) return true;
+    for (auto const& date : dates_)
+      {
+        if (days.contains (date)) return true;
+      }
+    return false;
   }
 
   QString call_;
@@ -76,6 +99,11 @@ struct worked_entry
   AD1CCty::Continent continent_;
   int CQ_zone_;
   int ITU_zone_;
+
+  // Every QSO_DATE seen for this entry, sorted, no repeats (empty if the
+  // records had none). Not part of the entry's identity or of any index, so
+  // it may be updated in place; see insert_worked().
+  mutable QVector<QDate> dates_;
 };
 
 bool operator == (worked_entry const& lhs, worked_entry const& rhs)
@@ -120,7 +148,8 @@ QDebug operator << (QDebug dbg, worked_entry const& e)
                  << e.wae_country_ << ", "
                  << e.continent_ << ", "
                  << e.CQ_zone_ << ", "
-                 << e.ITU_zone_ << ')';
+                 << e.ITU_zone_ << ", "
+                 << e.dates_ << ')';
   return dbg;
 }
 #endif
@@ -251,6 +280,17 @@ typedef multi_index_container<
 
 namespace
 {
+  // Insert an entry, or, if an equal entry is already there, add its QSO
+  // dates to that one.
+  void insert_worked (worked_before_database_type& worked, worked_entry const& entry)
+  {
+    auto const result = worked.insert (entry);
+    if (!result.second)
+      {
+        for (auto const& date : entry.dates_) result.first->add_date (date);
+      }
+  }
+
   // Exception class suitable for using with QtConcurrent across
   // thread boundaries
   class LoaderException final
@@ -406,6 +446,22 @@ namespace
     return {};
   }
 
+  // QSO_DATE of a record being logged; today (UTC) if it has none or it
+  // cannot be read.
+  QDate adif_record_date (QByteArray const& record)
+  {
+    std::atomic_bool const no_stop {false};
+    QDate date;
+    try
+      {
+        date = QDate::fromString (extractField (QString::fromUtf8 (record), "QSO_DATE", no_stop), "yyyyMMdd");
+      }
+    catch (LoaderException const&)
+      {
+      }
+    return date.isValid () ? date : QDateTime::currentDateTimeUtc ().date ();
+  }
+
   int find_adif_tag (QString const& input, QString const& tag, int start, int& tag_end, bool at_eof,
                     std::atomic_bool const& stop, bool character_lengths = false)
   {
@@ -541,10 +597,11 @@ namespace
                     auto mode = extractField (record, "MODE", stop, character_lengths).toUpper ();
                     if (mode.isEmpty () || mode == "MFSK")
                       mode = extractField (record, "SUBMODE", stop, character_lengths).toUpper ();
-                    worked.emplace (call.toUpper ()
+                    insert_worked (worked, worked_entry {call.toUpper ()
                                     , extractField (record, "GRIDSQUARE", stop, character_lengths).left (4).toUpper ()
                                     , extractField (record, "BAND", stop, character_lengths).toUpper ()
-                                    , mode, entity);
+                                    , mode, entity
+                                    , QDate::fromString (extractField (record, "QSO_DATE", stop, character_lengths), "yyyyMMdd")});
                   };
                 int buffer_start {0};
                 while (true)
@@ -798,7 +855,7 @@ namespace
                     for (auto const& entry : source.worked)
                       {
                         if (!(merged++ % 256)) check_load_cancelled (stop, "merge");
-                        result.worked.insert (entry);
+                        insert_worked (result.worked, entry);
                       }
                   }
                 if (recovered) ++result.files_incomplete;
@@ -1018,7 +1075,7 @@ WorkedBefore::WorkedBefore (Configuration const * configuration)
                   reload ();
                   return;
                 }
-              for (auto const& entry : parsed.worked) m_->worked_.insert (entry);
+              for (auto const& entry : parsed.worked) insert_worked (m_->worked_, entry);
               *known = result.current;
             }
           catch (LoadCancelled const&)
@@ -1056,7 +1113,7 @@ void WorkedBefore::handle_loader_finished ()
       result.errors.append (e.error ());
     }
   if (result.cancelled) return;
-  result.worked.insert (m_->added_during_load_.begin (), m_->added_during_load_.end ());
+  for (auto const& entry : m_->added_during_load_) insert_worked (result.worked, entry);
   m_->watched_ = result.signatures;
   m_->worked_.swap (result.worked);
   auto n = m_->worked_.size ();
@@ -1301,11 +1358,11 @@ bool WorkedBefore::add (QString const& call
             }
         }
       worked_entry entry {call.toUpper (), grid.left (4).toUpper (), band.toUpper (), mode.toUpper ()
-                          , entity};
-      m_->worked_.insert (entry);
+                          , entity, adif_record_date (ADIF_record)};
+      insert_worked (m_->worked_, entry);
       if (m_->load_state_.active ())
         {
-          m_->added_during_load_.insert (entry);
+          insert_worked (m_->added_during_load_, entry);
         }
     }
   return true;
@@ -1415,6 +1472,47 @@ bool WorkedBefore::call_worked (QString const& call, QString const& mode, QStrin
             != m_->worked_.get<call_band> ().find (std::make_tuple (call.toUpper ()));
         }
     }
+}
+
+bool WorkedBefore::call_worked_on_days (QString const& call, QString const& mode, QString const& band,
+                                        QSet<QDate> const& days) const
+{
+  if (days.isEmpty ()) return call_worked (call, mode, band);
+  auto any_on_days = [&days] (auto const& range) {
+    for (auto it = range.first; it != range.second; ++it)
+      {
+        if (it->worked_on (days)) return true;
+      }
+    return false;
+  };
+  if (mode.size ())
+    {
+      auto const& index = m_->worked_.get<call_mode_band> ();
+      return band.size ()
+        ? any_on_days (index.equal_range (std::make_tuple (call.toUpper (), mode.toUpper (), band.toUpper ())))
+        : any_on_days (index.equal_range (std::make_tuple (call.toUpper (), mode.toUpper ())));
+    }
+  auto const& index = m_->worked_.get<call_band> ();
+  return band.size ()
+    ? any_on_days (index.equal_range (std::make_tuple (call.toUpper (), band.toUpper ())))
+    : any_on_days (index.equal_range (std::make_tuple (call.toUpper ())));
+}
+
+int WorkedBefore::calls_worked_on_days (QString const& band, QSet<QDate> const& days) const
+{
+  auto const wanted_band = band.toUpper ();
+  int count {0};
+  QString last_counted;
+  // Ordered by call, then band: each call's entries are adjacent.
+  for (auto const& entry : m_->worked_.get<call_band> ())
+    {
+      if (entry.call_ == last_counted) continue;
+      if (!wanted_band.isEmpty () && entry.band_ != wanted_band) continue;
+      if (!entry.worked_on (days)) continue;
+      last_counted = entry.call_;
+      ++count;
+    }
+  return count;
 }
 
 bool WorkedBefore::continent_worked (Continent continent, QString const& mode, QString const& band) const
