@@ -881,6 +881,7 @@ private:
   void endQsoRepeat (QsoRepeatEnd, std::shared_ptr<QsoCompletion> context = {});
   void readWidebandDecodes();
   void refreshQmapActiveStations(QDateTime const& nowUtc);
+  void displayQ65ActiveStations();
   QString activeStationsBand() const;
   void showQ65QsoCount();
   void configActiveStations();
@@ -1179,6 +1180,8 @@ private:
   qint32  m_fDop=0;
   qint32  m_echoSec0=0;
   qint32  m_fetched=0;
+  QDateTime m_qmapDisplayTime;   // readWidebandDecodes()'s last "now" (file-playback-aware);
+                                 // reused by redraw-only Active Stations refreshes
   qint32  m_position;
   qint64  m_decoderDiagSequence=0;
   qint64  m_decoderDiagActiveSequence=0;

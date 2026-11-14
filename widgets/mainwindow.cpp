@@ -3701,7 +3701,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       if(m_mode=="Q65" && e->modifiers() & Qt::AltModifier) {
         m_EMECall.clear();
         qmapcom.ndecodes=0;
-        readWidebandDecodes();
+        displayQ65ActiveStations();
       }
     return;
   case Qt::Key_B:
@@ -3881,8 +3881,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       if(m_specOp==SpecOp::Q65_PILEUP) {
         refreshPileupList();
       } else {
-        m_fetched=0;
-        readWidebandDecodes();
+        displayQ65ActiveStations();
       }
       return;
     }
@@ -5118,10 +5117,10 @@ void MainWindow::on_actionActiveStations_triggered()
   m_ActiveStationsWidget->raise();
   m_ActiveStationsWidget->activateWindow();
   configActiveStations();
-  connect(m_ActiveStationsWidget.data(), SIGNAL(callSandP(int)),this,SLOT(callSandP2(int)));
+  connect(m_ActiveStationsWidget.data(), SIGNAL(callSandP(int)),this,SLOT(callSandP2(int)),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
   // connect up another signal to handle clicks in the Activity window when in Fox mode
   connect(m_ActiveStationsWidget.data(), SIGNAL(queueActiveWindowHound(QString)),this,SLOT(queueActiveWindowHound2(QString)),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
-  connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()));
+  connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
   m_ActiveStationsWidget->setScore(m_score);
   showQ65QsoCount();
 }
@@ -15347,23 +15346,17 @@ void MainWindow::readWidebandDecodes()
       QString::fromLatin1(qmapcom.result[qmap_decodes - 1], 6), nowUtc, 60);
     if (recordedTime.isValid()) displayTime = recordedTime;
   }
+  m_qmapDisplayTime = displayTime;
   refreshQmapActiveStations(displayTime);
 }
 
+// Redraw only; rereading qmapcom here would leave m_fetched past the next batch.
 void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
 {
   if (!m_ActiveStationsWidget) return;
 
 // Displayed row numbers index m_ready2call, so the rendered QMAP list must
 // stay within the same capacity as its click-target storage.
-  QMap<QString,EMECall>::iterator i;
-  QString t="";
-  QString t1;
-  QString dxcall;
-  QString dxgrid4;
-  QVector<ActiveStationListItem> rows;
-  int maxAge=m_ActiveStationsWidget->maxAge();
-
   // Worked = in the ADIF log (and history sources) on the current band, any
   // mode, and only on the chosen days (UTC) if any. With no known band,
   // nothing counts as worked (an empty band would match every band).
@@ -15373,53 +15366,40 @@ void MainWindow::refreshQmapActiveStations(QDateTime const& nowUtc)
     return !band.isEmpty () && m_logBook.call_worked_on_band (call, band, days);
   };
 
+  QVector<Q65ActiveStation> stations;
+  for(auto i=m_EMECall.cbegin(); i!=m_EMECall.cend(); ++i) {
+    stations.append({i.key(), i->grid4, i->frx, i->fsked, i->nsnr, i->lastHeard,
+                     i->submode, i->ready2call, worked(i.key())});
+  }
+  Q65ActiveStationFilter const filter {nowUtc,
+                                       m_ActiveStationsWidget->maxAge(),
+                                       m_ActiveStationsWidget->wantedOnly(),
+                                       m_ActiveStationsWidget->readyOnly()};
+
   m_ActiveStationsWidget->setClickOK(false);
-
-  for(i=m_EMECall.begin(); i!=m_EMECall.end(); i++) {
-    bool bSkip=false;
-    if(m_ActiveStationsWidget->wantedOnly() and worked(i.key())) bSkip=true;
-    if(m_ActiveStationsWidget->readyOnly() and !i->ready2call) bSkip=true;
-    if(!bSkip) {
-      int snr=i->nsnr;
-      QString submode=i->submode;
-      int odd=0;
-      int const secondsSinceMidnight = QTime {0, 0}.secsTo(i->lastHeard.time());
-      if(submode.left(2)=="30" and (secondsSinceMidnight%60)==0) odd=1;
-      if(submode.left(2)=="60" and (secondsSinceMidnight%120)==0) odd=1;
-      int const age = int(qMax(qint64 {0}, i->lastHeard.secsTo(nowUtc)) / 60);
-      char c2[3]={32,32,0};
-      if(age<=maxAge) {
-        dxcall=(i.key()+"     ").left(8);
-        dxgrid4=(i->grid4+"... ").left(4);
-        if(!worked(dxcall.trimmed())) c2[0]=35;            //# for not worked
-        if(i->ready2call) c2[1]=42;                        //* for ready to call
-        t1=t1.asprintf("%7.3f %5.1f  %+03d  %3s  %8s %4s %3d %3d %2s\n",i->frx,i->fsked,snr,
-                       submode.toLatin1().constData(),dxcall.toLatin1().constData(),
-                       dxgrid4.toLatin1().constData(),odd,age,c2);
-        rows.append({float(i->fsked), t1});
-      }
-      m_ActiveStationsWidget->setClickOK(true);
-    }
-  }
-
+  auto const rows=sorted_limited_active_station_items(
+    q65_active_station_items(stations, filter), MaxActiveStationRows, false);
   std::fill(m_ready2call.begin(), m_ready2call.end(), QString {});
-  rows=sorted_limited_active_station_items(rows, MaxActiveStationRows, false);
-  if(!rows.isEmpty()) {
-    t1="";
-    for(int k=0; k<rows.size(); k++) {
-      t1=t1.asprintf("%2d. ",k+1);
-      t1+=rows[k].text;
-      m_ready2call[k]=rows[k].text;
-      t+=t1;
-    }
+  QString t;
+  for(int k=0; k<rows.size(); k++) {
+    m_ready2call[k]=rows[k].text;
+    t+=QString::asprintf("%2d. ",k+1) + rows[k].text;
   }
 
-  if(m_ActiveStationsWidget != NULL) {
-    m_ActiveStationsWidget->erase();
-    m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65,t);
-    m_ActiveStationsWidget->setClickOK(true);
-  }
+  m_ActiveStationsWidget->erase();
+  m_ActiveStationsWidget->displayRecentStations(ActiveStations::DisplayMode::Q65,t);
+  m_ActiveStationsWidget->setClickOK(true);
   showQ65QsoCount();
+}
+
+// Redraw only, without rereading qmapcom (so m_fetched isn't disturbed and the
+// batch's PSK Reporter spots aren't queued again). File playback's stations
+// are timestamped on the recording's clock, so reuse readWidebandDecodes()'s
+// last "now" rather than the real current time, or every station reads as
+// hours old and the list goes blank.
+void MainWindow::displayQ65ActiveStations()
+{
+  refreshQmapActiveStations(qmapcom.nQDecoderDone==2 ? m_qmapDisplayTime : QDateTime::currentDateTimeUtc());
 }
 
 // Band for the Q65 Active Stations worked checks: the current band, or the

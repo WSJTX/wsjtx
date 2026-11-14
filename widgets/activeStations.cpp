@@ -53,8 +53,6 @@ ActiveStations::ActiveStations(QSettings * settings, QFont const& font, QWidget 
   changeFont (font);
   read_settings ();
   setupUi(DisplayMode::Standard);
-  connect(ui->cbReadyOnly, SIGNAL(toggled(bool)), this, SLOT(on_cbReadyOnly_toggled(bool)));
-  connect(ui->cbWantedOnly, SIGNAL(toggled(bool)), this, SLOT(on_cbWantedOnly_toggled(bool)));
   connect(ui->cbWantedDays, &QCheckBox::toggled, this, &ActiveStations::wantedDaysChanged);
   connect(ui->pbWantedDays, &QToolButton::clicked, this, &ActiveStations::chooseWantedDays);
   connect(ui->RecentStationsPlainTextEdit, SIGNAL(cursorPositionChanged()), this, SLOT(on_textEdit_clicked()));
