@@ -1460,7 +1460,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
       statusUpdate ();
 #if defined(Q_OS_WIN)
       QTimer::singleShot (250, this, [=] {
-        if (requestNominalFrequencyChange (
+        if (m_mode != "Echo" && requestNominalFrequencyChange (
               m_operatingFrequency.remembered (), FrequencyRequestOrigin::Automatic))
           {
             m_msk144basefreq = m_operatingFrequency.remembered ();  // This is needed for Hamradio Deluxe
