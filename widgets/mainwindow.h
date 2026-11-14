@@ -591,6 +591,7 @@ private slots:
   void on_actionErase_WSPR_hashtable_triggered();
   void on_actionErase_list_of_Q65_callers_triggered();
   void on_actionExport_Cabrillo_log_triggered();
+  void on_actionExport_EME_Cabrillo_log_triggered();
   bool startTx2();
   void startP1();
   void stopTx();

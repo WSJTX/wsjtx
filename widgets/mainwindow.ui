@@ -5149,6 +5149,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="actionErase_list_of_Q65_callers"/>
     <addaction name="reset_cabrillo_log_action"/>
     <addaction name="actionExport_Cabrillo_log"/>
+    <addaction name="actionExport_EME_Cabrillo_log"/>
     <addaction name="actionOpen_log_directory"/>
     <addaction name="actionOpen_ADIF_log_folder"/>
     <addaction name="separator"/>
@@ -5821,6 +5822,14 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionExport_Cabrillo_log">
    <property name="text">
     <string>Export Cabrillo log ...</string>
+   </property>
+  </action>
+  <action name="actionExport_EME_Cabrillo_log">
+   <property name="text">
+    <string>Export ARRL EME Cabrillo log ...</string>
+   </property>
+   <property name="toolTip">
+    <string>Cabrillo log for the ARRL EME contest from the ADIF log: the QSOs on the chosen days, with both grid squares on every line</string>
    </property>
   </action>
   <action name="actionQSG_FST4">

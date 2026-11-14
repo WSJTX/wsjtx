@@ -70,6 +70,9 @@ set (wsjt_qt_CXXSRCS
   Configuration.cpp
   logbook/logbook.cpp
   logbook/AdifQso.cpp
+  logbook/EmeCabrillo.cpp
+  widgets/DaysCalendar.cpp
+  widgets/EmeCabrilloDialog.cpp
   MultiSettings.cpp
   validators/MaidenheadLocatorValidator.cpp
   validators/CallsignValidator.cpp

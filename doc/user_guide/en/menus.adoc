@@ -73,6 +73,19 @@ progress in an EME contest.
 
 image::active_stations_QMAP.png[align="center"]
 
+The *Cabrillo...* button beside the days (also *File | Export ARRL EME
+Cabrillo log ...*) makes a Cabrillo log for the ARRL EME contest from
+the ADIF log: the QSOs on the chosen days, on the bands you tick, with
+both stations' 4-character grid squares on every QSO line as the rules
+require. A station counts once per band from each grid it works from;
+repeats are left out and listed. QSOs logged without a grid are listed
+so you can type their grids in all at once (a grid found in another QSO
+with the same station is offered for checking). *Other file...* makes
+the entry from another ADIF log, for example one copied from a contest
+PC; the ADIF file is only read, never changed. The dialog shows the
+claimed score and the file as it will be saved; upload the saved file
+at contests.arrl.org/arrlemescoresubmission.php.
+
 .SWL Mode
 
 *SWL Mode* reduces the main window to show just the menus, decodes
