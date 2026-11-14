@@ -804,6 +804,10 @@ contains
       use jtty_fec
       implicit none
       integer, parameter             :: MAXCAND = 100
+      ! Fixed channels tile nfa..nfb, two candidates each per pass. MAXCHAN
+      ! keeps their 4*MAXCHAN plus channel 0's 16 within MAXCAND.
+      real, parameter                :: CHANWIDTH = 300.0
+      integer, parameter             :: MAXCHAN = 16
       integer, parameter             :: NSYNC_SYM  = 13
       integer, parameter             :: NCHAN_SYM  = 46
       integer, parameter             :: NFRAME_SYM = 59
@@ -993,7 +997,7 @@ contains
       ntz=nint(0.016*6000.0/12.0)   !  8
 
       ! Every channel reads inside this span; unsearched bins may remain stale.
-      nchan=2
+      nchan=max(2,min(MAXCHAN,nint(real(nfb-nfa)/CHANWIDTH)))
       first_sync_bin=nh2-2
       last_sync_bin=3
       do ichan=0,nchan
@@ -1018,7 +1022,7 @@ contains
 
       ! Phase A: channel 0 gets first claim on every signal -- runs its own
       ! full up-to-2-pass sweep to completion, accumulating n_ch0_ok across
-      ! both passes, before channels 1/2 (Phase B) ever run.
+      ! both passes, before the fixed channels (Phase B) ever run.
       n_ch0_ok=0
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
@@ -1028,7 +1032,7 @@ contains
       enddo
 
       ! Channel 0 masks candidates privately, so an unchanged surface can
-      ! also serve channels 1/2. Their suppression modifies s0 directly.
+      ! also serve the fixed channels. Their suppression modifies s0 directly.
       any_subtracted=.false.
       do ipass=1,2
          if(ipass.eq.2 .and. .not.any_subtracted) exit
@@ -1262,9 +1266,11 @@ contains
          fc=f0
          fwid=ftol
       else
-         fc=1350
-         if(ichan.eq.2) fc=1650
-         fwid=150
+         fwid=0.5*real(nfb-nfa)/real(nchan)
+         fc=real(nfa)+(2*ichan-1)*fwid
+         ! Overlap past the sync peak's width, so a signal just over a
+         ! boundary is found at its peak rather than the lower channel's edge.
+         fwid=fwid+10.0
       endif
       call jtty_search_window(fc,fwid,nfa,nfb,ichan.ne.0,df2,3, &
            ubound(s0,1)-2,ja,jb,usable)
@@ -1285,7 +1291,7 @@ contains
 
       if(ichan.ne.0 .and. n_ch0_ok.gt.0) then
          ! Erase only channel 0's actual successful-decode neighborhoods
-         ! (not its whole nominal band) so channels 1/2 can't rediscover
+         ! (not its whole nominal band) so the fixed channels can't rediscover
          ! them, while staying free to catch what channel 0 missed.
          do i=1,n_ch0_ok
             if(max(ja,ja_ch0_ok(i)) .le. min(jb,jb_ch0_ok(i))) &
@@ -1513,7 +1519,7 @@ contains
          if( cand(i)%decoded .eq. cand(ncand)%decoded .and. &
          abs(cand(i)%tsync - cand(ncand)%tsync).lt. 0.032 ) dupe=.true.
       enddo
-      ! A channel-1/2 candidate matching a frame channel 0 already decoded
+      ! A fixed-channel candidate matching a frame channel 0 already decoded
       ! this call is sync-estimation noise, not a distinct signal. 3.0 Hz
       ! tracks jtty_peakup's coherent-combining frequency precision.
       if(ichan.ne.0) then
