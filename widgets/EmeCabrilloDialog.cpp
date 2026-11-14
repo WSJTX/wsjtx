@@ -8,7 +8,6 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
-#include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -21,7 +20,6 @@
 #include <QRadioButton>
 #include <QScrollArea>
 #include <QSettings>
-#include <QTextStream>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -94,7 +92,9 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   connect (days_button_, &QToolButton::clicked, this, [this] {
       DaysCalendar::show (days_button_, &days_, [this] {
           Q_EMIT days_changed (days_);
-          load ();                      // also each log's "on the days" count
+          count_logs ();                // each log's "on the days" count
+          show_logs ();
+          refresh ();
         });
     });
   days_row->addWidget (days_button_);
@@ -104,6 +104,11 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   layout->addLayout (days_row);
   bands_layout_ = new QHBoxLayout;
   layout->addLayout (bands_layout_);
+  // the modes found on the days and bands, with their QSO counts: the ADIF
+  // log holds every mode, so QSOs that were not EME (say FT8 or MSK144 on
+  // 2 m) can be left out
+  modes_layout_ = new QHBoxLayout;
+  layout->addLayout (modes_layout_);
   // shown only when a weekend has QSOs of the other band group
   off_weekend_box_ = new QCheckBox {tr ("Leave out QSOs on a band whose group (50-1296 MHz / 2.3 GHz and up) "
                                         "isn't contested on that weekend"), this};
@@ -175,6 +180,12 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
     connect (edit, &QLineEdit::textChanged, this, &EmeCabrilloDialog::refresh);
   connect (single_op_, &QRadioButton::toggled, this, &EmeCabrilloDialog::refresh);
   connect (off_weekend_box_, &QCheckBox::toggled, this, &EmeCabrilloDialog::refresh);
+  // Enter in a grid box must only take the grid, never press a button
+  for (auto button : findChildren<QPushButton *> ())
+    {
+      button->setAutoDefault (false);
+      button->setDefault (false);
+    }
   load ();
 }
 
@@ -197,7 +208,13 @@ void EmeCabrilloDialog::read_settings ()
     {
       logs_ = QStringList {own_log ()};
     }
-  off_weekend_box_->setChecked (settings_->value ("LeaveOutOffWeekend", true).toBool ());
+  off_weekend_box_->setChecked (settings_->value ("LeaveOutOtherGroup", false).toBool ());
+  // grids typed in for QSOs logged without one: kept between sessions
+  for (auto const& item : settings_->value ("TypedGrids").toStringList ())
+    {
+      auto const key = item.section ('=', 0, 0), grid = item.section ('=', 1);
+      if (!key.isEmpty () && !EmeCabrillo::grid4 (grid).isEmpty ()) fixes_[key] = grid;
+    }
   (settings_->value ("Operator", "SINGLE-OP").toString () == "MULTI-OP" ? multi_op_ : single_op_)->setChecked (true);
   operators_->setText (settings_->value ("Operators").toString ());
   location_->setText (settings_->value ("Location").toString ());
@@ -215,7 +232,11 @@ void EmeCabrilloDialog::write_settings ()
   SettingsGroup group {settings_, "EmeCabrillo"};
   settings_->setValue ("window/geometry", saveGeometry ());
   settings_->setValue ("Logs", logs_.isEmpty () ? QStringList {QStringLiteral ("<none>")} : logs_);
-  settings_->setValue ("LeaveOutOffWeekend", off_weekend_box_->isChecked ());
+  settings_->setValue ("LeaveOutOtherGroup", off_weekend_box_->isChecked ());
+  QStringList typed;
+  for (auto i = fixes_.cbegin (); i != fixes_.cend (); ++i) typed << i.key () + '=' + i.value ();
+  typed.sort ();
+  settings_->setValue ("TypedGrids", typed);
   settings_->setValue ("Operator", multi_op_->isChecked () ? "MULTI-OP" : "SINGLE-OP");
   settings_->setValue ("Operators", operators_->text ());
   settings_->setValue ("Location", location_->text ());
@@ -257,10 +278,8 @@ void EmeCabrilloDialog::remove_log (int index)
 void EmeCabrilloDialog::load ()
 {
   log_records_.clear ();
-  log_info_.clear ();
   load_errors_.clear ();
-  QSet<QString> day_strings;
-  for (auto const& day : days_) day_strings << day.toString ("yyyyMMdd");
+  log_state_.clear ();
   for (auto const& entry : logs_)
     {
       auto const path = entry == own_log () ? own_log_path_ : entry;
@@ -269,25 +288,54 @@ void EmeCabrilloDialog::load ()
       if (file.open (QIODevice::ReadOnly))
         {
           records = EmeCabrillo::read_adif (file.readAll ());
-          int on_days = 0;
-          for (auto const& r : records) on_days += day_strings.contains (r.value ("QSO_DATE").trimmed ());
-          log_info_ << tr ("%1 QSOs, %2 on the days").arg (records.size ()).arg (on_days);
+          log_state_ << 0;
         }
       else if (entry == own_log () && !file.exists ())
         {
-          log_info_ << tr ("no QSOs logged yet");
+          log_state_ << 1;
         }
       else
         {
-          log_info_ << tr ("cannot read it");
+          log_state_ << 2;
           load_errors_ << tr ("Cannot read %1: %2").arg (QDir::toNativeSeparators (path), file.errorString ());
         }
       log_records_ << records;
     }
   copies_.clear ();
   records_ = EmeCabrillo::merge (log_records_, &copies_);
+  count_logs ();
   show_logs ();
   refresh ();
+}
+
+// What each log holds on the chosen days (no file is read again)
+void EmeCabrilloDialog::count_logs ()
+{
+  log_info_.clear ();
+  for (int i = 0; i < log_records_.size (); ++i)
+    {
+      if (log_state_.value (i) == 1)
+        {
+          log_info_ << tr ("no QSOs logged yet");
+          continue;
+        }
+      if (log_state_.value (i) == 2)
+        {
+          log_info_ << tr ("cannot read it");
+          continue;
+        }
+      int on_days = 0, no_date = 0;
+      for (auto const& r : log_records_[i])
+        {
+          auto const date = QDate::fromString (r.value ("QSO_DATE").trimmed (), "yyyyMMdd");
+          if (!date.isValid ()) ++no_date;
+          else if (days_.contains (date)) ++on_days;
+        }
+      auto text = tr ("%1 QSOs, %2 on the days").arg (log_records_[i].size ()).arg (on_days);
+      // a record whose QSO_DATE can't be read is never on a chosen day: say so
+      if (no_date) text += tr (", %1 WITHOUT A USABLE DATE (never counted)").arg (no_date);
+      log_info_ << text;
+    }
 }
 
 void EmeCabrilloDialog::show_logs ()
@@ -316,9 +364,10 @@ void EmeCabrilloDialog::show_logs ()
       name->setTextInteractionFlags (Qt::TextSelectableByMouse);
       logs_layout_->addWidget (name, i, 0);
       auto what = new QLabel {log_info_.value (i), parent};
-      if (what->text () == tr ("cannot read it")) what->setStyleSheet ("color:#c00000");
+      if (log_state_.value (i) == 2 || what->text ().contains ("WITHOUT")) what->setStyleSheet ("color:#c00000");
       logs_layout_->addWidget (what, i, 1);
       auto remove = new QPushButton {tr ("Remove"), parent};
+      remove->setAutoDefault (false);
       remove->setObjectName (QString {"remove_log_%1"}.arg (i));
       connect (remove, &QPushButton::clicked, this, [this, i] {remove_log (i);});
       logs_layout_->addWidget (remove, i, 2);
@@ -358,8 +407,14 @@ void EmeCabrilloDialog::refresh ()
   for (auto const& band : all.bands)
     if (!bands_off_.contains (band)) chosen << band;
   if (chosen.isEmpty () && !all.bands.isEmpty ()) chosen << "-"; // none ticked: nothing
+  // modes on those days and bands; those unticked are left out
+  auto const with_all_modes = EmeCabrillo::select (records_, days_, my_call_, my_grid_, chosen, fixes_);
+  QSet<QString> modes;
+  for (auto i = with_all_modes.modes.cbegin (); i != with_all_modes.modes.cend (); ++i)
+    if (!modes_off_.contains (i.key ())) modes << i.key ();
+  if (modes.isEmpty () && !with_all_modes.modes.isEmpty ()) modes << "-"; // none ticked: nothing
   selection_ = EmeCabrillo::select (records_, days_, my_call_, my_grid_, chosen, fixes_,
-                                    off_weekend_box_->isChecked ());
+                                    off_weekend_box_->isChecked (), modes);
   off_weekend_box_->setVisible (!selection_.off_weekend.isEmpty ());
   // operators named in the logs (several PCs): into an empty box, once
   if (!operators_filled_ && selection_.operators.size () && operators_->text ().trimmed ().isEmpty ())
@@ -370,6 +425,7 @@ void EmeCabrilloDialog::refresh ()
     }
   text_ = EmeCabrillo::cabrillo_text (header (), selection_.qsos);
   show_bands ();
+  show_modes ();
   show_grid_rows ();
 
   QStringList warnings {load_errors_};
@@ -400,6 +456,30 @@ void EmeCabrilloDialog::refresh ()
       warnings << tr ("%1 QSO(s) left out until you type their grid in above: %2")
         .arg (selection_.no_grid.size ()).arg (calls.join (", "));
     }
+  // the header takes My Call and My Grid, each QSO line its own record's
+  // STATION_CALLSIGN and MY_GRIDSQUARE: logs from other PCs may differ
+  QSet<QString> other_calls, other_grids;
+  bool no_own_grid {false};
+  for (auto const& qso : selection_.qsos)
+    {
+      if (qso.my_call != my_call_) other_calls << qso.my_call;
+      if (qso.my_grid.isEmpty ()) no_own_grid = true;
+      else if (qso.my_grid != EmeCabrillo::grid4 (my_grid_)) other_grids << qso.my_grid;
+    }
+  auto listed = [] (QSet<QString> const& set) {
+    QStringList list;
+    for (auto const& item : set) list << item;
+    list.sort ();
+    return list.join (", ");
+  };
+  if (other_calls.size () && !my_call_.isEmpty ())
+    warnings << tr ("QSOs logged as %1, not My Call %2: the header says %2 - check.")
+      .arg (listed (other_calls), my_call_);
+  if (other_grids.size () && !EmeCabrillo::grid4 (my_grid_).isEmpty ())
+    warnings << tr ("QSOs logged from %1, not My Grid %2: the header says %2 - check.")
+      .arg (listed (other_grids), EmeCabrillo::grid4 (my_grid_));
+  if (no_own_grid)
+    warnings << tr ("QSOs without an own grid (no MY_GRIDSQUARE in the log and no My Grid): cannot be saved.");
 
   QString html;
   for (auto const& w : warnings) html += "<p style='color:#c00000'>" + escaped (w) + "</p>";
@@ -451,9 +531,40 @@ void EmeCabrilloDialog::refresh ()
     }
   if (selection_.satellite)
     html += "<p>" + escaped (tr ("%1 satellite QSO(s) left out (not EME).").arg (selection_.satellite)) + "</p>";
+  if (selection_.mode_out)
+    html += "<p>" + escaped (tr ("%1 QSO(s) in an unticked mode left out.").arg (selection_.mode_out)) + "</p>";
   summary_->setText (html);
   preview_->setPlainText (text_);
-  save_button_->setEnabled (selection_.qsos.size () && !my_call_.isEmpty ());
+  save_button_->setEnabled (selection_.qsos.size () && !my_call_.isEmpty () && !no_own_grid);
+}
+
+void EmeCabrilloDialog::show_modes ()
+{
+  if (modes_shown_ == selection_.modes) return;
+  modes_shown_ = selection_.modes;
+  while (auto item = modes_layout_->takeAt (0))
+    {
+      if (item->widget ()) item->widget ()->deleteLater ();
+      delete item;
+    }
+  if (modes_shown_.isEmpty ()) return;
+  modes_layout_->addWidget (new QLabel {tr ("Modes"), this});
+  for (auto i = modes_shown_.cbegin (); i != modes_shown_.cend (); ++i)
+    {
+      auto const mode = i.key ();
+      auto box = new QCheckBox {QString {"%1 (%2)"}.arg (mode).arg (i.value ()), this};
+      box->setObjectName ("mode_" + mode);
+      box->setChecked (!modes_off_.contains (mode));
+      connect (box, &QCheckBox::toggled, this, [this, mode] (bool on) {
+          if (on) modes_off_.remove (mode); else modes_off_ << mode;
+          refresh ();
+        });
+      modes_layout_->addWidget (box);
+    }
+  auto hint = new QLabel {tr ("untick a mode that wasn't EME"), this};
+  hint->setStyleSheet ("color:#666666");
+  modes_layout_->addWidget (hint);
+  modes_layout_->addStretch ();
 }
 
 void EmeCabrilloDialog::show_bands ()
@@ -495,6 +606,13 @@ void EmeCabrilloDialog::show_bands ()
 void EmeCabrilloDialog::show_grid_rows ()
 {
   auto state_of = [] (EmeCabrillo::Qso const& qso, QString& colour) {
+    if (qso.dupe)                       // that grid makes it a repeat: say so, keep the row
+      {
+        colour = "#b06000";
+        return (qso.entered ? tr ("%1 typed: %2 already counted from there - left out; type the right grid if it was another")
+                : tr ("%1 from another QSO: %2 already counted from there - left out; type the right grid if it was another"))
+          .arg (qso.grid, qso.call);
+      }
     if (qso.entered)
       {
         colour = "#008000";
@@ -508,11 +626,18 @@ void EmeCabrilloDialog::show_grid_rows ()
     colour = "#c00000";
     return tr ("needed - left out until you type it");
   };
+  // one row per QSO key: the same call logged twice in a minute shares a box
   QStringList keys;
-  for (auto const& qso : selection_.need_grid) keys << qso.key;
+  QVector<EmeCabrillo::Qso> rows;
+  for (auto const& qso : selection_.need_grid)
+    if (!keys.contains (qso.key))
+      {
+        keys << qso.key;
+        rows << qso;
+      }
   if (keys == grid_keys_)
     {
-      for (auto const& qso : selection_.need_grid)
+      for (auto const& qso : rows)
         {
           QString colour;
           auto label = grid_states_.value (qso.key);
@@ -534,7 +659,7 @@ void EmeCabrilloDialog::show_grid_rows ()
   grids_box_->setVisible (!keys.isEmpty ());
   auto const fixed = QFontDatabase::systemFont (QFontDatabase::FixedFont);
   int row = 0;
-  for (auto const& qso : selection_.need_grid)
+  for (auto const& qso : rows)
     {
       auto what = new QLabel {QString {"%1 %2  %3 %4"}.arg (qso.call, -10).arg (qso.band, 4)
                               .arg (qso.date.toString (Qt::ISODate), qso.time), grids_box_};

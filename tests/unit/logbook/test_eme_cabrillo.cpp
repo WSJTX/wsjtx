@@ -66,8 +66,10 @@ private slots:
   void typed_grids ();
   void score_and_text ();
   void several_logs_and_weekends ();
+  void review_points ();
   void dialog ();
   void dialog_several_logs ();
+  void dialog_keeps_typed_grids ();
   void buttons_stay_in_view ();
   void real_log ();
   void dummy_logs ();
@@ -132,7 +134,17 @@ void TestEmeCabrillo::several_logs_and_weekends ()
   QCOMPARE (copies.size (), 1);
   QCOMPARE (copies[0].value ("_FILE"), QString {"1"});
 
-  auto const s = EmeCabrillo::select (records, six_days (), "DL3WDG", "JN68");
+  // the repeat inside one log survives the merge: it is the contest's dupe
+  auto twice = EmeCabrillo::read_adif (pc23_log () + record ("G4CCH", "20261031", "0410", "23cm", "IO91"));
+  QCOMPARE (EmeCabrillo::merge ({twice}).size (), 7);
+  // the minute is the key: seconds, or none, make no other QSO of it
+  QVector<EmeCabrillo::Record> same;
+  EmeCabrillo::merge ({EmeCabrillo::read_adif (record ("K1JT", "20261031", "030059", "23cm", "FN20")),
+                       EmeCabrillo::read_adif (record ("K1JT", "20261031", "0300", "23cm", "FN20")
+                                               + record ("K1JT", "20261031", "0301", "23cm", "FN20"))}, &same);
+  QCOMPARE (same.size (), 1);
+
+  auto const s = EmeCabrillo::select (records, six_days (), "DL3WDG", "JN68", {}, {}, true);
   QCOMPARE (s.weekends.size (), 3);
   QCOMPARE (s.weekends[0].group, QString {"2.3 GHz and up"});
   QCOMPARE (s.weekends[1].group, QString {"50-1296 MHz"});
@@ -141,14 +153,77 @@ void TestEmeCabrillo::several_logs_and_weekends ()
   off.sort ();
   QCOMPARE (off, (QStringList {"OZ4MM", "W5LUA"}));
   QCOMPARE (calls (s.qsos), (QStringList {"IT9EQO", "OK1KIR", "K1JT", "G4CCH", "SP6JLW", "DF3RU", "ES5PC"}));
-  QVector<int> logs;
-  for (auto const& qso : s.qsos) logs << qso.log;
-  QCOMPARE (logs, (QVector<int> {0, 0, 0, 1, 1, 1, 1}));
   QCOMPARE (s.operators, (QStringList {"DL3WDG", "DL4KGC"}));
 
-  auto const kept = EmeCabrillo::select (records, six_days (), "DL3WDG", "JN68", {}, {}, false);
+  // by default they are kept and only flagged
+  auto const kept = EmeCabrillo::select (records, six_days (), "DL3WDG", "JN68");
   QCOMPARE (kept.qsos.size (), 9);
   QCOMPARE (kept.off_weekend.size (), 2);
+}
+
+// Points from the review: a grid that makes a QSO a dupe can still be
+// corrected, a typed grid serves the call's other QSOs, modes can be left
+// out, the category names of 6 m / 4 m / 2 m, plain ASCII, a cut-off file.
+void TestEmeCabrillo::review_points ()
+{
+  QSet<QDate> const weekend {QDate {2026, 10, 31}, QDate {2026, 11, 1}};
+  auto const records = EmeCabrillo::read_adif (
+    QByteArray {"<EOH>\n"}
+    + record ("W5LUA", "20261031", "0400", "23cm", "EM13")
+    + record ("W5LUA", "20261101", "0500", "23cm")                       // really from EM12
+    + record ("K1JT", "20261031", "0600", "23cm", "FN20")
+    + record ("K1JT", "20261101", "0700", "23cm")                        // FN20 typed: a dupe
+    + record ("G4CCH", "20261031", "0800", "23cm")                       // IO91 typed
+    + record ("G4CCH", "20261101", "0900", "2m")                         // no grid: gets IO91
+    + record ("OK1KIR", "20261031", "1000", "2m", "JO70", "MFSK", field ("SUBMODE", "FT8"))
+    + record ("OK1KIR", "20261031", "1100", "2m", "JO70", "MFSK", field ("SUBMODE", "Q65")));
+  auto const s = EmeCabrillo::select (records, weekend, "DL3WDG", "JN68");
+  QHash<QString, EmeCabrillo::Qso> need;
+  for (auto const& qso : s.need_grid) need[qso.call + qso.time] = qso;
+  QVERIFY (need.contains ("W5LUA0500"));                // the dupe keeps its row
+  QVERIFY (need["W5LUA0500"].dupe);
+  QVERIFY (need["W5LUA0500"].filled);
+  QVERIFY (need["K1JT0700"].dupe);
+
+  QHash<QString, QString> fixes;
+  fixes[EmeCabrillo::record_key (records[1])] = "EM12";
+  fixes[EmeCabrillo::record_key (records[3])] = "FN20";
+  fixes[EmeCabrillo::record_key (records[4])] = "IO91";
+  auto const t = EmeCabrillo::select (records, weekend, "DL3WDG", "JN68", {}, fixes);
+  QHash<QString, EmeCabrillo::Qso> in;
+  for (auto const& qso : t.qsos) in[qso.call + qso.time] = qso;
+  QCOMPARE (in["W5LUA0500"].grid, QString {"EM12"});   // the multiplier is back
+  bool typed_dupe_listed {false};
+  for (auto const& qso : t.need_grid) typed_dupe_listed |= qso.call == "K1JT" && qso.dupe && qso.entered;
+  QVERIFY (typed_dupe_listed);                          // a mistyped grid stays in reach
+  QCOMPARE (in["G4CCH0900"].grid, QString {"IO91"});   // from the grid typed for 0800
+  QVERIFY (in["G4CCH0900"].filled);
+
+  QCOMPARE (t.modes, (QMap<QString, int> {{"MFSK", 6}, {"FT8", 1}, {"Q65", 1}}));
+  QVERIFY (!in.contains ("OK1KIR1100"));                // a dupe of the FT8 QSO
+  auto const no_ft8 = EmeCabrillo::select (records, weekend, "DL3WDG", "JN68", {}, fixes, false, {"MFSK", "Q65"});
+  QCOMPARE (no_ft8.mode_out, 1);
+  QCOMPARE (no_ft8.qsos.size (), t.qsos.size ());       // the Q65 QSO counts instead
+  QCOMPARE (EmeCabrillo::mode_name ({{"MODE", "ssb"}}), QString {"SSB"});
+
+  EmeCabrillo::Header header;
+  header.callsign = "DL3WDG";
+  header.name = QString::fromUtf8 ("Jürgen Łódź ß Я");
+  auto const two_m = EmeCabrillo::select (records, weekend, "DL3WDG", "JN68", {"144"}, fixes);
+  auto const text = EmeCabrillo::cabrillo_text (header, two_m.qsos);
+  QVERIFY2 (text.contains ("CATEGORY-BAND: 2M\n"), qPrintable (text));
+  QVERIFY (text.contains ("QSO:   144 "));              // the QSO lines keep 144
+  QVERIFY2 (text.contains ("NAME: Jurgen Lodz ss ?\n"), qPrintable (text));
+  for (auto const& ch : text) QVERIFY (ch.unicode () < 128);
+  auto six = two_m.qsos;
+  for (auto& qso : six) qso.band = "50";
+  QVERIFY (EmeCabrillo::cabrillo_text (header, six).contains ("CATEGORY-BAND: 6M\n"));
+  for (auto& qso : six) qso.band = "70";
+  QVERIFY (EmeCabrillo::cabrillo_text (header, six).contains ("CATEGORY-BAND: 4M\n"));
+
+  // the last record of a file cut short, without its <EOR>, still counts
+  QCOMPARE (EmeCabrillo::read_adif ("<CALL:4>K1JT<EOR><CALL:5>W5LUA <BAND:2>2m").size (), 2);
+  QCOMPARE (EmeCabrillo::read_adif ("<CALL:4>K1JT<EOR>\n").size (), 1);
 }
 
 // Two logs in the dialog, the band-group check, WSJT-X's own log added and a
@@ -166,19 +241,21 @@ void TestEmeCabrillo::dialog_several_logs ()
   {
     EmeCabrilloDialog dialog {&settings, own, "DL3WDG", "JN68LM", six_days (), directory.path ()};
     QCOMPARE (dialog.logs (), (QStringList {pc10, pc23}));
-    QCOMPARE (dialog.selection ().qsos.size (), 7);
+    QCOMPARE (dialog.selection ().qsos.size (), 9);                 // kept, and flagged
     QCOMPARE (dialog.selection ().off_weekend.size (), 2);
     QCheckBox * box {nullptr};
     for (auto b : dialog.findChildren<QCheckBox *> ()) if (b->text ().startsWith ("Leave out")) box = b;
     QVERIFY (box);
     QVERIFY (box->isVisibleTo (&dialog));
-    QVERIFY (dialog.cabrillo_text ().contains ("OPERATORS: DL3WDG DL4KGC\n") == false); // single-op
+    QVERIFY (!box->isChecked ());
+    QVERIFY (!dialog.cabrillo_text ().contains ("OPERATORS:"));     // single operator
     QLineEdit * operators {nullptr};
     for (auto e : dialog.findChildren<QLineEdit *> ()) if (e->text () == "DL3WDG DL4KGC") operators = e;
     QVERIFY (operators);                                            // filled from the logs
-    box->setChecked (false);
-    QCOMPARE (dialog.selection ().qsos.size (), 9);
     box->setChecked (true);
+    QCOMPARE (dialog.selection ().qsos.size (), 7);
+    for (auto button : dialog.findChildren<QPushButton *> ())      // Enter never presses one
+      QVERIFY2 (!button->autoDefault () && !button->isDefault (), qPrintable (button->text ()));
 
     dialog.add_log (EmeCabrilloDialog::own_log ());
     QCOMPARE (dialog.logs ().size (), 3);
@@ -190,9 +267,63 @@ void TestEmeCabrillo::dialog_several_logs ()
   }
   QCOMPARE (settings.value ("EmeCabrillo/Logs").toStringList (),
             (QStringList {pc10, EmeCabrilloDialog::own_log ()}));
+  QCOMPARE (settings.value ("EmeCabrillo/LeaveOutOtherGroup").toBool (), true);
   QFile file {pc23};
   QVERIFY (file.open (QIODevice::ReadOnly));
   QCOMPARE (file.readAll (), pc23_log ());
+}
+
+// Typed grids: a dupe keeps its row and can be corrected; they survive a
+// log being added and removed, and closing the dialog; a mode unticked.
+void TestEmeCabrillo::dialog_keeps_typed_grids ()
+{
+  QTemporaryDir directory;
+  QVERIFY (directory.isValid ());
+  auto const adif = write_file (directory, "wsjtx_log.adi", QByteArray {"<EOH>\n"}
+                                + record ("W5LUA", "20261031", "0400", "23cm", "EM13")
+                                + record ("W5LUA", "20261101", "0500", "23cm")       // really EM12
+                                + record ("G4CCH", "20261031", "0800", "23cm")
+                                + record ("K1JT", "20261031", "1100", "2m", "FN20", "MSK144"));
+  auto const other = write_file (directory, "other.adi", QByteArray {"<EOH>\n"}
+                                 + record ("SP6JLW", "20261101", "1200", "23cm", "JO80"));
+  QSettings settings {directory.filePath ("settings.ini"), QSettings::IniFormat};
+  QSet<QDate> const weekend {QDate {2026, 10, 31}, QDate {2026, 11, 1}};
+  auto type = [] (EmeCabrilloDialog& dialog, QString const& call, QString const& grid) {
+    auto edit = dialog.findChild<QLineEdit *> ("grid_" + call);
+    QVERIFY2 (edit, qPrintable (call));
+    edit->setText (grid);
+    Q_EMIT edit->editingFinished ();
+  };
+  {
+    EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", weekend, directory.path ()};
+    QCOMPARE (dialog.selection ().qsos.size (), 2);                 // W5LUA EM13, K1JT
+    QVERIFY (dialog.findChild<QLineEdit *> ("grid_W5LUA"));         // the dupe has a row
+    auto msk = dialog.findChild<QCheckBox *> ("mode_MSK144");
+    QVERIFY (msk);
+    QCOMPARE (msk->text (), QString {"MSK144 (1)"});
+    msk->setChecked (false);                                        // meteor scatter, not EME
+    QCOMPARE (dialog.selection ().qsos.size (), 1);
+    QCOMPARE (dialog.selection ().mode_out, 1);
+    type (dialog, "W5LUA", "EM12");
+    type (dialog, "G4CCH", "IO91");
+    QCOMPARE (dialog.selection ().qsos.size (), 3);
+    QVERIFY (dialog.cabrillo_text ().contains ("W5LUA         EM12\n"));
+    dialog.add_log (other);
+    QCOMPARE (dialog.selection ().qsos.size (), 4);                 // typed grids still there
+    dialog.remove_log (1);
+    QCOMPARE (dialog.selection ().qsos.size (), 3);
+    QVERIFY (dialog.cabrillo_text ().contains ("G4CCH         IO91\n"));
+  }
+  QCOMPARE (settings.value ("EmeCabrillo/TypedGrids").toStringList ().size (), 2);
+  {
+    EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", weekend, directory.path ()};
+    QCOMPARE (dialog.findChild<QLineEdit *> ("grid_W5LUA")->text (), QString {"EM12"});
+    QVERIFY (dialog.cabrillo_text ().contains ("W5LUA         EM12\n"));
+    QVERIFY (dialog.cabrillo_text ().contains ("G4CCH         IO91\n"));
+    type (dialog, "G4CCH", "");                                     // taken out again
+    QVERIFY (!dialog.cabrillo_text ().contains ("G4CCH"));
+  }
+  QCOMPARE (settings.value ("EmeCabrillo/TypedGrids").toStringList ().size (), 1);
 }
 
 // Save and Close stay in view in a small window with many missing grids.
@@ -244,7 +375,7 @@ void TestEmeCabrillo::dummy_logs ()
   for (auto const& day : {"2026-08-08", "2026-08-09", "2026-09-05", "2026-09-06",
                           "2026-10-31", "2026-11-01", "2026-11-28", "2026-11-29"})
     days << QDate::fromString (day, Qt::ISODate);
-  auto const s = EmeCabrillo::select (records, days, "DL3WDG", "JN68LM");
+  auto const s = EmeCabrillo::select (records, days, "DL3WDG", "JN68LM", {}, {}, true);
   auto const score = EmeCabrillo::score (s.qsos);
   int copies_on_days = 0;
   for (auto const& r : copies) copies_on_days += days.contains (QDate::fromString (r.value ("QSO_DATE"), "yyyyMMdd"));
@@ -257,7 +388,7 @@ void TestEmeCabrillo::dummy_logs ()
   QCOMPARE (s.dupes.size (), 23);
   QCOMPARE (s.off_weekend.size (), 4);
   QCOMPARE (s.operators, (QStringList {"DL3WDG", "DL4KGC"}));
-  QCOMPARE (EmeCabrillo::select (records, days, "DL3WDG", "JN68LM", {}, {}, false).qsos.size (), 126);
+  QCOMPARE (EmeCabrillo::select (records, days, "DL3WDG", "JN68LM").qsos.size (), 126);   // kept by default
 }
 
 // Optional, for checking against a log already accepted by ARRL:

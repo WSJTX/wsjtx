@@ -27,9 +27,10 @@ class QCheckBox;
 //! A Cabrillo log for the ARRL International EME Contest, made from one or
 //! more ADIF logs, merged (WSJT-X's own and/or other files, e.g. one from
 //! each PC of a multi-operator station): the QSOs on the chosen days, on the
-//! bands ticked, one per call, band and grid; QSOs on a band whose group is
-//! not contested that weekend left out. QSOs logged without a grid are
-//! listed so their grids can be typed in; every ADIF file is only read.
+//! bands and in the modes ticked, one per call, band and grid; QSOs on a band
+//! whose group is not contested that weekend are flagged and can be left
+//! out. QSOs logged without a grid are listed so their grids can be typed in
+//! (kept between sessions); every ADIF file is only read.
 class EmeCabrilloDialog final
   : public QDialog
 {
@@ -62,8 +63,10 @@ private:
   void choose_file ();
   void load ();
   void refresh ();
+  void count_logs ();
   void show_logs ();
   void show_bands ();
+  void show_modes ();
   void show_grid_rows ();
   void grid_typed (QString const& key);
   void save ();
@@ -77,6 +80,7 @@ private:
   QString save_directory_;
   QSet<QDate> days_;
   QVector<QVector<EmeCabrillo::Record>> log_records_;
+  QVector<int> log_state_;              // per log: 0 read, 1 own log not there yet, 2 unreadable
   QStringList log_info_;                // per log: what it holds, or the error
   QVector<EmeCabrillo::Record> records_; // merged
   QVector<EmeCabrillo::Record> copies_; // the same QSO in a later log
@@ -85,6 +89,8 @@ private:
   QHash<QString, QString> fixes_;       // record key -> grid typed in
   QMap<QString, QCheckBox *> band_boxes_;
   QSet<QString> bands_off_;
+  QMap<QString, int> modes_shown_;      // mode name -> QSOs, as the boxes show
+  QSet<QString> modes_off_;
   QStringList grid_keys_;               // rows shown in the grid box
   QHash<QString, QLineEdit *> grid_edits_;
   QHash<QString, QLabel *> grid_states_;
@@ -97,6 +103,7 @@ private:
   QToolButton * days_button_;
   QLabel * days_label_;
   QHBoxLayout * bands_layout_;
+  QHBoxLayout * modes_layout_;
   QGroupBox * grids_box_;
   QGridLayout * grids_layout_;
   QRadioButton * single_op_;

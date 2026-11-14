@@ -77,18 +77,22 @@ The *Cabrillo...* button beside the days (also *File | Export ARRL EME
 Cabrillo log ...*) makes a Cabrillo log for the ARRL EME contest from
 the ADIF log: the QSOs on the chosen days, on the bands you tick, with
 both stations' 4-character grid squares on every QSO line as the rules
-require. A station counts once per band from each grid it works from;
-repeats are left out and listed. QSOs logged without a grid are listed
-so you can type their grids in all at once (a grid found in another QSO
-with the same station is offered for checking). ARRL takes one log for
-all bands and weekends, so a station that logs on several PCs can *Add
-file...* for each PC's ADIF log: they are merged, and a QSO found in two
-of them counts once. Every ADIF file is only read, never changed. The
-two band groups (50-1296 MHz and 2.3 GHz and up) have their own
-weekends; a QSO on a band of the other group than its weekend's (the
-group with more QSOs that weekend) is listed and left out unless you
-untick the box shown for it. The dialog shows the claimed score and the
-file as it will be saved; upload the saved file at
+require. The ADIF log holds every QSO made on those days, in any mode:
+the modes found are shown with their QSO counts, so untick any that
+were not EME (for example FT8 or MSK144 on 2 m). A station counts once
+per band from each grid it works from; repeats are left out and listed.
+QSOs logged without a grid are listed so you can type their grids in
+all at once; the grids you type are remembered. A grid found in another
+QSO with the same station is used, and shown so that you can check it
+and type the right one if it differs. ARRL takes one log for all bands
+and weekends, so a station that logs on several PCs can *Add file...*
+for each PC's ADIF log: they are merged, and a QSO found in two of them
+counts once. Every ADIF file is only read, never changed. The two band
+groups (50-1296 MHz and 2.3 GHz and up) have their own weekends; a QSO
+on a band of the other group than its weekend's (the group with more
+QSOs that weekend) is flagged for checking, and a box lets you leave
+such QSOs out. The dialog shows the claimed score and the file as it
+will be saved; upload the saved file at
 contests.arrl.org/arrlemescoresubmission.php.
 
 .SWL Mode

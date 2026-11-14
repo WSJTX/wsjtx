@@ -16,14 +16,6 @@
 
 namespace DaysCalendar
 {
-  namespace
-  {
-    QString tr (char const * text)
-    {
-      return QCoreApplication::translate ("DaysCalendar", text);
-    }
-  }
-
   QVector<QDate> sorted (QSet<QDate> const& days)
   {
     QVector<QDate> result {days.begin (), days.end ()};
@@ -83,8 +75,8 @@ namespace DaysCalendar
     list->setMaximumWidth (7 * 34);
     layout->addWidget (list);
     auto buttons = new QHBoxLayout;
-    auto clear = new QPushButton {tr ("Clear"), popup};
-    auto close = new QPushButton {tr ("Close"), popup};
+    auto clear = new QPushButton {QCoreApplication::translate ("DaysCalendar", "Clear"), popup};
+    auto close = new QPushButton {QCoreApplication::translate ("DaysCalendar", "Close"), popup};
     buttons->addWidget (clear);
     buttons->addStretch ();
     buttons->addWidget (close);
@@ -114,7 +106,7 @@ namespace DaysCalendar
             style = "QToolButton{border:1px solid #0050c0}";
           cell->setStyleSheet (style);
         }
-      list->setText (days->isEmpty () ? tr ("No days chosen: every QSO counts.")
+      list->setText (days->isEmpty () ? QCoreApplication::translate ("DaysCalendar", "No days chosen: every QSO counts.")
                      : text (*days, {}));
     };
     auto on_change = [=] {

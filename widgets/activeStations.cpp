@@ -5,8 +5,6 @@
 #include <QTextCharFormat>
 #include <QDateTime>
 #include <QDebug>
-#include <QFrame>
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>

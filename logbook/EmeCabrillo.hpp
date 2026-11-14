@@ -12,7 +12,7 @@
 
 //! A Cabrillo log for the ARRL International EME Contest, made from an ADIF log.
 //!
-//! The rules (v2.2, 2026) ask for both stations' 4-character grid squares on
+//! The rules ask for both stations' 4-character grid squares on
 //! every QSO line ("QSO: band mode date time mycall mygrid call grid"), count
 //! a station once per band from each grid it works from (any mode), give
 //! 100 points per QSO and take as multipliers the different grids worked on
@@ -32,16 +32,25 @@ namespace EmeCabrillo
   //! Cabrillo mode of a record: CW, PH or DG (any digital mode).
   QString mode_code (Record const&);
 
+  //! The mode as the log names it: SUBMODE if there is one (Q65, FT8,
+  //! MSK144 ...), else MODE (CW, SSB ...). The ADIF log holds every mode, so
+  //! QSOs that were not EME can be told apart, and left out, by this.
+  QString mode_name (Record const&);
+
+  //! Text as plain ASCII, as Cabrillo wants: accents taken off (Jürgen ->
+  //! Jurgen), a few letters spelled out; what is still not ASCII becomes '?'.
+  QString ascii (QString const&);
+
   //! A 4-character grid square ("JN68") from a grid, empty if it is none.
   QString grid4 (QString const& grid);
 
   //! Identity of a logged QSO: call, QSO_DATE and the minute of TIME_ON.
   QString record_key (Record const&);
 
-  //! The contest's two band groups have their own weekends (2026: 2.3 GHz
-  //! and up on Aug 8-9 and Sep 5-6, 50-1296 MHz on Oct 31-Nov 1 and Nov
-  //! 28-29). Which weekend is which is taken from the log; no dates are
-  //! built in. Returns "50-1296 MHz" or "2.3 GHz and up".
+  //! The contest's two band groups have their own weekends (for example
+  //! 2.3 GHz and up on two weekends, 50-1296 MHz on two later ones). Which
+  //! weekend is which is taken from the log; no dates are built in.
+  //! Returns "50-1296 MHz" or "2.3 GHz and up".
   QString band_group (QString const& band_code);
 
   //! The chosen days as weekends: runs of consecutive dates, in date order.
@@ -67,7 +76,8 @@ namespace EmeCabrillo
     QString key;                // record_key ()
     bool filled {false};        // grid taken from another QSO with the call
     bool entered {false};       // grid typed in by the user
-    int log {0};                // index of its log (merge ())
+    bool dupe {false};          // worked before on the band from that grid
+    QString mode_name;          // mode_name ()
     QString op;                 // OPERATOR
   };
 
@@ -83,7 +93,11 @@ namespace EmeCabrillo
     QVector<Qso> qsos;          // the entry, in time order
     QVector<Qso> dupes;         // worked before on the band from that grid
     QVector<Qso> no_grid;       // no grid known: left out
-    QVector<Qso> need_grid;     // logged without a grid (not dupes), time order
+    QVector<Qso> need_grid;     // logged without a grid, time order; also those
+                                // a filled or typed grid makes dupes, so that
+                                // the grid can still be corrected
+    QMap<QString, int> modes;   // mode_name -> QSOs on the days and bands
+    int mode_out {0};           // left out: their mode was not chosen
     QSet<QString> bands;        // bands with QSOs on the days (before the band choice)
     QVector<Weekend> weekends;  // the days as weekends, with their band group
     QVector<Qso> off_weekend;   // on a band of the other group than their weekend's
@@ -95,14 +109,17 @@ namespace EmeCabrillo
   //! The QSOs of an entry: made on one of days, on a band in bands (all
   //! bands when bands is empty). fixes = grids typed in for records logged
   //! without one (record_key -> grid); they win over a grid found in
-  //! another QSO with the same call. A QSO on a band whose group is not
+  //! another QSO with the same call, and fill other QSOs with that call
+  //! that have no grid logged anywhere. A QSO on a band whose group is not
   //! its weekend's group is listed in off_weekend and, if
-  //! leave_out_off_weekend, left out.
+  //! leave_out_off_weekend, left out. modes (mode_name values; empty = all)
+  //! leaves the other modes out.
   Selection select (QVector<Record> const& records, QSet<QDate> const& days,
                     QString const& my_call, QString const& my_grid,
                     QSet<QString> const& bands = {},
                     QHash<QString, QString> const& fixes = {},
-                    bool leave_out_off_weekend = true);
+                    bool leave_out_off_weekend = false,
+                    QSet<QString> const& modes = {});
 
   struct BandScore
   {

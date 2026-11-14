@@ -92,6 +92,8 @@ namespace EmeCabrillo
             position += length;
           }
       }
+    // a last record without its <EOR> (a file cut short) still counts
+    if (!current.value ("CALL").trimmed ().isEmpty ()) records << current;
     return records;
   }
 
@@ -119,6 +121,39 @@ namespace EmeCabrillo
     if (mode == "CW") return "CW";
     static QStringList const phone {"SSB", "USB", "LSB", "AM", "FM", "DIGITALVOICE"};
     return phone.contains (mode) ? "PH" : "DG";
+  }
+
+  QString mode_name (Record const& record)
+  {
+    auto name = record.value ("SUBMODE").trimmed ().toUpper ();
+    if (name.isEmpty ()) name = record.value ("MODE").trimmed ().toUpper ();
+    return name.isEmpty () ? QStringLiteral ("?") : name;
+  }
+
+  QString ascii (QString const& text)
+  {
+    // letters that do not decompose into a base letter and an accent
+    static QHash<QChar, QString> const spelled {
+      {QChar {0x00df}, "ss"}, {QChar {0x00f8}, "o"}, {QChar {0x00d8}, "O"}, {QChar {0x00e6}, "ae"},
+      {QChar {0x00c6}, "AE"}, {QChar {0x0142}, "l"}, {QChar {0x0141}, "L"}, {QChar {0x0111}, "d"},
+      {QChar {0x0110}, "D"}, {QChar {0x0153}, "oe"}, {QChar {0x0152}, "OE"},
+    };
+    QString result;
+    for (auto const& ch : text)
+      {
+        if (spelled.contains (ch))
+          {
+            result += spelled.value (ch);
+            continue;
+          }
+        for (auto const& c : QString {ch}.normalized (QString::NormalizationForm_KD))
+          {
+            if (c.category () == QChar::Mark_NonSpacing || c.category () == QChar::Mark_SpacingCombining
+                || c.category () == QChar::Mark_Enclosing) continue;
+            result += c.unicode () < 128 ? c : QChar {'?'};
+          }
+      }
+    return result;
   }
 
   QString grid4 (QString const& grid)
@@ -183,7 +218,7 @@ namespace EmeCabrillo
   Selection select (QVector<Record> const& records, QSet<QDate> const& days,
                     QString const& my_call, QString const& my_grid,
                     QSet<QString> const& bands, QHash<QString, QString> const& fixes,
-                    bool leave_out_off_weekend)
+                    bool leave_out_off_weekend, QSet<QString> const& modes)
   {
     Selection result;
     auto sorted = records;
@@ -224,6 +259,13 @@ namespace EmeCabrillo
         auto const g = grid4 (record.value ("GRIDSQUARE"));
         if (!g.isEmpty ()) known[record.value ("CALL").trimmed ().toUpper ()] = g;
       }
+    // a typed grid also serves the call's other QSOs, if none has a grid logged
+    for (auto const& record : sorted)
+      {
+        auto const g = grid4 (fixes.value (record_key (record)));
+        auto const call = record.value ("CALL").trimmed ().toUpper ();
+        if (!g.isEmpty () && !known.contains (call)) known[call] = g;
+      }
     QSet<QString> seen;
     for (auto const& record : sorted)
       {
@@ -242,7 +284,15 @@ namespace EmeCabrillo
             ++result.other;
             continue;
           }
+        auto const name = mode_name (record);
+        ++result.modes[name];
+        if (!modes.isEmpty () && !modes.contains (name))
+          {
+            ++result.mode_out;
+            continue;
+          }
         Qso qso;
+        qso.mode_name = name;
         qso.band = band;
         qso.mode = mode_code (record);
         qso.date = date;
@@ -264,8 +314,7 @@ namespace EmeCabrillo
             qso.grid = known.value (call);
             qso.filled = true;
           }
-        qso.log = record.value ("_FILE").toInt ();
-        qso.op = record.value ("OPERATOR").trimmed ().toUpper ();
+        qso.op =record.value ("OPERATOR").trimmed ().toUpper ();
         auto const weekend_group = group_of_day.value (date);
         if (!weekend_group.isEmpty () && band_group (band) != weekend_group)
           {
@@ -281,7 +330,10 @@ namespace EmeCabrillo
         auto const once = band + '|' + call + '|' + qso.grid;
         if (seen.contains (once))
           {
+            qso.dupe = true;
             result.dupes << qso;
+            // still listed for its grid: the filled or typed one may be wrong
+            if (qso.filled || qso.entered) result.need_grid << qso;
             continue;
           }
         seen << once;
@@ -339,7 +391,12 @@ namespace EmeCabrillo
       "CONTEST: ARRL-EME",
       "CATEGORY-OPERATOR: " + (header.category_operator.isEmpty () ? QString {"SINGLE-OP"}
                                : header.category_operator),
-      "CATEGORY-BAND: " + (bands.size () == 1 ? *bands.cbegin () : QString {"ALL"}),
+      // the category names 6 m, 4 m and 2 m differently from the QSO lines
+      // (Cabrillo 3.0 header: 6M 4M 2M 222 432 902 1.2G ... 10G)
+      "CATEGORY-BAND: " + (bands.size () != 1 ? QString {"ALL"}
+                           : *bands.cbegin () == "50" ? QString {"6M"}
+                           : *bands.cbegin () == "70" ? QString {"4M"}
+                           : *bands.cbegin () == "144" ? QString {"2M"} : *bands.cbegin ()),
       "CATEGORY-MODE: " + category_mode,
       "GRID-LOCATOR: " + grid4 (header.grid),
       "CLAIMED-SCORE: " + QString::number (total.claimed),
@@ -365,6 +422,6 @@ namespace EmeCabrillo
           .arg (qso.my_call, -13).arg (qso.my_grid).arg (qso.call, -13).arg (qso.grid);
       }
     lines << "END-OF-LOG:";
-    return lines.join ('\n') + '\n';
+    return ascii (lines.join ('\n') + '\n');    // Cabrillo is plain ASCII
   }
 }
