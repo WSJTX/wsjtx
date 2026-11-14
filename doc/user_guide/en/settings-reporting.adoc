@@ -20,6 +20,13 @@ messages. Full details of the protocol can be found in comments at the
 top of this file in our source code repository:
 https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp
 
+Received JTTY text is sent as *JTTYText* messages containing the whole
+message so far, with filler removed, a stable message id, a UTC start
+time, receive offset, SNR, and completion and off-air flags. Live reception
+and WAV decoding send these updates; retained-audio review and UDP Replay
+do not resend JTTY history. The field definitions are in
+`Network/NetworkMessage.hpp`.
+
 NOTE: The *Outgoing interfaces* and *Multicast TTL* fields are only
       present when a multicast group IP address has been entered in
       the *Application address* field.

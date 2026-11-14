@@ -57,6 +57,7 @@ public:
     std::function<void(qint64, qint64)> noteDecoded;
     std::function<void(QString const&, DecodeOperatingContext const&)> log;
     std::function<void(Spot const&)> spot;
+    std::function<void(qint64, QDateTime const&, quint32, qint32, QString const&, bool, bool)> jttyText;
   };
 
   void apply(QVector<ReceiveUpdate> const&, Reception const&, Inputs const&, Effects const&);

@@ -145,6 +145,7 @@
 #include "MessageFilter.hpp"
 #include "MessageFilterLogic.hpp"
 #include "JttyMessages.hpp"
+#include "JttyReceiveLine.hpp"
 #include "PrefixSuffix.hpp"
 #include "HelpText.hpp"
 #include "HighlightingRules.hpp"
@@ -14110,6 +14111,7 @@ void MainWindow::replayDecodes ()
   // attempt to parse the decoded text
   for (QTextBlock block = ui->decodedTextBrowser->document ()->firstBlock (); block.isValid (); block = block.next ())
     {
+      if (JttyReceiveLine::isJttyBlock (block)) continue;
       auto message = block.text ();
       message = message.left (message.indexOf (QChar::Nbsp)); // discard
                                                               // any
@@ -14146,6 +14148,13 @@ void MainWindow::postDecode (bool is_new, QString const& message)
                                , QChar {'?'} == decode.mid (has_seconds ? 24 + 36 : 22 + 36, 1)
                                , m_diskData);
     }
+}
+
+void MainWindow::postJttyText (qint64 message_id, QDateTime const& start, quint32 delta_frequency, qint32 snr
+                              , QString const& text, bool complete, bool off_air)
+{
+  if (no_decodes_to_UDP) return;  // Don't send decoded messages to messageClient after a band change
+  m_messageClient->jtty_text (message_id, start, delta_frequency, snr, text, complete, off_air);
 }
 
 void MainWindow::postWSPRDecode (bool is_new, QStringList parts)

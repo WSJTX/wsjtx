@@ -140,6 +140,10 @@ struct MainWindow::JttyReceiveState {
         if (!window.m_psk_Reporter.addRemoteStation(spot.sender, spot.grid, spot.frequency,
                                                    spot.mode, spot.snr, spot.time))
           window.showStatusMessage(MainWindow::tr("PSK Reporter spot queue full; oldest spot dropped"));
+      },
+      [&window](qint64 messageId, QDateTime const& start, quint32 frequency, qint32 snr,
+                QString const& text, bool complete, bool offAir) {
+        window.postJttyText(messageId, start, frequency, snr, text, complete, offAir);
       }
     };
     results.apply(updates, reception, inputs, effects);

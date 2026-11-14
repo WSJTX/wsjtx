@@ -88,6 +88,11 @@ public:
     return rewrite (record, options, font);
   }
 
+  static bool isJttyBlock (QTextBlock const& block)
+  {
+    return dynamic_cast<Tag const *> (block.userData ());
+  }
+
   static void refresh (QTextDocument& document, Options const& options,
                        QFont const& font)
   {
