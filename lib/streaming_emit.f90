@@ -164,8 +164,10 @@
 !                     1, as after JTTY's fatal errors (lib/streaming_jtty.f90).
 !
 ! Memory, besides the input buffered and queued (pass_skipped): the decoder's
-! own buffer, 48 MB; up to three spare copies of a pass's audio, kept for the
-! next, and the last decoded period's copy, kept for a decode again, each up
+! own buffer, 48 MB; once spectrum or ref_spectrum has been on, the output
+! queue, up to 20 rows (about 0.7 MB) and 16 MiB of other lines; up
+! to three spare copies of a pass's audio, kept for the next, and the last
+! decoded period's copy, kept for a decode again, each up
 ! to 43.2 MB (FST4W-1800); the decode thread's own copy of the decoders'
 ! thread-local arrays (about 6 MB on Linux), as each OpenMP thread has; and,
 ! once a session has decoded both MSK144 and a period mode that runs OpenMP
@@ -215,13 +217,13 @@
 ! GUI's watchdog does:
 !   - While busy is true, progress is a busy, pass_progress or pass_skipped
 !     line, or a decode whose mode is the last busy line's (JT65+JT9's decodes
-!     say JT9 or JT65); MSK144's lines, replies and the rest are not. A pass
-!     is allowed the GUI's time between progress lines: on live audio, not a
-!     decode again, after the first completion, FT8 10 s and FT4 6 s;
-!     otherwise the greater of 60 s and four periods, or of 300 s and four
-!     periods before the first completion. A pass ends, and completes, at its
-!     decode_finished or the next busy line (early FT8 passes send no
-!     decode_finished).
+!     say JT9 or JT65); MSK144's lines, rows (below), replies and the rest
+!     are not. A pass is allowed the GUI's time between progress lines: on
+!     live audio, not a decode again, after the first completion, FT8 10 s
+!     and FT4 6 s; otherwise the greater of 60 s and four periods, or of
+!     300 s and four periods before the first completion. A pass ends, and
+!     completes, at its decode_finished or the next busy line (early FT8
+!     passes send no decode_finished).
 !   - While busy is false no decode runs. Once a period mode's whole period
 !     of audio has been sent, its decode_finished, or a busy line naming its
 !     period_end, is due within the same time, but for the periods that send
@@ -239,6 +241,146 @@
 !     queued decodes), and stop while planning is true, or it restarts a
 !     healthy codec in its first JTTY session.
 !
+! The receive chain: configure keys, each in force until another configure
+! sets it (a wrong JSON type is configure_type_error, a value out of range
+! configure_range_error, and either declines the frame):
+!   spectrum            boolean, false at the start: the rows below, from
+!                       which a client draws its spectrum, waterfall and
+!                       signal meter.
+!   low_sidelobes       boolean, false: the GUI's "Low sidelobes" (a Nuttall
+!                       window on each spectrum row's FFT and on the symbol
+!                       spectra JT65+JT9's JT9 decoder reads; fast_spectrum
+!                       has no window, as the GUI's Fast Graph has none).
+!   ref_spectrum        "off" (the start), "measure" or "apply": the GUI's
+!                       reference-spectrum equalization on live audio
+!                       (live_audio), ahead of every decoder and every row
+!                       (lib/streaming_receive.f90). "measure" builds the
+!                       reference from the audio and rewrites refspec.dat in
+!                       -a, the GUI's file, after every 13824 samples (four
+!                       steps of 3456), and passes the audio on unfiltered,
+!                       until a configure ends it: the GUI measures for 7 s,
+!                       so a client sends "off" or "apply" when it has
+!                       measured enough. "apply" loads refspec.dat and filters
+!                       the audio by it.
+!   ref_spectrum_clear  boolean: true erases the measurement, zeroing the
+!                       reference curve (no line is sent for it), deletes
+!                       refspec.dat and sets ref_spectrum to "off", before the
+!                       frame's ref_spectrum, if any, applies; false does
+!                       nothing. The GUI's Erase does the same except that a
+!                       measurement in progress goes on, from scratch: a
+!                       client gets that with ref_spectrum "measure" in the
+!                       same configure.
+! Rows: spectrum and fast_spectrum, from the audio as equalized, and
+! ref_spectrum, the reference curve. With spectrum false and ref_spectrum
+! "off" no row is written. Once a configure first turns either on, every
+! stdout line goes through a queue, and one writer thread writes them (if that
+! thread cannot start, lines are written at once, as before). On live audio a
+! spectrum or fast_spectrum row waits there behind at most 19 others: when
+! another arrives the oldest is discarded, about 5.8 s of a period mode's rows
+! behind (6 s of MSK144's), so no decode waits on a live reader that falls
+! behind, and a rows_dropped line stands before the next live spectrum or
+! fast_spectrum line written. A dropped fast_spectrum leaves a gap in its
+! period's Fast Graph, as a dropped spectrum row leaves one in the waterfall;
+! the next row's J shows it. Every other line goes out in the order the codec
+! makes it, ahead of the live rows queued before it, and no row goes out
+! inside a reply or a held pair. ref_spectrum lines, every row from a file and
+! every other line are never discarded: past 16 MiB of them queued the codec
+! waits for the reader, and decodes wait with it, as they do at a full pipe
+! without the queue. A file session with spectrum on reaches that after about
+! 9 unread FT8 periods, and a long render's pcm lines can reach it. A
+! configure from live audio to a file waits until the live rows queued are
+! written. An end writes everything queued, a fatal error's line last; a fatal
+! error inside a reply discards the live rows queued instead. An exit by a
+! runtime error or a stop in shared code loses lines still queued.
+! Rows come while a period decodes on the decode thread
+! (lib/streaming_decode.f90); without one, they wait for each decode.
+! Live, rows come at about 3.5 lines a second (MSK144 3.35, over a period's
+! first 30 s), 0.87 more while measuring. Rows are never progress for
+! busy_events. A block's ref_spectrum comes before its other rows. Arrays are
+! IEEE float32 little-endian values, base64 (RFC 4648, = padding), as the pcm
+! lines' int16 are; reals are JSON numbers that read back as the float32
+! value, as dt's do; every row stays under 64 KiB. Period modes and MSK144
+! judge whether spectrum is on per block, as the block's last sample
+! arrives; JTTY per input frame, unless it is equalizing (its row says how).
+! Every spectrum row, in every mode, is computed the same way
+! (lib/spectrum_rows.f90): the same samples from the same start give the
+! same row.
+!   spectrum          {"v":1,"t":"spectrum","k":K,"hsym":H,"power":P,
+!                      "peak":Q,"df":D,"bins":N,"data":"..."}
+!                     A period mode's row, one per 3456-sample block of the
+!                     period: live every block, from a file those up to the
+!                     stop (JT65+JT9, which has none, every block). K: the
+!                     block's end in samples from the period's start; H: its
+!                     index from 1; P and Q: the power and peak in dB of the
+!                     block's samples, less the period's first 10 (the GUI's
+!                     signal meter); D: the bin width in Hz
+!                     (12000/16384); data: N bins (6827, 0 to 5000 Hz), the
+!                     power spectrum of the last 16384 samples (zeros before
+!                     the period's start), as the GUI's waterfall takes them
+!                     (symspec's s, lib/symspec.f90). A period has rows only
+!                     when spectrum is on as its first block completes;
+!                     turned on later, rows start at the next period. Each
+!                     period's rows start afresh at H 1, however the last one
+!                     ended. The GUI's Cumulative and Linear Avg curves start
+!                     from the mean of data/1000 over the period's rows so
+!                     far, which a client keeps and flattens and smooths as
+!                     its own settings say (not bit-equal).
+!   spectrum (JTTY)   {"v":1,"t":"spectrum","reception":R,"begin":B,"end":E,
+!                      "power":P,"peak":Q,"df":D,"bins":N,"data":"..."}
+!                     JTTY's row, one per 3456 samples of a session from
+!                     its first sample, or from the first after spectrum
+!                     comes on (while equalizing, from the start of the
+!                     3456-sample block then held: equalization keeps a
+!                     block's samples, from decoding too, until it completes,
+!                     up to 288 ms, or until a discontinuity, a close or a
+!                     mode change): R its session, B and E its first and
+!                     after-last stream samples; the rest as a period mode's,
+!                     from the rows' first sample as from a period's start.
+!                     The codec has no wall clock for a sample: the GUI's
+!                     time labels come from the client's clock at E. The
+!                     GUI's Cumulative curve is the running mean of data/1000
+!                     over the rows up to the 625th (180 s), after which each
+!                     row moves it by 1/625 of its difference from the row,
+!                     and its Linear Avg that curve flattened and smoothed as
+!                     a period mode's, which a client keeps (not bit-equal).
+!   fast_spectrum     {"v":1,"t":"fast_spectrum","k":K,"first":J,
+!                      "columns":C,"power":P,"peak":Q,"green":"...",
+!                      "data":"..."}
+!                     MSK144's Fast Graph, one per 3584-sample block of a
+!                     period's first 30 s: K the block's end in samples from
+!                     the period's start; J the 0-based index of the first
+!                     column it writes, 0 at every period's first block
+!                     however the last period ended, and C how many. When
+!                     spectrum comes on within a period its first row is
+!                     the GUI's row for that block (J above 0): the earlier
+!                     columns were computed and not sent. P and Q
+!                     the power and peak in dB, the GUI's signal meter; green
+!                     the C columns' power; data their 64 bins each, column by
+!                     column.
+!   ref_spectrum      {"v":1,"t":"ref_spectrum","df":D,"bins":3456,"data":"..."}
+!                     The reference curve in dB (D = 12000/6912): data[m],
+!                     from 0, is refspec.dat's row m+1, its third column, at
+!                     (m+1)*D Hz. Sent at every rewrite of refspec.dat while
+!                     measuring, whether or not the file could be written,
+!                     and whenever "apply" has loaded the file.
+!   error (refspec)   {"v":1,"t":"error","code":"ref_spectrum_file",
+!                      "detail":"could not read <path>"}
+!                     refspec.dat could not be written, read or deleted (the
+!                     detail says which, and the path); at most once until
+!                     ref_spectrum changes or a clear. A clear's comes in its
+!                     configure's place, as configure errors do; the others
+!                     go out with the rows and are never discarded. The
+!                     session goes on; "apply" without a readable file
+!                     leaves the audio as it is and tries the file again at
+!                     each refspectrum call (every 3456 samples or fewer).
+!   rows_dropped      {"v":1,"t":"rows_dropped","lines":N}
+!                     Before the next live spectrum or fast_spectrum line
+!                     written after rows were discarded, never inside a
+!                     reply: N, the row lines discarded since the last
+!                     rows_dropped line, a live row the codec had no memory
+!                     for among them.
+!                     Live audio only.
+!
 ! Activation: lib/jt9.f90 calls streaming_emit_set_enabled(.true.) when the
 ! stream session starts; only wsjt-codec runs the stream. Decoder per-mode sites
 ! in lib/decoder.f90 query streaming_emit_enabled() and call
@@ -247,7 +389,8 @@
 ! shared-memory decoding are unchanged.
 
 module streaming_emit
-  use, intrinsic :: iso_fortran_env, only: int64, output_unit
+  use, intrinsic :: iso_fortran_env, only: int16, int32, int64, real32, output_unit
+  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_char
   implicit none
   private
 
@@ -287,6 +430,26 @@ module streaming_emit
   end interface
   procedure(emit_lock), pointer, save :: lock_ => null(), unlock_ => null()
   procedure(emit_trylock), pointer, save :: trylock_ => null()
+  ! The stream host's output queue (lib/stream_decode.c), which its writer
+  ! thread drains, then the only thread to write stdout: put (0: no memory
+  ! for a line), quiet (returns once all queued is written; inside a held
+  ! group, after discarding the live rows) and end (writes all queued and
+  ! stops the thread). Null: lines are written at once.
+  abstract interface
+     function emit_rows_put(text, size, lines, droppable) result(queued) bind(C)
+       use, intrinsic :: iso_c_binding, only: c_char, c_int, c_int64_t
+       character(kind=c_char), intent(in) :: text(*)
+       integer(c_int64_t), value :: size
+       integer(c_int), value :: lines, droppable
+       integer(c_int) :: queued
+     end function emit_rows_put
+     subroutine emit_rows_wait() bind(C)
+     end subroutine emit_rows_wait
+  end interface
+  procedure(emit_rows_put), pointer, save :: rows_put_ => null()
+  procedure(emit_rows_wait), pointer, save :: rows_quiet_ => null(), rows_end_ => null()
+  ! The queue may discard the stream's display rows: its audio is live.
+  logical, save :: rows_droppable_ = .false.
   ! This thread's lines go to captured_ instead (capture_), or make one reply,
   ! under one hold of the lock from its first line (reply_, reply_held_).
   logical, save :: capture_ = .false., reply_ = .false., reply_held_ = .false.
@@ -317,6 +480,12 @@ module streaming_emit
   public :: streaming_emit_json_escape
   public :: streaming_emit_threads
   public :: streaming_emit_set_writer
+  public :: streaming_emit_set_rows
+  public :: streaming_emit_set_live
+  public :: streaming_emit_rows_end
+  public :: streaming_emit_quiet
+  public :: streaming_emit_flush
+  public :: stream_rows_emit
   public :: streaming_emit_line
   public :: streaming_emit_hold
   public :: streaming_emit_reply
@@ -327,6 +496,17 @@ module streaming_emit
   public :: streaming_emit_idle
   public :: streaming_emit_progress
   public :: streaming_emit_planning
+  public :: streaming_emit_base64
+  public :: streaming_emit_spectrum
+  public :: streaming_emit_jtty_spectrum
+  public :: streaming_emit_fast_spectrum
+  public :: streaming_emit_ref_spectrum
+  public :: streaming_emit_ref_spectrum_error
+
+  ! Values as their little-endian bytes in base64 (RFC 4648 section 4).
+  interface streaming_emit_base64
+     module procedure base64_int16_, base64_real32_
+  end interface streaming_emit_base64
 
 contains
 
@@ -560,8 +740,7 @@ contains
     if (associated(trylock_)) then
        if (trylock_() .eq. 0) return
     end if
-    write(output_unit, '(a)') '{"v":1,"t":"pass_progress",' // pass_fields_(mode, label, nzhsym) // '}'
-    flush(output_unit)
+    call out_('{"v":1,"t":"pass_progress",' // pass_fields_(mode, label, nzhsym) // '}', .false.)
     call hold_(.false.)
   end subroutine streaming_emit_progress
 
@@ -570,6 +749,76 @@ contains
     if (.not. enabled_) return
     call put_('{"v":1,"t":"planning","planning":' // trim(merge('true ', 'false', planning)) // '}')
   end subroutine streaming_emit_planning
+
+  ! A period mode's row (lib/spectrum_rows.f90): k, the block's end in
+  ! samples from the period's start; hsym, its index from 1; power and peak
+  ! in dB; df, the bin width; bins, the power spectrum.
+  subroutine streaming_emit_spectrum(k, hsym, power, peak, df, bins)
+    integer, intent(in) :: k, hsym
+    real,    intent(in) :: power, peak, df, bins(:)
+    if (.not. enabled_) return
+    call put_rows_('{"v":1,"t":"spectrum","k":' // int_text_(k) // ',"hsym":' //     &
+         int_text_(hsym) // ',"power":' // real_text_(power) // ',"peak":' //        &
+         real_text_(peak) // ',"df":' // real_text_(df) // ',"bins":' //              &
+         int_text_(size(bins)) // ',"data":"' // streaming_emit_base64(bins) // '"}', &
+         rows_droppable_)
+  end subroutine streaming_emit_spectrum
+
+  ! JTTY's row: its session (reception), its first and after-last stream
+  ! samples; the rest as a period mode's row.
+  subroutine streaming_emit_jtty_spectrum(reception, first_sample, end_sample,    &
+       power, peak, df, bins)
+    integer(int64), intent(in) :: reception, first_sample, end_sample
+    real,           intent(in) :: power, peak, df, bins(:)
+    if (.not. enabled_) return
+    call put_rows_('{"v":1,"t":"spectrum","reception":' // int64_text_(reception) // &
+         ',"begin":' // int64_text_(first_sample) // ',"end":' //                      &
+         int64_text_(end_sample) // ',"power":' //                                     &
+         real_text_(power) // ',"peak":' // real_text_(peak) // ',"df":' //            &
+         real_text_(df) // ',"bins":' // int_text_(size(bins)) // ',"data":"' //       &
+         streaming_emit_base64(bins) // '"}', rows_droppable_)
+  end subroutine streaming_emit_jtty_spectrum
+
+  ! MSK144's Fast Graph columns that a block end wrote (lib/spectrum_rows.f90):
+  ! k, the block's end; first, the first column written (from 0); power and
+  ! peak in dB; green and bins, those columns' power and 64 bins each.
+  subroutine streaming_emit_fast_spectrum(k, first, power, peak, green, bins)
+    integer, intent(in) :: k, first
+    real,    intent(in) :: power, peak, green(:), bins(:,:)
+    if (.not. enabled_) return
+    call put_rows_('{"v":1,"t":"fast_spectrum","k":' // int_text_(k) // ',"first":' // &
+         int_text_(first) // ',"columns":' // int_text_(size(green)) // ',"power":' //  &
+         real_text_(power) // ',"peak":' // real_text_(peak) // ',"green":"' //         &
+         streaming_emit_base64(green) // '","data":"' //                                &
+         streaming_emit_base64(reshape(bins, [size(bins)])) // '"}', rows_droppable_)
+  end subroutine streaming_emit_fast_spectrum
+
+  ! refspec.dat at path could not be written, read or deleted (operation);
+  ! row: the error goes out as the rows do, never dropped.
+  subroutine streaming_emit_ref_spectrum_error(operation, path, row)
+    character(len=*), intent(in) :: operation, path
+    logical, optional, intent(in) :: row
+    character(len=max(320, 6 * (len(operation) + len(path) + 11))) :: escaped
+    integer :: n
+    if (present(row)) then
+       if (row .and. associated(rows_put_)) then
+          if (.not. enabled_) return
+          call streaming_emit_json_escape('could not ' // operation // ' ' // path, escaped, n)
+          call put_rows_('{"v":1,"t":"error","code":"ref_spectrum_file","detail":"' //    &
+               escaped(1:n) // '"}', .false.)
+          return
+       end if
+    end if
+    call streaming_emit_error_code('ref_spectrum_file', 'could not ' // operation // ' ' // path)
+  end subroutine streaming_emit_ref_spectrum_error
+
+  ! The reference curve: bins, /spectra/'s ref(1:3456), df Hz apart.
+  subroutine streaming_emit_ref_spectrum(df, bins)
+    real, intent(in) :: df, bins(:)
+    if (.not. enabled_) return
+    call put_rows_('{"v":1,"t":"ref_spectrum","df":' // real_text_(df) // ',"bins":' // &
+         int_text_(size(bins)) // ',"data":"' // streaming_emit_base64(bins) // '"}', .false.)
+  end subroutine streaming_emit_ref_spectrum
 
   function pass_fields_(mode, label, nzhsym) result(fields)
     integer,          intent(in) :: mode, nzhsym
@@ -622,7 +871,7 @@ contains
   subroutine streaming_emit_error_code(code, detail)
     character(len=*), intent(in) :: code
     character(len=*), intent(in) :: detail
-    character(len=320)           :: d_escaped
+    character(len=max(320, 6 * len(detail))) :: d_escaped
     integer                      :: d_len
     if (.not. enabled_) return
     call streaming_emit_json_escape(detail, d_escaped, d_len)
@@ -718,6 +967,66 @@ contains
     unlock_ => unlock
   end subroutine streaming_emit_set_writer
 
+  ! Every line goes to the stream host's queue from now on, switched under
+  ! the writer lock so that no line is being written meanwhile.
+  subroutine streaming_emit_set_rows(put, quiet, end)
+    procedure(emit_rows_put) :: put
+    procedure(emit_rows_wait) :: quiet, end
+    call hold_(.true.)
+    rows_put_ => put
+    rows_quiet_ => quiet
+    rows_end_ => end
+    call hold_(.false.)
+  end subroutine streaming_emit_set_rows
+
+  ! Whether the stream's audio is live: only then may the queue discard
+  ! display rows (spectrum, fast_spectrum); from a file it keeps them all,
+  ! after the live rows still queued, which go out first.
+  subroutine streaming_emit_set_live(live)
+    logical, intent(in) :: live
+    if (rows_droppable_ .and. .not. live) call streaming_emit_quiet()
+    rows_droppable_ = live
+  end subroutine streaming_emit_set_live
+
+  ! An end, clean or fatal: every queued line written, the writer thread
+  ! stopped, and lines written at once again.
+  subroutine streaming_emit_rows_end()
+    call hold_(.true.)
+    if (associated(rows_end_)) call rows_end_()
+    nullify(rows_put_, rows_quiet_, rows_end_)
+    call hold_(.false.)
+  end subroutine streaming_emit_rows_end
+
+  ! Returns once every queued line is written; called inside a held group,
+  ! the live rows queued are discarded instead (lib/stream_decode.c).
+  subroutine streaming_emit_quiet()
+    if (associated(rows_quiet_)) call rows_quiet_()
+  end subroutine streaming_emit_quiet
+
+  ! A decoder's flush of stdout; nothing while the writer thread owns it.
+  subroutine streaming_emit_flush()
+    call hold_(.true.)
+    if (.not. associated(rows_put_)) flush(output_unit)
+    call hold_(.false.)
+  end subroutine streaming_emit_flush
+
+  ! The writer thread's entry (lib/stream_decode.c): its size bytes of lines,
+  ! newline between them; first, when dropped is above 0, the rows_dropped
+  ! line. No other thread writes stdout meanwhile.
+  subroutine stream_rows_emit(text, size, dropped) bind(C, name='stream_rows_emit')
+    integer(c_int64_t), value :: size, dropped
+    character(kind=c_char), intent(in) :: text(size)
+    character(len=:), allocatable :: lines
+    integer :: i
+    allocate(character(len=size) :: lines)
+    do i = 1, int(size)
+       lines(i:i) = text(i)
+    end do
+    if (dropped .gt. 0) call write_lines_('{"v":1,"t":"rows_dropped","lines":' //     &
+         int64_text_(int(dropped, int64)) // '}')
+    call write_lines_(lines)
+  end subroutine stream_rows_emit
+
   ! One stdout line as given.
   subroutine streaming_emit_line(line)
     character(len=*), intent(in) :: line
@@ -788,10 +1097,59 @@ contains
        reply_held_ = .true.
     end if
     call hold_(.true.)
-    write(output_unit, '(a)') line
-    flush(output_unit)
+    call out_(line, .false.)
     call hold_(.false.)
   end subroutine put_
+
+  ! Under the writer lock: lines, a newline between them, to the stream
+  ! host's queue (droppable: live display rows), or written now; and now,
+  ! after all queued (inside a held group, the live rows discarded), when the
+  ! queue has no memory for them.
+  subroutine out_(lines, droppable)
+    character(len=*), intent(in) :: lines
+    logical,          intent(in) :: droppable
+    if (associated(rows_put_)) then
+       if (rows_put_(lines, int(len(lines), c_int64_t), count_lines_(lines),     &
+            merge(1_c_int, 0_c_int, droppable)) .ne. 0) return
+       call rows_quiet_()
+    end if
+    call write_lines_(lines)
+  end subroutine out_
+
+  ! A row entry, its lines with a newline between them: to the stream host's
+  ! queue, droppable or not, or else written now; never captured.
+  subroutine put_rows_(entry, droppable)
+    character(len=*), intent(in) :: entry
+    logical,          intent(in) :: droppable
+    call hold_(.true.)
+    call out_(entry, droppable)
+    call hold_(.false.)
+  end subroutine put_rows_
+
+  ! Each line of text, a newline between lines, as its own record.
+  subroutine write_lines_(text)
+    character(len=*), intent(in) :: text
+    integer :: first, last
+    first = 1
+    do
+       last = index(text(first:), achar(10))
+       if (last .eq. 0) exit
+       write(output_unit, '(a)') text(first:first + last - 2)
+       flush(output_unit)
+       first = first + last
+    end do
+    write(output_unit, '(a)') text(first:)
+    flush(output_unit)
+  end subroutine write_lines_
+
+  integer(c_int) function count_lines_(text)
+    character(len=*), intent(in) :: text
+    integer :: i
+    count_lines_ = 1
+    do i = 1, len(text)
+       if (text(i:i) .eq. achar(10)) count_lines_ = count_lines_ + 1
+    end do
+  end function count_lines_
 
   subroutine hold_(hold)
     logical, intent(in) :: hold
@@ -860,6 +1218,73 @@ contains
     write(s, '(i0)') n
     text = trim(s)
   end function int_text_
+
+  function int64_text_(n) result(text)
+    integer(int64), intent(in) :: n
+    character(len=:), allocatable :: text
+    character(len=24) :: s
+    write(s, '(i0)') n
+    text = trim(s)
+  end function int64_text_
+
+  function base64_int16_(values) result(text)
+    integer(int16), intent(in) :: values(:)
+    character(len=:), allocatable :: text
+    integer, allocatable :: bytes(:)
+    integer :: i, value
+    allocate(bytes(2 * size(values)))
+    do i = 1, size(values)
+       value = int(values(i))
+       bytes(2 * i - 1) = iand(value, 255)
+       bytes(2 * i) = iand(ishft(value, -8), 255)
+    end do
+    text = base64_(bytes)
+  end function base64_int16_
+
+  function base64_real32_(values) result(text)
+    real(real32), intent(in) :: values(:)
+    character(len=:), allocatable :: text
+    integer, allocatable :: bytes(:)
+    integer(int32) :: bits
+    integer :: i, j
+    allocate(bytes(4 * size(values)))
+    do i = 1, size(values)
+       bits = transfer(values(i), bits)
+       do j = 0, 3
+          bytes(4 * i - 3 + j) = int(iand(ishft(bits, -8 * j), 255_int32))
+       end do
+    end do
+    text = base64_(bytes)
+  end function base64_real32_
+
+  ! bytes, each from 0 to 255, in base64 with the standard alphabet and =
+  ! padding.
+  function base64_(bytes) result(text)
+    integer, intent(in) :: bytes(:)
+    character(len=:), allocatable :: text
+    character(len=*), parameter :: DIGITS =                                  &
+         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    integer :: i, j, n, group, k, digit
+    allocate(character(len=4 * ((size(bytes) + 2) / 3)) :: text)
+    k = 0
+    do i = 1, size(bytes), 3
+       n = min(3, size(bytes) - i + 1)
+       group = 0
+       do j = 0, 2
+          group = ishft(group, 8)
+          if (j .lt. n) group = ior(group, bytes(i + j))
+       end do
+       do j = 0, 3
+          if (j .le. n) then
+             digit = iand(ishft(group, -6 * (3 - j)), 63) + 1
+             text(k + j + 1:k + j + 1) = DIGITS(digit:digit)
+          else
+             text(k + j + 1:k + j + 1) = '='
+          end if
+       end do
+       k = k + 4
+    end do
+  end function base64_
 
   ! Format the integer nutc time as 6 chars. 4-digit HHMM gets
   ! zero-extended to HHMM00 so consumers always see a 6-char field.

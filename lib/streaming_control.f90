@@ -49,6 +49,11 @@ module streaming_control
   integer, parameter, public :: CTRL_PACK      = 5
   integer, parameter, public :: CTRL_RENDER    = 6
   integer, parameter, public :: CTRL_FLUSH     = 7
+  ! configure's ref_spectrum, numbered as the GUI's ReferenceSpectrumInput
+  ! numbers its modes.
+  integer, parameter, public :: REF_SPECTRUM_OFF = 0
+  integer, parameter, public :: REF_SPECTRUM_MEASURE = 1
+  integer, parameter, public :: REF_SPECTRUM_APPLY = 2
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
@@ -219,6 +224,17 @@ module streaming_control
      ! planning lines on and off (lib/streaming_emit.f90), in stream order.
      logical                :: busy_events_set          = .false.
      logical                :: busy_events              = .false.
+     ! The receive chain's keys (lib/streaming_emit.f90 states them). A
+     ! ref_spectrum other than "off", "measure" and "apply" is out of range.
+     logical                :: spectrum_set             = .false.
+     logical                :: spectrum                 = .false.
+     logical                :: low_sidelobes_set        = .false.
+     logical                :: low_sidelobes            = .false.
+     logical                :: ref_spectrum_set         = .false.
+     integer                :: ref_spectrum             = REF_SPECTRUM_OFF
+     logical                :: ref_spectrum_out_of_range = .false.
+     logical                :: ref_spectrum_clear_set   = .false.
+     logical                :: ref_spectrum_clear       = .false.
      ! MSK144's receive options, in every mode, each in force until another
      ! configure sets it: the GUI's "Sh" (short_messages) and "SWL" check
      ! boxes, each independent of the other, its "Measure phase response"
@@ -523,7 +539,7 @@ contains
 
     character(len=64)  :: t_value
     character(len=128) :: str_val
-    character(len=:), allocatable :: utc_val
+    character(len=:), allocatable :: utc_val, ref_val
     character(len=8)   :: category
     integer            :: int_val, mode_value_start, mode_buffer_length
     real(8)            :: real_val
@@ -961,6 +977,59 @@ contains
        if (ok) then
           cfg%busy_events_set = .true.
           cfg%busy_events     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"spectrum"', 'spectrum', 'bool',                      &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"spectrum"', lval, ok)
+       if (ok) then
+          cfg%spectrum_set = .true.
+          cfg%spectrum     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"low_sidelobes"', 'low_sidelobes', 'bool',            &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"low_sidelobes"', lval, ok)
+       if (ok) then
+          cfg%low_sidelobes_set = .true.
+          cfg%low_sidelobes     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"ref_spectrum"', 'ref_spectrum', 'string',            &
+         .true., .false., terr, proceed)
+    if (proceed) then
+       call value_category_(buf, '"ref_spectrum"', category)
+       if (trim(category) .eq. 'string') then
+          call get_whole_string_(buf, '"ref_spectrum"', ref_val, ok)
+          if (.not. ok) ref_val = ''
+          cfg%ref_spectrum_set = .true.
+          ! The '|' keeps trailing blanks, which Fortran's comparison ignores.
+          select case (ref_val // '|')
+          case ('off|')
+             cfg%ref_spectrum = REF_SPECTRUM_OFF
+          case ('measure|')
+             cfg%ref_spectrum = REF_SPECTRUM_MEASURE
+          case ('apply|')
+             cfg%ref_spectrum = REF_SPECTRUM_APPLY
+          case default
+             cfg%ref_spectrum_set = .false.
+             cfg%ref_spectrum_out_of_range = .true.
+          end select
+       end if
+    end if
+
+    call check_type_(buf, '"ref_spectrum_clear"', 'ref_spectrum_clear', 'bool',  &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"ref_spectrum_clear"', lval, ok)
+       if (ok) then
+          cfg%ref_spectrum_clear_set = .true.
+          cfg%ref_spectrum_clear     = lval
        end if
     end if
 

@@ -132,7 +132,8 @@ set (receive_handoff_isolated_scenarios
     reference_measurement_vs_reset
     reference_application_preserves_uncommitted_suffix
     reference_application_packetization
-    reference_measurement_packetization)
+    reference_measurement_packetization
+    reference_measurement_survives_unwritable_file)
 set (receive_handoff_tests test_receive_audio_handoff)
 foreach (scenario IN LISTS receive_handoff_isolated_scenarios)
   add_test (NAME test_receive_${scenario}

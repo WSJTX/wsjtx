@@ -18,10 +18,12 @@
 ! uncounted). Where a session begins in a transmission changes what decodes,
 ! as it does in the GUI. After each decoder step the session writes one
 ! jtty_update line per pending update, as the GUI takes them. Between its
-! session line and its last update only error lines, the replies to encode
-! requests, planning lines and, when the session began with a mode change, the
-! previous mode's remaining decode lines, its busy and pass_progress lines
-! among them, appear (JTTY decodes at once, without waiting for them); an
+! session line and its last update only error lines, the receive chain's rows
+! and rows_dropped lines (lib/streaming_emit.f90), the replies to encode
+! requests, planning lines
+! and, when the session began with a mode change, the previous mode's
+! remaining decode lines, its busy and pass_progress lines among them, appear
+! (JTTY decodes at once, without waiting for them); an
 ! odd_audio_frame error comes before the "ended" lines it causes. I is unique
 ! in the process, across sessions and mode changes, and the same on every
 ! update of one message. A message's last line is its "complete", "expired" or
@@ -166,8 +168,10 @@
 ! instead of packed. A render of more than 600 s of audio is rejected
 ! too_long, with no key. A JTTY receiver decodes nothing whose lowest tone is
 ! above about 2950 Hz (above), though F may be up to 5000 Hz. A render holds
-! up audio for as long as it computes and its lines take to be read, and
-! decode lines for as long as its lines take to be read.
+! up audio for as long as it computes and its lines take to be read. It holds
+! up decode lines from its first line to its last, which includes rendering
+! every segment after the first, and, without the output queue or past 16 MiB
+! of lines waiting in it, until its lines are read.
 
 module streaming_jtty
   use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_float, c_double,  &
@@ -185,18 +189,23 @@ module streaming_jtty
   use jtty_filler, only: strip_filler_text
   use streaming_emit, only: streaming_emit_error, streaming_emit_error_code, &
        streaming_emit_json_escape, streaming_emit_line, streaming_emit_planning, &
-       streaming_emit_hold
+       streaming_emit_hold, streaming_emit_base64, streaming_emit_quiet,       &
+       streaming_emit_jtty_spectrum
   use streaming_apply, only: params_block
   use streaming_control, only: configure_fields, encode_request,               &
        parse_encode_request, parse_render_request
   use jtty_source_codec, only: jtty_source_atom, unpack_jtty_atom,             &
        render_jtty_atom, JTTY_ATOM_TEXT5
   use jtty_mod, only: MAX_FRAMES
+  use streaming_receive, only: receive
+  use spectrum_rows, only: wide_rows, wide_begin, wide_take, wide_row,         &
+       WIDE_BLOCK, WIDE_BINS, WIDE_DF
   implicit none
   private
 
   public :: jtty_audio, jtty_end, jtty_range_key, jtty_emit_range_error,      &
-       jtty_release, jtty_note_station, jtty_encode, jtty_measuring
+       jtty_release, jtty_note_station, jtty_encode, jtty_measuring,          &
+       jtty_spectrum_rows
   ! The reply lines and the station's call the slot modes' encode shares
   ! (lib/streaming_encode.f90).
   public :: encode_emit_rejected, encode_emit_pcm, encode_station_call
@@ -210,6 +219,11 @@ module streaming_jtty
   integer(c_int), save :: handle_ = 0
   integer,        save :: session_ = 0
   logical,        save :: session_open_ = .false.
+  ! The session whose spectrum rows rows_ makes, and the stream sample it
+  ! has been fed to.
+  integer,        save :: rows_session_ = 0
+  integer(int64), save :: rows_next_ = 0
+  type(wide_rows), save :: rows_
   ! The session's audio from stream sample pcm_base_ on.
   integer(int16), allocatable, save :: pcm_(:)
   integer(int64), save :: pcm_base_ = 0
@@ -306,6 +320,35 @@ contains
     call append_samples_(samples)
     call decode_available_(params, .false.)
   end subroutine jtty_audio
+
+  ! JTTY's spectrum rows for samples, the stream's from first_sample on, while
+  ! configure's spectrum is on; a session begins with them if none is open.
+  ! The rows start at the session's first sample, or at the first after
+  ! spectrum was off.
+  subroutine jtty_spectrum_rows(samples, first_sample)
+    integer(int16), intent(in) :: samples(:)
+    integer(int64), intent(in) :: first_sample
+    integer :: i, taken
+    logical :: ready
+    real :: power, peak, bins(WIDE_BINS)
+    if (.not. receive%spectrum .or. size(samples) .eq. 0) return
+    if (.not. session_open_) call begin_session_(first_sample)
+    if (rows_session_ .ne. session_ .or. rows_next_ .ne. first_sample)          &
+         call wide_begin(rows_)
+    rows_session_ = session_
+    i = 1
+    do while (i .le. size(samples))
+       call wide_take(rows_, samples(i:), taken, ready)
+       i = i + taken
+       if (ready) then
+          call wide_row(rows_, receive%low_sidelobes, power, peak, bins)
+          call streaming_emit_jtty_spectrum(int(session_, int64),                &
+               first_sample + i - 1 - WIDE_BLOCK, first_sample + i - 1, power,     &
+               peak, WIDE_DF, bins)
+       end if
+    end do
+    rows_next_ = first_sample + size(samples)
+  end subroutine jtty_spectrum_rows
 
   ! params are the settings the session decoded with.
   subroutine jtty_end(params)
@@ -530,10 +573,13 @@ contains
 
   subroutine fatal_(message)
     character(len=*), intent(in) :: message
-    ! The writer lock is kept to the end: no line follows the error, and a
-    ! decode thread about to write waits on the lock while the program ends.
+    ! The lines queued go first. The writer lock is kept to the end: no line
+    ! follows the error, and a decode thread about to write waits on the lock
+    ! while the program ends.
+    call streaming_emit_quiet()
     call streaming_emit_hold(.true.)
     call streaming_emit_error(message)
+    call streaming_emit_quiet()
     write(error_unit, '(2a)') 'wsjt-codec: ', message
     stop 1
   end subroutine fatal_
@@ -734,8 +780,8 @@ contains
     do first = 1, size(samples), PCM_LINE
        call emit_line_('{"v":1,"t":"pcm","id":' // id // ',"seg":' //       &
             itoa_(int(seg, int64)) // ',"seq":' // itoa_(int(seq, int64)) //    &
-            ',"data":"' // base64_(samples(first:min(first + PCM_LINE - 1,    &
-            size(samples)))) // '"}')
+            ',"data":"' // streaming_emit_base64(samples(first:min(first +     &
+            PCM_LINE - 1, size(samples)))) // '"}')
        seq = seq + 1
     end do
   end subroutine encode_emit_pcm
@@ -857,50 +903,5 @@ contains
        text = 'false'
     end if
   end function json_bool_
-
-  ! samples as int16 little-endian bytes in base64 (RFC 4648 section 4).
-  function base64_(samples) result(text)
-    integer(c_int16_t), intent(in) :: samples(:)
-    character(len=:), allocatable :: text
-    character(len=*), parameter :: DIGITS =                                  &
-         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    integer :: nbytes, i, j, n, group, k
-
-    nbytes = 2 * size(samples)
-    allocate(character(len=4 * ((nbytes + 2) / 3)) :: text)
-    k = 0
-    do i = 0, nbytes - 1, 3
-       n = min(3, nbytes - i)
-       group = 0
-       do j = 0, 2
-          group = ishft(group, 8)
-          if (j .lt. n) group = ior(group, sample_byte_(i + j))
-       end do
-       do j = 0, 3
-          if (j .le. n) then
-             text(k + j + 1:k + j + 1) = DIGITS(iand(ishft(group, -6 * (3 - j)), 63) + 1: &
-                  iand(ishft(group, -6 * (3 - j)), 63) + 1)
-          else
-             text(k + j + 1:k + j + 1) = '='
-          end if
-       end do
-       k = k + 4
-    end do
-
-  contains
-
-    ! Byte b, from 0, of samples as int16 little-endian.
-    integer function sample_byte_(b)
-      integer, intent(in) :: b
-      integer :: value
-      value = int(samples(b / 2 + 1))
-      if (mod(b, 2) .eq. 0) then
-         sample_byte_ = iand(value, 255)
-      else
-         sample_byte_ = iand(ishft(value, -8), 255)
-      end if
-    end function sample_byte_
-
-  end function base64_
 
 end module streaming_jtty

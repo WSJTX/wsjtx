@@ -1,3 +1,12 @@
+! What refspectrum's last call did with fname: wrote it while measuring,
+! loaded it when apply began, or could not.
+module refspectrum_file
+  implicit none
+  integer, parameter :: REFSPEC_NONE=0, REFSPEC_WRITTEN=1, REFSPEC_LOADED=2, &
+       REFSPEC_WRITE_FAILED=3, REFSPEC_READ_FAILED=4
+  integer :: refspec_status=REFSPEC_NONE
+end module refspectrum_file
+
 subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
 
 ! Input:
@@ -5,6 +14,7 @@ subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
 !  ninput              Valid input count, 1..3456; zero resets stream history
 !  brefspec  logical    True when accumulating a reference spectrum
 
+  use refspectrum_file
   parameter (NFFT=6912,NH=NFFT/2,NPOLYLOW=400,NPOLYHIGH=2600)
   integer*2 id2(NFFT)
   integer*2 measurement(NH)
@@ -26,6 +36,7 @@ subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
   data first/.true./,blastuse/.false./
   save
 
+  refspec_status=REFSPEC_NONE
   if(first) then
      pi=4.0*atan(1.0)
      do i=0,NFFT-1
@@ -136,16 +147,19 @@ subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
         enddo
         call polyfit(xfit,yfit,sigmay,nfit,nterms,mode,a,chisqr)
 
-        open(16,file=fname,status='unknown')
-        write(16,1003) NPOLYLOW,NPOLYHIGH,nterms,a
+        open(16,file=fname,status='unknown',iostat=ios)
+        if(ios.eq.0) write(16,1003,iostat=ios) NPOLYLOW,NPOLYHIGH,nterms,a
 1003    format(3i5,5e25.16)
         do i=1,NH
            freq=i*df
            ref(i)=db(s(i)/avemid)
-           write(16,1005) freq,s(i),ref(i),fil(i),filter(i)
+           if(ios.eq.0) write(16,1005,iostat=ios) freq,s(i),ref(i),fil(i),filter(i)
 1005       format(f10.3,e12.3,f12.6,e12.3,f12.6)
         enddo
-        close(16)
+        close(16,iostat=iosclose)
+        if(ios.eq.0) ios=iosclose
+        refspec_status=REFSPEC_WRITTEN
+        if(ios.ne.0) refspec_status=REFSPEC_WRITE_FAILED
      endif
      enddo
      return
@@ -154,12 +168,15 @@ subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
   if(buseref) then
      if(blastuse.neqv.buseref) then !just enabled so read filter
         fil=1.0
-        open(16,file=fname,status='old',err=999)
-        read(16,1003,err=20,end=999) ndummy,ndummy,nterms,a
-        goto 30
-20      rewind(16)              !allow for old style refspec.dat with no header
-30      do i=1,NH
-           read(16,1005,err=999,end=999) freq,s(i),ref(i),fil(i),filter(i)
+        open(16,file=fname,status='old',iostat=ios)
+        if(ios.ne.0) go to 998
+        read(16,1003,iostat=ios) ndummy,ndummy,nterms,a
+        if(ios.lt.0) go to 998
+        if(ios.gt.0) rewind(16,iostat=ios)  !allow for old style refspec.dat with no header
+        if(ios.ne.0) go to 998
+        do i=1,NH
+           read(16,1005,iostat=ios) freq,s(i),ref(i),fil(i),filter(i)
+           if(ios.ne.0) go to 998
         enddo
 ! Make the filter causal for overlap and add.
         cx(0)=0.0
@@ -171,7 +188,8 @@ subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
         x(800:NFFT-1)=0.0
         call four2a(cx,NFFT,1,-1,0)
         cfil=cx
-        close(16)
+        close(16,iostat=ios)
+        refspec_status=REFSPEC_LOADED
      endif
 ! Use overlap and add method to apply causal reference filter.
      x(0:ninput-1)=id2(1:ninput)
@@ -185,6 +203,8 @@ subroutine refspectrum(id2,ninput,bclear,brefspec,buseref,fname)
      id2(1:ninput)=nint(x(0:ninput-1))
   endif
   blastuse=buseref
+  return
 
-999 return
+998 close(16,iostat=ios)
+  refspec_status=REFSPEC_READ_FAILED
 end subroutine refspectrum
