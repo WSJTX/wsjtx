@@ -66,6 +66,13 @@ endforeach ()
 add_test (NAME test_osd174_91_fast_ties COMMAND test_osd174_91_fast 10000 91 ties)
 set_tests_properties (test_osd174_91_fast_ties PROPERTIES TIMEOUT 120)
 
+add_executable (test_osd174_91var_pairs
+  test_osd174_91var_pairs.f90)
+wsjt_link_common_fortran (test_osd174_91var_pairs)
+add_test (NAME test_osd174_91var_pairs COMMAND test_osd174_91var_pairs)
+add_test (NAME test_osd174_91var_pairs_ties COMMAND test_osd174_91var_pairs 1500 ties)
+set_tests_properties (test_osd174_91var_pairs test_osd174_91var_pairs_ties PROPERTIES TIMEOUT 120)
+
 if (TARGET wsjt_fort_omp)
   add_executable (test_ft8_sync_fft_concurrent
     test_ft8_sync_fft_concurrent.f90)
