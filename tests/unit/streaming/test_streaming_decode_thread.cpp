@@ -2250,7 +2250,7 @@ private slots:
     QFETCH (bool, timed);
     auto const mode = modeOf (decode);
     auto const pcm = period (wavPcm (mode.wav), mode.samples);
-    auto const entered = jtty ? wavPcm (inSamples ("JTTY/260807_134110.wav"))
+    auto const entered = jtty ? wavPcm (inSamples ("JTTY/261105_101915_567.wav"))
                               : period (wavPcm (inSamples ("MSK144/181211_120800.wav")), 15 * SampleRate);
     QVERIFY2 (!pcm.isEmpty () && !entered.isEmpty (), "no recording");
     auto const settings = jtty ? JttySettings : Msk144Settings;
@@ -2388,7 +2388,7 @@ private slots:
     QFETCH (bool, live);
     auto const mode = modeOf ("ft8");
     auto const pcm = period (wavPcm (mode.wav), mode.samples);
-    auto const jtty = wavPcm (inSamples ("JTTY/260807_134110.wav"));
+    auto const jtty = wavPcm (inSamples ("JTTY/261105_101915_567.wav"));
     QVERIFY2 (!pcm.isEmpty () && !jtty.isEmpty (), "no recording");
     auto const settings = with (mode.settings, {{"live_audio", live}, {"busy_events", true}});
     auto const plain = runInput (sessionHeader () + configure (settings) + audio (pcm) + halt ());
@@ -2683,7 +2683,7 @@ private slots:
     else if ("planning warm" == scenario)
       {
         // A second session in the same -a finds every plan in the saved wisdom.
-        auto const jtty = wavPcm (inSamples ("JTTY/260807_134110.wav"));
+        auto const jtty = wavPcm (inSamples ("JTTY/261105_101915_567.wav"));
         QVERIFY2 (!jtty.isEmpty (), "no recording");
         QTemporaryDir directory;
         QVERIFY (directory.isValid ());
@@ -2700,7 +2700,7 @@ private slots:
       }
     else if ("planning" == scenario)
       {
-        auto const jtty = wavPcm (inSamples ("JTTY/260807_134110.wav"));
+        auto const jtty = wavPcm (inSamples ("JTTY/261105_101915_567.wav"));
         QVERIFY2 (!jtty.isEmpty (), "no recording");
         run = runInput (sessionHeader () + configure (with (JttySettings, on)) + audio (jtty, FrameSamples) + halt ());
         QVERIFY2 (run->clean (), qPrintable (run->report ()));
@@ -2714,7 +2714,7 @@ private slots:
       }
     else if ("without the key" == scenario)
       {
-        auto const jtty = wavPcm (inSamples ("JTTY/260807_134110.wav"));
+        auto const jtty = wavPcm (inSamples ("JTTY/261105_101915_567.wav"));
         QVERIFY2 (!jtty.isEmpty (), "no recording");
         run = runInput (sessionHeader () + configure (standard) + audio (ft8) + configure ({{"nagain_flag", true}})
                         + configure (JttySettings) + audio (jtty, FrameSamples) + halt ());
@@ -2896,7 +2896,7 @@ private slots:
     auto const ft8 = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
     auto const fst4 = modeOf ("fst4");
     auto const fst4Pcm = period (wavPcm (fst4.wav), fst4.samples);
-    auto const jtty = wavPcm (inSamples ("JTTY/260807_134110.wav"));
+    auto const jtty = wavPcm (inSamples ("JTTY/261105_101915_567.wav"));
     QVERIFY2 (!ft8.isEmpty () && !fst4Pcm.isEmpty () && !jtty.isEmpty (), "no recording");
     auto const input = [&] (QJsonObject const& keys) {
       if ("planning" == event) return sessionHeader () + configure (with (JttySettings, keys)) + audio (jtty, FrameSamples)
