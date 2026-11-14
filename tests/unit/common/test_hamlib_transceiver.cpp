@@ -406,6 +406,80 @@ private:
     QTest::newRow ("DATA3") << rmode_t {RIG_MODE_USBD3} << Transceiver::DIG_U;
   }
 
+  Q_SLOT void receiveModeObservationAddsNoQueriesOrCorrectiveWrites ()
+  {
+    RigFixture fixture {RIG_VFO_A};
+    QVERIFY (fixture.registered);
+    fixture.start ();
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+#if HAVE_HAMLIB_CACHING
+    QCOMPARE (rig_set_cache_timeout_ms (fixture.rig, HAMLIB_CACHE_ALL, 0), RIG_OK);
+#elif HAVE_HAMLIB_OLD_CACHING
+    QCOMPARE (rig_set_cache_timeout_ms (fixture.rig, CACHE_ALL, 0), RIG_OK);
+#endif
+    QCOMPARE (fixture.original.set_mode (fixture.rig, fixture.rx_vfo,
+                                         RIG_MODE_CW, RIG_PASSBAND_NORMAL), RIG_OK);
+    fixture.mode_queries.clear ();
+    fixture.mode_targets.clear ();
+    fixture.vfo_queries = 0;
+    QSignalSpy statuses {fixture.transceiver.get (), &Transceiver::mode_status};
+    for (int poll = 0; poll != 3; ++poll)
+      QVERIFY (QMetaObject::invokeMethod (fixture.transceiver.get (), "handle_timeout",
+                                          Qt::DirectConnection));
+    QCOMPARE (fixture.mode_queries.size (), std::size_t {3});
+    QCOMPARE (fixture.vfo_queries, 3);
+    QVERIFY (fixture.mode_targets.empty ());
+    QCOMPARE (statuses.size (), 1);
+    auto const observed = qvariant_cast<Transceiver::ModeStatus> (statuses.first ().at (0));
+    QCOMPARE (observed.kind, Transceiver::ModeStatusKind::Observed);
+    QCOMPARE (observed.mode, Transceiver::CW);
+
+    auto correction = fixture.state;
+    correction.frequency (correction.frequency () + 1);
+    correction.mode (Transceiver::UNK);
+    fixture.transceiver->set (correction, 2);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QVERIFY (fixture.mode_targets.empty ());
+    QCOMPARE (fixture.mode_queries.size (), std::size_t {3});
+    rmode_t mode;
+    pbwidth_t width;
+    QCOMPARE (fixture.original.get_mode (fixture.rig, fixture.rx_vfo, &mode, &width), RIG_OK);
+    QCOMPARE (mode, rmode_t {RIG_MODE_CW});
+  }
+
+  Q_SLOT void pttPreparesTransmitModeAfterModePreservingCorrection ()
+  {
+    RigFixture fixture {RIG_VFO_B};
+    QVERIFY (fixture.registered);
+    fixture.start ();
+    fixture.state.frequency (14074000);
+    fixture.state.mode (Transceiver::DIG_U);
+    fixture.transceiver->set (fixture.state, 2);
+    fixture.state.tx_frequency (14075000);
+    fixture.state.mode (Transceiver::UNK);
+    fixture.transceiver->set (fixture.state, 3);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QCOMPARE (rig_set_mode (fixture.rig, fixture.rx_vfo, RIG_MODE_USBD2, 1800), RIG_OK);
+    QCOMPARE (rig_set_mode (fixture.rig, fixture.tx_vfo, RIG_MODE_CW, 500), RIG_OK);
+    fixture.mode_targets.clear ();
+    QSignalSpy statuses {fixture.transceiver.get (), &Transceiver::mode_status};
+    fixture.state.mode (Transceiver::DIG_U);
+    fixture.state.ptt (true);
+    fixture.transceiver->set (fixture.state, 4);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QCOMPARE (fixture.ptt_on_count, 1);
+    QCOMPARE (fixture.mode_at_ptt_result, RIG_OK);
+    QCOMPARE (fixture.mode_at_ptt, rmode_t {RIG_MODE_PKTUSB});
+    rmode_t receive_mode;
+    pbwidth_t width;
+    QCOMPARE (fixture.original.get_mode (fixture.rig, fixture.rx_vfo, &receive_mode, &width), RIG_OK);
+    QCOMPARE (receive_mode, rmode_t {RIG_MODE_USBD2});
+    QCOMPARE (width, pbwidth_t {1800});
+    for (auto const& arguments : statuses)
+      QVERIFY (qvariant_cast<Transceiver::ModeStatus> (arguments.at (0)).kind
+               != Transceiver::ModeStatusKind::Preparing);
+  }
+
   Q_SLOT void optionalAndCompatibleModesArePreserved ()
   {
     QFETCH (rmode_t, backend_mode);

@@ -131,6 +131,27 @@ private slots:
     QVERIFY(!state.claimFirst(period));
   }
 
+  void firstEligibilityDoesNotConsumeTheReceivePeriod()
+  {
+    auto const period = utc("2026-08-03T12:00:15.000Z");
+    auto state = armedState(period);
+    auto const& eligibility = state;
+
+    QVERIFY(!eligibility.canClaimFirst(period.addSecs(-15)));
+    QVERIFY(!eligibility.canClaimFirst(period.addSecs(15)));
+    QVERIFY(eligibility.canClaimFirst(period));
+    QVERIFY(eligibility.canClaimFirst(period));
+    QVERIFY(state.claimFirst(period));
+    QVERIFY(!eligibility.canClaimFirst(period));
+    QVERIFY(!state.claimFirst(period));
+
+    auto const nextPeriod = period.addSecs(30);
+    state.observePeriod(nextPeriod, true, true, AutoRespondPolicy::First);
+    QVERIFY(eligibility.canClaimFirst(nextPeriod));
+    state.disarm();
+    QVERIFY(!eligibility.canClaimFirst(nextPeriod));
+  }
+
   void responsePolicyIsSnapshottedForThePeriod()
   {
     auto const period = utc("2026-08-03T12:00:07.500Z");

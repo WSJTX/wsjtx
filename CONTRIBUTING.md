@@ -83,9 +83,48 @@ subsequent release.
   that is already clear from its names and structure.
 - Add the appropriate GPL-3.0 license header to new source files.
 
+## Keep operational identities independent of presentation
+
+Translated labels belong at the presentation boundary. Keep domain facts
+(callsigns, grids, worked history, modes, bands, and entities) separate from
+operational policy (eligibility, ranking, and automatic selection) and from
+colors, tooltips, and accessible feedback. A winning highlight is not evidence
+that a station has been worked. Pass decode classification with its message;
+missing facts must remain absent rather than inheriting a previous message's
+state.
+
+Models and editors exchange stable keys through `Qt::EditRole`. Use explicitly
+typed enum variants such as `QVariant::fromValue (IARURegions::R2)` for region
+and mode keys, and canonical strings for string-backed band and SQL keys.
+Delegates must initialize and commit by their configured key roles, including
+when labels are duplicated. An unmatched key selects no item, no selection
+writes nothing, and invalid enum types or values must be rejected. Translate
+`Qt::DisplayRole` labels without reverse-parsing them for decisions or storage.
+
+Keep existing canonical settings, JSON, binary, and SQL representations stable.
+Protocol tokens used in CAT commands or transmitted messages must not be
+translated; editable user input is a separate boundary. When adding selection
+settings, migrate explicitly once instead of continuously deriving policy from
+presentation preferences.
+
+Extend the owning regression suites with translators that change labels
+substantially, including duplicate labels. Verify operational outcomes and
+no-op editor commits remain identical, and exercise a shipped catalog as an
+integration check. Use the CMake `UPDATE_TRANSLATIONS` workflow to extract
+affected messages; avoid unrelated catalog churn and preserve existing
+translations.
+
 ## Keep changes reviewable
 
 - Keep each pull request to one logical change.
 - Add or update tests when behavior changes.
 - Test decoding changes with known sample files and report the cases used.
 - Avoid broad formatting or cleanup mixed with a functional change.
+
+## Keep the codec's interface documented
+
+`doc/codec/` documents the stream interface of `wsjt-codec` and `wsprd -0` for the programs that run them: the command line, what they read on standard input, what they write on standard output, and their exit status.
+
+- A change to that interface updates `doc/codec/` in the same pull request. `python3 .github/scripts/check-codec-reference.py` checks that every name the stream source reads or writes has its row, and CI runs it.
+- A change that breaks an existing client carries `!` before the colon of a `feat`, `fix` or `perf` commit subject, for example `feat(codec)!: …`, and the release notes list it with "(breaking)". Subjects with a scope, every one of them `release`, `ci`, `test` or `tests`, stay out of the notes.
+- Known codec issues are filed in the [issue tracker](https://github.com/WSJTX/wsjtx/issues) with the `codec` label.

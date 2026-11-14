@@ -12,6 +12,8 @@
 # library or a library third-party-libraries.tsv does not name fails the run,
 # and then no tarball is written.
 #
+# The codec tarball also holds ALLCALL7.TXT, the callsign list wsjt-codec's multithreaded FT8 decoder reads; the client supplies CALL3.TXT.
+#
 # macos:   --source is the CLI assets directory: the signed programs and the
 #          deployed lib/ of dylibs they reference as @rpath/<name>. Each
 #          tarball gets its programs at the top and, in lib/, the dylibs they
@@ -62,6 +64,7 @@ done
 
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 COPYING="${SCRIPTS}/../../COPYING"
+ALLCALL7="${SCRIPTS}/../../ALLCALL7.TXT"
 NOTICES_TABLE="${SCRIPTS}/third-party-libraries.tsv"
 EXCLUDELIST="${SCRIPTS}/linuxdeploy-excludelist.txt"
 LICENSE_PAGE="${SCRIPTS}/../../doc/common/license.adoc"
@@ -85,6 +88,7 @@ esac
 [ -d "$SOURCE" ] || fail "source directory not found: $SOURCE"
 [ -s "$GROUPS_FILE" ] || fail "release tarball list not found or empty: $GROUPS_FILE"
 [ -f "$COPYING" ] || fail "COPYING not found: $COPYING"
+[ -f "$ALLCALL7" ] || fail "ALLCALL7.TXT not found: $ALLCALL7"
 [ -f "$NOTICES_TABLE" ] || fail "third-party library table not found: $NOTICES_TABLE"
 [ -f "$LICENSE_PAGE" ] || fail "license page not found: $LICENSE_PAGE"
 [ "$PLATFORM" != linux ] || [ -f "$EXCLUDELIST" ] || fail "linuxdeploy excludelist not found: $EXCLUDELIST"
@@ -165,6 +169,9 @@ macos_closure() {
     id=$(otool -D "${SOURCE}/${file}" | awk 'NR == 2 { print; exit }')
     while IFS= read -r ref; do
       [ "$ref" != "$id" ] || continue
+      case "${ref##*/}" in
+        libboost_*) fail "${file} imports a Boost shared library: ${ref}" ;;
+      esac
       found=""
       case "$ref" in
         /usr/lib/*|/System/Library/*) continue ;;
@@ -203,7 +210,7 @@ macos_closure() {
 
 macos_minimum() {
   local file
-  find "$DEST" -type f ! -name '*.txt' ! -name COPYING | while IFS= read -r file; do
+  find "$DEST" -type f ! -iname '*.txt' ! -name COPYING | while IFS= read -r file; do
     otool -l "$file" | awk '
       $1 == "Load" && $2 == "command" { command = "" }
       $1 == "cmd" { command = $2 }
@@ -235,6 +242,9 @@ windows_closure() {
     imports=$(objdump -p "$bin") || fail "objdump failed on ${bin##*/}"
     while read -r dep; do
       lower=$(printf '%s' "$dep" | tr '[:upper:]' '[:lower:]')
+      case "$lower" in
+        libboost_*|boost_*) fail "${bin##*/} imports a Boost shared library: ${dep}" ;;
+      esac
       # The Universal C Runtime's API sets are names the Windows 10 loader
       # maps; no file by that name need exist in the system directory.
       case "$lower" in api-ms-win-crt-*) continue ;; esac
@@ -301,6 +311,9 @@ linux_check() {
   : > "${WORK}/host-versions.txt"
   while IFS= read -r file; do
     relative="${file#"${DEST}"/}"
+    case "${file##*/}" in
+      libboost_*) fail "unexpected bundled Boost library: ${relative}" ;;
+    esac
     dynamic=$(readelf -dW "$file") || fail "readelf failed on ${relative}"
     directory=$(dirname "$file")
     searched=()
@@ -323,6 +336,9 @@ linux_check() {
     while IFS= read -r line; do
       [[ "$line" =~ \(NEEDED\).*Shared[[:space:]]library:[[:space:]]\[([^]]+)\] ]] || continue
       library="${BASH_REMATCH[1]}"
+      case "$library" in
+        libboost_*) fail "${relative} imports a Boost shared library: ${library}" ;;
+      esac
       if in_excludelist "$library"; then
         printf '%s\n' "$library" >> "${WORK}/host-libraries.txt"
         continue
@@ -336,10 +352,12 @@ linux_check() {
     readelf -VW "$file" | awk '
       /^Version needs section/ { needs = 1; next }
       /^Version (definition|symbols) section/ { needs = 0 }
-      needs && match($0, /Name: (GLIBC|GLIBCXX)_[0-9.]+/) { print substr($0, RSTART + 6, RLENGTH - 6) }
+      needs && match($0, /Name: (GLIBC|GLIBCXX|CXXABI|GFORTRAN|GOMP)_[0-9.]+/) { print substr($0, RSTART + 6, RLENGTH - 6) }
     ' >> "${WORK}/host-versions.txt" || fail "readelf failed on ${relative}"
   done < <(find "${DEST}/bin" "${DEST}/lib" -type f)
   [ "${#unresolved[@]}" -eq 0 ] || fail "libraries that resolve neither inside ${NAME} nor to linuxdeploy's excludelist: ${unresolved[*]}"
+  printf 'Runtime symbol requirements: %s\n' "$NAME"
+  LC_ALL=C sort -u "${WORK}/host-versions.txt"
 }
 
 highest_version() {
@@ -414,10 +432,15 @@ describe() {
     codec)
       echo "wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files."
       echo "wsjt-codec ${writes}"
+      echo "Its multithreaded FT8 decoder reads ALLCALL7.TXT, included here, from its read-only data directory (-r, default the current directory); point -r at this directory, where this README is."
+      echo
+      echo "doc/codec/ in the source code of this release documents how a client program drives wsjt-codec: https://github.com/WSJTX/wsjtx/tree/v${VERSION}/doc/codec"
       ;;
     wsprd)
       echo "wsprd decodes WSPR from WAV files, and from framed PCM audio on standard input (-0)."
       echo "wsprd writes working files to its data directory (-a, default the current directory) and stops if it cannot write there."
+      echo
+      echo "doc/codec/ in the source code of this release documents how a client program drives wsprd -0: https://github.com/WSJTX/wsjtx/tree/v${VERSION}/doc/codec"
       ;;
     utilities)
       echo "Utilities for testing decoders: wsprcode and encode77 encode messages; ft4sim, jt4sim, jt65sim, cwsim and sfoxsim write simulated signals to WAV files in the current directory, so run them where they can write."
@@ -505,7 +528,14 @@ for index in "${!GROUP_NAMES[@]}"; do
       windows_closure
       ;;
   esac
+  while IFS= read -r -d '' file; do
+    lower=$(printf '%s' "${file##*/}" | tr '[:upper:]' '[:lower:]')
+    case "$lower" in
+      libboost_*|boost_*.dll|boost_*.lib) fail "unexpected bundled Boost library: ${file#"$DEST"/}" ;;
+    esac
+  done < <(find "$DEST" \( -type f -o -type l \) -print0)
   cp "$COPYING" "${DEST}/COPYING"
+  [ "$group" != codec ] || cp "$ALLCALL7" "${DEST}/ALLCALL7.TXT"
   write_notices
   write_readme "$group" "$programs"
   COPYFILE_DISABLE=1 tar -czf "${WORK}/tarballs/${NAME}.tar.gz" -C "$WORK" "$NAME"

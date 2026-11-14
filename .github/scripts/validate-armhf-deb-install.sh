@@ -45,6 +45,11 @@ if dpkg-query -W -f='${db:Status-Status}' wsjtx 2>/dev/null | awk '$0 == "instal
   echo "WSJT-X must not be preinstalled in the clean validation container"
   exit 1
 fi
+dependencies=$(dpkg-deb -f "$package" Depends Pre-Depends Recommends)
+if [[ "$dependencies" == *boost* ]]; then
+  echo "Package declares a Boost runtime dependency: $dependencies"
+  exit 1
+fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -53,6 +58,9 @@ apt-get install --yes --no-install-recommends "$package" xvfb xauth binutils fil
 dpkg-query -L wsjtx > "$log_dir/installed-paths.txt"
 elf_count=0
 while IFS= read -r path; do
+  case "${path##*/}" in
+    libboost_*) echo "Unexpected installed Boost library: $path"; exit 1 ;;
+  esac
   [ -f "$path" ] || continue
   metadata=$(file -L -- "$path")
   [[ "$metadata" == *ELF* ]] || continue
@@ -61,6 +69,10 @@ while IFS= read -r path; do
     *) echo "Installed package has a non-ARMHF ELF: $metadata"; exit 1 ;;
   esac
   dynamic=$(readelf -dW -- "$path")
+  if [[ "$dynamic" == *"Shared library: [libboost_"* ]]; then
+    echo "Installed package imports Boost: $path"
+    exit 1
+  fi
   if [[ "$dynamic" == *"(NEEDED)"* ]]; then
     if ! resolved=$(ldd "$path" 2>&1); then
       printf '%s\n%s\n' "Dependency resolution failed for $path" "$resolved"
@@ -68,7 +80,7 @@ while IFS= read -r path; do
     fi
     printf '%s\n%s\n' "$path" "$resolved"
     case "$resolved" in
-      *"not found"*|*"/opt/wsjtx/"*|*"/work/"*)
+      *"not found"*|*"/opt/wsjtx/"*|*"/work/"*|*libboost_*)
         echo "Installed package has unresolved or build-environment dependencies: $path"
         exit 1
         ;;

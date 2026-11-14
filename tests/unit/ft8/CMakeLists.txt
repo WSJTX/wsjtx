@@ -43,6 +43,22 @@ add_executable (test_ft8_fft32
 wsjt_link_common_fortran (test_ft8_fft32)
 add_test (NAME test_ft8_fft32 COMMAND test_ft8_fft32)
 
+add_executable (test_ft8_subtract_lowpass
+  test_ft8_subtract_lowpass.f90)
+wsjt_link_common_fortran (test_ft8_subtract_lowpass)
+add_test (NAME test_ft8_subtract_lowpass COMMAND test_ft8_subtract_lowpass)
+set_tests_properties (test_ft8_subtract_lowpass PROPERTIES TIMEOUT 120)
+
+add_executable (test_osd174_91_fast
+  test_osd174_91_fast.f90)
+wsjt_link_common_fortran (test_osd174_91_fast)
+foreach (k 91 85 77)
+  add_test (NAME test_osd174_91_fast_k${k} COMMAND test_osd174_91_fast 3000 ${k})
+  set_tests_properties (test_osd174_91_fast_k${k} PROPERTIES TIMEOUT 120)
+endforeach ()
+add_test (NAME test_osd174_91_fast_ties COMMAND test_osd174_91_fast 10000 91 ties)
+set_tests_properties (test_osd174_91_fast_ties PROPERTIES TIMEOUT 120)
+
 if (TARGET wsjt_fort_omp)
   add_executable (test_ft8_sync_fft_concurrent
     test_ft8_sync_fft_concurrent.f90)
@@ -103,3 +119,18 @@ add_executable (test_ft8_a7_suffix_calls test_ft8_a7_suffix_calls.f90)
 target_include_directories (test_ft8_a7_suffix_calls PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_ft8_a7_suffix_calls)
 add_test (NAME test_ft8_a7_suffix_calls COMMAND test_ft8_a7_suffix_calls)
+
+add_executable (test_ft8_callsign_database
+  test_ft8_callsign_database.f90
+  ${CMAKE_SOURCE_DIR}/lib/ft8var/jt65_mod9.f90
+  ${CMAKE_SOURCE_DIR}/lib/ft8var/searchcallsvar.f90)
+set (callsign_database_module_dir "${CMAKE_CURRENT_BINARY_DIR}/callsign-database-modules")
+file (MAKE_DIRECTORY "${callsign_database_module_dir}")
+set_target_properties (test_ft8_callsign_database PROPERTIES
+  Fortran_MODULE_DIRECTORY "${callsign_database_module_dir}")
+target_include_directories (test_ft8_callsign_database BEFORE PRIVATE "${callsign_database_module_dir}")
+target_compile_options (test_ft8_callsign_database PRIVATE
+  $<$<COMPILE_LANG_AND_ID:Fortran,GNU>:-fcheck=bounds>)
+add_test (NAME test_ft8_callsign_database
+  COMMAND test_ft8_callsign_database "${CMAKE_SOURCE_DIR}/ALLCALL7.TXT")
+set_tests_properties (test_ft8_callsign_database PROPERTIES TIMEOUT 30)

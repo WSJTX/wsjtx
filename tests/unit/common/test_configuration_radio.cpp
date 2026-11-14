@@ -9,7 +9,12 @@
 #include <QThreadPool>
 #include <QScrollBar>
 #include <QSet>
+#include <QStyleOptionButton>
+#include <QTranslator>
 #include <functional>
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#endif
 #include "logbook/WorkedBefore.hpp"
 
 // Exercise the private dialog and its auto-connected slots without exposing a test API.
@@ -57,6 +62,9 @@ struct FrequencySession final : QObject
   QStringList failures;
   Frequency appliedRx = 14074000;
   Frequency appliedTx = 14075000;
+  QString appliedMode {"digu"};
+  Transceiver::MODE observedMode = Transceiver::UNK;
+  bool holdMode = false;
   Frequency withheldTarget = 0;
   QString withheld;
   bool wrongThread = false;
@@ -69,20 +77,24 @@ struct FrequencySession final : QObject
     };
     configuration.set_frequency_activity_provider ([this] { checkThread (); return activity; });
     connect (&configuration, &Configuration::frequency_result, this,
-      [this] (RigFrequency::Result const& result) {
+      [this, &configuration] (RigFrequency::Result const& result) {
         checkThread ();
+        frequency.setConnectionGeneration (configuration.frequency_generation ());
         results.push_back (result);
         frequency.handleResult (result);
       });
     connect (&configuration, &Configuration::frequency_observation, this,
-      [this] (RigFrequency::Evidence const& evidence) {
+      [this, &configuration] (RigFrequency::Evidence const& evidence) {
         checkThread ();
+        frequency.setConnectionGeneration (configuration.frequency_generation ());
         frequency.observe (evidence, context);
       });
     connect (&configuration, &Configuration::transceiver_update, this,
-      [this] (Transceiver::TransceiverState const& state) {
+      [this, &configuration] (Transceiver::TransceiverState const& state) {
         checkThread ();
+        frequency.setConnectionGeneration (configuration.frequency_generation (), state.online ());
         activity.rigPtt = state.ptt ();
+        observedMode = state.mode ();
         activity.rigTune = state.tune ();
         context.transmitting = state.ptt ();
         OperatingFrequency::Observation current {
@@ -97,8 +109,13 @@ struct FrequencySession final : QObject
     connect (&configuration, &Configuration::transceiver_failure, this,
       [this] (QString const& reason) { failures.push_back (reason); });
     connect (&server, &TciSimServer::client_arrived, this, [this] (int) {
-      for (auto const& message : TciSimScript::greeting_messages (TciSimGreeting::Thetis))
-        server.send_text (message);
+      for (auto message : TciSimScript::greeting_messages (TciSimGreeting::Thetis))
+        {
+          if (message.startsWith ("vfo:0,0,")) message = QString {"vfo:0,0,%1"}.arg (appliedRx);
+          else if (message.startsWith ("vfo:0,1,")) message = QString {"vfo:0,1,%1"}.arg (appliedTx);
+          else if (message.startsWith ("modulation:0,")) message = QString {"modulation:0,%1"}.arg (appliedMode);
+          server.send_text (message);
+        }
     });
     connect (&server, &TciSimServer::text_received, this, [this] (QString const& raw, int) {
       for (auto message : raw.split (';', Qt::SkipEmptyParts))
@@ -117,7 +134,13 @@ struct FrequencySession final : QObject
                 }
               server.send_text (QString {"vfo:0,%1,%2"}.arg (args.at (1)).arg (applied));
             }
-          else if (verb == "trx" || verb == "split_enable" || verb == "modulation"
+          else if (verb == "modulation")
+            {
+              if (holdMode && args.size () >= 2) continue;
+              if (args.size () >= 2) appliedMode = args.at (1);
+              server.send_text (QString {"modulation:0,%1"}.arg (appliedMode));
+            }
+          else if (verb == "trx" || verb == "split_enable"
                    || verb == "rx_enable" || verb == "start" || verb == "stop")
             server.send_text (message);
         }
@@ -128,6 +151,19 @@ struct FrequencySession final : QObject
   bool apply (RigFrequency::Path path)
   {
     return frequency.applyCorrection (path, activity, false, dispatch);
+  }
+  int modeWrites () const
+  {
+    int writes = 0;
+    for (auto const& message : server.messages (TciSimServer::Direction::ClientToServer, "modulation"))
+      if (message.args.size () >= 2) ++writes;
+    return writes;
+  }
+  void selectMode (QString const& mode)
+  {
+    appliedMode = mode;
+    server.send_text (QString {"modulation:0,%1"}.arg (mode));
+    server.flush ();
   }
   void release ()
   {
@@ -175,7 +211,46 @@ class TestConfigurationRadio final : public QObject
       && session.previous.online && session.failures.isEmpty ();
   }
 
-  bool inspectHistoryDialog (std::function<void (QDialog&)> const& inspect)
+  bool openPttTestWithLatchedYield ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    ui ().mode_data_radio_button->setChecked (true);
+    dialog ().show ();
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    s.appliedMode = "cw";
+    dialog ().radio_mode_policy_.configure (Transceiver::DIG_U);
+    dialog ().radio_mode_policy_.prepare (dialog ().transceiver_command_number_);
+    dialog ().handle_mode_status ({Transceiver::CW, Transceiver::ModeStatusKind::Observed},
+      dialog ().transceiver_command_number_);
+    if (!s.server.listen () || !openFrequencySession ()) return false;
+    dialog ().have_rig_ = true;
+    dialog ().rig_changed_ = false;
+    return configuration_->radio_mode_yielded () && !configuration_->radio_mode_ready ()
+      && s.observedMode == Transceiver::CW;
+  }
+
+  bool stageYieldedRadioWithoutTransport ()
+  {
+    auto& d = dialog ();
+    d.data_mode_ = Configuration::data_mode_data;
+    ui ().mode_data_radio_button->setChecked (true);
+    d.show ();
+    d.rig_params_ = d.saved_rig_params_ = d.gather_rig_data ();
+    d.rig_active_ = d.have_rig_ = true;
+    d.rig_changed_ = d.rig_is_dummy_ = false;
+    Transceiver::TransceiverState observed;
+    observed.online (true);
+    observed.frequency (14074000);
+    observed.mode (Transceiver::CW);
+    d.cached_rig_state_ = observed;
+    d.send_transceiver (Transceiver::DIG_U);
+    d.handle_mode_status ({Transceiver::CW, Transceiver::ModeStatusKind::Observed}, d.transceiver_command_number_);
+    d.handle_transceiver_update (observed, d.transceiver_command_number_);
+    return configuration_->radio_mode_yielded () && ui ().test_PTT_push_button->isEnabled ();
+  }
+
+  bool inspectHistoryDialog (std::function<void (QDialog&)> const& inspect, bool accept = false)
   {
     bool found {false};
     auto& d = dialog ();
@@ -189,7 +264,7 @@ class TestConfigurationRadio final : public QObject
         if (!nested) return;
         found = true;
         inspect (*nested);
-        nested->reject ();
+        nested->done (accept ? QDialog::Accepted : QDialog::Rejected);
       });
     d.on_history_sources_push_button_clicked (false);
     return found;
@@ -205,6 +280,21 @@ class TestConfigurationRadio final : public QObject
   {
     QFile file {path};
     return file.open (QIODevice::ReadOnly) ? file.readAll () : QByteArray {};
+  }
+
+  bool createHistorySymlink (QString const& source, QString const& alias, bool directory)
+  {
+#ifdef Q_OS_WIN
+    auto const target = QDir::toNativeSeparators (source).toStdWString ();
+    auto const link = QDir::toNativeSeparators (alias).toStdWString ();
+    DWORD const flags = directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
+    constexpr DWORD allow_unprivileged_create {0x2};
+    return CreateSymbolicLinkW (link.c_str (), target.c_str (), flags | allow_unprivileged_create)
+      || CreateSymbolicLinkW (link.c_str (), target.c_str (), flags);
+#else
+    Q_UNUSED (directory);
+    return QFile::link (source, alias);
+#endif
   }
 
   bool prepareHistoryDirectory (QTemporaryDir const& directory)
@@ -279,10 +369,50 @@ private slots:
     settings_.reset ();
   }
 
+  void baudRatePresetsRemainCanonicalAcrossTranslations ()
+  {
+    class Translator final : public QTranslator
+    {
+    public:
+      bool isEmpty () const override { return false; }
+      QString translate (char const * context, char const * source,
+                         char const * = nullptr, int = -1) const override
+      {
+        bool numeric {false};
+        QString::fromLatin1 (source).toInt (&numeric);
+        return QByteArray {context} == "configuration_dialog" && numeric
+          ? QStringLiteral ("Translated baud rate") : QString {};
+      }
+      ~Translator () override { QCoreApplication::removeTranslator (this); }
+    } translator;
+    QVERIFY (QCoreApplication::installTranslator (&translator));
+    QCOMPARE (QCoreApplication::translate ("configuration_dialog", "1200"),
+              QStringLiteral ("Translated baud rate"));
+    ui ().retranslateUi (&dialog ());
+
+    int const rates[] {1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200};
+    auto * const combo = ui ().CAT_serial_baud_combo_box;
+    QCOMPARE (combo->count (), int (sizeof rates / sizeof rates[0]));
+    for (int row = 0; row < combo->count (); ++row)
+      {
+        QCOMPARE (combo->itemText (row), QString::number (rates[row]));
+        combo->setCurrentIndex ((row + 1) % combo->count ());
+        dialog ().rig_params_.baud = rates[row];
+        dialog ().initialize_models ();
+        QCOMPARE (combo->currentIndex (), row);
+        QCOMPARE (dialog ().gather_rig_data ().baud, rates[row]);
+
+        auto const changed = (row + 1) % combo->count ();
+        combo->setCurrentIndex (changed);
+        QCOMPARE (dialog ().gather_rig_data ().baud, rates[changed]);
+      }
+  }
+
   void threadedFrequencyApplicationAcrossPttTail ()
   {
     session_.reset (new FrequencySession {*configuration_});
     auto& s = *session_;
+    s.appliedRx = s.appliedTx = FrequencySession::nominal;
     QVERIFY (s.server.listen ());
     QVERIFY (openFrequencySession ());
     s.frequency.setDesiredCorrection (125, -125);
@@ -330,36 +460,76 @@ private slots:
     QVERIFY (!app.wrongThread.load ());
   }
 
-  void reconnectDiscardsQueuedFrequencyApplication ()
+  void reconnectDiscardsPendingFrequencyApplication_data ()
   {
+    QTest::addColumn<bool> ("tx");
+    QTest::addColumn<bool> ("testCat");
+    QTest::addColumn<bool> ("queuedResult");
+    QTest::newRow ("offline-rx-queued") << false << false << true;
+    QTest::newRow ("test-cat-rx-queued") << false << true << true;
+    QTest::newRow ("test-cat-tx-queued") << true << true << true;
+    QTest::newRow ("test-cat-rx-awaiting-readback") << false << true << false;
+    QTest::newRow ("test-cat-tx-awaiting-readback") << true << true << false;
+  }
+
+  void reconnectDiscardsPendingFrequencyApplication ()
+  {
+    QFETCH (bool, tx);
+    QFETCH (bool, testCat);
+    QFETCH (bool, queuedResult);
+    auto const path = tx ? RigFrequency::Path::Tx : RigFrequency::Path::Rx;
     session_.reset (new FrequencySession {*configuration_});
     auto& s = *session_;
+    s.appliedRx = s.appliedTx = FrequencySession::nominal;
     QVERIFY (s.server.listen ());
     QVERIFY (openFrequencySession ());
     s.frequency.setDesiredCorrection (125, -125);
     QVERIFY (s.frequency.requestNominal (FrequencySession::nominal, s.dispatch));
     QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingRx; }, 3000));
+    QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingTx; }, 3000));
     s.frequency.setDesiredCorrection (175, -175);
-    s.withheldTarget = FrequencySession::nominal + 175;
-    QVERIFY (s.apply (RigFrequency::Path::Rx));
-    QVERIFY (s.server.wait_for ([&] { return !s.withheld.isEmpty (); }, 1000));
+    s.withheldTarget = tx ? FrequencySession::nominal - 175 : FrequencySession::nominal + 175;
+    QVERIFY (s.apply (path));
+    QVERIFY (s.server.wait_for ([&] { return !s.withheld.isEmpty (); }, 3000));
     auto& app = *static_cast<RadioTestApplication *> (qApp);
     while (app.completedCall.tryAcquire ()) {}
-    app.fenceArmed.store (true);
-    s.release ();
-    // Keep the GUI queue stopped until CAT has emitted its result into that queue.
-    QVERIFY (app.completedCall.tryAcquire (1, 3000));
-    QVERIFY (s.frequency.snapshot ().pendingRx);
+    if (queuedResult)
+      {
+        app.fenceArmed.store (true);
+        s.release ();
+        // Keep the GUI queue stopped until CAT has emitted its result into that queue.
+        QVERIFY (app.completedCall.tryAcquire (1, 3000));
+      }
+    QVERIFY (tx ? s.frequency.snapshot ().pendingTx : s.frequency.snapshot ().pendingRx);
     auto const oldGeneration = configuration_->frequency_generation ();
     auto const resultsBeforeClose = s.results.size ();
-    configuration_->transceiver_offline ();
-    QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+    if (testCat)
+      {
+        // The simulator accepts one client, so retire the old socket before reconnecting.
+        connect (configuration_.get (), &Configuration::transceiver_closing,
+                 &s.server, &TciSimServer::abort_client);
+        s.previous = {};
+        dialog ().on_test_CAT_push_button_clicked ();
+        QVERIFY (s.server.wait_for ([&] { return s.previous.online || !s.failures.isEmpty (); }, 7000));
+        QVERIFY (s.previous.online);
+      }
+    else
+      {
+        configuration_->transceiver_offline ();
+        QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+        s.previous = {};
+        QVERIFY (openFrequencySession ());
+      }
     QCOMPARE (s.results.size (), resultsBeforeClose);
-    s.previous = {};
-    QVERIFY (openFrequencySession ());
+    s.withheld.clear ();
+    s.withheldTarget = 0;
     QVERIFY (configuration_->frequency_generation () > oldGeneration);
     QVERIFY (s.frequency.recoveryRequired ());
     QVERIFY (!s.apply (RigFrequency::Path::Rx));
+    QVERIFY (!s.apply (RigFrequency::Path::Tx));
+    QVERIFY (!s.frequency.snapshot ().pendingRx);
+    QVERIFY (!s.frequency.snapshot ().pendingTx);
     QCOMPARE (s.frequency.rx (), FrequencySession::nominal);
     QCOMPARE (s.frequency.remembered (), FrequencySession::nominal);
     for (auto const& message : s.server.messages (TciSimServer::Direction::ClientToServer, "vfo"))
@@ -369,9 +539,475 @@ private slots:
     QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingRx; }, 3000));
     QCOMPARE (s.appliedRx, FrequencySession::nominal + 175);
     QCOMPARE (s.frequency.correctedRx (), s.appliedRx);
+    QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingTx; }, 3000));
+    QCOMPARE (s.appliedTx, FrequencySession::nominal - 175);
+    QCOMPARE (s.frequency.correctedTx (), s.appliedTx);
     QVERIFY (!s.frequency.recoveryRequired ());
     QVERIFY (s.failures.isEmpty ());
     QVERIFY (!s.wrongThread);
+  }
+
+  void reconnectAfterInterruptedFrequencyPreservesExternalMode_data ()
+  {
+    QTest::addColumn<bool> ("tx");
+    QTest::addColumn<bool> ("queuedCompletion");
+    QTest::addColumn<QString> ("externalMode");
+    QTest::newRow ("RX-QSY-pending-CW") << false << false << QString {"cw"};
+    QTest::newRow ("RX-QSY-queued-USB") << false << true << QString {"usb"};
+    QTest::newRow ("TX-correction-pending-CW") << true << false << QString {"cw"};
+    QTest::newRow ("TX-correction-queued-USB") << true << true << QString {"usb"};
+  }
+
+  void reconnectAfterInterruptedFrequencyPreservesExternalMode ()
+  {
+    QFETCH (bool, tx);
+    QFETCH (bool, queuedCompletion);
+    QFETCH (QString, externalMode);
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    s.appliedRx = s.appliedTx = FrequencySession::nominal;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.frequency.setDesiredCorrection (125, -125);
+    QVERIFY (s.frequency.requestNominal (FrequencySession::nominal, s.dispatch));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingRx; }, 3000));
+    QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.frequency.snapshot ().pendingTx; }, 3000));
+
+    s.frequency.setDesiredCorrection (175, -175);
+    s.withheldTarget = tx ? FrequencySession::nominal - 175 : FrequencySession::nominal + 1175;
+    if (!tx)
+      {
+        QVERIFY (s.frequency.requestNominal (FrequencySession::nominal + 1000,
+          [&] (RigFrequency::Request const& request) {
+            return configuration_->request_frequency (request, RigFrequencyChangePolicy::ChangeKind::NominalQsy);
+          }));
+      }
+    else QVERIFY (s.apply (RigFrequency::Path::Tx));
+    QVERIFY (s.server.wait_for ([&] { return !s.withheld.isEmpty (); }, 3000));
+    if (queuedCompletion)
+      {
+        auto& app = *static_cast<RadioTestApplication *> (qApp);
+        while (app.completedCall.tryAcquire ()) {}
+        app.fenceArmed.store (true);
+        s.release ();
+        // Leave the completed operation queued on the GUI side until CAT closes.
+        QVERIFY (app.completedCall.tryAcquire (1, 3000));
+      }
+    QVERIFY (tx ? s.frequency.snapshot ().pendingTx : s.frequency.snapshot ().pendingRx);
+    auto const oldGeneration = configuration_->frequency_generation ();
+    QObject stopping;
+    auto const stopConnection = connect (configuration_.get (), &Configuration::radio_mode_control_changed, &stopping,
+      [&] (bool yielded, bool) {
+        if (!yielded) return;
+        configuration_->transceiver_ptt (false);
+        configuration_->transceiver_tune (false);
+        configuration_->transceiver_audio (false);
+        configuration_->transceiver_txvolume (1.0, true);
+      });
+    QSignalSpy closingCommands {&dialog (), &Configuration::impl::set_transceiver};
+    configuration_->transceiver_offline ();
+    QVERIFY (closingCommands.isEmpty ());
+    disconnect (stopConnection);
+    QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+    QVERIFY (s.frequency.recoveryRequired ());
+    auto const resultsAfterClose = s.results.size ();
+
+    FrequencySession::Frequency const externalDial = 7074000;
+    s.appliedRx = externalDial;
+    s.appliedTx = externalDial + 1000;
+    s.appliedMode = externalMode;
+    s.withheld.clear ();
+    s.withheldTarget = 0;
+    s.previous = {};
+    auto const modeWritesBeforeReconnect = s.modeWrites ();
+    QVector<Transceiver::TransceiverState> commands;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& state, unsigned) { commands.push_back (state); });
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->frequency_generation () > oldGeneration);
+    QVERIFY (s.server.wait_for ([&] {
+      return configuration_->radio_mode_yielded () && s.previous.rx == externalDial;
+    }, 3000));
+    QCOMPARE (s.results.size (), resultsAfterClose);
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QVERIFY (s.frequency.recoveryRequired ());
+    QVERIFY (!s.apply (RigFrequency::Path::Rx));
+    QVERIFY (!s.apply (RigFrequency::Path::Tx));
+
+    QSignalSpy updates {configuration_.get (), &Configuration::transceiver_update};
+    configuration_->transceiver_tune (true);
+    configuration_->transceiver_ptt (false);
+    configuration_->transceiver_tune (false);
+    configuration_->transceiver_audio (false);
+    configuration_->transceiver_txvolume (1.0, true);
+    QVERIFY (s.server.wait_for ([&] { return !updates.isEmpty (); }, 3000));
+    QCOMPARE (s.modeWrites (), modeWritesBeforeReconnect);
+    QCOMPARE (s.appliedMode, externalMode);
+    QCOMPARE (s.appliedRx, externalDial);
+    for (auto const& message : s.server.messages (TciSimServer::Direction::ClientToServer, "vfo"))
+      QVERIFY (message.connection_generation != s.server.connection_generation () || message.args.size () != 3);
+
+    s.activity.stopDelayActive = true;
+    QVERIFY (!configuration_->prepare_radio_mode ());
+    QCOMPARE (s.modeWrites (), modeWritesBeforeReconnect);
+    QVERIFY (configuration_->radio_mode_yielded ());
+    s.activity.stopDelayActive = false;
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_yielded ());
+    QCOMPARE (s.appliedMode, QString {"digu"});
+    QCOMPARE (s.appliedRx, externalDial);
+    QVERIFY (s.frequency.recoveryRequired ());
+    for (auto const& command : commands)
+      QVERIFY (!command.ptt () && !command.tune () && !command.tx_audio ());
+    QVERIFY (s.failures.isEmpty ());
+    QVERIFY (!s.wrongThread);
+  }
+
+  void yieldedModeSurvivesCatRestart_data ()
+  {
+    QTest::addColumn<QString> ("externalMode");
+    QTest::newRow ("CW") << QString {"cw"};
+    QTest::newRow ("USB") << QString {"usb"};
+  }
+
+  void yieldedModeSurvivesCatRestart ()
+  {
+    QFETCH (QString, externalMode);
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.selectMode (externalMode);
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    s.appliedRx += 1000;
+    s.server.send_text (QString {"vfo:0,0,%1"}.arg (s.appliedRx));
+    auto const externalDial = s.appliedRx;
+    QVERIFY (s.server.wait_for ([&] { return s.previous.rx == externalDial; }, 3000));
+    auto const modeWrites = s.modeWrites ();
+    configuration_->transceiver_offline ();
+    QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+    QCOMPARE (s.appliedMode, externalMode);
+    QCOMPARE (s.modeWrites (), modeWrites);
+    s.previous = {};
+    QVERIFY (openFrequencySession ());
+    QCOMPARE (s.appliedMode, externalMode);
+    QCOMPARE (s.appliedRx, externalDial);
+    QCOMPARE (s.modeWrites (), modeWrites);
+    QVERIFY (configuration_->radio_mode_yielded ());
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void externalModeSurvivesHousekeepingAndRequiresExplicitRecovery ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    auto const initialWrites = s.modeWrites ();
+
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QCOMPARE (s.modeWrites (), initialWrites);
+
+    QSignalSpy blockedTune {&dialog (), &Configuration::impl::set_transceiver};
+    configuration_->transceiver_tune (true);
+    QVERIFY (blockedTune.isEmpty ());
+
+    ++s.appliedRx;
+    s.server.send_text (QString {"vfo:0,0,%1"}.arg (s.appliedRx));
+    QVERIFY (s.server.wait_for ([&] { return s.previous.rx == s.appliedRx; }, 3000));
+    auto const physicalDial = s.appliedRx;
+    QVERIFY (!configuration_->transceiver_tx_frequency (
+      physicalDial + 1000, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection));
+    QSignalSpy updates {configuration_.get (), &Configuration::transceiver_update};
+    configuration_->transceiver_ptt (false);
+    configuration_->transceiver_tune (false);
+    configuration_->transceiver_audio (false);
+    configuration_->transceiver_txvolume (1.0);
+    QVERIFY (s.server.wait_for ([&] { return !updates.isEmpty (); }, 3000));
+    QCOMPARE (s.appliedMode, QString {"cw"});
+    QCOMPARE (s.modeWrites (), initialWrites);
+    QVERIFY (configuration_->radio_mode_yielded ());
+
+    s.selectMode ("digu");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::DIG_U; }, 3000));
+    QVERIFY (configuration_->radio_mode_yielded ());
+    QVERIFY (!configuration_->radio_mode_ready ());
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::CW; }, 3000));
+    int preparationCommands = 0;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& command, unsigned) {
+        if (command.mode () != Transceiver::UNK) ++preparationCommands;
+      });
+    QVERIFY (configuration_->prepare_radio_mode ());
+    auto const commandsAfterPreparation = preparationCommands;
+    QVERIFY (commandsAfterPreparation > 0);
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QCOMPARE (preparationCommands, commandsAfterPreparation);
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_yielded ());
+    QCOMPARE (s.appliedMode, QString {"digu"});
+    QCOMPARE (s.appliedRx, physicalDial);
+    QVERIFY (s.modeWrites () > initialWrites);
+    QVERIFY (s.failures.isEmpty ());
+    QVERIFY (!s.wrongThread);
+  }
+
+  void testPttPreparesModeBeforeKeying ()
+  {
+    QVERIFY (openPttTestWithLatchedYield ());
+    auto& s = *session_;
+    auto const dial = s.appliedRx;
+    auto const writes = s.modeWrites ();
+    s.holdMode = true;
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    bool keyedBeforeReady = false;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& state, unsigned) {
+        keyedBeforeReady |= state.ptt () && !configuration_->radio_mode_ready ();
+      });
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return s.modeWrites () > writes; }, 1000));
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+    QCOMPARE (ui ().test_PTT_push_button->text (), QString {"Cancel PTT test"});
+    QVERIFY (!ui ().test_PTT_status_label->isHidden ());
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+
+    s.holdMode = false;
+    s.selectMode ("digu");
+    QVERIFY (s.server.wait_for ([&] { return s.activity.rigPtt; }, 3000));
+    QVERIFY (!keyedBeforeReady);
+    QVERIFY (ui ().test_PTT_push_button->isChecked ());
+    QVERIFY (ui ().test_PTT_status_label->isHidden ());
+    QCOMPARE (s.appliedRx, dial);
+    for (auto const& command : commands)
+      {
+        auto const state = qvariant_cast<Transceiver::TransceiverState> (command.at (0));
+        QVERIFY (!state.tune ());
+        QVERIFY (!state.tx_audio ());
+      }
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return !s.activity.rigPtt; }, 3000));
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void testPttOffDoesNotSendToOfflineRig ()
+  {
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    dialog ().on_test_PTT_push_button_clicked (false);
+    QVERIFY (commands.isEmpty ());
+    QVERIFY (!dialog ().cached_rig_state_.online ());
+  }
+
+  void canceledPttTestDoesNotKeyAfterLateModeReadback_data ()
+  {
+    QTest::addColumn<QString> ("action");
+    for (auto action : {"button", "accept", "reject", "close", "settings", "audio-source", "inhibit", "stop-delay"})
+      QTest::newRow (action) << QString {action};
+  }
+
+  void canceledPttTestDoesNotKeyAfterLateModeReadback ()
+  {
+    QFETCH (QString, action);
+    QVERIFY (stageYieldedRadioWithoutTransport ());
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    ui ().test_PTT_push_button->click ();
+    QCOMPARE (commands.size (), 1);
+    QCOMPARE (dialog ().test_ptt_state_, Configuration::impl::TestPttState::Preparing);
+    auto const sequence = dialog ().transceiver_command_number_;
+    if (action == "button") ui ().test_PTT_push_button->click ();
+    else if (action == "accept") dialog ().accept ();
+    else if (action == "reject") dialog ().reject ();
+    else if (action == "close") dialog ().close ();
+    else if (action == "settings") ui ().mode_USB_radio_button->setChecked (true);
+    else if (action == "audio-source")
+      {
+        for (auto button : ui ().TX_audio_source_button_group->buttons ())
+          if (!button->isChecked ()) { button->setChecked (true); break; }
+      }
+    else if (action == "inhibit") dialog ().tx_inhibit_active_ = true;
+    else dialog ().frequency_activity_provider_ = [] {
+        RigFrequencyChangePolicy::Activity activity;
+        activity.stopDelayActive = true;
+        return activity;
+      };
+    dialog ().handle_mode_status ({Transceiver::DIG_U, Transceiver::ModeStatusKind::Observed}, sequence);
+    QCOMPARE (dialog ().test_ptt_state_, Configuration::impl::TestPttState::Idle);
+    dialog ().tx_inhibit_active_ = false;
+    dialog ().frequency_activity_provider_ = {};
+    dialog ().handle_mode_status ({Transceiver::DIG_U, Transceiver::ModeStatusKind::Observed}, sequence);
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+  }
+
+  void canceledPttTestIgnoresLateTransportReadback_data ()
+  {
+    QTest::addColumn<QString> ("action");
+    for (auto action : {"button", "test-cat", "offline"})
+      QTest::newRow (action) << QString {action};
+  }
+
+  void canceledPttTestIgnoresLateTransportReadback ()
+  {
+    QFETCH (QString, action);
+    QVERIFY (openPttTestWithLatchedYield ());
+    auto& s = *session_;
+    s.holdMode = true;
+    auto const writes = s.modeWrites ();
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return s.modeWrites () > writes; }, 1000));
+    if (action == "button") ui ().test_PTT_push_button->click ();
+    else if (action == "test-cat")
+      {
+        connect (configuration_.get (), &Configuration::transceiver_closing,
+                 &s.server, &TciSimServer::abort_client);
+        s.previous = {};
+        dialog ().on_test_CAT_push_button_clicked ();
+        QVERIFY (s.server.wait_for ([&] { return s.previous.online || !s.failures.isEmpty (); }, 7000));
+        QVERIFY (s.previous.online);
+      }
+    else
+      {
+        configuration_->transceiver_offline ();
+        QVERIFY (s.server.wait_for ([&] { return s.server.client_disconnected (); }, 3000));
+        QVERIFY (openFrequencySession ());
+      }
+    s.holdMode = false;
+    s.selectMode ("digu");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::DIG_U; }, 3000));
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+    QVERIFY (!s.activity.rigPtt);
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void failedPttModePreparationExplainsFailureWithoutKeying ()
+  {
+    QVERIFY (openPttTestWithLatchedYield ());
+    auto& s = *session_;
+    s.holdMode = true;
+    QSignalSpy commands {&dialog (), &Configuration::impl::set_transceiver};
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    QVERIFY (ui ().test_PTT_status_label->text ().contains ("could not be confirmed"));
+    QVERIFY (!ui ().test_PTT_status_label->isHidden ());
+    QCOMPARE (ui ().test_PTT_push_button->accessibleDescription (), ui ().test_PTT_status_label->text ());
+    QVERIFY (!ui ().test_PTT_push_button->isChecked ());
+    s.selectMode ("digu");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::DIG_U; }, 3000));
+    for (auto const& command : commands)
+      QVERIFY (!qvariant_cast<Transceiver::TransceiverState> (command.at (0)).ptt ());
+  }
+
+  void testPttModeNonePreservesModeAndStopsOnDialogClose ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_none;
+    dialog ().show ();
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return s.observedMode == Transceiver::CW; }, 3000));
+    auto const writes = s.modeWrites ();
+    ui ().test_PTT_push_button->click ();
+    QVERIFY (s.server.wait_for ([&] { return s.activity.rigPtt; }, 3000));
+    QCOMPARE (s.modeWrites (), writes);
+    QCOMPARE (s.appliedMode, QString {"cw"});
+    dialog ().done (QDialog::Rejected);
+    QVERIFY (s.server.wait_for ([&] { return !s.activity.rigPtt; }, 3000));
+  }
+
+  void firstPreparationOnCompatibleRadioStillDetectsLaterOverride ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (s.server.wait_for ([&] {
+      return dialog ().cached_rig_state_.mode () == Transceiver::DIG_U;
+    }, 3000));
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    QVERIFY (!configuration_->radio_mode_ready ());
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void modeNoneAfterYieldAllowsQsyWithoutChangingPhysicalMode ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    s.selectMode ("cw");
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_yielded (); }, 3000));
+    auto const initialWrites = s.modeWrites ();
+
+    ui ().mode_none_radio_button->setChecked (true);
+    dialog ().accept ();
+    QVERIFY (configuration_->radio_mode_ready ());
+    QVERIFY (!configuration_->radio_mode_yielded ());
+    auto const target = s.appliedRx + 500;
+    QVERIFY (configuration_->transceiver_frequency (
+      target, RigFrequencyChangePolicy::ChangeKind::NominalQsy));
+    QVERIFY (s.server.wait_for ([&] { return s.appliedRx == target; }, 3000));
+    QCOMPARE (s.modeWrites (), initialWrites);
+    QCOMPARE (s.appliedMode, QString {"cw"});
+    QVERIFY (s.failures.isEmpty ());
+  }
+
+  void frequencyMaintenancePreservesCompatibleMode ()
+  {
+    dialog ().data_mode_ = Configuration::data_mode_data;
+    session_.reset (new FrequencySession {*configuration_});
+    auto& s = *session_;
+    QVERIFY (s.server.listen ());
+    QVERIFY (openFrequencySession ());
+    QVERIFY (configuration_->prepare_radio_mode ());
+    QVERIFY (s.server.wait_for ([&] { return configuration_->radio_mode_ready (); }, 3000));
+    auto const initialWrites = s.modeWrites ();
+
+    QVector<Transceiver::TransceiverState> commands;
+    QObject capture;
+    connect (&dialog (), &Configuration::impl::set_transceiver, &capture,
+      [&] (Transceiver::TransceiverState const& state, unsigned) { commands.push_back (state); });
+    QVERIFY (configuration_->transceiver_tx_frequency (
+      s.appliedRx + 1000, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection));
+    QVERIFY (!commands.isEmpty ());
+    for (auto const& command : commands) QCOMPARE (command.mode (), Transceiver::UNK);
+    QVERIFY (s.server.wait_for ([&] { return s.appliedTx == s.appliedRx + 1000; }, 3000));
+    QCOMPARE (s.modeWrites (), initialWrites);
+    QCOMPARE (s.appliedMode, QString {"digu"});
+    QVERIFY (configuration_->radio_mode_ready ());
+    QVERIFY (s.failures.isEmpty ());
   }
 
   void proxyCatBecomesExplicitSerialSelection_data ()
@@ -659,18 +1295,224 @@ private slots:
     QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
   }
 
+  void folderHistoryDiscoversCurrentFilesAndOptionalSubfolders ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const exports = history.filePath ("exports");
+    auto const nested = exports + "/2026";
+    QVERIFY (QDir {}.mkpath (nested));
+    auto const immediate = exports + "/station.adi";
+    auto const mixed_case = exports + "/contest.AdIf";
+    auto const nested_file = nested + "/activation.ADI";
+    QVERIFY (writeHistoryFile (immediate, "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (mixed_case, "<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (nested_file, "<call:5>K2XYZ<band:3>20m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (exports + "/notes.txt", "<call:5>K4TXT<eor>"));
+#ifndef Q_OS_WIN
+    QVERIFY (writeHistoryFile (exports + "/.hidden.adi", "<call:5>K4HID<eor>"));
+    QVERIFY (QDir {}.mkpath (exports + "/.archive"));
+    QVERIFY (writeHistoryFile (exports + "/.archive/backup.adi", "<call:5>K4BAK<eor>"));
+#endif
+    HistoryFolder const folder {exports};
+    QVERIFY (!folder.include_subfolders);
+    dialog ().supplemental_history_folders_ = HistoryFolders {folder};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("K1ABC", "FT8", "20m"));
+    QVERIFY (worked.call_worked ("DL1AA", "FT8", "40m"));
+    QVERIFY (!worked.call_worked ("K2XYZ", {}, {}));
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.load_status ().contains ("This folder only"));
+    QVERIFY (worked.load_status ().contains ("2 matching files"));
+
+    dialog ().supplemental_history_folders_.first ().include_subfolders = true;
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 2);
+    QCOMPARE (finished.at (1).at (0).toInt (), 3);
+    QVERIFY (worked.call_worked ("K2XYZ", "FT8", "20m"));
+    QVERIFY (!worked.call_worked ("K4TXT", {}, {}));
+    QVERIFY (!worked.call_worked ("K4HID", {}, {}));
+    QVERIFY (!worked.call_worked ("K4BAK", {}, {}));
+    QVERIFY (worked.load_status ().contains ("Includes subfolders"));
+
+    QVERIFY (QFile::remove (immediate));
+    QVERIFY (QDir {}.mkpath (exports + "/2027/new"));
+    QVERIFY (writeHistoryFile (exports + "/2027/new/activation.adif", "<call:5>K3NEW<eor>"));
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (!worked.call_worked ("K3NEW", {}, {}));
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 3);
+    QCOMPARE (finished.at (2).at (0).toInt (), 3);
+    QVERIFY (!worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+  }
+
+  void overlappingHistoryFoldersLoadEachFileOnceAndStayReadOnly ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const nested = history.filePath ("exports");
+    QVERIFY (QDir {}.mkpath (nested));
+    auto const source = nested + "/station.adi";
+    QByteArray const contents {"<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"};
+    QVERIFY (writeHistoryFile (source, contents));
+    QVERIFY (writeHistoryFile (history.filePath ("wsjtx_log.adi"), "<call:5>K1ABC<eor>"));
+    dialog ().supplemental_history_files_ = QStringList {source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{history.path (), true}, {nested, false}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY2 (worked.load_status ().contains ("; 2 files loaded."), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.add ("K3NEW", "FN20", "20m", "FT8",
+                        "<call:5>K3NEW<gridsquare:4>FN20<band:3>20m<mode:3>FT8"));
+    QCOMPARE (historyFileContents (source), contents);
+
+    dialog ().supplemental_history_folders_.clear ();
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 2);
+    QVERIFY (worked.call_worked ("DL1AA", {}, {}));
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+    QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
+    dialog ().supplemental_history_files_.clear ();
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 3);
+    QVERIFY (!worked.call_worked ("DL1AA", {}, {}));
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+    QCOMPARE (historyFileContents (source), contents);
+  }
+
+  void folderHistoryDistinguishesEmptyMissingAndMalformedSources ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const empty = history.filePath ("empty");
+    auto const exports = history.filePath ("exports");
+    auto const missing = history.filePath ("disconnected");
+    QVERIFY (QDir {}.mkpath (empty));
+    QVERIFY (QDir {}.mkpath (exports));
+    auto const good = exports + "/good.adi";
+    auto const bad = exports + "/broken.adif";
+    QVERIFY (writeHistoryFile (good, "<call:5>K1ABC<eor>"));
+    QVERIFY (writeHistoryFile (bad, "<call:5>K2BAD<eor><call:99>truncated"));
+    dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.load_status ().contains (QDir::toNativeSeparators (empty)));
+    QVERIFY (worked.load_status ().contains ("0 matching files"));
+
+    dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}, {exports, false}, {missing, true}};
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 2);
+    QCOMPARE (finished.at (1).at (0).toInt (), 1);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (!worked.call_worked ("K2BAD", {}, {}));
+    QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (bad)));
+    QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (missing)));
+    QVERIFY (!worked.load_errors ().contains (QDir::toNativeSeparators (empty)));
+    QVERIFY2 (worked.load_status ().contains ("1 of 2 files loaded"), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_status ().contains ("Directory discovery failures: 1"));
+    QCOMPARE (configuration_->supplemental_history_folders ().size (), 3);
+
+    QVERIFY (QDir {}.mkpath (missing));
+    QVERIFY (writeHistoryFile (missing + "/returned.adi", "<call:5>K3NEW<eor>"));
+    QVERIFY (QFile::remove (bad));
+    worked.reload ();
+    QTRY_COMPARE (finished.count (), 3);
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+  }
+
+  void folderHistoryReportsUnreadableDirectories ()
+  {
+#ifdef Q_OS_WIN
+    QSKIP ("QFile permissions do not control directory ACL traversal on Windows.");
+#else
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const exports = history.filePath ("exports");
+    auto const locked = exports + "/locked";
+    QVERIFY (QDir {}.mkpath (locked));
+    QVERIFY (writeHistoryFile (exports + "/good.adi", "<call:5>K1ABC<eor>"));
+    QVERIFY (writeHistoryFile (locked + "/hidden.adi", "<call:5>K2HID<eor>"));
+    auto const permissions = QFile::permissions (locked);
+    QVERIFY (QFile::setPermissions (locked, {}));
+    bool const inaccessible = !QFileInfo {locked}.isReadable ();
+    if (!inaccessible)
+      {
+        QFile::setPermissions (locked, permissions);
+        QSKIP ("This account can still read directories without read permission.");
+      }
+    dialog ().supplemental_history_folders_ = HistoryFolders {{exports, true}, {locked, false}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    bool const completed = finished.wait (5000);
+    QVERIFY (QFile::setPermissions (locked, permissions));
+    QVERIFY (completed);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (!worked.call_worked ("K2HID", {}, {}));
+    QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (locked)));
+    QVERIFY (worked.load_status ().contains ("Directory discovery failures:"));
+#endif
+  }
+
+  void folderHistorySkipsDirectorySymlinksAndDeduplicatesFileAliases ()
+  {
+    QTemporaryDir history;
+    QVERIFY (prepareHistoryDirectory (history));
+    auto const exports = history.filePath ("exports");
+    auto const outside = history.filePath ("outside");
+    auto const root_alias = history.filePath ("export-alias");
+    QVERIFY (QDir {}.mkpath (exports));
+    QVERIFY (QDir {}.mkpath (outside));
+    auto const primary = history.filePath ("wsjtx_log.adi");
+    auto const source = exports + "/station.adi";
+    QVERIFY (writeHistoryFile (primary, "<call:5>K1ABC<eor>"));
+    QVERIFY (writeHistoryFile (source, "<call:5>DL1AA<eor>"));
+    QVERIFY (writeHistoryFile (outside + "/excluded.adi", "<call:5>K2OUT<eor>"));
+    if (!createHistorySymlink (exports, root_alias, true))
+      QSKIP ("Creating filesystem directory symlinks is unavailable.");
+    QVERIFY (createHistorySymlink (outside, exports + "/outside-link", true));
+    QVERIFY (createHistorySymlink (exports, exports + "/loop", true));
+    if (!createHistorySymlink (source, exports + "/alias.adif", false))
+      QSKIP ("Creating filesystem file symlinks is unavailable.");
+    QVERIFY (createHistorySymlink (primary, exports + "/primary.adi", false));
+    dialog ().supplemental_history_files_ = QStringList {source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{root_alias, true}, {exports, true}};
+    WorkedBefore worked {configuration_.get ()};
+    QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+    QTRY_COMPARE (finished.count (), 1);
+    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
+    QVERIFY (worked.call_worked ("DL1AA", {}, {}));
+    QVERIFY (!worked.call_worked ("K2OUT", {}, {}));
+    QVERIFY2 (worked.load_status ().contains ("; 2 files loaded."), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_errors ().isEmpty ());
+    QCOMPARE (configuration_->supplemental_history_folders ().first ().path, root_alias);
+  }
+
   void newerHistorySelectionSupersedesQueuedCompletion ()
   {
     QTemporaryDir history;
     QVERIFY (prepareHistoryDirectory (history));
-    auto const old_source = history.filePath ("old.adi");
-    auto const new_source = history.filePath ("new.adi");
+    auto const old_folder = history.filePath ("old");
+    auto const new_folder = history.filePath ("new");
+    QVERIFY (QDir {}.mkpath (old_folder));
+    QVERIFY (QDir {}.mkpath (new_folder));
+    auto const old_source = old_folder + "/old.adi";
+    auto const new_source = new_folder + "/new.adi";
     QVERIFY (writeHistoryFile (old_source, "<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"));
     QVERIFY (writeHistoryFile (new_source, "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"));
-    dialog ().supplemental_history_files_ = QStringList {old_source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{old_folder, false}};
     WorkedBefore worked {configuration_.get ()};
     QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
-    dialog ().supplemental_history_files_ = QStringList {new_source};
+    dialog ().supplemental_history_folders_ = HistoryFolders {{new_folder, false}};
     worked.reload ();
     worked.reload ();
     QTRY_COMPARE (finished.count (), 1);
@@ -685,6 +1527,9 @@ private slots:
     QVERIFY (prepareHistoryDirectory (history));
     QVERIFY (writeHistoryFile (history.filePath ("wsjtx_log.adi"),
                               "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"));
+    QVERIFY (writeHistoryFile (history.filePath ("station.adi"),
+                              "<call:5>DL1AA<band:3>40m<mode:3>FT8<eor>"));
+    dialog ().supplemental_history_folders_ = HistoryFolders {{history.path (), false}};
     WorkedBefore worked {configuration_.get ()};
     QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
     QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
@@ -694,7 +1539,8 @@ private slots:
     QTRY_COMPARE (finished.count (), 1);
     QVERIFY (worked.call_worked ("K1ABC", "FT8", "20m"));
     QVERIFY (worked.call_worked ("K3NEW", "FT8", "20m"));
-    QCOMPARE (finished.at (0).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("DL1AA", "FT8", "40m"));
+    QCOMPARE (finished.at (0).at (0).toInt (), 3);
   }
 
   void reentrantReloadPreservesCompletionErrors ()
@@ -731,7 +1577,7 @@ private slots:
     auto& d = dialog ();
     ui ().rig_combo_box->setCurrentText ("None");
     d.rig_params_ = d.gather_rig_data ();
-    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_files_changed};
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
     d.next_supplemental_history_files_ = QStringList {source};
     QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
     d.reject ();
@@ -750,6 +1596,190 @@ private slots:
     configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
     QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
     QCOMPARE (dialog ().next_supplemental_history_files_, QStringList {source});
+  }
+
+  void adifLogLocationRequiresAcceptanceAndRestore ()
+  {
+    auto const default_log = writable_file_path (configuration_->writeable_data_dir (), "wsjtx_log.adi");
+    auto const shared_log = QDir::cleanPath (directory_.filePath ("shared/our_log.adi"));
+    auto& d = dialog ();
+    ui ().rig_combo_box->setCurrentText ("None");
+    d.rig_params_ = d.gather_rig_data ();
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
+    QCOMPARE (configuration_->adif_log_file_path (), default_log);
+    d.next_adif_log_file_ = shared_log;
+    d.reject ();
+    QVERIFY (d.next_adif_log_file_.isEmpty ());
+    QCOMPARE (configuration_->adif_log_file_path (), default_log);
+    QCOMPARE (changed.count (), 0);
+
+    {
+      WorkedBefore worked {configuration_.get ()};
+      QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+      QTRY_COMPARE (finished.count (), 1);
+      QCOMPARE (worked.path (), default_log);
+      d.next_adif_log_file_ = shared_log;
+      d.next_supplemental_history_files_ = QStringList {shared_log};
+      d.accept ();
+      QTRY_COMPARE (worked.path (), shared_log);
+      QByteArray const record {"<call:5>K3NEW<gridsquare:4>FN20<band:3>20m<mode:3>FT8"};
+      QVERIFY (worked.add ("K3NEW", "FN20", "20m", "FT8", record));
+      QVERIFY (QFile::exists (shared_log));
+    }
+    QCOMPARE (configuration_->adif_log_file_path (), shared_log);
+    QCOMPARE (changed.count (), 1);
+    // the chosen log is the primary, so it is not also kept as a history source
+    QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
+    d.accept ();
+    QCOMPARE (changed.count (), 1);
+
+    configuration_.reset ();
+    settings_->sync ();
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QCOMPARE (configuration_->adif_log_file_path (), shared_log);
+    QCOMPARE (dialog ().next_adif_log_file_, shared_log);
+  }
+
+  void folderSettingsRequireAcceptanceAndPreserveIndependentScopes ()
+  {
+    auto const exports = directory_.filePath ("unavailable-exports");
+    auto const archive = directory_.filePath ("archive");
+    auto const source = directory_.filePath ("explicit.adi");
+    HistoryFolders const expected {{exports, false}, {archive, true}};
+    auto& d = dialog ();
+    ui ().rig_combo_box->setCurrentText ("None");
+    d.rig_params_ = d.gather_rig_data ();
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
+    QVERIFY (configuration_->supplemental_history_folders ().isEmpty ());
+    d.next_supplemental_history_folders_ = expected;
+    d.reject ();
+    QVERIFY (d.next_supplemental_history_folders_.isEmpty ());
+    QCOMPARE (changed.count (), 0);
+
+    d.next_supplemental_history_folders_ = HistoryFolders {{exports, false}, {exports + "/.", true}, {archive, true}};
+    d.next_supplemental_history_files_ = QStringList {source};
+    d.accept ();
+    QVERIFY (configuration_->supplemental_history_folders () == expected);
+    QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
+    QCOMPARE (changed.count (), 1);
+    d.accept ();
+    QCOMPARE (changed.count (), 1);
+    d.next_supplemental_history_folders_.first ().include_subfolders = true;
+    d.accept ();
+    QCOMPARE (changed.count (), 2);
+    QVERIFY (configuration_->supplemental_history_folders ().first ().include_subfolders);
+    d.next_supplemental_history_folders_ = expected;
+    d.accept ();
+    QCOMPARE (changed.count (), 3);
+    configuration_.reset ();
+    settings_->sync ();
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/size").toInt (), 2);
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/1/Path").toString (), exports);
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/1/IncludeSubfolders").toBool (), false);
+    QCOMPARE (settings_->value ("Configuration/SupplementalHistoryFolders/2/IncludeSubfolders").toBool (), true);
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QVERIFY (configuration_->supplemental_history_folders () == expected);
+    QVERIFY (dialog ().next_supplemental_history_folders_ == expected);
+    QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
+  }
+
+  void folderSettingsWithoutRecursionFlagStayNonrecursive ()
+  {
+    configuration_.reset ();
+    auto const path = directory_.filePath ("unavailable-exports");
+    settings_->beginWriteArray ("Configuration/SupplementalHistoryFolders", 1);
+    settings_->setArrayIndex (0);
+    settings_->setValue ("Path", path);
+    settings_->endArray ();
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QCOMPARE (configuration_->supplemental_history_folders ().size (), 1);
+    QCOMPARE (configuration_->supplemental_history_folders ().first ().path, path);
+    QVERIFY (!configuration_->supplemental_history_folders ().first ().include_subfolders);
+    QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
+  }
+
+  void historyFolderScopeSelectionAndDialogCancellation ()
+  {
+    auto& d = dialog ();
+    auto const source = directory_.filePath ("explicit.adi");
+    auto const exports = directory_.filePath ("exports");
+    auto const archive = directory_.filePath ("archive");
+    HistoryFolders const saved {{exports, false}, {archive, true}};
+    d.supplemental_history_files_ = QStringList {source};
+    d.next_supplemental_history_files_ = QStringList {source};
+    d.supplemental_history_folders_ = saved;
+    d.next_supplemental_history_folders_ = saved;
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
+    auto edit_scope = [&] (QDialog& nested) {
+        auto sources = nested.findChild<QListWidget *> ("history_sources_list");
+        auto recursive = nested.findChild<QCheckBox *> ("history_include_subfolders");
+        QVERIFY (sources);
+        QVERIFY (recursive);
+        QCOMPARE (sources->count (), 3);
+        QVERIFY (!recursive->isTristate ());
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        QVERIFY (!recursive->accessibleName ().isEmpty ());
+        QVERIFY (recursive->accessibleDescription ().contains ("beneath the selected folder"));
+        auto first = sources->item (1);
+        auto second = sources->item (2);
+        QVERIFY (first->data (Qt::UserRole + 1).toBool ());
+        QVERIFY (!sources->item (0)->data (Qt::UserRole + 1).toBool ());
+        QCOMPARE (first->data (Qt::UserRole).toString (), exports);
+        QVERIFY (first->text ().contains ("Folder — "));
+        QVERIFY (first->text ().contains ("This folder only"));
+        sources->setCurrentRow (1);
+        QVERIFY (recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        recursive->setFocus ();
+        QTest::keyClick (recursive, Qt::Key_Space);
+        QVERIFY (recursive->isChecked ());
+        QVERIFY (first->data (Qt::UserRole + 2).toBool ());
+        QVERIFY (first->text ().contains ("Includes subfolders"));
+        QCOMPARE (first->data (Qt::AccessibleTextRole).toString (), first->text ());
+        QCOMPARE (first->toolTip (), first->text ());
+        sources->setCurrentRow (0);
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        QVERIFY (first->data (Qt::UserRole + 2).toBool ());
+        sources->setCurrentRow (2);
+        QVERIFY (recursive->isEnabled ());
+        QVERIFY (recursive->isChecked ());
+        first->setSelected (true);
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+        QVERIFY (first->data (Qt::UserRole + 2).toBool ());
+        QVERIFY (second->data (Qt::UserRole + 2).toBool ());
+        sources->clearSelection ();
+        QVERIFY (!recursive->isEnabled ());
+        QVERIFY (!recursive->isChecked ());
+      };
+    QVERIFY (inspectHistoryDialog (edit_scope));
+    QVERIFY (d.next_supplemental_history_folders_ == saved);
+    QVERIFY (configuration_->supplemental_history_folders () == saved);
+    QVERIFY (inspectHistoryDialog (edit_scope, true));
+    QVERIFY (d.next_supplemental_history_folders_.first ().include_subfolders);
+    QVERIFY (configuration_->supplemental_history_folders () == saved);
+    QCOMPARE (changed.count (), 0);
+    d.reject ();
+    QVERIFY (d.next_supplemental_history_folders_ == saved);
+
+    QVERIFY (inspectHistoryDialog ([&] (QDialog& nested) {
+        auto sources = nested.findChild<QListWidget *> ("history_sources_list");
+        auto remove = nested.findChild<QPushButton *> ("history_remove");
+        QVERIFY (sources);
+        QVERIFY (remove);
+        sources->setCurrentRow (1);
+        sources->item (2)->setSelected (true);
+        remove->click ();
+        QCOMPARE (sources->count (), 1);
+      }, true));
+    QVERIFY (d.next_supplemental_history_folders_.isEmpty ());
+    QCOMPARE (d.next_supplemental_history_files_, QStringList {source});
+    QVERIFY (configuration_->supplemental_history_folders () == saved);
+    d.reject ();
+    QVERIFY (d.next_supplemental_history_folders_ == saved);
+    QCOMPARE (changed.count (), 0);
   }
 
   void historySourceDialogAnnotatesPrimaryAliasesWithoutChangingPaths ()
@@ -783,7 +1813,7 @@ private slots:
             QCOMPARE (sources->item (0)->text ().contains ("Same file as primary log"), expected_annotation);
             QCOMPARE (sources->item (0)->data (Qt::AccessibleTextRole).toString (), sources->item (0)->text ());
             QCOMPARE (sources->item (0)->toolTip (), sources->item (0)->text ());
-            QCOMPARE (sources->item (1)->text (), QDir::toNativeSeparators (missing));
+            QCOMPARE (sources->item (1)->text (), "File — " + QDir::toNativeSeparators (missing));
           }));
         QCOMPARE (d.next_supplemental_history_files_, paths);
         QCOMPARE (configuration_->supplemental_history_files (), paths);
@@ -816,6 +1846,7 @@ private slots:
     font.setPointSize (font.pointSize () + font_delta);
     auto const source = history.filePath (QString (180, 'x') + ".adi");
     d.next_supplemental_history_files_ = QStringList {source};
+    d.next_supplemental_history_folders_ = HistoryFolders {{history.filePath (QString (180, 'y')), false}};
     configuration_->set_worked_before_status ("Incomplete history: one source could not be read.",
                                               source + ": " + QString (400, 'E'));
 
@@ -825,11 +1856,79 @@ private slots:
         auto status = nested.findChild<QTextEdit *> ();
         auto primary = nested.findChild<QLineEdit *> ();
         auto buttons = nested.findChild<QDialogButtonBox *> ();
+        auto recursive = nested.findChild<QCheckBox *> ("history_include_subfolders");
         QVERIFY (scroll);
         QVERIFY (sources);
         QVERIFY (status);
         QVERIFY (primary);
         QVERIFY (buttons);
+        QVERIFY (recursive);
+        auto const geometry_in = [] (QWidget * widget, QWidget * ancestor) {
+            return QRect {widget->mapTo (ancestor, {}), widget->size ()};
+          };
+        nested.resize ({650, 680});
+        nested.layout ()->activate ();
+        QApplication::processEvents ();
+        QList<QWidget *> layout_controls {sources, recursive, status};
+        for (auto const& name : {"history_add_files", "history_add_folder", "history_remove", "history_open_folder"})
+          {
+            auto action = nested.findChild<QPushButton *> (name);
+            QVERIFY2 (action, name);
+            QVERIFY (action->isVisible ());
+            layout_controls.append (action);
+            QString diagnostic;
+            {
+              QDebug debug {&diagnostic};
+              debug << "initial action" << name << geometry_in (action, scroll->viewport ())
+                    << "viewport" << scroll->viewport ()->rect () << "dialog" << nested.size ()
+                    << "content" << scroll->widget ()->size ()
+                    << "scrollPosition" << scroll->verticalScrollBar ()->value ();
+            }
+            QVERIFY2 (scroll->viewport ()->rect ().contains (geometry_in (action, scroll->viewport ())),
+                      qPrintable (diagnostic));
+          }
+        for (auto const& name : {"adif_log_change", "adif_log_default"})
+          {
+            auto action = nested.findChild<QPushButton *> (name);
+            QVERIFY2 (action, name);
+            layout_controls.append (action);
+          }
+        auto layout_overlap = [&] {
+            auto control_rect = [&] (QWidget * control) {
+                auto rect = control->rect ();
+                if (auto button = qobject_cast<QAbstractButton *> (control))
+                  {
+                    QStyleOptionButton option;
+                    option.initFrom (button);
+                    option.text = button->text ();
+                    auto const element = qobject_cast<QCheckBox *> (button)
+                      ? QStyle::SE_CheckBoxLayoutItem : QStyle::SE_PushButtonLayoutItem;
+                    auto const layout_rect = button->style ()->subElementRect (element, &option, button);
+                    if (!layout_rect.isEmpty ()) rect = layout_rect;
+                  }
+                return QRect {control->mapTo (scroll->widget (), rect.topLeft ()), rect.size ()};
+              };
+            for (int left = 0; left != layout_controls.size (); ++left)
+              for (int right = left + 1; right != layout_controls.size (); ++right)
+                {
+                  auto first = layout_controls.at (left);
+                  auto second = layout_controls.at (right);
+                  auto const first_rect = control_rect (first);
+                  auto const second_rect = control_rect (second);
+                  if (first_rect.intersects (second_rect))
+                    {
+                      QString diagnostic;
+                      QDebug debug {&diagnostic};
+                      debug << "overlapping controls" << first->accessibleName () << first_rect
+                            << second->accessibleName () << second_rect << "dialog" << nested.size ()
+                            << "font" << nested.font ().pointSizeF ();
+                      return diagnostic;
+                    }
+                }
+            return QString {};
+          };
+        auto overlap = layout_overlap ();
+        QVERIFY2 (overlap.isEmpty (), qPrintable (overlap));
         nested.setFont (font);
         nested.resize ({640, 480});
         nested.layout ()->activate ();
@@ -837,9 +1936,8 @@ private slots:
         QCOMPARE (nested.size (), QSize (640, 480));
         QCOMPARE (status->font ().pointSizeF (), font.pointSizeF ());
         QCOMPARE (primary->font ().pointSizeF (), font.pointSizeF ());
-        auto const geometry_in = [] (QWidget * widget, QWidget * ancestor) {
-            return QRect {widget->mapTo (ancestor, {}), widget->size ()};
-          };
+        overlap = layout_overlap ();
+        QVERIFY2 (overlap.isEmpty (), qPrintable (overlap));
         auto layout_diagnostic = [&] {
             QString diagnostic;
             {
@@ -865,8 +1963,9 @@ private slots:
         QVERIFY (sources->horizontalScrollBar ()->maximum () > 0);
         if (font_delta) QVERIFY (scroll->verticalScrollBar ()->maximum () > 0);
 
-        sources->setCurrentRow (0);
-        QSet<QWidget *> expected_focus {primary, sources, status, ok, cancel};
+        sources->setCurrentRow (1);
+        QVERIFY (recursive->isEnabled ());
+        QSet<QWidget *> expected_focus {primary, sources, recursive, status, ok, cancel};
         for (auto button : nested.findChildren<QPushButton *> ())
           if (button->isEnabled () && button->focusPolicy () != Qt::NoFocus)
             expected_focus.insert (button);
@@ -936,7 +2035,7 @@ private slots:
     auto& d = dialog ();
     d.supplemental_history_files_ = QStringList {source};
     d.next_supplemental_history_files_ = QStringList {source};
-    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_files_changed};
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
     QString const summary {"Incomplete history: one source could not be read."};
     QString const errors {"station.adi: unavailable"};
     QStringList observed_paths;

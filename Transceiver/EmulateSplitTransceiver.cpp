@@ -17,6 +17,7 @@ EmulateSplitTransceiver::EmulateSplitTransceiver (logger_type * logger,
            this, &EmulateSplitTransceiver::handle_frequency_result);
   connect (wrapped_.get (), &Transceiver::frequency_observation,
            this, &EmulateSplitTransceiver::handle_frequency_observation);
+  connect (wrapped_.get (), &Transceiver::mode_status, this, &Transceiver::mode_status);
 
   // Connect other signals of wrapped Transceiver object to our
   // parent matching signals.

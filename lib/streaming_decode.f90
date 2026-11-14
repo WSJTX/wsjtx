@@ -36,7 +36,9 @@ module streaming_decode
        streaming_emit_finished_at, streaming_emit_set_pass,                &
        streaming_emit_hold, streaming_emit_line, streaming_emit_threads,   &
        streaming_emit_set_writer, streaming_emit_label, streaming_emit_busy, &
-       streaming_emit_idle, streaming_emit_progress, streaming_emit_error
+       streaming_emit_idle, streaming_emit_progress, streaming_emit_error,  &
+       streaming_emit_set_rows, streaming_emit_rows_end, streaming_emit_quiet, &
+       stream_rows_emit
   use decode_completion_module, only: set_progress_receiver
   use jtty_mdec, only: jtty_set_planning_callback
   use streaming_jtty, only: jtty_measuring
@@ -53,6 +55,7 @@ module streaming_decode
   public :: report_pass_line
   public :: decode_start, decode_threaded, decode_submit, decode_join
   public :: decode_read, decode_room, decode_wait, decode_has_work
+  public :: rows_start, rows_end
 
   ! Operations.
   integer, parameter, public :: OP_PASS = 1, OP_CONFIGURE = 2, OP_AGAIN = 3, &
@@ -111,6 +114,8 @@ module streaming_decode
   integer(int64), save :: held_bytes = 0
   ! A decode thread runs the operations (the frame loop's to read).
   logical, save :: threaded = .false.
+  ! The writer thread was asked for (lib/stream_decode.c).
+  logical, save :: rows_asked = .false.
   ! Test-only hooks, read once at decode_start and inert when unset:
   !   WSJT_CODEC_TEST_INLINE=1             no decode thread
   !   WSJT_CODEC_TEST_HOLD_PASS=<n>:<ms>   sleep <ms> at the start of each
@@ -123,6 +128,8 @@ module streaming_decode
   !   WSJT_CODEC_TEST_PLAN_GATE=1          the decode thread's first pass waits,
   !                                        before it decodes, until the frame
   !                                        loop has said planning
+  !   WSJT_CODEC_TEST_DECODE_NICE=<n>      the decode thread runs at its nice
+  !                                        value plus n (Linux; elsewhere a note)
   integer, save :: hold_pass_nzhsym = -1, hold_pass_ms = 0
   integer(int64), save :: alloc_limit = 0
   logical, save :: plan_gate_wanted = .false.
@@ -227,6 +234,12 @@ module streaming_decode
        integer(c_int), value :: take_ms
        integer(c_int) :: ok
      end function stream_decode_start
+     function stream_decode_set_nice(nice) result(applies)                 &
+          bind(C, name="stream_decode_set_nice")
+       import :: c_int
+       integer(c_int), value :: nice
+       integer(c_int) :: applies
+     end function stream_decode_set_nice
      subroutine stream_decode_join() bind(C, name="stream_decode_join")
      end subroutine stream_decode_join
      function stream_decode_put(op, bytes, work, pass) result(queued)      &
@@ -277,6 +290,23 @@ module streaming_decode
        import :: c_int
        integer(c_int) :: held
      end function stream_writer_trylock
+     function stream_rows_start(write) result(ok) bind(C, name="stream_rows_start")
+       import :: c_funptr, c_int
+       type(c_funptr), value :: write
+       integer(c_int) :: ok
+     end function stream_rows_start
+     function stream_rows_put(text, size, lines, droppable) result(queued)    &
+          bind(C, name="stream_rows_put")
+       import :: c_char, c_int, c_int64_t
+       character(kind=c_char), intent(in) :: text(*)
+       integer(c_int64_t), value :: size
+       integer(c_int), value :: lines, droppable
+       integer(c_int) :: queued
+     end function stream_rows_put
+     subroutine stream_rows_quiet() bind(C, name="stream_rows_quiet")
+     end subroutine stream_rows_quiet
+     subroutine stream_rows_end() bind(C, name="stream_rows_end")
+     end subroutine stream_rows_end
      subroutine stream_decode_progress_pass(generation, mode, label, nzhsym) &
           bind(C, name="stream_decode_progress_pass")
        import :: c_int
@@ -336,7 +366,7 @@ contains
   ! operation runs as it is made.
   subroutine decode_start()
     character(len=32) :: value
-    integer :: colon, length, status, take_ms
+    integer :: colon, length, status, take_ms, nice
     allocate(work, stat=status)
     if (status .ne. 0) then
        call streaming_emit_error('no memory for the decoder''s buffer')
@@ -359,6 +389,11 @@ contains
     if (status .ne. 0) alloc_limit = 0
     call get_environment_variable('WSJT_CODEC_TEST_PLAN_GATE', value, length, status)
     plan_gate_wanted = status .eq. 0 .and. value .eq. '1'
+    call get_environment_variable('WSJT_CODEC_TEST_DECODE_NICE', value, length, status)
+    if (status .eq. 0) read(value, *, iostat=status) nice
+    if (status .ne. 0) nice = 0
+    if (nice .ne. 0 .and. stream_decode_set_nice(nice) .eq. 0) write(error_unit, '(a)') &
+         'wsjt-codec: WSJT_CODEC_TEST_DECODE_NICE does nothing on this platform'
     call set_progress_receiver(report_progress)
     call jtty_set_planning_callback(jtty_planning)
     call get_environment_variable('WSJT_CODEC_TEST_INLINE', value, length, status)
@@ -380,6 +415,26 @@ contains
   logical function decode_threaded()
     decode_threaded = threaded
   end function decode_threaded
+
+  ! A configure turned spectrum or ref_spectrum on: from the first, every
+  ! stdout line goes to the writer thread, queued under the writer lock,
+  ! which a session without a decode thread makes then.
+  subroutine rows_start()
+    if (rows_asked) return
+    rows_asked = .true.
+    if (stream_rows_start(c_funloc(stream_rows_emit)) .eq. 0) then
+       write(error_unit, '(a)') 'wsjt-codec: no writer thread; lines are written at once'
+       return
+    end if
+    if (.not. threaded) call streaming_emit_set_writer(stream_writer_lock,      &
+         stream_writer_trylock, stream_writer_unlock)
+    call streaming_emit_set_rows(stream_rows_put, stream_rows_quiet, stream_rows_end)
+  end subroutine rows_start
+
+  ! The session ends: every queued line is written, and the thread joined.
+  subroutine rows_end()
+    call streaming_emit_rows_end()
+  end subroutine rows_end
 
   ! Hand op to the decode side: queued for the decode thread once the queue
   ! has room, or run now.
@@ -417,11 +472,14 @@ contains
   end subroutine decode_submit
 
   ! No memory to queue an operation: the session ends as when the input
-  ! cannot be buffered, its line written at once, since queuing it needs
-  ! memory too, and the writer lock kept, so that nothing follows it.
+  ! cannot be buffered, after the lines queued, its line written at once,
+  ! since queuing it needs memory too, and the writer lock kept, so that
+  ! nothing follows it.
   subroutine no_memory()
+    call streaming_emit_quiet()
     call streaming_emit_hold(.true.)
     call streaming_emit_error_code('out_of_memory', 'no memory to buffer the input')
+    call streaming_emit_quiet()
     write(error_unit, '(a)') 'wsjt-codec: no memory to buffer the input'
     stop 1
   end subroutine no_memory

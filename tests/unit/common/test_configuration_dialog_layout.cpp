@@ -298,6 +298,12 @@ void TestConfigurationDialogLayout::compactControlsKeepNaturalGeometry ()
 
   ui.configuration_tabs->setCurrentWidget (ui.advanced_tab);
   settleLayouts ();
+  for (auto * label : {ui.best_sp_explanation_label, ui.best_sp_matching_explanation_label})
+    {
+      QVERIFY (isFullyInside (label, ui.best_sp_group_box));
+      QVERIFY2 (label->height () >= label->heightForWidth (label->width ()),
+                qPrintable (label->objectName () + " clips its wrapped explanation"));
+    }
   for (auto const& group_and_controls : {
          qMakePair (ui.groupBox_10,
                     QList<QWidget *> {ui.cbx2ToneSpacing, ui.cbx4ToneSpacing}),

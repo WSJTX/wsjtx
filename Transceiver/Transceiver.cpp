@@ -11,6 +11,7 @@ Transceiver::Transceiver (logger_type * logger, QObject * parent)
   qRegisterMetaType<RigFrequency::Request> ("RigFrequency::Request");
   qRegisterMetaType<RigFrequency::Result> ("RigFrequency::Result");
   qRegisterMetaType<RigFrequency::Evidence> ("RigFrequency::Evidence");
+  qRegisterMetaType<ModeStatus> ("Transceiver::ModeStatus");
 }
 
 #if !defined (QT_NO_DEBUG_STREAM)

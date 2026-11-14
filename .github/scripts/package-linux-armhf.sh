@@ -106,9 +106,20 @@ done
 
 export APPIMAGE_EXTRACT_AND_RUN=1
 export OUTPUT="wsjtx-${VERSION}-${TARGET}.AppImage"
+extra_libraries=()
+# linuxdeploy excludes libgpg-error even when bundled libgcrypt needs it.
+gpg_error=$(wsjtx-build/appimage-tools/ldd AppDir/usr/bin/wsjtx | awk '$1 == "libgpg-error.so.0" && $2 == "=>" { print $3 }')
+if [ -n "$gpg_error" ]; then
+  linux_require_file "$gpg_error"
+  extra_libraries+=(--library "$gpg_error")
+  # Merged /usr paths can defeat linuxdeploy's dpkg ownership lookup.
+  install -D -m 644 /usr/share/doc/libgpg-error0/copyright \
+    AppDir/usr/share/doc/libgpg-error0/copyright
+fi
 env -u GITHUB_TOKEN PATH="/work/wsjtx-build/appimage-tools:$PATH" \
   ./linuxdeploy.AppImage --appimage-extract-and-run \
   --appdir AppDir \
+  "${extra_libraries[@]}" \
   --plugin qt \
   --output appimage \
   --desktop-file AppDir/usr/share/applications/wsjtx.desktop \

@@ -10,7 +10,7 @@ module filbig_mod
   use sec_midn_mod, only: sec_midn
   implicit none
   
-  integer, parameter :: MAXFFT1 = 56*192000
+  integer, parameter :: MAXFFT1 = 56*256000
   integer, parameter :: MAXFFT2 = 2*77175
 
   complex, save :: c4a_buf(MAXFFT2), c4b_buf(MAXFFT2), cfilt_buf(MAXFFT2)
@@ -37,6 +37,7 @@ contains
     real halfpulse(8)                       !Impulse response (one sided)
     real base, fac, filtval
     integer i, i0, j, nfft1, nfft2, nflags, nh, npatience, nz
+    logical need_big_fft
     real(real64) :: decim
     ! Filter in frequency domain; sized at max short-FFT length
     data npatience/1/
@@ -45,9 +46,10 @@ contains
 
     save
 
-    ! ca/cb storage is sized at MAXFFT1 in cacb_mod; the *active* big FFT
-    ! length is nfft_big_active, set from C++ via set_runtime_params_().
-    call init_cacb(MAXFFT1)
+    ! ca/cb storage in cacb_mod is sized for the active big FFT (56 * the
+    ! sample rate, set from C++ via set_runtime_params_()), not for the
+    ! largest supported rate. The rate only changes on restart.
+    call init_cacb(min(56*nrate_active, MAXFFT1))
 
     if (nmax .lt. 0) go to 900
 
@@ -133,7 +135,10 @@ contains
   ! When new data comes along, we need to compute a new "big FFT"
   ! If we just have a new f0, continue with the existing ca and cb.
 
-    if (newdat .ne. 0 .or. sum(abs(ca)) .eq. 0.0) then  !### Test on ca should be unnecessary?
+    ! Only the first nfft1 samples of ca are ever filled, so only those are checked.
+    need_big_fft = newdat .ne. 0
+    if (.not. need_big_fft) need_big_fft = sum(abs(ca(1:nfft1))) .eq. 0.0
+    if (need_big_fft) then
        nz = min(nmax, nfft1)
        do i = 1, nz
           ca(i) = cmplx(dd(1, i), dd(2, i))

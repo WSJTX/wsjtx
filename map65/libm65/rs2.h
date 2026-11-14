@@ -6,8 +6,8 @@
 /* General purpose RS codec, integer symbols */
 void encode_rs_int(void *rs,int *data,int *parity);
 int decode_rs_int(void *rs,int *data,int *eras_pos,int no_eras, int calc_syn);
-void *init_rs_int(int symsize,int gfpoly,int fcr,
-		  int prim,int nroots,int pad);
+void *init_rs_int(unsigned int symsize,unsigned int gfpoly,unsigned int fcr,
+		  unsigned int prim,unsigned int nroots);
 void free_rs_int(void *rs);
 
 /* Tables to map from conventional->dual (Taltab) and

@@ -1,6 +1,7 @@
 import os
 import pathlib
 import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -10,6 +11,40 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / ".github/scripts/package-cli-tools.sh"
 SMOKE = ROOT / ".github/scripts/smoke-release-tarballs.sh"
 BUILD_MACOS = ROOT / ".github/workflows/build-macos.yml"
+CODEC_CLIENT = "doc/codec/examples/python/codec_client.py"
+FT8_SAMPLE = "samples/FT8/210703_133430.wav"
+FT8_EXPECTED = "test/fixtures/ft8_210703_133430_mtd.expected.txt"
+FT8_MESSAGES = [
+    " ".join(line.split()[5:])
+    for line in (ROOT / FT8_EXPECTED).read_text(encoding="utf-8").splitlines()
+    if len(line.split()) > 5 and not line.startswith("#")
+]
+
+# A wsjt-codec that answers --help, or a stream session with a ready line and, once its input ends, a decode of each message labelled with the period's utc.
+CODEC_STUB = """#!{python}
+import json, os, struct, sys
+with open({log!r}, "a") as log:
+    log.write("wsjt-codec %s lib=%s cwd=%s\\n" % (" ".join(sys.argv[1:]), os.environ.get("LD_LIBRARY_PATH", "unset"), os.getcwd()))
+if sys.argv[1:] == ["--help"]:
+    sys.exit({help_status})
+stdin = sys.stdin.buffer
+stdin.read(8)
+print(json.dumps({{"t": "ready", "modes": ["FT8"], "encodes": ["FT8"]}}), flush=True)
+label = "000000"
+while True:
+    head = stdin.read(5)
+    if len(head) < 5:
+        break
+    kind, size = struct.unpack("<BI", head)
+    body = stdin.read(size)
+    if kind == 2:
+        label = json.loads(body).get("utc", label).replace(":", "")
+for message in {messages!r}:
+    print(json.dumps({{"t": "decode", "time": label, "snr": -10, "dt": 0.1, "freq": 1000, "message": message}}), flush=True)
+if {finished!r}:
+    print(json.dumps({{"t": "decode_finished", "period_end": label}}), flush=True)
+sys.exit({decode_status})
+"""
 
 
 OTOOL_STUB = """#!/bin/sh
@@ -195,7 +230,7 @@ class PackageCliToolsTests(unittest.TestCase):
         )
         self.assertEqual(
             self.members("wsjtx-9.9.9-x86_64-macOS-codec"),
-            sorted([*documents, "wsjt-codec", "lib/libfftw3f.3.dylib", "lib/libfftw3f_threads.3.dylib"]),
+            sorted([*documents, "ALLCALL7.TXT", "wsjt-codec", "lib/libfftw3f.3.dylib", "lib/libfftw3f_threads.3.dylib"]),
         )
         self.assertEqual(
             self.members("wsjtx-9.9.9-x86_64-macOS-wsprd"), sorted([*documents, "wsprd", "lib/libfftw3f.3.dylib"])
@@ -225,11 +260,43 @@ class PackageCliToolsTests(unittest.TestCase):
             self.text("wsjtx-9.9.9-x86_64-macOS-wsprd", "COPYING"), (ROOT / "COPYING").read_text(encoding="utf-8")
         )
 
+    def test_codec_tarball_ships_allcall7_and_stream_tarballs_point_at_doc_codec(self):
+        self.macos_assets()
+        result = self.package("macos", self.MACOS_GROUPS)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        name = "wsjtx-9.9.9-x86_64-macOS-codec"
+        with tarfile.open(self.out / f"{name}.tar.gz") as archive:
+            self.assertEqual(archive.extractfile(f"{name}/ALLCALL7.TXT").read(), (ROOT / "ALLCALL7.TXT").read_bytes())
+        for group in ("jt9", "wsprd", "utilities"):
+            self.assertNotIn("ALLCALL7.TXT", self.members(f"wsjtx-9.9.9-x86_64-macOS-{group}"))
+        readme = self.text(name, "README.txt")
+        self.assertIn(
+            "\nIts multithreaded FT8 decoder reads ALLCALL7.TXT, included here, from its read-only data directory "
+            "(-r, default the current directory); point -r at this directory, where this README is.\n", readme,
+        )
+        self.assertIn(
+            "\n\ndoc/codec/ in the source code of this release documents how a client program drives wsjt-codec: "
+            "https://github.com/WSJTX/wsjtx/tree/v9.9.9/doc/codec\n\n", readme,
+        )
+        self.assertIn(
+            "\n\ndoc/codec/ in the source code of this release documents how a client program drives wsprd -0: "
+            "https://github.com/WSJTX/wsjtx/tree/v9.9.9/doc/codec\n\n", self.text("wsjtx-9.9.9-x86_64-macOS-wsprd", "README.txt"),
+        )
+        for group in ("jt9", "utilities"):
+            self.assertNotIn("doc/codec", self.text(f"wsjtx-9.9.9-x86_64-macOS-{group}", "README.txt"))
+
     def test_macos_unresolved_rpath_reference_fails_naming_it(self):
         self.macos_assets()
         with (self.fixtures / "otool.refs.wsprd").open("a", encoding="utf-8") as stream:
             stream.write("\t@rpath/libmissing.dylib (compatibility version 1.0.0)\n")
         self.assert_failed(self.package("macos", self.MACOS_GROUPS), "@rpath/libmissing.dylib(wsprd)")
+
+    def test_macos_direct_and_transitive_boost_imports_fail(self):
+        for binary in ("jt9", "QtCore"):
+            with self.subTest(binary=binary):
+                self.macos_assets()
+                self.fixture(f"otool.refs.{binary}", ["@rpath/libboost_log.dylib (compatibility version 1.0.0)"])
+                self.assert_failed(self.package("macos", self.MACOS_GROUPS), "imports a Boost shared library")
 
     def test_macos_build_tree_reference_fails(self):
         self.macos_assets()
@@ -404,8 +471,24 @@ class PackageCliToolsTests(unittest.TestCase):
         self.assertIn("GCC runtime libraries\n  License: GPL-3.0-or-later WITH GCC-exception-3.1\n", notices)
         self.assertIn("  Files: LIBGFORTRAN-5.DLL\n", notices)
         self.assertIn("mingw-w64 runtime\n", notices)
-        self.assertEqual(notices.count("  Linked statically into the programs"), 1)
+        self.assertEqual(notices.count("  Linked statically into the programs"), 2)
+        self.assertIn("Boost\n  License: BSL-1.0\n", notices)
         self.assertNotIn("libquadmath", notices)
+
+    def test_windows_codec_tarball_ships_allcall7_beside_the_program(self):
+        self.files(self.source, ["wsjt-codec.exe"])
+        self.files(self.root / "dlls", [])
+        self.files(self.root / "system", ["KERNEL32.dll"])
+        self.fixture("objdump.wsjt-codec.exe", ["\tDLL Name: KERNEL32.dll"])
+        result = self.package(
+            "windows", ["codec wsjt-codec"],
+            "--dll-dir", str(self.root / "dlls"), "--system-dir", str(self.root / "system"), newline="\r\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.members("wsjtx-9.9.9-windows-x86_64-codec"),
+            ["ALLCALL7.TXT", "COPYING", "README.txt", "THIRD-PARTY.txt", "wsjt-codec.exe"],
+        )
 
     def test_windows_ucrt_api_set_imports_are_part_of_windows(self):
         (self.root / "system").mkdir()
@@ -450,6 +533,18 @@ class PackageCliToolsTests(unittest.TestCase):
     def test_windows_objdump_failure_fails_naming_the_file(self):
         self.assert_failed(self.windows_build(failing=["libfftw3f-3.dll"]), "objdump failed on libfftw3f-3.dll")
 
+    def test_windows_direct_and_transitive_boost_imports_fail(self):
+        for binary in ("jt9.exe", "libfftw3f-3.dll"):
+            with self.subTest(binary=binary):
+                self.windows_build()
+                self.fixture(f"objdump.{binary}", ["DLL Name: LIBBOOST_LOG.DLL"])
+                result = self.package(
+                    "windows", ["jt9 jt9"], "--dll-dir", str(self.root / "dlls"),
+                    "--system-dir", str(self.root / "system"),
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("imports a Boost shared library", result.stderr)
+
     # Linux: linuxdeploy and readelf are stubbed; the excludelist is the committed one.
     def linux_build(self):
         self.files(self.source, ["jt9", "wsjt-codec", "wsjtx"])
@@ -477,6 +572,13 @@ class PackageCliToolsTests(unittest.TestCase):
             [
                 "COPYING", "README.txt", "THIRD-PARTY.txt", "bin/jt9", "lib/libQt5Core.so.5", "lib/libgfortran.so.5",
                 "lib/libicuuc.so.74", "share/doc/libqt5core5t64/copyright",
+            ],
+        )
+        self.assertEqual(
+            self.members("wsjtx-9.9.9-linux-x86_64-codec"),
+            [
+                "ALLCALL7.TXT", "COPYING", "README.txt", "THIRD-PARTY.txt", "bin/wsjt-codec", "lib/libgfortran.so.5",
+                "share/doc/libqt5core5t64/copyright",
             ],
         )
         readme = self.text("wsjtx-9.9.9-linux-x86_64-jt9", "README.txt")
@@ -532,6 +634,19 @@ class PackageCliToolsTests(unittest.TestCase):
         self.linux_build()
         self.fixture("readelf.d.wsjt-codec", needed("libfftw3f.so.3", runpath="$ORIGIN/../lib"))
         self.assert_failed(self.linux_package(), "libfftw3f.so.3(bin/wsjt-codec)")
+
+    def test_linux_direct_and_transitive_boost_imports_fail(self):
+        for binary in ("jt9", "libQt5Core.so.5"):
+            with self.subTest(binary=binary):
+                self.linux_build()
+                self.fixture(f"readelf.d.{binary}", needed("libboost_log.so.1.83.0"))
+                self.assert_failed(self.linux_package(), "imports a Boost shared library")
+
+    def test_linux_unused_bundled_boost_library_fails(self):
+        self.linux_build()
+        self.files(self.fixtures / "appdir-lib", ["libboost_log.so.1.83.0"])
+        self.fixture("deploys.jt9", ["libboost_log.so.1.83.0", "libQt5Core.so.5", "libicuuc.so.74", "libgfortran.so.5"])
+        self.assert_failed(self.linux_package(), "unexpected bundled Boost library: lib/libboost_log.so.1.83.0")
 
     def test_linux_runpath_is_not_inherited_by_bundled_libraries(self):
         self.linux_build()
@@ -596,17 +711,29 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
         )
         (self.bin / "timeout").chmod(0o755)
 
-    def tarball(self, group, programs, layout="bin/", failing=(), libraries=(), target="linux-x86_64", top=None):
+    def tarball(self, group, programs, layout="bin/", failing=(), libraries=(), target="linux-x86_64", top=None,
+                undecoded=(), decode_status=0, finished=True, allcall7=True):
         name = f"wsjtx-9.9.9-{target}-{group}"
         tree = self.root / "trees" / name
+        if group == "codec" and allcall7:
+            tree.mkdir(parents=True, exist_ok=True)
+            (tree / "ALLCALL7.TXT").write_bytes((ROOT / "ALLCALL7.TXT").read_bytes())
         for program in programs:
             path = tree / f"{layout}{program}"
             path.parent.mkdir(parents=True, exist_ok=True)
             status = 3 if program in failing else 0
-            path.write_text(
-                f'#!/bin/sh\necho "{program} $* lib=${{LD_LIBRARY_PATH-unset}} cwd=$(pwd)" >> "{self.log}"\nexit {status}\n',
-                encoding="utf-8",
-            )
+            if program in ("wsjt-codec", "wsjt-codec.exe"):
+                messages = [message for message in FT8_MESSAGES if message not in undecoded]
+                path.write_text(
+                    CODEC_STUB.format(python=sys.executable, log=str(self.log), help_status=status,
+                                      messages=messages, decode_status=decode_status, finished=finished),
+                    encoding="utf-8",
+                )
+            else:
+                path.write_text(
+                    f'#!/bin/sh\necho "{program} $* lib=${{LD_LIBRARY_PATH-unset}} cwd=$(pwd)" >> "{self.log}"\nexit {status}\n',
+                    encoding="utf-8",
+                )
             path.chmod(0o755)
         for library in libraries:
             (tree / "lib").mkdir(parents=True, exist_ok=True)
@@ -653,12 +780,17 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
         result = self.smoke(lines, script=script)
         self.assertEqual(result.returncode, 0, result.stderr)
         ran = [entry.split(" ", 1)[0] for entry in self.log.read_text(encoding="utf-8").splitlines()]
-        self.assertEqual(ran, [program for line in lines for program in line.split()[1:]])
+        # wsjt-codec runs twice: --help, then the decode.
+        self.assertEqual(ran, [run for line in lines for program in line.split()[1:]
+                               for run in [program] * (2 if program == "wsjt-codec" else 1)])
 
     def scripts_copy(self):
         scripts = self.root / "repo/.github/scripts"
         scripts.mkdir(parents=True)
         (scripts / SMOKE.name).write_bytes(SMOKE.read_bytes())
+        for name in (CODEC_CLIENT, FT8_SAMPLE, FT8_EXPECTED, "ALLCALL7.TXT"):
+            (self.root / "repo" / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / "repo" / name).write_bytes((ROOT / name).read_bytes())
         (scripts / "smoke-launch-windows.sh").write_text(
             f'#!/bin/sh\necho "launch $(basename "$1") cwd=$(pwd) args=$*" >> "{self.log}"\n'
             'case "$1" in *ft4sim.exe) exit 1 ;; esac\n',
@@ -694,6 +826,68 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertRegex(self.log.read_text(encoding="utf-8"), r"wsprd -a \S+/run-wsprd \S+/repo/\.github/scripts/\.\./\.\./samples/WSPR/150426_0918\.wav ")
         self.assertFalse((self.root / "timeout.log").exists())
+
+    def test_codec_decodes_the_ft8_sample_through_the_python_example(self):
+        self.tarball("codec", ["wsjt-codec"])
+        result = self.smoke(["codec wsjt-codec"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = self.log.read_text(encoding="utf-8").splitlines()
+        self.assertTrue(lines[0].startswith("wsjt-codec --help lib=unset"), lines[0])
+        tree = r"\S+/codec/wsjtx-9\.9\.9-linux-x86_64-codec"
+        self.assertRegex(lines[1], rf"^wsjt-codec -a ({tree}) -t \1 -r \1 lib=unset cwd=\S+/wsjtx-9\.9\.9-linux-x86_64-codec$")
+        self.assertIn("smoke OK: wsjtx-9.9.9-linux-x86_64-codec/bin/wsjt-codec decodes the 20 messages of 210703_133430.wav (Python 3.", result.stdout)
+        self.assertEqual((self.root / "timeout.log").read_text(encoding="utf-8").split(), ["120", "120"])
+
+    def test_codec_decode_missing_a_message_fails_naming_it(self):
+        self.tarball("codec", ["wsjt-codec"], undecoded=["K1JT HA5WA 73"])
+        result = self.smoke(["codec wsjt-codec"])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("wsjt-codec from wsjtx-9.9.9-linux-x86_64-codec decoded 19 of the 20 messages of 210703_133430.wav; missing: K1JT HA5WA 73", result.stderr)
+
+    def test_codec_decode_that_never_finishes_fails(self):
+        self.tarball("codec", ["wsjt-codec"], finished=False)
+        result = self.smoke(["codec wsjt-codec"])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("wsjt-codec from wsjtx-9.9.9-linux-x86_64-codec sent no decode_finished for 133430", result.stderr)
+
+    def test_codec_tarball_without_the_sources_allcall7_fails(self):
+        self.tarball("codec", ["wsjt-codec"], allcall7=False)
+        result = self.smoke(["codec wsjt-codec"])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("wsjtx-9.9.9-linux-x86_64-codec does not carry the source's ALLCALL7.TXT", result.stderr)
+
+    def test_codec_decode_failure_fails(self):
+        self.tarball("codec", ["wsjt-codec"], decode_status=1)
+        result = self.smoke(["codec wsjt-codec"])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("the decode by wsjt-codec from wsjtx-9.9.9-linux-x86_64-codec failed (exit status 1)", result.stderr)
+
+    def test_codec_decode_needs_python_3_8(self):
+        (self.bin / "python3").write_text("#!/bin/sh\necho 3.7.9\nexit 1\n", encoding="utf-8")
+        (self.bin / "python3").chmod(0o755)
+        self.tarball("codec", ["wsjt-codec"])
+        result = self.smoke(["codec wsjt-codec"])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(f"the codec decode needs Python 3.8 or later as python3; {self.bin}/python3 is 3.7.9", result.stderr)
+
+    def test_codec_decode_needs_the_ft8_sample(self):
+        script = self.scripts_copy()
+        (self.root / "repo" / FT8_SAMPLE).unlink()
+        self.tarball("codec", ["wsjt-codec"])
+        result = self.smoke(["codec wsjt-codec"], script=script)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("the codec decode needs samples/FT8/210703_133430.wav, which this tree lacks", result.stderr)
+
+    def test_windows_codec_decodes_after_its_clean_path_launch(self):
+        script = self.scripts_copy()
+        self.tarball("codec", ["wsjt-codec.exe"], layout="", target="windows-x86_64")
+        result = self.smoke(["codec wsjt-codec"], platform="windows", target="windows-x86_64", script=script)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = self.log.read_text(encoding="utf-8").splitlines()
+        self.assertRegex(lines[0], r"^launch wsjt-codec\.exe cwd=\S+/run-wsjt-codec args=\S+/wsjt-codec\.exe --help$")
+        self.assertRegex(lines[1], r"^wsjt-codec -a \S+/wsjtx-9\.9\.9-windows-x86_64-codec -t ")
+        self.assertIn("smoke OK: wsjtx-9.9.9-windows-x86_64-codec/wsjt-codec.exe decodes the 20 messages", result.stdout)
+        self.assertEqual((self.root / "timeout.log").read_text(encoding="utf-8").split(), ["120"])
 
     def test_tarball_with_another_top_directory_fails(self):
         self.tarball("jt9", ["jt9"], top="jt9")

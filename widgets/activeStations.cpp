@@ -5,12 +5,42 @@
 #include <QTextCharFormat>
 #include <QDateTime>
 #include <QDebug>
+#include <QFrame>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLocale>
+#include <QPushButton>
+#include <QToolButton>
+#include <QVBoxLayout>
+#include <QVector>
+#include <algorithm>
+#include <memory>
 
 #include "SettingsGroup.hpp"
 #include "qt_helpers.hpp"
 #include "ui_activeStations.h"
 
 #include "moc_activeStations.cpp"
+
+namespace
+{
+  QVector<QDate> sortedDays (QSet<QDate> const& days)
+  {
+    QVector<QDate> result {days.begin (), days.end ()};
+    std::sort (result.begin (), result.end ());
+    return result;
+  }
+
+  // "2026-10-31, 2026-11-01" (ISO, oldest first), or "none".
+  QString daysText (QSet<QDate> const& days)
+  {
+    if (days.isEmpty ()) return QObject::tr ("none");
+    QStringList text;
+    for (auto const& day : sortedDays (days)) text << day.toString (Qt::ISODate);
+    return text.join (", ");
+  }
+}
 
 ActiveStations::ActiveStations(QSettings * settings, QFont const& font, QWidget *parent) :
   QWidget(parent),
@@ -23,6 +53,8 @@ ActiveStations::ActiveStations(QSettings * settings, QFont const& font, QWidget 
   changeFont (font);
   read_settings ();
   setupUi(DisplayMode::Standard);
+  connect(ui->cbWantedDays, &QCheckBox::toggled, this, &ActiveStations::wantedDaysChanged);
+  connect(ui->pbWantedDays, &QToolButton::clicked, this, &ActiveStations::chooseWantedDays);
   connect(ui->RecentStationsPlainTextEdit, SIGNAL(cursorPositionChanged()), this, SLOT(on_textEdit_clicked()));
 }
 
@@ -66,6 +98,14 @@ void ActiveStations::read_settings ()
   ui->sbMaxAge->setValue(settings_->value("MaxAge",10).toInt());
   ui->cbReadyOnly->setChecked(settings_->value("ReadyOnly",false).toBool());
   ui->cbWantedOnly->setChecked(settings_->value("WantedOnly",false).toBool());
+  m_wantedDays.clear ();
+  for (auto const& text : settings_->value ("WantedDayList").toStringList ())
+    {
+      auto const day = QDate::fromString (text, Qt::ISODate);
+      if (day.isValid ()) m_wantedDays.insert (day);
+    }
+  ui->cbWantedDays->setChecked (settings_->value ("WantedDays", false).toBool ());
+  showWantedDays ();
 }
 
 void ActiveStations::write_settings ()
@@ -76,6 +116,10 @@ void ActiveStations::write_settings ()
   settings_->setValue("MaxAge",ui->sbMaxAge->value());
   settings_->setValue("ReadyOnly",ui->cbReadyOnly->isChecked());
   settings_->setValue("WantedOnly",ui->cbWantedOnly->isChecked());
+  settings_->setValue ("WantedDays", ui->cbWantedDays->isChecked ());
+  QStringList days;
+  for (auto const& day : sortedDays (m_wantedDays)) days << day.toString (Qt::ISODate);
+  settings_->setValue ("WantedDayList", days);
 }
 
 void ActiveStations::setupUi(DisplayMode mode) {
@@ -101,6 +145,9 @@ void ActiveStations::setupUi(DisplayMode mode) {
   ui->bandChanges->setVisible(standard);
   ui->cbReadyOnly->setVisible(numbered);
   ui->cbWantedOnly->setVisible(mode != DisplayMode::Q65Pileup);
+  // The chosen days only apply to the Q65 (QMAP) list's #, Wanted only and QSOs.
+  ui->cbWantedDays->setVisible(mode == DisplayMode::Q65);
+  ui->pbWantedDays->setVisible(mode == DisplayMode::Q65);
   ui->label_2->setVisible(standard);
   ui->label_3->setVisible(standard);
   ui->score->setVisible(standard);
@@ -212,6 +259,131 @@ void ActiveStations::on_cbWantedOnly_toggled(bool b)
 {
   m_bWantedOnly=b;
   emit activeStationsDisplay();
+}
+
+QSet<QDate> ActiveStations::wantedDays() const
+{
+  return ui->cbWantedDays->isChecked () ? m_wantedDays : QSet<QDate> {};
+}
+
+void ActiveStations::wantedDaysChanged()
+{
+  showWantedDays ();
+  emit activeStationsDisplay();
+}
+
+// The day button's text and tooltip: how many days are chosen, and which.
+void ActiveStations::showWantedDays()
+{
+  auto const n = m_wantedDays.size ();
+  ui->pbWantedDays->setText (n == 0 ? tr ("choose…") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
+  ui->pbWantedDays->setToolTip (tr ("Days (UTC) whose QSOs count as worked: %1. Click to change.")
+                                .arg (daysText (m_wantedDays)));
+  ui->pbWantedDays->setEnabled (ui->cbWantedDays->isChecked ());
+}
+
+// A month calendar under the day button: clicking a day adds it to or
+// removes it from the chosen days, at once. Monday first; today (UTC) is
+// outlined. Closes on Close, Esc or a click outside it.
+void ActiveStations::chooseWantedDays()
+{
+  auto popup = new QFrame {this, Qt::Popup};
+  popup->setAttribute (Qt::WA_DeleteOnClose);
+  popup->setFrameStyle (QFrame::Box | QFrame::Plain);
+  auto layout = new QVBoxLayout {popup};
+
+  auto header = new QHBoxLayout;
+  auto previous = new QToolButton {popup};
+  previous->setArrowType (Qt::LeftArrow);
+  auto title = new QLabel {popup};
+  title->setAlignment (Qt::AlignCenter);
+  auto next = new QToolButton {popup};
+  next->setArrowType (Qt::RightArrow);
+  header->addWidget (previous);
+  header->addWidget (title, 1);
+  header->addWidget (next);
+  layout->addLayout (header);
+
+  auto grid = new QGridLayout;
+  grid->setSpacing (2);
+  QLocale const english {QLocale::English};
+  for (int column = 0; column < 7; ++column)
+    {
+      auto name = new QLabel {english.dayName (column + 1, QLocale::ShortFormat).left (2), popup};
+      name->setAlignment (Qt::AlignCenter);
+      grid->addWidget (name, 0, column);
+    }
+  QVector<QToolButton *> cells;
+  for (int i = 0; i < 42; ++i)
+    {
+      auto cell = new QToolButton {popup};
+      cell->setFixedSize (32, 24);
+      cell->setAutoRaise (true);
+      grid->addWidget (cell, 1 + i / 7, i % 7);
+      cells << cell;
+    }
+  layout->addLayout (grid);
+
+  auto list = new QLabel {popup};
+  list->setWordWrap (true);
+  list->setMaximumWidth (7 * 34);
+  layout->addWidget (list);
+  auto buttons = new QHBoxLayout;
+  auto clear = new QPushButton {tr ("Clear"), popup};
+  auto close = new QPushButton {tr ("Close"), popup};
+  buttons->addWidget (clear);
+  buttons->addStretch ();
+  buttons->addWidget (close);
+  layout->addLayout (buttons);
+
+  // The month shown: that of the newest chosen day, else this month (UTC).
+  auto const today = QDateTime::currentDateTimeUtc ().date ();
+  auto const days = sortedDays (m_wantedDays);
+  auto const start = days.isEmpty () ? today : days.last ();
+  auto month = std::make_shared<QDate> (start.year (), start.month (), 1);
+
+  auto refresh = [=] {
+    title->setText (english.toString (*month, "MMMM yyyy"));
+    auto const first = month->addDays (1 - month->dayOfWeek ());
+    for (int i = 0; i < cells.size (); ++i)
+      {
+        auto const day = first.addDays (i);
+        auto cell = cells[i];
+        bool const inMonth = day.month () == month->month ();
+        cell->setText (inMonth ? QString::number (day.day ()) : QString {});
+        cell->setEnabled (inMonth);
+        cell->setProperty ("day", day);
+        QString style;
+        if (inMonth && m_wantedDays.contains (day))
+          style = "QToolButton{background:#0050c0;color:white;font-weight:bold}";
+        else if (inMonth && day == today)
+          style = "QToolButton{border:1px solid #0050c0}";
+        cell->setStyleSheet (style);
+      }
+    list->setText (m_wantedDays.isEmpty () ? tr ("No days chosen: every QSO counts.")
+                   : daysText (m_wantedDays));
+  };
+  auto changed = [=] {
+    refresh ();
+    showWantedDays ();
+    emit activeStationsDisplay ();
+  };
+  for (auto cell : cells)
+    {
+      connect (cell, &QToolButton::clicked, popup, [=] {
+          auto const day = cell->property ("day").toDate ();
+          if (!m_wantedDays.remove (day)) m_wantedDays.insert (day);
+          changed ();
+        });
+    }
+  connect (previous, &QToolButton::clicked, popup, [=] {*month = month->addMonths (-1); refresh ();});
+  connect (next, &QToolButton::clicked, popup, [=] {*month = month->addMonths (1); refresh ();});
+  connect (clear, &QPushButton::clicked, popup, [=] {m_wantedDays.clear (); changed ();});
+  connect (close, &QPushButton::clicked, popup, &QWidget::close);
+  refresh ();
+  popup->adjustSize ();
+  popup->move (ui->pbWantedDays->mapToGlobal (QPoint {0, ui->pbWantedDays->height ()}));
+  popup->show ();
 }
 
 void ActiveStations::setRate(int n)

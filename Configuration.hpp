@@ -17,6 +17,7 @@
 #include "Audio/AudioDevice.hpp"
 #include "Transceiver/Transceiver.hpp"
 #include "Network/CloudlogConfiguration.hpp"
+#include "logbook/HistoryFolder.hpp"
 
 // Qt 5 moc generates unqualified argument names for these value types.
 using TxSessionId = TxEvidence::TxSessionId;
@@ -226,6 +227,12 @@ public:
   int watchdog () const;
   int tune_watchdog_time () const;
   bool tune_watchdog () const;
+
+  // Footswitch manual TX input on a serial port status line
+  bool footswitch_enabled () const;
+  QString footswitch_port () const;
+  int footswitch_pin () const;  // 0=CTS 1=DSR 2=DCD 3=RI
+  bool footswitch_port_clash () const; // footswitch port is also the CAT or PTT port
   bool TX_messages () const;
   bool split_mode () const;
   bool enable_VHF_features () const;
@@ -287,7 +294,13 @@ public:
   Cloudlog const& cloudlog () const;
   DecodeHighlightingModel const& decode_highlighting () const;
   bool highlight_by_mode () const;
+  bool best_sp_new_dxcc () const;
+  bool best_sp_new_call_on_band () const;
+  // Full path of the ADIF log that receives new QSOs: wsjtx_log.adi in the
+  // data directory unless the user chose another (e.g. shared) location.
+  QString adif_log_file_path () const;
   QStringList const& supplemental_history_files () const;
+  HistoryFolders const& supplemental_history_folders () const;
   void set_worked_before_status (QString const& status, QString const& errors);
   bool highlight_only_fields () const;
   bool include_WAE_entities () const;
@@ -409,6 +422,12 @@ public:
   // rationalise_mode means ensure TX uses same mode as RX.
   Q_SLOT bool transceiver_tx_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
 
+  // Request configured mode at the observed dial; readiness is asynchronous.
+  bool prepare_radio_mode ();
+  bool radio_mode_ready () const;
+  bool radio_mode_yielded () const;
+  Q_SIGNAL void radio_mode_control_changed (bool yielded, bool ready) const;
+
   // Set transceiver mode.
   Q_SLOT void transceiver_mode (MODE);
 
@@ -495,7 +514,7 @@ public:
   // signal updates to decode highlighting
   Q_SIGNAL void decode_highlighting_changed (DecodeHighlightingModel const&) const;
   Q_SIGNAL void decodes_from_top_changed (bool enabled) const;
-  Q_SIGNAL void supplemental_history_files_changed () const;
+  Q_SIGNAL void supplemental_history_sources_changed () const;
   Q_SIGNAL void worked_before_status_changed () const;
 
   //
@@ -525,6 +544,8 @@ public:
   Q_SIGNAL void tx_inhibit_command (QString const& controller, quint32 ttl_ms,
                                     QString const& station) const;
   Q_SIGNAL void tx_inhibit_invalid (quint64 count) const;
+  // CAT or PTT is about to be opened on the port the live footswitch uses
+  Q_SIGNAL void footswitch_port_needed () const;
   Q_SIGNAL void transceiver_closing (bool failed) const;
   Q_SIGNAL void leavingSettings (bool) const;
 

@@ -8,11 +8,11 @@
 /* Reed-Solomon codec control block */
 struct rs {
   unsigned int mm;   /* Bits per symbol */
-  unsigned int nn;   /* Symbols per block (= (1<<mm)-1) */
+  int nn;   /* Symbols per block (= (1<<mm)-1) */
   int *alpha_to;      /* log lookup table */
   int *index_of;      /* Antilog lookup table */
   int *genpoly;       /* Generator polynomial */
-  unsigned int nroots;     /* Number of generator roots = number of parity symbols */
+  int nroots;     /* Number of generator roots = number of parity symbols */
   unsigned int fcr;        /* First consecutive root, index form */
   unsigned int prim;       /* Primitive element, index form */
   unsigned int iprim;      /* prim-th root of 1, index form */

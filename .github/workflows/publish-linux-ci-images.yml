@@ -29,7 +29,7 @@ on:
         type: boolean
         default: false
       image_set:
-        description: "Image cohort: normal, tsan, or normal-and-tsan"
+        description: "Image cohort: normal or tsan"
         required: false
         type: string
         default: "normal"
@@ -92,7 +92,6 @@ on:
         options:
           - normal
           - tsan
-          - normal-and-tsan
         default: normal
       publication_target:
         description: "Image destination"
@@ -119,7 +118,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: linux-ci-image-publishing
+  group: linux-ci-image-publishing-${{ inputs.image_set }}
   cancel-in-progress: false
 
 jobs:
@@ -160,7 +159,11 @@ jobs:
           esac
 
           case "$IMAGE_SET" in
-            normal|tsan|normal-and-tsan) ;;
+            normal|tsan) ;;
+            normal-and-tsan)
+              echo "::error::Publish normal and TSan cohorts separately; image_set=normal-and-tsan is no longer supported"
+              exit 2
+              ;;
             *)
               echo "::error::Unsupported image_set: $IMAGE_SET"
               exit 2
@@ -306,7 +309,7 @@ jobs:
   build-normal:
     if: >-
       (inputs.candidate_profile == 'all' || inputs.candidate_profile == 'x86_64') &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -344,7 +347,7 @@ jobs:
           cache-to: type=inline
 
   build-tsan:
-    if: inputs.image_set == 'tsan' || inputs.image_set == 'normal-and-tsan'
+    if: inputs.image_set == 'tsan'
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 240
@@ -384,7 +387,7 @@ jobs:
   build-arm64:
     if: >-
       (inputs.candidate_profile == 'all' || inputs.candidate_profile == 'aarch64') &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs: metadata
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
@@ -424,7 +427,7 @@ jobs:
   build-armhf-cross:
     if: >-
       ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-bookworm') &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -432,13 +435,6 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
-      - name: Reclaim disk for the ARMHF cross-toolchain
-        run: |
-          # crosstool-NG needs about 8 GiB of transient build storage. Remove
-          # unused hosted-runner SDKs so the Actions worker retains log space.
-          df -h /
-          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc
-          df -h /
       - uses: docker/setup-qemu-action@v4
         with:
           image: tonistiigi/binfmt:qemu-v10.2.3-68@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
@@ -474,7 +470,7 @@ jobs:
   build-armhf-runtime:
     if: >-
       ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-bookworm') &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs:
       - metadata
       - build-armhf-cross
@@ -520,7 +516,7 @@ jobs:
   build-armhf-trixie-cross:
     if: >-
       ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-trixie') &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -564,7 +560,7 @@ jobs:
   build-armhf-trixie-runtime:
     if: >-
       ((inputs.candidate_profile == 'all' && inputs.include_armhf) || inputs.candidate_profile == 'armhf-trixie') &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs:
       - metadata
       - build-armhf-trixie-cross
@@ -611,7 +607,7 @@ jobs:
   warm-normal-ccache:
     if: >-
       inputs.promote &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs:
       - metadata
       - build-normal
@@ -631,7 +627,7 @@ jobs:
   warm-arm64-ccache:
     if: >-
       inputs.promote &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs:
       - metadata
       - build-arm64
@@ -773,7 +769,7 @@ jobs:
       github.ref == 'refs/heads/develop' &&
       inputs.publication_target == 'internal' &&
       inputs.mode == 'refresh' && inputs.promote &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs:
       - metadata
       - promote
@@ -799,7 +795,7 @@ jobs:
       github.ref == 'refs/heads/develop' &&
       inputs.publication_target == 'internal' &&
       inputs.mode == 'refresh' && inputs.promote && inputs.include_armhf &&
-      (inputs.image_set == 'normal' || inputs.image_set == 'normal-and-tsan')
+      inputs.image_set == 'normal'
     needs:
       - metadata
       - promote

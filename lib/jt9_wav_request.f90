@@ -1,7 +1,7 @@
 module jt9_wav_request
   use, intrinsic :: iso_c_binding, only: c_int64_t
   use decoder_engine, only: attempt_request
-  use jt9_params_init, only: cli_args_t, cli_tolerance
+  use jt9_params_init, only: cli_args_t, cli_tolerance, standard_call
   implicit none
   private
   public :: build_wav_request
@@ -146,6 +146,8 @@ contains
           request%ft8%wide_dx_search=merge(1,0,args%lwidedxcsearch)
        endif
        request%ft8%mtd=merge(1,0,pass_mtd)
+       request%ft8%standard_mycall=merge(1,0,standard_call(args%mycall))
+       request%ft8%standard_hiscall=merge(1,0,standard_call(args%hiscall))
        request%ft8%mycall=transfer(args%mycall,request%ft8%mycall)
        request%ft8%hiscall=transfer(args%hiscall,request%ft8%hiscall)
        request%ft8%mygrid=transfer(args%mygrid,request%ft8%mygrid)

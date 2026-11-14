@@ -26,10 +26,15 @@ module wideband_sync
    type(sync_dat), allocatable :: sync(:)  !NFFT
    type(sync_dat), allocatable :: q65_generalized_sync(:)
    integer nkhz_center
+   ! True when sync() was last filled for a narrow frequency window only (the
+   ! automatic early pass or a manual Q65 decode); false once it covers the
+   ! whole decode span.
+   logical :: sync_narrow = .false.
 
 contains
 
-   subroutine get_candidates(ss, savg, xpol, jz, nfa, nfb, nts_jt65, nts_q65, cand, ncand)
+   subroutine get_candidates(ss, savg, xpol, jz, nfa, nfb, nts_jt65, nts_q65, cand, ncand, &
+        nfa_ref, nfb_ref)
       use iso_c_binding
       use debug_log, only: dbg, itoa, rtoa
       use indexx_mod, only: indexx
@@ -46,6 +51,7 @@ contains
       integer, intent(in)    :: nts_jt65, nts_q65
       type(candidate), intent(out) :: cand(MAX_CANDIDATES)
       integer, intent(out)   :: ncand
+      integer, intent(in), optional :: nfa_ref, nfb_ref   !Span that sets the score scale
 
 
 ! Search symbol spectra ss() over frequency range nfa to nfb (in kHz) for
@@ -54,6 +60,8 @@ contains
 ! independently through ccf65(). Legacy paths may retain JT65 candidates.
 ! The nts_* variables are the submode tone spacings: 1 2 4 8 16 for A B C D E.
 ! Birdies are detected and excised. Candidates are returned in cand().
+! nfa_ref, nfb_ref: when searching only part of the span, the whole span (kHz),
+! so scores are scaled by that span's statistics, not the searched window's.
 
       real pavg(-20:20)
       real base, bw, diffhz, df3, flip, flip_top, pmax, snr1, snr_top, tstep
@@ -63,7 +71,7 @@ contains
       integer, allocatable :: indx(:)
       logical skip
 
-      call wb_sync(ss, savg, xpol, nts_q65.ne.0, jz, nfa, nfb) !Output to sync() array
+      call wb_sync(ss, savg, xpol, nts_q65.ne.0, jz, nfa, nfb, nfa_ref, nfb_ref) !Output to sync() array
 
       tstep = 2048.0/11025.0        !0.185760 s: 0.5*tsym_jt65, 0.3096*tsym_q65
       df3 = real(nrate_active)/real(nfft_active)
@@ -151,7 +159,7 @@ contains
       return
    end subroutine get_candidates
 
-   subroutine wb_sync(ss, savg, xpol, q65_enabled, jz, nfa, nfb)
+   subroutine wb_sync(ss, savg, xpol, q65_enabled, jz, nfa, nfb, nfa_ref, nfb_ref)
       use iso_c_binding
       use iso_fortran_env, only: real64
       use debug_log
@@ -169,8 +177,14 @@ contains
       real,    intent(in)    :: savg(4,nfft_active)
       logical, intent(in)    :: xpol,q65_enabled
       integer, intent(in)    :: jz, nfa, nfb
+      integer, intent(in), optional :: nfa_ref, nfb_ref
+
+! Scores in nfa..nfb (kHz) are scaled by their median over the whole nfa_ref..nfb_ref
+! span, estimated from every nstride-th bin of that span, so interference that
+! fills a narrow window can't lower the scores of the signals in it.
 
       integer, parameter :: LAGMAX = 30
+      integer, parameter :: REF_SAMPLES = 8192
       integer, parameter :: Q65_SYNC_ROWS = 3*22, JT65_SYNC_ROWS = 2*63
       integer, parameter :: Q65_MIN_ROWS = Q65_SYNC_ROWS - 3
       integer, parameter :: JT65_MIN_ROWS = JT65_SYNC_ROWS - 2
@@ -179,7 +193,8 @@ contains
       real base, ccf, ccfmax, combine_poldeg, df3, fac, flip, poldeg, row_scale, tstep
       real(real64) :: combine_angle,g00,g01,g11,n00,n01,n11,physical_angle
       real(real64) :: projections(4),whitened_score
-      integer i, ia, ib, ipolbest, j, k, lag, lagbest, nrows
+      integer i, ia, ib, ia_r, ib_r, ipolbest, j, k, lag, lagbest, nrows, nref, nstride
+      real, allocatable :: ref_sync(:), ref_gen(:)
       integer npol, ipol
       logical first,generalized_available,score_valid
       integer isync(22)
@@ -225,6 +240,16 @@ contains
       ib = nint(1000*nfb/df3) + 1
       if (ia .lt. 1) ia = 1
       if (ib .gt. nfft_active - 1) ib = nfft_active - 1
+      ia_r = ia
+      ib_r = ib
+      nstride = 1
+      if (present(nfa_ref) .and. present(nfb_ref)) then
+         ia_r = max(1, min(ia, nint(1000*nfa_ref/df3) + 1))
+         ib_r = min(nfft_active - 1, max(ib, nint(1000*nfb_ref/df3) + 1))
+         nstride = max(1, (ib_r - ia_r + 1)/REF_SAMPLES)
+      endif
+      ! With no wider reference the median uses every bin, as without a reference.
+      if (ia_r .eq. ia .and. ib_r .eq. ib) nstride = 1
       npol = 1
       if (xpol) npol = 4
 
@@ -249,7 +274,7 @@ contains
       enddo
 
       do i = 1, npol
-         call pctile(savg(i, ia:ib), ib - ia + 1, 50, savg_med(i))
+         call pctile(savg(i, ia_r:ib_r), ib_r - ia_r + 1, 50, savg_med(i))
       enddo
       n00=real(savg_med(1),real64)/real(jz,real64)
       n11=n00
@@ -257,7 +282,7 @@ contains
       generalized_available=.false.
       if (xpol .and. q65_enabled) then
          n11=real(savg_med(3),real64)/real(jz,real64)
-         call pctile(0.5*(savg(2,ia:ib)-savg(4,ia:ib)),ib-ia+1,50,base)
+         call pctile(0.5*(savg(2,ia_r:ib_r)-savg(4,ia_r:ib_r)),ib_r-ia_r+1,50,base)
          n01=real(base,real64)/real(jz,real64)
          call generalized_polarization_score(0.0_real64,0.0_real64,0.0_real64, &
               n00,n11,n01,whitened_score,physical_angle,combine_angle,generalized_available)
@@ -271,7 +296,10 @@ contains
       ipolbest = 1
       flip = 0.
 
-      do i = ia, ib
+      nref = 0
+      allocate (ref_sync((ib_r - ia_r)/nstride + 1), ref_gen((ib_r - ia_r)/nstride + 1))
+      do i = ia_r, ib_r
+         if ((i .lt. ia .or. i .gt. ib) .and. mod(i - ia_r, nstride) .ne. 0) cycle
          ccfmax = 0.
          poldeg = 0.
          combine_poldeg = 0.
@@ -409,17 +437,31 @@ contains
 !                      ' iflip=', sync(i)%iflip
 !        endif
 
+        if (mod(i - ia_r, nstride) .eq. 0) then
+           nref = nref + 1
+           ref_sync(nref) = sync(i)%ccfmax
+           ref_gen(nref) = q65_generalized_sync(i)%ccfmax
+        endif
         enddo   ! i (frequency bin)
 
-      call pctile(sync(ia:ib)%ccfmax, ib - ia + 1, 50, base)
-      sync(ia:ib)%ccfmax = sync(ia:ib)%ccfmax/base
+      call pctile(ref_sync, nref, 50, base)
+      if (base > tiny(base)) then
+         do i = ia_r, ib_r
+            if ((i .lt. ia .or. i .gt. ib) .and. mod(i - ia_r, nstride) .ne. 0) cycle
+            sync(i)%ccfmax = sync(i)%ccfmax/base
+         enddo
+      endif
       if (generalized_available) then
-         call pctile(q65_generalized_sync(ia:ib)%ccfmax,ib-ia+1,50,base)
+         call pctile(ref_gen, nref, 50, base)
          if (base > tiny(base)) then
-            q65_generalized_sync(ia:ib)%ccfmax=q65_generalized_sync(ia:ib)%ccfmax/base
-            sync(ia:ib)=q65_generalized_sync(ia:ib)
+            do i = ia_r, ib_r
+               if ((i .lt. ia .or. i .gt. ib) .and. mod(i - ia_r, nstride) .ne. 0) cycle
+               q65_generalized_sync(i)%ccfmax = q65_generalized_sync(i)%ccfmax/base
+               sync(i) = q65_generalized_sync(i)
+            enddo
          endif
       endif
+      deallocate (ref_sync, ref_gen)
 
       ! A local-peak "collapse to single survivor" pass used to run here,
       ! blanking a wide (~450 Hz) same-type swath around whatever bin its
@@ -444,6 +486,7 @@ contains
 
       return
    end subroutine wb_sync
+
 
    pure integer function outside_row_count(j1,j2,jz)
       implicit none

@@ -865,6 +865,11 @@ void HamlibTransceiver::do_stop ()
   CAT_TRACE ("state: " << state () << " reversed=" << m_->vfo_roles_.reversed ());
 }
 
+bool HamlibTransceiver::mode_readback_expected () const
+{
+  return m_->mode_query_works_;
+}
+
 bool HamlibTransceiver::frequency_readback_expected (RigFrequency::Path path, Frequency target) const
 {
   if (!m_->freq_query_works_) return false;
@@ -1210,7 +1215,7 @@ void HamlibTransceiver::do_poll ()
       if (RIG_OK == rc)
         {
           CAT_TRACE ("rig_get_mode mode=" << rig_strrmode (m) << " bw=" << w);
-          update_mode (HamlibMode::from_hamlib (m));
+          observe_mode (HamlibMode::from_hamlib (m));
         }
       else
         {

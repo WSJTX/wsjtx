@@ -37,8 +37,15 @@ frequency to that station's suggested calling frequency,
 call the station right away.
 
 The symbol *#* at the right edge of *Active Stations* marks a callsign
-decoded by _QMAP_ that is not yet present in `wsjtx.log`. This feature
-is a convenience for tracking EME initials or contest QSOs. An
+decoded by _QMAP_ that you have not yet worked on the current band, in
+any mode, according to your ADIF log (`wsjtx_log.adi` and any history
+sources set in *Settings | Colors*). Check *on days* and click the
+button beside it to choose days (UTC) in a calendar; only QSOs made on
+those days then count. For a contest held over two weekends, choose
+the contest days of both weekends: stations you worked on this band
+before the contest, or between the weekends, are then wanted again,
+without starting a new log. This feature is a convenience for tracking EME
+initials or contest QSOs. An
 asterisk +*+ marks a station whose most recent transmission contains
 `CQ`, `RR73`, or `73`, so the sender is presumably ready to start
 another QSO. Use the *Wanted only* and *CQ only* checkboxes and *Max

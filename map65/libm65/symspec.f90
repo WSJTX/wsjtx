@@ -169,7 +169,9 @@ k0 = k
      cy(i)=zfac*cmplx(x3,x4)          !NB: cy includes dphi correction
   enddo
 
-  if(nzap/178.lt.50 .and. (ndiskdat.eq.0 .or. ihsym.lt.280)) then
+  ! Half the samples in a half-symbol (8900 at 96 kHz) may be blanked.
+  if(real(nzap).lt.8900.0*real(nrate_active)/96000.0 .and.                    &
+       (ndiskdat.eq.0 .or. ihsym.lt.280)) then
      nsum=nblks*kstep - nzap
      if(nsum.le.0) nsum=1
      rmsx=sqrt(0.5*px/nsum)

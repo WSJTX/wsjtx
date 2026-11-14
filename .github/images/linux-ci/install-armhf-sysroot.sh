@@ -21,6 +21,15 @@ dpkg-query --admindir="$ARMHF_SYSROOT/var/lib/dpkg" -W -f='${binary:Package}=${V
 test -s /opt/wsjtx-ci/armhf-sysroot-packages.txt
 rm -rf "$ARMHF_SYSROOT/var/cache/apt/archives" "$ARMHF_SYSROOT/var/lib/apt/lists"
 export PATH="$ARMHF_TOOLCHAIN_PREFIX/bin:$PATH"
+# shellcheck source=.github/scripts/linux-boost-config.sh
+. /usr/local/share/wsjtx-ci/linux-boost-config.sh
+CXX="$ARMHF_TARGET_TRIPLET-g++" CXXFLAGS="${ARMHF_ABI_FLAGS[*]}" \
+  BOOST_SYSROOT="$ARMHF_SYSROOT" \
+  /usr/local/share/wsjtx-ci/build-boost-linux.sh "$BOOST_VERSION" "$ARMHF_SYSROOT$LINUX_BOOST_PREFIX"
+# shellcheck source=.github/scripts/linux-boost-validation.sh
+. /usr/local/share/wsjtx-ci/linux-boost-validation.sh
+READELF="$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-readelf" \
+  validate_linux_boost_archives "$ARMHF_SYSROOT$LINUX_BOOST_PREFIX" armhf "$BOOST_VERSION"
 fftw_cflags="--sysroot=$ARMHF_SYSROOT -isystem $ARMHF_SYSROOT/usr/include/$ARMHF_TARGET_TRIPLET ${ARMHF_ABI_FLAGS[*]} -O3"
 fftw_ldflags="--sysroot=$ARMHF_SYSROOT -B$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET/ -L$ARMHF_SYSROOT/usr/lib/$ARMHF_TARGET_TRIPLET -Wl,-rpath-link,$ARMHF_SYSROOT/lib/$ARMHF_TARGET_TRIPLET"
 # Libtool preserves the Debian start-file prefix in CC, but drops it from LDFLAGS.
@@ -39,8 +48,12 @@ CC="$fftw_cc" CFLAGS="$fftw_cflags" LDFLAGS="$fftw_ldflags" \
   /usr/local/share/wsjtx-ci/build-fftw-smoke-linux.sh \
     /opt/wsjtx-ci/toolchain-smoke/fftw-smoke "$ARMHF_SYSROOT$LINUX_FFTW_PREFIX"
 for library in "${ARMHF_GCC_RUNTIME_LIBRARIES[@]}"; do
-  source_path="$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name="$library")"
-  test "$source_path" != "$library"
+  if [ "$ARMHF_DISTRO" = bookworm ]; then
+    source_path="$(armhf_sysroot_runtime_path "$library")"
+  else
+    source_path="$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name="$library")"
+    test "$source_path" != "$library"
+  fi
   cp -L "$source_path" "$ARMHF_RUNTIME_PREFIX/$library"
 done
 test "$("$ARMHF_TOOLCHAIN_PREFIX/bin/$ARMHF_TARGET_TRIPLET-gcc" -print-file-name=libquadmath.so.0)" = libquadmath.so.0

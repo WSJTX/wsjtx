@@ -94,6 +94,23 @@ NOTE: When using a proxy application for rig control, *CAT* is usually
       the correct option for _PTT Method_ assuming the proxy
       application is capable of keying your transceiver independently.
 
+* _Footswitch T/R_: check *Use footswitch* to switch between
+  receiving and transmitting with a footswitch, for example for
+  Doppler-corrected CW EME (see <<VHF_AND_UP,VHF+ Features>>). Pressing
+  the footswitch does the same as clicking *Tune* but sends no audio;
+  releasing it returns to receive. A footswitch transmission stops
+  after 3 minutes; release and press again to continue.
+** Select the *Port* the footswitch is connected to. It must be a
+   serial port that is not also used for CAT control or PTT.
+** Select the *Input* line the footswitch drives: *CTS*, *DSR*, *DCD*
+   or *RI*.
+** Use a normally open switch. _WSJT-X_ asserts DTR on the footswitch
+   port, so the switch can connect DTR (pin 4 of a 9-pin connector) to
+   CTS (pin 8), with a resistor of about 10 kilohms from CTS to ground
+   (pin 5). An unplugged or broken cable then reads as released.
+** After the port opens, the footswitch is ignored until it has been
+   seen released, so a stuck switch cannot key the transmitter.
+
 * _Transmit Audio Source_: some radios permit you to choose the
   connector that will accept Tx audio.  If this choice is enabled,
   select *Rear/Data* or *Front/Mic*.
@@ -104,6 +121,16 @@ NOTE: When using a proxy application for rig control, *CAT* is usually
   input.  Some radios also offer wider and/or flatter passbands when
   set to *Data/Pkt* mode.  Select *None* if you do not want _WSJT-X_
   to change the radio's Mode setting.
+
++
+When CAT reports that the radio has been changed to an incompatible mode
+outside _WSJT-X_, the program leaves that mode unchanged and turns off
+*Enable Tx*. Reception and frequency display continue. To resume digital
+operation at the current dial frequency, click *Enable Tx* or *Tune*, or
+use a local transmit shortcut or station selection that enables transmission.
+_WSJT-X_ then applies the configured mode and waits for the radio to settle.
+Automatic replies, timers, and UDP Reply requests do not resume transmission
+after such a mode change. Selecting *None* retains manual mode control.
 
 * _Split Operation_: Significant advantages result from using *Split*
   mode (separate VFOs for Rx and Tx) if your radio supports it.  If it

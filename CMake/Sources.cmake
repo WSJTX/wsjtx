@@ -191,6 +191,7 @@ set (wsjtx_CXXSRCS
   DecoderProcessSupervisor.cpp
   ShmemDecoderBackend.cpp
   OperatingFrequency.cpp
+  FootswitchInput.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
   widgets/SpecOpLabel.cpp
@@ -226,6 +227,7 @@ if (WSJT_ENABLE_TESTS)
     WavDecodeTestController.cpp
     LiveAudioTestController.cpp
     ReceiveHandoffTestController.cpp
+    BestSPApplicationTestController.cpp
     )
 endif ()
 
@@ -237,9 +239,6 @@ set (wsjt_CXXSRCS
   lib/NativeSharedMemory.cpp
   lib/DecoderWorkerLock.cpp
   lib/ft8var/ft8_coarse_mutex.cpp
-  lib/crc10.cpp
-  lib/crc13.cpp
-  lib/crc14.cpp
   ${wsjt_fox_CXXSRCS}
   )
 
@@ -251,13 +250,6 @@ set (wsjt_jtty_CXXSRCS
   lib/jtty/JttyUnicode.cpp
   lib/stream_slot_audio.cpp
   )
-
-# deal with a GCC v6 UB error message
-set_source_files_properties (
-  lib/crc10.cpp
-  lib/crc13.cpp
-  lib/crc14.cpp
-  PROPERTIES COMPILE_FLAGS -fpermissive)
 
 if (WIN32)
   set (wsjt_qt_CXXSRCS
@@ -341,8 +333,11 @@ set (wsjt_FSRCS
   lib/jtty/jtty_mdecode.f90
   lib/jtty/jtty_receive_context.f90
   lib/jtty/jtty_filler.f90
+  lib/spectrum_rows.f90
   lib/streaming_jtty.f90
   lib/streaming_encode.f90
+  lib/refspectrum.f90
+  lib/streaming_receive.f90
 
   # remaining non-module sources
   lib/addit.f90
@@ -524,7 +519,6 @@ set (wsjt_FSRCS
   lib/qra/q65/q65_loops.f90
   lib/qra/q65/q65_set_list.f90
   lib/qra/q65/q65_set_list2.f90
-  lib/refspectrum.f90
   lib/savec2.f90
   lib/save_echo_params.f90
   lib/sec0.f90
@@ -681,7 +675,6 @@ set (ka9q_CSRCS
   lib/ftrsd/encode_rs.c
   lib/ftrsd/init_rs.c
   )
-set_source_files_properties (${ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (qra_CSRCS
   lib/qra/qracodes/qra12_63_64_irr_b.c

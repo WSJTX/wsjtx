@@ -794,7 +794,7 @@ quiet period when decoding is done.</string>
        <string>Radio interface configuration settings.</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="13" column="2">
+       <item row="14" column="2">
         <spacer name="verticalSpacer_13">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -807,7 +807,7 @@ quiet period when decoding is done.</string>
          </property>
         </spacer>
        </item>
-       <item row="8" column="2">
+       <item row="9" column="2">
         <widget class="QGroupBox" name="split_operation_group_box">
          <property name="title">
           <string>Split Operation</string>
@@ -861,7 +861,7 @@ quiet period when decoding is done.</string>
          </layout>
         </widget>
        </item>
-       <item row="13" column="0">
+       <item row="14" column="0">
         <spacer name="verticalSpacer_5">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -877,7 +877,7 @@ quiet period when decoding is done.</string>
          </property>
         </spacer>
        </item>
-       <item row="5" column="2">
+       <item row="7" column="2">
         <widget class="QGroupBox" name="mode_group_box">
          <property name="toolTip">
           <string>Modulation mode selected on radio.</string>
@@ -933,21 +933,21 @@ or bandwidth is selected).</string>
          </layout>
         </widget>
        </item>
-       <item row="4" column="2">
+       <item row="6" column="2">
         <widget class="Line" name="line_4">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
-       <item row="2" column="2">
+       <item row="4" column="2">
         <widget class="Line" name="line_3">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
-       <item row="1" column="0" rowspan="11">
+       <item row="1" column="0" rowspan="12">
         <widget class="QGroupBox" name="CAT_control_group_box">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -1047,42 +1047,42 @@ or bandwidth is selected).</string>
                  </property>
                  <item>
                   <property name="text">
-                   <string>1200</string>
+                   <string notr="true">1200</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>2400</string>
+                   <string notr="true">2400</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>4800</string>
+                   <string notr="true">4800</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>9600</string>
+                   <string notr="true">9600</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>19200</string>
+                   <string notr="true">19200</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>38400</string>
+                   <string notr="true">38400</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>57600</string>
+                   <string notr="true">57600</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>115200</string>
+                   <string notr="true">115200</string>
                   </property>
                  </item>
                 </widget>
@@ -1353,52 +1353,54 @@ a few, particularly some Kenwood rigs, require it).</string>
          </layout>
         </widget>
        </item>
-       <item row="1" column="1" rowspan="13">
+       <item row="1" column="1" rowspan="14">
         <widget class="Line" name="line">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
         </widget>
        </item>
-       <item row="10" column="2">
-        <layout class="QHBoxLayout" name="horizontalLayout_11">
+       <item row="11" column="2">
+        <layout class="QVBoxLayout" name="ptt_test_layout">
          <item>
-          <widget class="QPushButton" name="test_CAT_push_button">
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Test CAT</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_3">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Preferred</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QPushButton" name="test_PTT_push_button">
-           <property name="toolTip">
-            <string>Attempt to activate the transmitter.
+          <layout class="QHBoxLayout" name="horizontalLayout_11">
+           <item>
+            <widget class="QPushButton" name="test_CAT_push_button">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Test CAT</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Preferred</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="test_PTT_push_button">
+             <property name="toolTip">
+              <string>Attempt to activate the transmitter.
 Click again to deactivate. Normally no power should be
 output since there is no audio being generated at this time.
 Check that any Tx indication on your radio and/or your
 radio interface behave as expected.</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton:checked {
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton:checked {
 	background-color: red;
 	border-style	: outset;
 	border-width: 1px;
@@ -1407,22 +1409,115 @@ radio interface behave as expected.</string>
 	min-width: 5em;
 	padding: 3px;
 }</string>
+             </property>
+             <property name="text">
+              <string>Test PTT</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QLabel" name="test_PTT_status_label">
+           <property name="visible">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <property name="text">
-            <string>Test PTT</string>
+            <string/>
            </property>
-           <property name="checkable">
+           <property name="wordWrap">
             <bool>true</bool>
            </property>
           </widget>
          </item>
         </layout>
        </item>
-       <item row="6" column="2">
+       <item row="8" column="2">
         <widget class="Line" name="line_6">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="Line" name="line_footswitch">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2">
+        <widget class="QGroupBox" name="footswitch_group_box">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use a normally open footswitch wired to a serial port status line to switch between receive and transmit, as if clicking Tune but without sending a tone. Press to transmit, release to receive. Footswitch transmissions stop after 3 minutes.&lt;/p&gt;&lt;p&gt;Intended for manual CW EME with Doppler tracking: set Mode to None, put the rig in CW and turn its break-in off.&lt;/p&gt;&lt;p&gt;WSJT-X asserts DTR on this port, so the footswitch can connect DTR to the input pin, with a pull-down of about 10k to ground. Use a port that is not also used for CAT or PTT.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="title">
+          <string>Footswitch T/R</string>
+         </property>
+         <layout class="QGridLayout" name="footswitch_grid_layout">
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="footswitch_enable_check_box">
+            <property name="text">
+             <string>Use footswitch</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="footswitch_port_label">
+            <property name="text">
+             <string>Port:</string>
+            </property>
+            <property name="buddy">
+             <cstring>footswitch_port_combo_box</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="footswitch_port_combo_box">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Serial port the footswitch is connected to.</string>
+            </property>
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+            <property name="insertPolicy">
+             <enum>QComboBox::NoInsert</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="footswitch_pin_label">
+            <property name="text">
+             <string>Input:</string>
+            </property>
+            <property name="buddy">
+             <cstring>footswitch_pin_combo_box</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="footswitch_pin_combo_box">
+            <property name="toolTip">
+             <string>Serial port status line the footswitch drives.</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
        <item row="1" column="2">
@@ -1539,7 +1634,7 @@ other hardware interface for PTT.</string>
          </layout>
         </widget>
        </item>
-       <item row="12" column="0">
+       <item row="13" column="0">
         <widget class="QGroupBox" name="hamlib_groupBox">
          <property name="title">
           <string>Update Hamlib</string>
@@ -1676,7 +1771,7 @@ other hardware interface for PTT.</string>
          </item>
         </layout>
        </item>
-       <item row="11" column="2">
+       <item row="12" column="2">
         <spacer name="verticalSpacer_7">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -1689,7 +1784,7 @@ other hardware interface for PTT.</string>
          </property>
         </spacer>
        </item>
-       <item row="12" column="2">
+       <item row="13" column="2">
         <widget class="QGroupBox" name="rig_data_group_box">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -1749,7 +1844,7 @@ other hardware interface for PTT.</string>
          </layout>
         </widget>
        </item>
-       <item row="9" column="2">
+       <item row="10" column="2">
         <spacer name="verticalSpacer_2">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -1762,7 +1857,7 @@ other hardware interface for PTT.</string>
          </property>
         </spacer>
        </item>
-       <item row="3" column="2">
+       <item row="5" column="2">
         <widget class="QGroupBox" name="TX_audio_source_group_box">
          <property name="toolTip">
           <string>Some radios can select the audio input using a CAT command,
@@ -3283,7 +3378,7 @@ Right click for insert and delete options.</string>
             <item>
              <widget class="QPushButton" name="history_sources_push_button">
               <property name="toolTip">
-               <string>Select additional ADIF files to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
+               <string>Select additional ADIF files and folders to read for worked-before history. Source changes take effect when Settings is accepted with OK.</string>
               </property>
               <property name="text">
                <string>History sources...</string>
@@ -3612,6 +3707,49 @@ Right click for insert and delete options.</string>
        <string>Advanced</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_9">
+       <item row="1" column="0" colspan="2">
+        <widget class="QGroupBox" name="best_sp_group_box">
+         <property name="title">
+          <string>Best S+P</string>
+         </property>
+         <layout class="QGridLayout" name="best_sp_layout">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="best_sp_new_dxcc_check_box">
+            <property name="text">
+             <string>New DXCC entity</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="best_sp_new_call_on_band_check_box">
+            <property name="text">
+             <string>Callsign not worked on this band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_explanation_label">
+            <property name="text">
+             <string>New DXCC entities have priority. Highlight colors, enabled rules, and rule order do not affect selection.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
+           <widget class="QLabel" name="best_sp_matching_explanation_label">
+            <property name="text">
+             <string>Worked-before matching follows 'Highlight by Mode' and 'Include extra WAE entities' on Colors.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QGroupBox" name="gbCloudlog">
          <property name="sizePolicy">
@@ -3786,7 +3924,7 @@ Right click for insert and delete options.</string>
          </layout>
         </widget>
        </item>
-       <item row="0" column="1" rowspan="2">
+       <item row="0" column="1">
         <widget class="QGroupBox" name="groupBox_5">
          <property name="title">
           <string>Miscellaneous</string>
@@ -5614,6 +5752,8 @@ Right click for insert and delete options.</string>
   <tabstop>cbx4ToneSpacing</tabstop>
   <tabstop>rbLowSidelobes</tabstop>
   <tabstop>rbMaxSensitivity</tabstop>
+  <tabstop>best_sp_new_dxcc_check_box</tabstop>
+  <tabstop>best_sp_new_call_on_band_check_box</tabstop>
   <tabstop>cbSpecialOpActivity</tabstop>
   <tabstop>rbFox</tabstop>
   <tabstop>cbSuperFox</tabstop>

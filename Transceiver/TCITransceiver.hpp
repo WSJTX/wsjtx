@@ -108,7 +108,6 @@ qreal txAtten;
 
 public slots:
   void sendTextMessage(const QString &message);
-  void txAudioData(quint32 len, float * data);
   void enqueue_jtty_pcm (QByteArray const& samples, TxAudioQueueEpoch epoch,
                          qint64 enqueueId) noexcept override;
   void clear_jtty_pcm (TxAudioQueueEpoch epoch) noexcept override;
@@ -258,7 +257,6 @@ private:
   // Rig state
   QString requested_mode_;
   QString mode_;
-  QString started_mode_;
   QString requested_rx_frequency_;
   QString rx_frequency_;
   QString requested_other_frequency_;
@@ -354,6 +352,7 @@ private:
   bool m_tciFinalSnapshotEmitted;
 
   bool m_tuning;
+  bool m_silent {false};       // footswitch TX: keep timing, send no audio
   bool m_addNoise;
   bool m_bFastMode;
 

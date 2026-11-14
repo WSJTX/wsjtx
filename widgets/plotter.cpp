@@ -329,9 +329,8 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
          .toString ((m_TRperiod < 60.0) or (m_mode=="JTTY") ? "hh:mm:ss" : "hh:mm");
       t = QString {"%1    %2"}.arg (start).arg (m_rxBand);
     }
-    QRect rect{5, -2, m_scale.width()-10, painter1.fontMetrics().ascent()};
-    QRect boundingRect;
-    painter1.drawText(rect, m_timestamp==2?0x0082:0x0081,t, &boundingRect);
+    QRect const rect{5, 0, m_scale.width()-10, painter1.fontMetrics().height()};
+    painter1.drawText(rect, (m_timestamp==2 ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignTop, t);
   }
 
   if(m_mode=="JT4" or (m_mode=="Q65" and m_nSubMode>=3)) {

@@ -1,7 +1,7 @@
 //status: edited
 
 Information on completed QSOs is saved to files in comma-separated
-text format (`wsjtx.log`) and ADIF format (`wsjtx_log.adi`). Initiate
+text format (`wsjtx.log`) and ADIF format (`wsjtx_log.adi` by default). Initiate
 logging by clicking the *Log QSO* button, or by having checked *Prompt
 me to log QSO* on the *File | Settings | Reporting* tab. Several other
 options are available: for example, check *Special operating activity

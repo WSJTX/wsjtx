@@ -14,35 +14,35 @@ subroutine subtractft8(dd0,itone,f0,dt,lrefinedt)
   real window(-NFILT/2:NFILT/2)
   real x(NFFT+2)
   real endcorrection(NFILT/2+1)
+  real sumw
+  complex*16 erot(0:NFILT-1)
+  real*8 twopi
   complex cx(0:NFFT/2)
-  complex cref,camp,cfilt,cw,z
+  complex cref,camp,cfilt,z
   integer itone(79)
   logical first,lrefinedt,ldt
   data first/.true./
-  common/heap8/cref(NFRAME),camp(NMAX),cfilt(NMAX),cw(NMAX)
+  common/heap8/cref(NFRAME),camp(NFRAME),cfilt(NFRAME)
   equivalence (x,cx)
-  save first,/heap8/,endcorrection
+  save first,/heap8/,endcorrection,sumw,erot
 
   if(.not.allocated(dd)) allocate(dd(NMAX))
 
   if(first) then                         ! Create and normalize the filter
      pi=4.0*atan(1.0)
-     fac=1.0/float(nfft)
      sumw=0.0
      do j=-NFILT/2,NFILT/2
         window(j)=cos(pi*j/NFILT)**2
         sumw=sumw+window(j)
      enddo
-     cw=0.
-     do j=-NFILT/2,NFILT/2
-        cw(modulo(j-1,NFFT)+1)=window(j)/sumw
-     enddo
-     call four2a(cw,nfft,1,-1,1)
-     cw=cw*fac
-     first=.false.
      do j=1,NFILT/2+1
        endcorrection(j)=1.0/(1.0-sum(window(j-1:NFILT/2))/sumw)
      enddo
+     twopi=8.0d0*atan(1.0d0)
+     do k=0,NFILT-1
+        erot(k)=dcmplx(cos(twopi*k/NFILT),sin(twopi*k/NFILT))
+     enddo
+     first=.false.
   endif
 
 ! Generate complex reference waveform cref
@@ -70,27 +70,25 @@ contains
 
   real function sqf(idt)         !Internal function: all variables accessible
     nstart=dt*12000+1 + idt
-    camp=0.
     dd=dd0
     do i=1,nframe
-       j=nstart-1+i 
-       if(j.ge.1.and.j.le.NMAX) camp(i)=dd(j)*conjg(cref(i))
+       j=nstart-1+i
+       if(j.ge.1.and.j.le.NMAX) then
+          camp(i)=dd(j)*conjg(cref(i))
+       else
+          camp(i)=0.
+       endif
     enddo
-
-    cfilt(1:nframe)=camp(1:nframe)
-    cfilt(nframe+1:)=0.0
-    call four2a(cfilt,nfft,1,-1,1)
-    cfilt(1:nfft)=cfilt(1:nfft)*cw(1:nfft)
-    call four2a(cfilt,nfft,1,1,1)
+    call lowpass(camp,cfilt,nframe)
     cfilt(1:NFILT/2+1)=cfilt(1:NFILT/2+1)*endcorrection
     cfilt(nframe:nframe-NFILT/2:-1)=cfilt(nframe:nframe-NFILT/2:-1)*endcorrection
-    x=0.
+    if(ldt) x=0.
     do i=1,nframe
        j=nstart+i-1
        if(j.ge.1 .and. j.le.NMAX) then
           z=cfilt(i)*cref(i)
           dd(j)=dd(j)-2.0*real(z)      !Subtract the reconstructed signal
-          x(i)=dd(j)
+          if(ldt) x(i)=dd(j)
        endif
     enddo
     sqq=0.
@@ -106,5 +104,46 @@ contains
     sqf=sqq
     return
   end function sqf
+
+  subroutine lowpass(cin,cout,n)
+! cout(i) = sum(j=-NFILT/2:NFILT/2) window(j)/sumw * cin(i+1+j), with cin=0
+! outside 1..n (the assumption endcorrection is built on).  The window,
+! cos(pi*j/NFILT)**2 = (1+cos(2*pi*j/NFILT))/2, is a constant plus one cosine,
+! so the sum is sa/2 + (conjg(e)*sc + e*sb)/4, where e=erot(mod(i+1,NFILT))
+! and sa, sb, sc are the running sums of cin, cin*conjg(erot) and cin*erot over
+! the window; each output slides them by one sample.  The sums are double
+! precision so that adding and removing about 150000 samples does not drift.
+! The window is centred on sample i+1, not i.
+    integer n
+    complex cin(n),cout(n)
+    complex*16 sa,sb,sc,t,u
+    integer i,k,h
+    h=NFILT/2
+    sa=0; sb=0; sc=0
+    do k=1,min(n,2+h)                       !window for i=1 is k=2-h..2+h
+       t=cin(k)
+       sa=sa+t
+       sb=sb+t*conjg(erot(modulo(k,NFILT)))
+       sc=sc+t*erot(modulo(k,NFILT))
+    enddo
+    do i=1,n
+       u=0.25d0*(conjg(erot(modulo(i+1,NFILT)))*sc + erot(modulo(i+1,NFILT))*sb)
+       cout(i)=(0.5d0*sa+u)/sumw
+       k=i+2+h                              !enters for the next sample
+       if(k.le.n) then
+          t=cin(k)
+          sa=sa+t
+          sb=sb+t*conjg(erot(modulo(k,NFILT)))
+          sc=sc+t*erot(modulo(k,NFILT))
+       endif
+       k=i+1-h                              !leaves
+       if(k.ge.1) then
+          t=cin(k)
+          sa=sa-t
+          sb=sb-t*conjg(erot(modulo(k,NFILT)))
+          sc=sc-t*erot(modulo(k,NFILT))
+       endif
+    enddo
+  end subroutine lowpass
 
 end subroutine subtractft8

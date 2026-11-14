@@ -50,6 +50,7 @@ protected:
   void do_post_mode (MODE) override final;
   void do_post_ptt (bool = true) override final;
   bool do_pre_update () override final;
+  bool mode_readback_expected () const override {return true;}
 
 private:
   void start_timer ();

@@ -1,9 +1,9 @@
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
-! Raw Rx data are available as the 96 kHz complex spectrum ca(MAXFFT1)
-! in cacb_mod.  If xpol is true, we also have cb(MAXFFT1) for the
-! orthogonal polarization.  Decoded messages are sent back to the GUI
-! on stdout.
+! Raw Rx data are available as the complex spectrum ca(1:nfft1) in
+! cacb_mod, where nfft1 is 56 times the sample rate.  If xpol is true, we
+! also have cb for the orthogonal polarization.  Decoded messages are sent
+! back to the GUI on stdout.
 
       module q65b_mod
       use iso_fortran_env, only: int16, real64
@@ -134,9 +134,9 @@
 
       !==== Local parameters ====================================================
       ! MAXFFT1/2 are *max* sizes; actual runtime sizes are derived below.
-      ! MAXFFT1 must be = nfft_big_active; MAXFFT2 must be = the
-      ! downsampled-FFT length at the highest supported rate.
-      integer, parameter :: MAXFFT1 = 56*192000
+      ! MAXFFT1 bounds nfft_big_active at the highest supported rate; MAXFFT2
+      ! must be = the downsampled-FFT length at that rate.
+      integer, parameter :: MAXFFT1 = 56*256000
       integer, parameter :: NMAX    = 60*12000
 
       !==== Local variables =====================================================
@@ -194,9 +194,10 @@
       return
     endif
 
-      ! ca/cb storage is sized at MAXFFT1 in cacb_mod; the *active* big FFT
-      ! length is nfft_big_active, set from C++ via set_runtime_params_().
-      call init_cacb(MAXFFT1)
+      ! ca/cb storage in cacb_mod is sized for the active big FFT
+      ! (nfft_big_active, set from C++ via set_runtime_params_()), not for
+      ! the largest supported rate. The rate only changes on restart.
+      call init_cacb(min(nfft_big_active, MAXFFT1))
       
       ! wideband_sync expects the active symspec FFT length
       call init_wideband_sync()

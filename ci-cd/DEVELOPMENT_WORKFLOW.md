@@ -355,7 +355,7 @@ CI runs on GitHub-hosted runners:
 
 ### Test Failure Policy
 
-Tests run via ctest at the end of each platform's build job, after compilation succeeds. The policy is **hard-fail everywhere**:
+Tests run via ctest at the end of each platform's build job, after compilation succeeds. The decode-thread rows that took 30 s or more on some platform when labelled carry the label `decode-thread-long` (`tests/unit/streaming/CMakeLists.txt`). armhf and macOS Intel, the slow legs, always leave them out with `ctest -LE decode-thread-long`. So does every leg in a release candidate build and a tag build, whose tree has passed them in the Linux x86_64 push CI of its `release/` branch. Everywhere else they run: Linux x86_64 in every CI run, including a `release/` branch's push CI; aarch64 and macOS arm64 in full-ci, dispatched and Refresh Build Caches runs; and Windows, which registers only the inline ones. The policy is **hard-fail everywhere**:
 
 - Any test failure fails the platform's build job
 - A failed build job fails the entire CI run (red X on the PR or push)

@@ -2,14 +2,6 @@ name: "Build Windows dependencies"
 description: "Restore or populate Windows Boost, FFTW, pFUnit, and Hamlib dependency caches."
 
 inputs:
-  boost_version:
-    description: "Boost version to build"
-    required: false
-    default: "1.91.0"
-  boost_source_sha256:
-    description: "Expected SHA-256 for the Boost source archive"
-    required: false
-    default: "de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5"
   windows_api_floor:
     description: "Windows API floor used for Boost and WSJT-X builds"
     required: false
@@ -58,13 +50,16 @@ runs:
         HAMLIB_BRANCH: ${{ inputs.hamlib_branch }}
       run: .github/scripts/validate-ci-inputs.sh
 
-    - name: Resolve dependency prefixes
+    - name: Resolve dependency prefixes and Boost version
       id: paths
       shell: msys2 {0}
       run: |
+        . .github/scripts/boost-version.sh
         WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
         {
-          echo "boost_prefix=${WORKSPACE}/boost-prefix"
+          echo "boost_version=${BOOST_VERSION}"
+          echo "boost_source_sha256=${BOOST_SOURCE_SHA256}"
+          echo "boost_prefix=${WORKSPACE}/boost-static-prefix"
           echo "fftw_prefix=${WORKSPACE}/fftw-prefix"
           echo "hamlib_prefix=${WORKSPACE}/hamlib-prefix"
           echo "pfunit_prefix=${WORKSPACE}/pfunit-prefix"
@@ -105,41 +100,45 @@ runs:
       if: inputs.cold_build != 'true'
       uses: actions/cache/restore@v6
       with:
-        path: boost-prefix
-        key: boost-windows-windows-latest-ucrt64-${{ inputs.boost_version }}-${{ inputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
+        path: boost-static-prefix
+        key: boost-static-windows-windows-latest-ucrt64-${{ steps.paths.outputs.boost_version }}-${{ steps.paths.outputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/boost-version.sh', '.github/scripts/build-boost-windows.sh', '.github/scripts/boost-log-queue.patch') }}
 
     - name: Build Boost
       id: boost-build
       if: steps.boost-cache.outputs.cache-hit != 'true'
       shell: msys2 {0}
-      run: .github/scripts/build-boost-windows.sh "${{ inputs.boost_version }}" "${{ inputs.boost_source_sha256 }}" "${{ inputs.windows_api_floor }}" "${{ steps.paths.outputs.boost_prefix }}"
+      run: .github/scripts/build-boost-windows.sh "${{ inputs.windows_api_floor }}" "${{ steps.paths.outputs.boost_prefix }}"
+
+    - name: Verify static Boost archives
+      shell: msys2 {0}
+      run: |
+        prefix="${{ steps.paths.outputs.boost_prefix }}"
+        boost_archives=("$prefix"/lib/libboost_*.a)
+        if [ ! -e "${boost_archives[0]}" ]; then
+          echo "::error::Boost archives not found under $prefix/lib"
+          exit 1
+        fi
+        for shared in "$prefix"/lib/*boost*.dll "$prefix"/bin/*boost*.dll "$prefix"/lib/*boost*.dll.a; do
+          if [ -e "$shared" ]; then
+            echo "::error::Shared Boost library in static prefix: $shared"
+            exit 1
+          fi
+        done
+        for archive in "${boost_archives[@]}"; do
+          echo "Inspecting $archive"
+          ar t "$archive" > /dev/null
+          objdump -f "$archive" | awk '
+            /file format/ { objects++; if ($NF !~ /^pe(-bigobj)?-x86-64$/) bad=1 }
+            END { exit (objects == 0 || bad) ? 1 : 0 }
+          '
+        done
 
     - name: Save Boost cache
       if: inputs.cold_build != 'true' && inputs.save_caches == 'true' && steps.boost-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v6
       with:
-        path: boost-prefix
+        path: boost-static-prefix
         key: ${{ steps.boost-cache.outputs.cache-primary-key }}
-
-    - name: Verify Boost Windows API floor
-      shell: msys2 {0}
-      run: |
-        boost_dlls=("${{ steps.paths.outputs.boost_prefix }}"/lib/libboost_*.dll)
-        if [ ! -e "${boost_dlls[0]}" ]; then
-          echo "::error::Boost DLLs not found under ${{ steps.paths.outputs.boost_prefix }}/lib"
-          ls -la "${{ steps.paths.outputs.boost_prefix }}/lib" || true
-          exit 1
-        fi
-        bad=0
-        for boost_dll in "${boost_dlls[@]}"; do
-          echo "Inspecting ${boost_dll}"
-          objdump -p "$boost_dll" | awk '/DLL Name:/ {print "  " $3}' | sort -u
-          if objdump -p "$boost_dll" | awk '/WaitOnAddress|WakeByAddressSingle|WakeByAddressAll|api-ms-win-core-synch-l1-2-0\.dll/ { found=1; print } END { exit found ? 0 : 1 }'; then
-            echo "::error::${boost_dll} imports Windows 8+ synchronization APIs"
-            bad=1
-          fi
-        done
-        exit "$bad"
 
     - name: Locate gfortran
       id: fc

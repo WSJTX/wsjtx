@@ -17,7 +17,7 @@ ARMHF_QEMU_EXECUTABLE=/usr/local/bin/qemu-arm-static
 
 ARMHF_SYSROOT_PACKAGES=(
   libc6-dev libstdc++6 libgfortran5 libgomp1 libatomic1
-  libfftw3-dev libboost-log-dev
+  libfftw3-dev
   qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev
   libqt5sql5-sqlite libqt5websockets5-dev libqt5multimedia5-plugins
   libusb-1.0-0-dev libudev-dev portaudio19-dev
@@ -30,3 +30,15 @@ ARMHF_GCC_RUNTIME_LIBRARIES=(
   libgomp.so.1
   libstdc++.so.6
 )
+
+armhf_sysroot_runtime_path() {
+  local library=$1 directory
+  for directory in usr/lib lib; do
+    if [ -f "$ARMHF_SYSROOT/$directory/$ARMHF_TARGET_TRIPLET/$library" ]; then
+      printf '%s\n' "$ARMHF_SYSROOT/$directory/$ARMHF_TARGET_TRIPLET/$library"
+      return
+    fi
+  done
+  echo "ARMHF target runtime library is missing: $library" >&2
+  return 1
+}

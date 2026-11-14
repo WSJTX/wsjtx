@@ -11,6 +11,7 @@
 #include "SettingsGroup.hpp"
 #include "ui_widegraph.h"
 #include "globals.h"
+#include "sample_rates.h"
 
 extern int g_sampleRate;
 
@@ -44,17 +45,16 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->gainSpinBox->setValue(ui->widePlot->getPlotGain());
   int n = settings.value("FreqSpan",60).toInt();
   int w = settings.value("PlotWidth",1000).toInt();
+  // Widen the range first: the spinbox's UI-defined maximum would clamp a
+  // saved span above 190 kHz.
+  setFreqSpanLimits(60, maxFreqSpanKHz(g_sampleRate));
   ui->freqSpanSpinBox->setValue(n);
-
-  if (g_sampleRate == 96000 || g_sampleRate == 95238)
-      setFreqSpanLimits(60, 90);
-  else
-      setFreqSpanLimits(60, 190);
+  n = ui->freqSpanSpinBox->value();
   updateSpanFromSpinbox();
 
   extern int g_sampleRate;          // at top of widegraph.cpp
   ui->widePlot->setNSpan(n);
-  double sr_kHz = g_sampleRate / 1000.0;   // 96.0 or 192.0
+  double sr_kHz = g_sampleRate / 1000.0;   // 96.0, 128.0, 192.0 or 256.0
   int sr_display = int(sr_kHz + 0.5);
   ui->srValueLabel->setText(QString::number(sr_display));
   int nbpp = int(n * g_activeNfft / (w * sr_kHz) + 0.5);

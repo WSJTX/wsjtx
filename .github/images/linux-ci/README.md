@@ -15,7 +15,7 @@ WSJT-X publishes seven private, single-platform build environments to GHCR:
 The normal images contain the compiler, development and packaging closure, and
 the slow-moving pFUnit and Hamlib prefixes. The TSan image instead contains the
 pinned, instrumented Qt, Boost, and Hamlib tuple. ARMHF has two builder/runtime
-pairs. Bookworm retains the custom GCC 13.4 toolchain, 32-bit `time_t`, and
+pairs. Bookworm uses Debian GCC 12 packages, 32-bit `time_t`, and
 glibc 2.36 ceiling. Trixie uses Debian GCC 14 cross packages, 64-bit `time_t`,
 and a glibc 2.41 ceiling. Each native x86-64 builder uses its distro's Qt host
 tools and ARMHF sysroot; its runtime partner contains the matching target
@@ -36,7 +36,7 @@ AppImages, portable archives, macOS bundles, and Windows packages carry the
 selected FFTW libraries. Native DEB and RPM packages retain their system FFTW
 dependency, so their installed runtime follows the distribution's package.
 
-The Ubuntu and GCC base tags intentionally follow their maintained upstream
+The Ubuntu and Debian base tags intentionally follow their maintained upstream
 security updates. Each published generation records the resolved package set,
 compiler identity, dependency pins, and recipe fingerprint. Normal-image
 promotion requires image checks for every selected environment and full x64 and
@@ -136,42 +136,22 @@ profiles. Already-published releases retain their original manifests and assets.
 
 ## ARMHF toolchain reuse
 
-The Bookworm cross-builder has an independent toolchain stage pinned to a
-Debian Bookworm amd64 base digest, which monthly refreshes do not update. Its inputs are the
-bootstrap package recipe, apt helper, `armhf-toolchain-config.sh`, and
-`armhf-cross-toolchain.config`. The final image
-uses the maintained Bookworm base and refreshes host packages, the ARMHF sysroot,
-and Hamlib independently. Monthly refresh epochs and full image fingerprints do
-not invalidate the toolchain stage.
+Both cross-builders install their distribution's versioned C, C++, and Fortran
+cross packages: GCC 12 on Bookworm and GCC 14 on Trixie. Symlinks preserve the
+shared compiler-path interface. Matching compiler headers and runtime libraries
+keep binaries compatible with the selected distribution's runtime.
 
-The Trixie recipe installs Debian's versioned GCC 14 C, C++, and Fortran cross
-packages, preserving the shared compiler-path interface through symlinks. Both
-recipes use the same sysroot/Hamlib preparation helper. Each runtime image copies
-its own builder's compiler libraries and a dereferenced static QEMU executable;
-mixing Bookworm and Trixie image halves is rejected.
+Both recipes use the same sysroot/Hamlib preparation helper. Each runtime image
+copies its own builder's compiler libraries and a dereferenced static QEMU
+executable; mixing Bookworm and Trixie image halves is rejected.
 
 The ARMHF cross-builder exports intermediate layers to the `buildcache` tag in
 its own GHCR package with registry `mode=max` caching. Internal and public-release
 publication use their respective package namespaces for both imports and exports.
-A fresh builder can therefore reuse the completed toolchain stage. Only source
-archives use a local BuildKit cache mount; each actual toolchain build starts with
-a clean build directory and retains its detailed failure log in the job output.
-
-For an intentional toolchain refresh, update the pinned base digest when needed
-and increment `ARMHF_TOOLCHAIN_REBUILD_REVISION` in `armhf-toolchain-config.sh`.
-The revision invalidates the bootstrap package installation as well as compiler
-construction. Compiler, ABI, crosstool-NG, and ct-ng configuration changes also
-invalidate the relevant toolchain layers. Publish with `include_armhf: true` and
-validate the resulting image pair before promoting it. Final image manifests
-and compiler signatures are regenerated against the final host runtime libraries;
-reusing compiler files does not bypass compatibility checks.
-
-To validate reuse, export a baseline cache and import it into a fresh Buildx
-builder after changing only the refresh epoch or a downstream dependency input.
-The ct-ng build must be cached while the dependency work reruns. A changed ct-ng
-configuration or rebuild revision must execute the toolchain build again. Keep
-these validation publications separate from stable promotion and retain their
-build logs, image verification results, and timings.
+Monthly refreshes update the distribution packages, ARMHF sysroot, and compiled
+dependencies. Final image manifests and compiler signatures record the installed
+compiler and runtime package versions; cache reuse does not bypass recipe or
+compatibility checks.
 
 ## ccache compatibility
 

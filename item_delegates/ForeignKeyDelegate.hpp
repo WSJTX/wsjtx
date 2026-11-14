@@ -35,8 +35,13 @@ public:
 
 private:
   QWidget * createEditor (QWidget * parent, QStyleOptionViewItem const&, QModelIndex const&) const override;
+  void setEditorData (QWidget *, QModelIndex const&) const override;
+  void setModelData (QWidget *, QAbstractItemModel *, QModelIndex const&) const override;
   QSize sizeHint (QStyleOptionViewItem const&, QModelIndex const&) const override;
 
+  int referenced_key_column_;
+  int referenced_key_role_;
+  int referencing_key_role_;
   QScopedPointer<CandidateKeyFilter> candidate_key_filter_;
 };
 

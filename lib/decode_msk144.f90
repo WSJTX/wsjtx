@@ -1,18 +1,30 @@
 ! The stream's MSK144, decoded as the GUI's hspec decodes it (lib/hspec.f90):
 ! at each 3584-sample block end k of a period, from 7168 to 30 s, mskrtd on
-! the period's samples [k-7168, k), unless either half is all zeros.
+! the period's samples [k-7168, k), unless either half is all zeros. Its Fast
+! Graph's columns are hspec's, as the GUI draws them (lib/spectrum_rows.f90).
 module msk144_stream
   use streaming_emit, only: streaming_emit_decode, streaming_emit_msk144_trained, &
-       time_form
+       time_form, streaming_emit_fast_spectrum
   use msk144_training, only: trainings_done, trained_file, trained_call, trained_terms
   use four2a_patience, only: patience_override
+  use streaming_receive, only: receive
+  use spectrum_rows, only: fast_rows, fast_begin, fast_block, FAST_COLUMNS
   implicit none
   private
-  public :: msk144_settings, msk144_window, msk144_line_fields
+  public :: msk144_settings, msk144_window, msk144_line_fields, msk144_fast_spectrum, &
+       msk144_fast_reset
 
   integer, parameter, public :: MSK144_BLOCK = 3584
   integer, parameter :: WINDOW = 2 * MSK144_BLOCK
   integer, parameter :: LAST_K = 30 * 12000
+  ! hspec's FFT length, below which it draws nothing.
+  integer, parameter :: HSPEC_NFFT = 512
+
+  ! The Fast Graph's state; the k it last drew at; and the block end of the
+  ! period it was last given.
+  type(fast_rows), save :: fast_
+  integer, save :: drawn_k_ = 99999999
+  integer, save :: given_k_ = 0
 
   ! mskrtd's receive options, and the calls accepted configures set (blank
   ! until one does). train is cleared by the decoder when training succeeds.
@@ -69,6 +81,51 @@ contains
     if (trainings_done .ne. done) call streaming_emit_msk144_trained(        &
          trained_call, trained_file, trained_terms)
   end subroutine msk144_window
+
+  ! A new period: the next columns start at 0 whatever their k, where the
+  ! GUI's hspec starts them when k falls.
+  subroutine msk144_fast_reset()
+    call fast_begin(fast_)
+    drawn_k_ = 99999999
+    given_k_ = 0
+  end subroutine msk144_fast_reset
+
+  ! The Fast Graph at block end k of id2, the period's samples, while
+  ! configure's spectrum is on: hspec's columns as the GUI's fastSink has hspec
+  ! write them at each block end, and a fast_spectrum row of the columns
+  ! written. The period's blocks it has not been given, while
+  ! spectrum was off, go through it first without rows, so that its columns
+  ! stay the GUI's.
+  subroutine msk144_fast_spectrum(id2, k, trperiod)
+    integer*2, intent(in) :: id2(*)
+    integer,   intent(in) :: k, trperiod
+    integer :: kk
+    if (.not. receive%spectrum) return
+    do kk = given_k_ + MSK144_BLOCK, k - MSK144_BLOCK, MSK144_BLOCK
+       call fast_draw_(id2, kk, trperiod, .false.)
+    end do
+    call fast_draw_(id2, k, trperiod, .true.)
+  end subroutine msk144_fast_spectrum
+
+  ! The columns through block end k; with row, those written.
+  subroutine fast_draw_(id2, k, trperiod, row)
+    integer*2, intent(in) :: id2(*)
+    integer,   intent(in) :: k, trperiod
+    logical,   intent(in) :: row
+    real      :: peak, power
+    integer   :: before, first
+    logical   :: fresh
+    before = fast_%jh
+    fresh = k .lt. drawn_k_
+    call fast_block(fast_, id2, k, trperiod, power, peak)
+    given_k_ = k
+    if (k .lt. HSPEC_NFFT .or. k .gt. LAST_K) return
+    drawn_k_ = k
+    first = 0
+    if (.not. fresh) first = min(before + 1, FAST_COLUMNS - 1)
+    if (row) call streaming_emit_fast_spectrum(k, first, power, peak,            &
+         fast_%green(first:fast_%jh), fast_%bins(:, first:fast_%jh))
+  end subroutine fast_draw_
 
   ! mskrtd's line, (i6.6,i4,f5.1,i5,a4,a37): utc, snr, dt, freq, the decode
   ! symbol, whose '^' marks a decode made while training, and the message.

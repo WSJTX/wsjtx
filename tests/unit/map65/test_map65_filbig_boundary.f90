@@ -4,7 +4,7 @@ program test_map65_filbig_boundary
   use filbig_mod, only: filbig, MAXFFT1, MAXFFT2
   use cacb_mod, only: init_cacb, ca, cb
   use decode1a_mod, only: jt65c_center_offset
-  use npar_ptrs_mod, only: set_runtime_params
+  use npar_ptrs_mod, only: set_runtime_params, symspec_fft_size
   implicit none
 
   real(real32) :: dd(4,1)
@@ -16,7 +16,7 @@ program test_map65_filbig_boundary
 
   call get_command_argument(1, argument)
   read(argument, *) rate
-  nfft = 32768 * (rate / 96000)
+  nfft = symspec_fft_size(rate)
   nfft_big = 56 * rate
   call set_runtime_params(rate, nfft, nfft_big)
   call init_cacb(MAXFFT1)

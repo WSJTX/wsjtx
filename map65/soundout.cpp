@@ -227,6 +227,7 @@ void SoundOutThread::run()
   paerr = Pa_StartStream(outStream);
   if(paerr != paNoError) {
       qDebug() << "Pa_StartStream failed:" << Pa_GetErrorText(paerr);
+      m_streamLeftOpen = true;      // closing it can hang; see SoundInThread::run()
       return;
   }
 
