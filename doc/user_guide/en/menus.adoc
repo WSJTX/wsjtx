@@ -80,11 +80,16 @@ both stations' 4-character grid squares on every QSO line as the rules
 require. A station counts once per band from each grid it works from;
 repeats are left out and listed. QSOs logged without a grid are listed
 so you can type their grids in all at once (a grid found in another QSO
-with the same station is offered for checking). *Other file...* makes
-the entry from another ADIF log, for example one copied from a contest
-PC; the ADIF file is only read, never changed. The dialog shows the
-claimed score and the file as it will be saved; upload the saved file
-at contests.arrl.org/arrlemescoresubmission.php.
+with the same station is offered for checking). ARRL takes one log for
+all bands and weekends, so a station that logs on several PCs can *Add
+file...* for each PC's ADIF log: they are merged, and a QSO found in two
+of them counts once. Every ADIF file is only read, never changed. The
+two band groups (50-1296 MHz and 2.3 GHz and up) have their own
+weekends; a QSO on a band of the other group than its weekend's (the
+group with more QSOs that weekend) is listed and left out unless you
+untick the box shown for it. The dialog shows the claimed score and the
+file as it will be saved; upload the saved file at
+contests.arrl.org/arrlemescoresubmission.php.
 
 .SWL Mode
 

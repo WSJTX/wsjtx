@@ -135,13 +135,88 @@ namespace EmeCabrillo
       + '|' + padded_time (record.value ("TIME_ON"));
   }
 
+  QString band_group (QString const& band_code)
+  {
+    // 50 MHz to 1296 MHz are the first seven bands of the table
+    return band_order (band_code) <= band_order ("1.2G") ? QStringLiteral ("50-1296 MHz")
+      : QStringLiteral ("2.3 GHz and up");
+  }
+
+  QVector<QVector<QDate>> weekends (QSet<QDate> const& days)
+  {
+    QList<QDate> sorted;
+    for (auto const& day : days) if (day.isValid ()) sorted << day;
+    std::sort (sorted.begin (), sorted.end ());
+    QVector<QVector<QDate>> result;
+    for (auto const& day : sorted)
+      {
+        if (result.size () && result.last ().last ().daysTo (day) == 1)
+          result.last () << day;
+        else
+          result << QVector<QDate> {day};
+      }
+    return result;
+  }
+
+  QVector<Record> merge (QVector<QVector<Record>> const& logs, QVector<Record> * copies)
+  {
+    QHash<QString, int> first;          // QSO -> the log it was first seen in
+    QVector<Record> result;
+    for (int i = 0; i < logs.size (); ++i)
+      for (auto record : logs[i])
+        {
+          auto band = band_code (record);
+          if (band.isEmpty ()) band = record.value ("BAND").trimmed ().toLower ();
+          auto const key = record_key (record) + '|' + band;
+          record["_FILE"] = QString::number (i);
+          if (first.value (key, i) != i)
+            {
+              if (copies) *copies << record;
+              continue;
+            }
+          first.insert (key, i);
+          result << record;
+        }
+    return result;
+  }
+
   Selection select (QVector<Record> const& records, QSet<QDate> const& days,
                     QString const& my_call, QString const& my_grid,
-                    QSet<QString> const& bands, QHash<QString, QString> const& fixes)
+                    QSet<QString> const& bands, QHash<QString, QString> const& fixes,
+                    bool leave_out_off_weekend)
   {
     Selection result;
     auto sorted = records;
     std::stable_sort (sorted.begin (), sorted.end (), earlier);
+    // each weekend's band group = the group with more QSOs that weekend
+    QHash<QDate, QString> group_of_day;
+    for (auto const& days_of_weekend : weekends (days))
+      {
+        Weekend weekend;
+        weekend.days = days_of_weekend;
+        for (auto const& record : sorted)
+          {
+            auto const date = QDate::fromString (record.value ("QSO_DATE").trimmed (), "yyyyMMdd");
+            if (record.value ("CALL").trimmed ().isEmpty () || !days_of_weekend.contains (date)) continue;
+            auto const band = band_code (record);
+            if (!band.isEmpty ()) ++weekend.qsos[band_group (band)];
+          }
+        int most = 0;
+        for (auto i = weekend.qsos.cbegin (); i != weekend.qsos.cend (); ++i)
+          {
+            if (i.value () > most)
+              {
+                most = i.value ();
+                weekend.group = i.key ();
+              }
+            else if (i.value () == most)
+              {
+                weekend.group.clear ();     // as many of each: can't tell
+              }
+          }
+        for (auto const& day : days_of_weekend) group_of_day[day] = weekend.group;
+        result.weekends << weekend;
+      }
     // the newest grid logged for each call, for QSOs logged without one
     QHash<QString, QString> known;
     for (auto const& record : sorted)
@@ -189,6 +264,14 @@ namespace EmeCabrillo
             qso.grid = known.value (call);
             qso.filled = true;
           }
+        qso.log = record.value ("_FILE").toInt ();
+        qso.op = record.value ("OPERATOR").trimmed ().toUpper ();
+        auto const weekend_group = group_of_day.value (date);
+        if (!weekend_group.isEmpty () && band_group (band) != weekend_group)
+          {
+            result.off_weekend << qso;
+            if (leave_out_off_weekend) continue;
+          }
         if (qso.grid.isEmpty ())
           {
             result.no_grid << qso;
@@ -205,6 +288,10 @@ namespace EmeCabrillo
         if (qso.filled || qso.entered) result.need_grid << qso;
         result.qsos << qso;
       }
+    QSet<QString> operators;
+    for (auto const& qso : result.qsos) if (!qso.op.isEmpty ()) operators << qso.op;
+    for (auto const& op : operators) result.operators << op;
+    result.operators.sort ();
     return result;
   }
 

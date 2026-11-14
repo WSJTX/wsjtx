@@ -1,6 +1,8 @@
 #include <QtTest>
 #include <QCheckBox>
+#include <QDir>
 #include <QFile>
+#include <QPushButton>
 #include <QLineEdit>
 #include <QSettings>
 #include <QTemporaryDir>
@@ -63,9 +65,200 @@ private slots:
   void selects_the_entry ();
   void typed_grids ();
   void score_and_text ();
+  void several_logs_and_weekends ();
   void dialog ();
+  void dialog_several_logs ();
+  void buttons_stay_in_view ();
   void real_log ();
+  void dummy_logs ();
 };
+
+namespace
+{
+  // Two PCs of a multi-operator station: the microwave PC (Sep weekend, one
+  // 10G QSO on the 50-1296 weekend, a 23cm QSO also in the other log) and the
+  // 50-1296 PC (Oct weekend, one 23cm QSO on the microwave weekend), and a
+  // weekend with as many QSOs of each group. The same as EMELite's self-test.
+  QByteArray pc10_log ()
+  {
+    return QByteArray {"<EOH>\n"}
+      + record ("IT9EQO", "20260905", "0417", "3cm", "JM76", "MFSK", field ("OPERATOR", "DL4KGC"))
+      + record ("OK1KIR", "20260906", "0100", "3cm", "JO70", "MFSK", field ("OPERATOR", "DL3WDG"))
+      + record ("W5LUA", "20261031", "0200", "3cm", "EM13")             // off weekend
+      + record ("K1JT", "20261031", "0300", "23cm", "FN20");            // also in pc23
+  }
+
+  QByteArray pc23_log ()
+  {
+    return QByteArray {"<EOH>\n"}
+      + record ("K1JT", "20261031", "0300", "23cm", "FN20")             // a copy
+      + record ("G4CCH", "20261031", "0400", "23cm", "IO91")
+      + record ("SP6JLW", "20261101", "0500", "23cm", "JO80")
+      + record ("OZ4MM", "20260905", "0600", "23cm", "JO55")            // off weekend
+      + record ("DF3RU", "20261128", "0700", "2m", "JN58")              // as many of each
+      + record ("ES5PC", "20261129", "0800", "3cm", "KO38");
+  }
+
+  QSet<QDate> six_days ()
+  {
+    return {QDate {2026, 9, 5}, QDate {2026, 9, 6}, QDate {2026, 10, 31}, QDate {2026, 11, 1},
+            QDate {2026, 11, 28}, QDate {2026, 11, 29}};
+  }
+
+  QString write_file (QTemporaryDir const& directory, QString const& name, QByteArray const& content)
+  {
+    auto const path = directory.filePath (name);
+    QFile file {path};
+    if (file.open (QIODevice::WriteOnly)) file.write (content);
+    return path;
+  }
+}
+
+void TestEmeCabrillo::several_logs_and_weekends ()
+{
+  QCOMPARE (EmeCabrillo::band_group ("1.2G"), QString {"50-1296 MHz"});
+  QCOMPARE (EmeCabrillo::band_group ("50"), QString {"50-1296 MHz"});
+  QCOMPARE (EmeCabrillo::band_group ("2.3G"), QString {"2.3 GHz and up"});
+  auto const weekends = EmeCabrillo::weekends ({QDate {2026, 11, 1}, QDate {2026, 10, 31}, QDate {2026, 9, 6},
+                                                QDate {2026, 9, 5}, QDate {2026, 11, 28}});
+  QCOMPARE (weekends.size (), 3);
+  QCOMPARE (weekends[0], (QVector<QDate> {QDate {2026, 9, 5}, QDate {2026, 9, 6}}));
+  QCOMPARE (weekends[2], (QVector<QDate> {QDate {2026, 11, 28}}));
+
+  QVector<EmeCabrillo::Record> copies;
+  auto const records = EmeCabrillo::merge ({EmeCabrillo::read_adif (pc10_log ()),
+                                            EmeCabrillo::read_adif (pc23_log ())}, &copies);
+  QCOMPARE (records.size (), 9);
+  QCOMPARE (copies.size (), 1);
+  QCOMPARE (copies[0].value ("_FILE"), QString {"1"});
+
+  auto const s = EmeCabrillo::select (records, six_days (), "DL3WDG", "JN68");
+  QCOMPARE (s.weekends.size (), 3);
+  QCOMPARE (s.weekends[0].group, QString {"2.3 GHz and up"});
+  QCOMPARE (s.weekends[1].group, QString {"50-1296 MHz"});
+  QCOMPARE (s.weekends[2].group, QString {});                     // one QSO of each
+  QStringList off = calls (s.off_weekend);
+  off.sort ();
+  QCOMPARE (off, (QStringList {"OZ4MM", "W5LUA"}));
+  QCOMPARE (calls (s.qsos), (QStringList {"IT9EQO", "OK1KIR", "K1JT", "G4CCH", "SP6JLW", "DF3RU", "ES5PC"}));
+  QVector<int> logs;
+  for (auto const& qso : s.qsos) logs << qso.log;
+  QCOMPARE (logs, (QVector<int> {0, 0, 0, 1, 1, 1, 1}));
+  QCOMPARE (s.operators, (QStringList {"DL3WDG", "DL4KGC"}));
+
+  auto const kept = EmeCabrillo::select (records, six_days (), "DL3WDG", "JN68", {}, {}, false);
+  QCOMPARE (kept.qsos.size (), 9);
+  QCOMPARE (kept.off_weekend.size (), 2);
+}
+
+// Two logs in the dialog, the band-group check, WSJT-X's own log added and a
+// log removed; the files are only read.
+void TestEmeCabrillo::dialog_several_logs ()
+{
+  QTemporaryDir directory;
+  QVERIFY (directory.isValid ());
+  auto const pc10 = write_file (directory, "pc10.adi", pc10_log ());
+  auto const pc23 = write_file (directory, "pc23.adi", pc23_log ());
+  auto const own = write_file (directory, "wsjtx_log.adi", QByteArray {"<EOH>\n"}
+                               + record ("DL7APV", "20261101", "0900", "23cm", "JO62"));
+  QSettings settings {directory.filePath ("settings.ini"), QSettings::IniFormat};
+  settings.setValue ("EmeCabrillo/Logs", QStringList {pc10, pc23});
+  {
+    EmeCabrilloDialog dialog {&settings, own, "DL3WDG", "JN68LM", six_days (), directory.path ()};
+    QCOMPARE (dialog.logs (), (QStringList {pc10, pc23}));
+    QCOMPARE (dialog.selection ().qsos.size (), 7);
+    QCOMPARE (dialog.selection ().off_weekend.size (), 2);
+    QCheckBox * box {nullptr};
+    for (auto b : dialog.findChildren<QCheckBox *> ()) if (b->text ().startsWith ("Leave out")) box = b;
+    QVERIFY (box);
+    QVERIFY (box->isVisibleTo (&dialog));
+    QVERIFY (dialog.cabrillo_text ().contains ("OPERATORS: DL3WDG DL4KGC\n") == false); // single-op
+    QLineEdit * operators {nullptr};
+    for (auto e : dialog.findChildren<QLineEdit *> ()) if (e->text () == "DL3WDG DL4KGC") operators = e;
+    QVERIFY (operators);                                            // filled from the logs
+    box->setChecked (false);
+    QCOMPARE (dialog.selection ().qsos.size (), 9);
+    box->setChecked (true);
+
+    dialog.add_log (EmeCabrilloDialog::own_log ());
+    QCOMPARE (dialog.logs ().size (), 3);
+    QCOMPARE (dialog.selection ().qsos.size (), 8);
+    QVERIFY (dialog.cabrillo_text ().contains ("DL7APV        JO62\n"));
+    dialog.remove_log (1);                                          // the 50-1296 PC's log
+    QCOMPARE (dialog.logs (), (QStringList {pc10, EmeCabrilloDialog::own_log ()}));
+    QCOMPARE (dialog.selection ().qsos.size (), 4);                 // IT9EQO OK1KIR K1JT DL7APV
+  }
+  QCOMPARE (settings.value ("EmeCabrillo/Logs").toStringList (),
+            (QStringList {pc10, EmeCabrilloDialog::own_log ()}));
+  QFile file {pc23};
+  QVERIFY (file.open (QIODevice::ReadOnly));
+  QCOMPARE (file.readAll (), pc23_log ());
+}
+
+// Save and Close stay in view in a small window with many missing grids.
+void TestEmeCabrillo::buttons_stay_in_view ()
+{
+  QTemporaryDir directory;
+  QVERIFY (directory.isValid ());
+  QByteArray log {"<EOH>\n"};
+  for (int i = 0; i < 40; ++i)                                     // 40 QSOs without a grid
+    log += record (QString {"DL%1ABC"}.arg (i % 10) + QChar ('A' + i / 10), "20261031",
+                   QString {"%1"}.arg (100 + i, 4, 10, QChar {'0'}), "23cm");
+  auto const adif = write_file (directory, "wsjtx_log.adi", log);
+  QSettings settings {directory.filePath ("settings.ini"), QSettings::IniFormat};
+  EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", contest_days (), directory.path ()};
+  QCOMPARE (dialog.selection ().need_grid.size (), 40);
+  dialog.resize (700, 300);
+  dialog.show ();
+  QVERIFY (QTest::qWaitForWindowExposed (&dialog));
+  for (auto const& text : {QString::fromUtf8 ("Save…"), QString {"Close"}})
+    {
+      QPushButton * button {nullptr};
+      for (auto b : dialog.findChildren<QPushButton *> ()) if (b->text () == text) button = b;
+      QVERIFY2 (button, qPrintable (text));
+      QVERIFY (button->isVisible ());
+      auto const bottom = button->mapTo (&dialog, QPoint {0, button->height ()}).y ();
+      QVERIFY2 (bottom <= dialog.height (), qPrintable (QString {"%1 ends at %2, dialog %3x%4"}
+                                                         .arg (text).arg (bottom)
+                                                         .arg (dialog.width ()).arg (dialog.height ())));
+    }
+  QVERIFY (dialog.height () <= 400);                                // not grown to fit the 40 rows
+}
+
+// Optional: the dummy multi-PC logs (EMELite's testdata\cabrillo, built
+// from a real contest log): EME_CABRILLO_DUMMY=<that folder>.
+void TestEmeCabrillo::dummy_logs ()
+{
+  auto const folder = qEnvironmentVariable ("EME_CABRILLO_DUMMY");
+  if (folder.isEmpty ()) QSKIP ("EME_CABRILLO_DUMMY not set");
+  QVector<QVector<EmeCabrillo::Record>> logs;
+  for (auto const& name : {"pc10_wsjtx_log.adi", "pc23_wsjtx_log.adi"})
+    {
+      QFile file {QDir {folder}.filePath (name)};
+      QVERIFY (file.open (QIODevice::ReadOnly));
+      logs << EmeCabrillo::read_adif (file.readAll ());
+    }
+  QVector<EmeCabrillo::Record> copies;
+  auto const records = EmeCabrillo::merge (logs, &copies);
+  QSet<QDate> days;
+  for (auto const& day : {"2026-08-08", "2026-08-09", "2026-09-05", "2026-09-06",
+                          "2026-10-31", "2026-11-01", "2026-11-28", "2026-11-29"})
+    days << QDate::fromString (day, Qt::ISODate);
+  auto const s = EmeCabrillo::select (records, days, "DL3WDG", "JN68LM");
+  auto const score = EmeCabrillo::score (s.qsos);
+  int copies_on_days = 0;
+  for (auto const& r : copies) copies_on_days += days.contains (QDate::fromString (r.value ("QSO_DATE"), "yyyyMMdd"));
+  qInfo () << "QSOs" << s.qsos.size () << "grids" << score.multipliers << "claimed" << score.claimed
+           << "copies" << copies_on_days << "dupes" << s.dupes.size () << "off weekend" << s.off_weekend.size ();
+  QCOMPARE (s.qsos.size (), 124);
+  QCOMPARE (score.multipliers, 108);
+  QCOMPARE (score.claimed, qint64 {1339200});
+  QCOMPARE (copies_on_days, 5);
+  QCOMPARE (s.dupes.size (), 23);
+  QCOMPARE (s.off_weekend.size (), 4);
+  QCOMPARE (s.operators, (QStringList {"DL3WDG", "DL4KGC"}));
+  QCOMPARE (EmeCabrillo::select (records, days, "DL3WDG", "JN68LM", {}, {}, false).qsos.size (), 126);
+}
 
 // Optional, for checking against a log already accepted by ARRL:
 // EME_CABRILLO_ADIF=<adif> EME_CABRILLO_DAYS=2026-09-05,2026-09-06

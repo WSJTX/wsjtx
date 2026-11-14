@@ -24,11 +24,12 @@ class QPlainTextEdit;
 class QPushButton;
 class QCheckBox;
 
-//! A Cabrillo log for the ARRL International EME Contest, made from an ADIF
-//! log (WSJT-X's own, or any other file, e.g. from a contest PC): the QSOs on
-//! the chosen days, on the bands ticked, one per call, band and grid. QSOs
-//! logged without a grid are listed so their grids can be typed in; the
-//! ADIF file is only read.
+//! A Cabrillo log for the ARRL International EME Contest, made from one or
+//! more ADIF logs, merged (WSJT-X's own and/or other files, e.g. one from
+//! each PC of a multi-operator station): the QSOs on the chosen days, on the
+//! bands ticked, one per call, band and grid; QSOs on a band whose group is
+//! not contested that weekend left out. QSOs logged without a grid are
+//! listed so their grids can be typed in; every ADIF file is only read.
 class EmeCabrilloDialog final
   : public QDialog
 {
@@ -41,7 +42,11 @@ public:
   ~EmeCabrilloDialog ();
 
   QSet<QDate> days () const {return days_;}
-  QString log_path () const;
+  //! The logs merged: paths, own_log () for WSJT-X's own.
+  QStringList logs () const {return logs_;}
+  static QString own_log () {return QStringLiteral ("<own>");}
+  void add_log (QString const& path);
+  void remove_log (int index);
   //! The Cabrillo text as it would be saved now.
   QString cabrillo_text () const {return text_;}
   EmeCabrillo::Selection const& selection () const {return selection_;}
@@ -55,9 +60,9 @@ private:
   void read_settings ();
   void write_settings ();
   void choose_file ();
-  void use_own_log ();
   void load ();
   void refresh ();
+  void show_logs ();
   void show_bands ();
   void show_grid_rows ();
   void grid_typed (QString const& key);
@@ -65,14 +70,18 @@ private:
   EmeCabrillo::Header header () const;
 
   QSettings * settings_;
-  QString own_log_;
-  QString other_log_;                   // empty: own_log_
+  QString own_log_path_;
+  QStringList logs_;                    // paths, own_log () = own_log_path_
   QString my_call_;
   QString my_grid_;
   QString save_directory_;
   QSet<QDate> days_;
-  QVector<EmeCabrillo::Record> records_;
-  QString load_error_;
+  QVector<QVector<EmeCabrillo::Record>> log_records_;
+  QStringList log_info_;                // per log: what it holds, or the error
+  QVector<EmeCabrillo::Record> records_; // merged
+  QVector<EmeCabrillo::Record> copies_; // the same QSO in a later log
+  QStringList load_errors_;
+  bool operators_filled_ {false};
   QHash<QString, QString> fixes_;       // record key -> grid typed in
   QMap<QString, QCheckBox *> band_boxes_;
   QSet<QString> bands_off_;
@@ -82,7 +91,9 @@ private:
   EmeCabrillo::Selection selection_;
   QString text_;
 
-  QLabel * log_label_;
+  QGridLayout * logs_layout_;
+  QPushButton * add_own_button_;
+  QCheckBox * off_weekend_box_;
   QToolButton * days_button_;
   QLabel * days_label_;
   QHBoxLayout * bands_layout_;

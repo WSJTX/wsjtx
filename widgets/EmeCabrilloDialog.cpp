@@ -19,6 +19,7 @@
 #include <QRegularExpression>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QSettings>
 #include <QTextStream>
 #include <QToolButton>
@@ -47,30 +48,44 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
                                       QWidget * parent)
   : QDialog {parent}
   , settings_ {settings}
-  , own_log_ {adif_path}
+  , own_log_path_ {adif_path}
   , my_call_ {my_call.trimmed ().toUpper ()}
   , my_grid_ {my_grid.trimmed ()}
   , save_directory_ {save_directory}
   , days_ {days}
 {
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Cabrillo log for the ARRL EME contest"));
-  auto layout = new QVBoxLayout {this};
+  // everything but the Save/Close row scrolls, so the buttons stay in view
+  // however small the window or long the list of missing grids
+  auto outer = new QVBoxLayout {this};
+  auto scroll = new QScrollArea {this};
+  scroll->setWidgetResizable (true);
+  scroll->setFrameShape (QFrame::NoFrame);
+  auto content = new QWidget {scroll};
+  auto layout = new QVBoxLayout {content};
+  layout->setContentsMargins (0, 0, 0, 0);
+  scroll->setWidget (content);
+  outer->addWidget (scroll, 1);
 
-  // which log: WSJT-X's own, or any ADIF file (only read)
-  auto log_row = new QHBoxLayout;
-  log_row->addWidget (new QLabel {tr ("Log"), this});
-  log_label_ = new QLabel {this};
-  log_label_->setTextInteractionFlags (Qt::TextSelectableByMouse);
-  log_row->addWidget (log_label_, 1);
-  auto other = new QPushButton {tr ("Other file…"), this};
-  other->setToolTip (tr ("Make the entry from another ADIF log, e.g. one from a contest PC. It is only read."));
+  // the logs: WSJT-X's own and/or other ADIF files (e.g. one from each PC
+  // of a multi-operator station), merged; all only read
+  auto logs_box = new QGroupBox {tr ("Logs (several are merged into one entry; the same QSO in two of them counts once)"),
+                                 this};
+  auto logs_box_layout = new QVBoxLayout {logs_box};
+  logs_layout_ = new QGridLayout;
+  logs_box_layout->addLayout (logs_layout_);
+  auto logs_buttons = new QHBoxLayout;
+  auto other = new QPushButton {tr ("Add file…"), logs_box};
+  other->setToolTip (tr ("Add another ADIF log, e.g. one from another PC of the station. It is only read."));
   connect (other, &QPushButton::clicked, this, &EmeCabrilloDialog::choose_file);
-  log_row->addWidget (other);
-  auto own = new QPushButton {tr ("This log"), this};
-  own->setToolTip (tr ("Use WSJT-X's own ADIF log (%1).").arg (QDir::toNativeSeparators (own_log_)));
-  connect (own, &QPushButton::clicked, this, &EmeCabrilloDialog::use_own_log);
-  log_row->addWidget (own);
-  layout->addLayout (log_row);
+  logs_buttons->addWidget (other);
+  add_own_button_ = new QPushButton {tr ("Add WSJT-X's log"), logs_box};
+  add_own_button_->setToolTip (tr ("Add WSJT-X's own ADIF log (%1).").arg (QDir::toNativeSeparators (own_log_path_)));
+  connect (add_own_button_, &QPushButton::clicked, this, [this] {add_log (own_log ());});
+  logs_buttons->addWidget (add_own_button_);
+  logs_buttons->addWidget (new QLabel {tr ("Every log is only read."), logs_box}, 1);
+  logs_box_layout->addLayout (logs_buttons);
+  layout->addWidget (logs_box);
 
   // contest days (the same days as Active Stations' "on days") and bands
   auto days_row = new QHBoxLayout;
@@ -79,7 +94,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   connect (days_button_, &QToolButton::clicked, this, [this] {
       DaysCalendar::show (days_button_, &days_, [this] {
           Q_EMIT days_changed (days_);
-          refresh ();
+          load ();                      // also each log's "on the days" count
         });
     });
   days_row->addWidget (days_button_);
@@ -89,6 +104,12 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   layout->addLayout (days_row);
   bands_layout_ = new QHBoxLayout;
   layout->addLayout (bands_layout_);
+  // shown only when a weekend has QSOs of the other band group
+  off_weekend_box_ = new QCheckBox {tr ("Leave out QSOs on a band whose group (50-1296 MHz / 2.3 GHz and up) "
+                                        "isn't contested on that weekend"), this};
+  off_weekend_box_->setToolTip (tr ("A weekend's band group is the one with more QSOs on it."));
+  off_weekend_box_->setVisible (false);
+  layout->addWidget (off_weekend_box_);
 
   // QSOs logged without a grid: all listed, to type them in at once
   grids_box_ = new QGroupBox {tr ("Grids missing in the log - type them in (Enter or Tab)"), this};
@@ -147,12 +168,13 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   auto close = new QPushButton {tr ("Close"), this};
   connect (close, &QPushButton::clicked, this, &QDialog::accept);
   buttons->addWidget (close);
-  layout->addLayout (buttons);
+  outer->addLayout (buttons);
 
   read_settings ();
   for (auto edit : {operators_, location_, name_, address_, city_, state_, postcode_, country_, email_})
     connect (edit, &QLineEdit::textChanged, this, &EmeCabrilloDialog::refresh);
   connect (single_op_, &QRadioButton::toggled, this, &EmeCabrilloDialog::refresh);
+  connect (off_weekend_box_, &QCheckBox::toggled, this, &EmeCabrilloDialog::refresh);
   load ();
 }
 
@@ -165,7 +187,17 @@ void EmeCabrilloDialog::read_settings ()
 {
   SettingsGroup group {settings_, "EmeCabrillo"};
   restoreGeometry (settings_->value ("window/geometry").toByteArray ());
-  other_log_ = settings_->value ("OtherLog").toString ();
+  // "Logs": the list ("<none>" = empty); first time: WSJT-X's own log
+  if (settings_->contains ("Logs"))
+    {
+      logs_ = settings_->value ("Logs").toStringList ();
+      logs_.removeAll (QStringLiteral ("<none>"));
+    }
+  else
+    {
+      logs_ = QStringList {own_log ()};
+    }
+  off_weekend_box_->setChecked (settings_->value ("LeaveOutOffWeekend", true).toBool ());
   (settings_->value ("Operator", "SINGLE-OP").toString () == "MULTI-OP" ? multi_op_ : single_op_)->setChecked (true);
   operators_->setText (settings_->value ("Operators").toString ());
   location_->setText (settings_->value ("Location").toString ());
@@ -182,7 +214,8 @@ void EmeCabrilloDialog::write_settings ()
 {
   SettingsGroup group {settings_, "EmeCabrillo"};
   settings_->setValue ("window/geometry", saveGeometry ());
-  settings_->setValue ("OtherLog", other_log_);
+  settings_->setValue ("Logs", logs_.isEmpty () ? QStringList {QStringLiteral ("<none>")} : logs_);
+  settings_->setValue ("LeaveOutOffWeekend", off_weekend_box_->isChecked ());
   settings_->setValue ("Operator", multi_op_->isChecked () ? "MULTI-OP" : "SINGLE-OP");
   settings_->setValue ("Operators", operators_->text ());
   settings_->setValue ("Location", location_->text ());
@@ -195,40 +228,103 @@ void EmeCabrilloDialog::write_settings ()
   settings_->setValue ("Email", email_->text ());
 }
 
-QString EmeCabrilloDialog::log_path () const
-{
-  return other_log_.isEmpty () ? own_log_ : other_log_;
-}
-
 void EmeCabrilloDialog::choose_file ()
 {
-  auto const path = QFileDialog::getOpenFileName (this, tr ("ADIF log for the Cabrillo entry (only read)"),
-                                                  QFileInfo {log_path ()}.absolutePath (),
+  auto const start = logs_.size () && logs_.last () != own_log () ? QFileInfo {logs_.last ()}.absolutePath ()
+    : QFileInfo {own_log_path_}.absolutePath ();
+  auto const path = QFileDialog::getOpenFileName (this, tr ("ADIF log for the Cabrillo entry (only read)"), start,
                                                   tr ("ADIF log (*.adi *.adif);;All files (*)"));
   if (path.isEmpty ()) return;
-  other_log_ = QFileInfo {path} == QFileInfo {own_log_} ? QString {} : path;
-  load ();
+  add_log (QFileInfo {path} == QFileInfo {own_log_path_} ? own_log () : path);
 }
 
-void EmeCabrilloDialog::use_own_log ()
+void EmeCabrilloDialog::add_log (QString const& path)
 {
-  other_log_.clear ();
+  if (path.isEmpty () || logs_.contains (path)) return;
+  logs_ << path;
   load ();
 }
 
+void EmeCabrilloDialog::remove_log (int index)
+{
+  if (index < 0 || index >= logs_.size ()) return;
+  logs_.removeAt (index);
+  load ();
+}
+
+// Read every log again (typed grids are kept: they are keyed by call, date
+// and time, so they still fit the QSO they were typed for)
 void EmeCabrilloDialog::load ()
 {
-  records_.clear ();
-  load_error_.clear ();
-  fixes_.clear ();                      // typed grids belong to the log they were typed for
-  QFile file {log_path ()};
-  if (file.open (QIODevice::ReadOnly))
-    records_ = EmeCabrillo::read_adif (file.readAll ());
-  else
-    load_error_ = tr ("Cannot read %1: %2").arg (QDir::toNativeSeparators (log_path ()), file.errorString ());
-  log_label_->setText (QDir::toNativeSeparators (log_path ())
-                       + (other_log_.isEmpty () ? QString {} : tr ("  (only read)")));
+  log_records_.clear ();
+  log_info_.clear ();
+  load_errors_.clear ();
+  QSet<QString> day_strings;
+  for (auto const& day : days_) day_strings << day.toString ("yyyyMMdd");
+  for (auto const& entry : logs_)
+    {
+      auto const path = entry == own_log () ? own_log_path_ : entry;
+      QFile file {path};
+      QVector<EmeCabrillo::Record> records;
+      if (file.open (QIODevice::ReadOnly))
+        {
+          records = EmeCabrillo::read_adif (file.readAll ());
+          int on_days = 0;
+          for (auto const& r : records) on_days += day_strings.contains (r.value ("QSO_DATE").trimmed ());
+          log_info_ << tr ("%1 QSOs, %2 on the days").arg (records.size ()).arg (on_days);
+        }
+      else if (entry == own_log () && !file.exists ())
+        {
+          log_info_ << tr ("no QSOs logged yet");
+        }
+      else
+        {
+          log_info_ << tr ("cannot read it");
+          load_errors_ << tr ("Cannot read %1: %2").arg (QDir::toNativeSeparators (path), file.errorString ());
+        }
+      log_records_ << records;
+    }
+  copies_.clear ();
+  records_ = EmeCabrillo::merge (log_records_, &copies_);
+  show_logs ();
   refresh ();
+}
+
+void EmeCabrilloDialog::show_logs ()
+{
+  while (auto item = logs_layout_->takeAt (0))
+    {
+      if (item->widget ()) item->widget ()->deleteLater ();
+      delete item;
+    }
+  auto parent = logs_layout_->parentWidget ();
+  if (logs_.isEmpty ())
+    {
+      auto none = new QLabel {tr ("No log chosen - add one."), parent};
+      none->setStyleSheet ("color:#c00000");
+      logs_layout_->addWidget (none, 0, 0);
+    }
+  for (int i = 0; i < logs_.size (); ++i)
+    {
+      auto const own = logs_[i] == own_log ();
+      QFileInfo const info {own ? own_log_path_ : logs_[i]};
+      auto name = new QLabel {info.fileName () + "   "
+                              + (own ? tr ("WSJT-X's log")
+                                 : tr ("in %1").arg (QDir::toNativeSeparators (info.absolutePath ()))),
+                              parent};
+      name->setToolTip (QDir::toNativeSeparators (info.absoluteFilePath ()));
+      name->setTextInteractionFlags (Qt::TextSelectableByMouse);
+      logs_layout_->addWidget (name, i, 0);
+      auto what = new QLabel {log_info_.value (i), parent};
+      if (what->text () == tr ("cannot read it")) what->setStyleSheet ("color:#c00000");
+      logs_layout_->addWidget (what, i, 1);
+      auto remove = new QPushButton {tr ("Remove"), parent};
+      remove->setObjectName (QString {"remove_log_%1"}.arg (i));
+      connect (remove, &QPushButton::clicked, this, [this, i] {remove_log (i);});
+      logs_layout_->addWidget (remove, i, 2);
+    }
+  logs_layout_->setColumnStretch (0, 1);
+  add_own_button_->setEnabled (!logs_.contains (own_log ()));
 }
 
 EmeCabrillo::Header EmeCabrilloDialog::header () const
@@ -262,13 +358,22 @@ void EmeCabrilloDialog::refresh ()
   for (auto const& band : all.bands)
     if (!bands_off_.contains (band)) chosen << band;
   if (chosen.isEmpty () && !all.bands.isEmpty ()) chosen << "-"; // none ticked: nothing
-  selection_ = EmeCabrillo::select (records_, days_, my_call_, my_grid_, chosen, fixes_);
+  selection_ = EmeCabrillo::select (records_, days_, my_call_, my_grid_, chosen, fixes_,
+                                    off_weekend_box_->isChecked ());
+  off_weekend_box_->setVisible (!selection_.off_weekend.isEmpty ());
+  // operators named in the logs (several PCs): into an empty box, once
+  if (!operators_filled_ && selection_.operators.size () && operators_->text ().trimmed ().isEmpty ())
+    {
+      operators_filled_ = true;
+      operators_->setText (selection_.operators.join (' ')); // refreshes again
+      return;
+    }
   text_ = EmeCabrillo::cabrillo_text (header (), selection_.qsos);
   show_bands ();
   show_grid_rows ();
 
-  QStringList warnings;
-  if (!load_error_.isEmpty ()) warnings << load_error_;
+  QStringList warnings {load_errors_};
+  if (logs_.isEmpty ()) warnings << tr ("No log chosen - add one above.");
   if (my_call_.isEmpty ()) warnings << tr ("My Call is empty (Settings, General).");
   if (EmeCabrillo::grid4 (my_grid_).isEmpty ()) warnings << tr ("My Grid is empty or not a grid (Settings, General).");
   if (days_.isEmpty ()) warnings << tr ("Choose the contest days first.");
@@ -279,6 +384,15 @@ void EmeCabrilloDialog::refresh ()
     warnings << tr ("Not a Saturday or Sunday: %1 (contest weekends run Sat 00:00 - Sun 23:59 UTC).")
       .arg (weekdays.join (", "));
   if (days_.size () && selection_.qsos.isEmpty ()) warnings << tr ("No EME QSOs on these days and bands.");
+  if (selection_.off_weekend.size ())
+    {
+      QStringList off;
+      for (auto const& qso : selection_.off_weekend) off << qso_text (qso);
+      warnings << (off_weekend_box_->isChecked ()
+                   ? tr ("%1 QSO(s) on a band not contested that weekend LEFT OUT: %2")
+                   : tr ("%1 QSO(s) on a band not contested that weekend KEPT - check them: %2"))
+        .arg (selection_.off_weekend.size ()).arg (off.join (", "));
+    }
   if (selection_.no_grid.size ())
     {
       QStringList calls;
@@ -303,6 +417,31 @@ void EmeCabrilloDialog::refresh ()
         .arg (tr ("Total")).arg (selection_.qsos.size ()).arg (s.multipliers)
         .arg (tr ("claimed score %1 x %2 = %3").arg (s.points).arg (s.multipliers).arg (s.claimed));
     }
+  // each weekend's band group, as worked out from the logs
+  for (auto const& weekend : selection_.weekends)
+    {
+      QStringList days, counts;
+      for (auto const& day : weekend.days) days << day.toString ("dd.MM.");
+      for (auto i = weekend.qsos.cbegin (); i != weekend.qsos.cend (); ++i)
+        counts << QString {"%1 %2"}.arg (i.key ()).arg (i.value ());
+      auto const what = !weekend.group.isEmpty () ? weekend.group
+        : weekend.qsos.isEmpty () ? tr ("no QSOs")
+        : tr ("both band groups equally - can't tell, all kept");
+      auto line = escaped (tr ("Weekend %1 %2: %3").arg (days.join ('/')).arg (weekend.days.first ().year ())
+                           .arg (what) + (counts.size () ? "  (" + counts.join (", ") + " " + tr ("QSOs") + ")"
+                                          : QString {}));
+      html += weekend.group.isEmpty () && !weekend.qsos.isEmpty ()
+        ? "<p style='color:#c00000'>" + line + "</p>" : "<p>" + line + "</p>";
+    }
+  QSet<QString> day_strings;
+  for (auto const& day : days_) day_strings << day.toString ("yyyyMMdd");
+  int copies = 0;
+  for (auto const& record : copies_) copies += day_strings.contains (record.value ("QSO_DATE").trimmed ());
+  if (copies)
+    html += "<p>" + escaped (tr ("%1 QSO(s) on the days are in more than one log - counted once.").arg (copies))
+      + "</p>";
+  if (selection_.operators.size ())
+    html += "<p>" + escaped (tr ("OPERATOR in the logs: %1").arg (selection_.operators.join (' '))) + "</p>";
   if (selection_.dupes.size ())
     {
       QStringList dupes;
@@ -473,7 +612,7 @@ void EmeCabrilloDialog::save ()
   int typed = 0;
   for (auto const& qso : selection_.qsos) typed += qso.entered;
   if (typed)
-    message += "\n\n" + tr ("The %1 grid(s) you typed are in the Cabrillo file only: the ADIF log is not changed.")
+    message += "\n\n" + tr ("The %1 grid(s) you typed are in the Cabrillo file only: the ADIF logs are not changed.")
       .arg (typed);
   message += "\n\n" + tr ("Upload it at contests.arrl.org/arrlemescoresubmission.php.");
   MessageBox::information_message (this, message);
