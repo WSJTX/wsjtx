@@ -1,6 +1,6 @@
 module jtty_mdec
 
-  use iso_fortran_env, only: int64, real64
+  use iso_fortran_env, only: int16, int64, real64
   use iso_c_binding, only: c_ptr,c_null_ptr,c_associated,c_f_pointer, &
        c_float_complex,c_size_t
   use jtty_mod, only: MAX_FRAMES
@@ -9,6 +9,8 @@ module jtty_mdec
   use jtty_tbcc_decoder, only: jtty_tbcc_decode
   use jtty_payload_correlators, only: jtty_payload_correlator, &
        jtty_payload_correlator_prepare, jtty_correlate_payload_symbols
+
+  use jtty_frequency_mixer, only: jtty_mixer_state, jtty_mixer_start, jtty_mix_samples
 
   type :: decode
      real :: f1    = 0.0              !Synced audio frequency
@@ -128,11 +130,79 @@ module jtty_mdec
   end interface
   procedure(planning_notice), pointer, private :: planning_callback => null()
 
+  integer, parameter, private :: SYNC_SURFACE_CACHE_SIZE=MAX_RETRO_STEPS+1
+  type, private :: sync_surface_cache_entry
+     logical :: valid=.false.
+     integer :: nchunk=0,nsps=0,first_bin=0,last_bin=-1,nstep=-1
+     integer(int16), allocatable :: pcm(:)
+     real, allocatable :: surface(:,:)
+  end type sync_surface_cache_entry
+  type(sync_surface_cache_entry), private :: sync_surface_cache(SYNC_SURFACE_CACHE_SIZE)
+  integer, private :: sync_surface_cache_next=1
+  integer, parameter, private :: ANALYTIC_CACHE_SIZE=MAX_RETRO_STEPS+1
+  type, private :: analytic_cache_entry
+     logical :: valid=.false.
+     integer :: nchunk=0,nana=0
+     integer(int16), allocatable :: pcm(:)
+     complex, allocatable :: base(:)
+  end type analytic_cache_entry
+  type(analytic_cache_entry), private :: analytic_cache(ANALYTIC_CACHE_SIZE)
+  integer, private :: analytic_cache_next=1
+
+  private :: load_analytic_cache,store_analytic_cache
+
   interface prune_receive_state
      module procedure prune_receive_state_real64, prune_receive_state_real32
   end interface
 
 contains
+
+  subroutine load_analytic_cache(iwave,nchunk,nana,c0,hit)
+      integer, intent(in) :: nchunk,nana
+      integer(int16), intent(in) :: iwave(nchunk)
+      complex, intent(out) :: c0(0:nana-1)
+      logical, intent(out) :: hit
+      integer :: entry
+
+      hit=.false.
+      do entry=1,ANALYTIC_CACHE_SIZE
+         if(.not.analytic_cache(entry)%valid) cycle
+         if(analytic_cache(entry)%nchunk.ne.nchunk .or. &
+              analytic_cache(entry)%nana.ne.nana) cycle
+         if(.not.all(analytic_cache(entry)%pcm.eq.iwave)) cycle
+         c0=analytic_cache(entry)%base
+         hit=.true.
+         return
+      enddo
+  end subroutine load_analytic_cache
+
+  subroutine store_analytic_cache(iwave,nchunk,nana,c0)
+      integer, intent(in) :: nchunk,nana
+      integer(int16), intent(in) :: iwave(nchunk)
+      complex, intent(in) :: c0(0:nana-1)
+      integer :: entry
+
+      entry=analytic_cache_next
+      analytic_cache(entry)%valid=.false.
+      if(allocated(analytic_cache(entry)%pcm)) then
+         if(size(analytic_cache(entry)%pcm).ne.nchunk) &
+              deallocate(analytic_cache(entry)%pcm)
+      endif
+      if(.not.allocated(analytic_cache(entry)%pcm)) &
+           allocate(analytic_cache(entry)%pcm(nchunk))
+      if(allocated(analytic_cache(entry)%base)) then
+         if(size(analytic_cache(entry)%base).ne.nana) &
+              deallocate(analytic_cache(entry)%base)
+      endif
+      if(.not.allocated(analytic_cache(entry)%base)) &
+           allocate(analytic_cache(entry)%base(0:nana-1))
+      analytic_cache(entry)%pcm=iwave
+      analytic_cache(entry)%base=c0
+      analytic_cache(entry)%nchunk=nchunk
+      analytic_cache(entry)%nana=nana
+      analytic_cache(entry)%valid=.true.
+      analytic_cache_next=mod(analytic_cache_next,ANALYTIC_CACHE_SIZE)+1
+  end subroutine store_analytic_cache
 
   subroutine release_sync_fft_cache(cache)
     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
@@ -296,6 +366,20 @@ contains
       sync_chirp_samples=0
       sync_chirp_first_bin=-1
       sync_chirp_output_count=0
+      do index=1,SYNC_SURFACE_CACHE_SIZE
+         if(allocated(sync_surface_cache(index)%pcm)) &
+              deallocate(sync_surface_cache(index)%pcm)
+         if(allocated(sync_surface_cache(index)%surface)) &
+              deallocate(sync_surface_cache(index)%surface)
+         sync_surface_cache(index)%valid=.false.
+      enddo
+      sync_surface_cache_next=1
+      do index=1,ANALYTIC_CACHE_SIZE
+         if(allocated(analytic_cache(index)%pcm)) deallocate(analytic_cache(index)%pcm)
+         if(allocated(analytic_cache(index)%base)) deallocate(analytic_cache(index)%base)
+         analytic_cache(index)%valid=.false.
+      enddo
+      analytic_cache_next=1
   end subroutine jtty_release_fft_resources
 
   pure real(real64) function sample_time(index)
@@ -761,8 +845,12 @@ contains
       real                           :: fbest,xdtbest
       real                           :: xdt_retry
       real, allocatable, save        :: s0(:,:)
-      logical, allocatable, save     :: mask0(:,:)
+      real, allocatable, save        :: s0_channel0(:,:)
+      real, allocatable, save        :: column_peak(:)
+      integer, allocatable, save     :: column_peak_bin(:)
       real                           :: a(3)
+      type(jtty_mixer_state)          :: candidate_mixer
+      integer                        :: candidate_mixed_until
       real                           :: pow(0:3,NCHAN_SYM)
       real, save                     :: baud,dt,df2
       real                           :: phi,dphi
@@ -782,13 +870,17 @@ contains
       logical                        :: is_window_dupe
       logical                        :: is_pure_dupe
       logical                        :: success_dec
-      logical                        :: channel_decoded, decoded_ok
+      logical                        :: channel_decoded, decoded_ok, analytic_cache_hit
       logical                        :: any_subtracted
       logical                        :: s0_valid
       integer                        :: ir
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
       logical                        :: use_interferer
+      logical                        :: cache_raw_surface,surface_reuse_eligible
+      logical                        :: reuse_pristine_columns
+      integer                        :: interferer_start
+      real                           :: use_interferer_xdt
       real                            :: use_interferer_f1
       real(real64)                    :: use_interferer_tsync
       integer                         :: use_interferer_payload(PAYLOAD_BITS)
@@ -830,17 +922,17 @@ contains
            allocate(csync(0:NSYNC_SYM*nss-1))
          if(allocated(ctones)) deallocate(ctones)
            allocate(ctones(0:nss-1,0:3))
-         if(allocated(c0)) deallocate(c0)
-           allocate(c0(0:nana-1))
          if(allocated(c)) deallocate(c)
            allocate(c(0:nfft-1))        !
-         if(allocated(c1)) deallocate(c1)
-           allocate(c1(0:nchunk6-1))
          if(allocated(s0)) deallocate(s0)
            allocate(s0(0:nh2,0:ntgrid))
          s0=0.
-         if(allocated(mask0)) deallocate(mask0)
-           allocate(mask0(0:nh2,0:ntgrid))
+         if(allocated(s0_channel0)) deallocate(s0_channel0)
+           allocate(s0_channel0(0:nh2,0:ntgrid))
+         if(allocated(column_peak)) deallocate(column_peak)
+           allocate(column_peak(0:ntgrid))
+         if(allocated(column_peak_bin)) deallocate(column_peak_bin)
+           allocate(column_peak_bin(0:ntgrid))
 
 ! Generate complex waveform for sync
          baud=FSAMPLE/real(nss)   !31.25 for nss=192
@@ -857,12 +949,27 @@ contains
          enddo
       endif
 
+      if(allocated(c0)) then
+         if(size(c0).ne.nana) deallocate(c0)
+      endif
+      if(.not.allocated(c0)) allocate(c0(0:nana-1))
+      if(allocated(c1)) then
+         if(size(c1).ne.nchunk6) deallocate(c1)
+      endif
+      if(.not.allocated(c1)) allocate(c1(0:nchunk6-1))
+
       call jtty_payload_correlator_prepare(payload_correlator,nss)
 
 !  convert integer samples at 12K Sa/s to complex analytic signal at 6K Sa/s
-      call ana64a(iwave,nchunk,c0,nana)
-      c0(nchunk6:)=0.
+      ! Retain the pristine conversion; each subtraction uses its own copy.
+      call load_analytic_cache(iwave,nchunk,nana,c0,analytic_cache_hit)
+      if(.not.analytic_cache_hit) then
+         call ana64a(iwave,nchunk,c0,nana)
+         c0(nchunk6:)=0.
+         call store_analytic_cache(iwave,nchunk,nana,c0)
+      endif
 
+      surface_reuse_eligible=.false.
       if(use_interferer) then
          ! Retro re-sweep call: subtract the already-known signal out of
          ! this window's own c0 before searching, on the theory that this
@@ -874,8 +981,12 @@ contains
          tone_symbols_full(1:NSYNC_SYM)=is13
          call jtty_tbcc_reencode_for_subtraction(use_interferer_payload, tone_symbols_chk)
          tone_symbols_full(NSYNC_SYM+1:NFRAME_SYM)=tone_symbols_chk
+         use_interferer_xdt=real(use_interferer_tsync-sample_time(istart))
          call subtract_jtty(c0, nana, nchunk6, tone_symbols_full, NFRAME_SYM, &
-              nss, use_interferer_f1, real(use_interferer_tsync-sample_time(istart)))
+              nss, use_interferer_f1, use_interferer_xdt)
+         interferer_start=nint(use_interferer_xdt*FSAMPLE)
+         surface_reuse_eligible=interferer_start.ge.ntgrid*12+NSYNC_SYM*nss .or. &
+              interferer_start+NFRAME_SYM*nss.le.0
       endif
 
 ! Look for up to 2 sync candidates in each quarter-frame (0.424 second) by 2*FTol rectangle in
@@ -897,9 +1008,17 @@ contains
       enddo
 
       nc=2          ! look for 2 candidates in each channel
+      nstep_search=ntgrid
       ncand=0
       any_subtracted=.false.
       s0_valid=.false.
+      reuse_pristine_columns=.false.
+      cache_raw_surface=.not.use_interferer
+      if(surface_reuse_eligible) then
+         s0_valid=restore_sync_surface()
+      else if(use_interferer) then
+         reuse_pristine_columns=restore_sync_surface()
+      endif
 
       ! Phase A: channel 0 gets first claim on every signal -- runs its own
       ! full up-to-2-pass sweep to completion, accumulating n_ch0_ok across
@@ -927,6 +1046,63 @@ contains
       return
 
    contains
+
+   logical function restore_sync_surface()
+      integer :: slot
+
+      restore_sync_surface=.false.
+      if(first_sync_bin.gt.last_sync_bin) return
+      do slot=1,SYNC_SURFACE_CACHE_SIZE
+         if(.not.sync_surface_cache(slot)%valid) cycle
+         if(sync_surface_cache(slot)%nchunk.ne.nchunk .or. &
+              sync_surface_cache(slot)%nsps.ne.nsps .or. &
+              sync_surface_cache(slot)%first_bin.ne.first_sync_bin .or. &
+              sync_surface_cache(slot)%last_bin.ne.last_sync_bin .or. &
+              sync_surface_cache(slot)%nstep.ne.nstep_search) cycle
+         if(.not.allocated(sync_surface_cache(slot)%pcm) .or. &
+              .not.allocated(sync_surface_cache(slot)%surface)) cycle
+         if(size(sync_surface_cache(slot)%pcm).ne.nchunk) cycle
+         if(.not.all(sync_surface_cache(slot)%pcm.eq.iwave)) cycle
+         s0(first_sync_bin:last_sync_bin,0:nstep_search)= &
+              sync_surface_cache(slot)%surface
+         restore_sync_surface=.true.
+         return
+      enddo
+   end function restore_sync_surface
+
+   subroutine store_sync_surface()
+      integer :: slot
+
+      if(first_sync_bin.gt.last_sync_bin) return
+      slot=sync_surface_cache_next
+      sync_surface_cache(slot)%valid=.false.
+      if(allocated(sync_surface_cache(slot)%pcm)) then
+         if(size(sync_surface_cache(slot)%pcm).ne.nchunk) &
+              deallocate(sync_surface_cache(slot)%pcm)
+      endif
+      if(.not.allocated(sync_surface_cache(slot)%pcm)) &
+           allocate(sync_surface_cache(slot)%pcm(nchunk))
+      if(allocated(sync_surface_cache(slot)%surface)) then
+         if(lbound(sync_surface_cache(slot)%surface,1).ne.first_sync_bin .or. &
+              ubound(sync_surface_cache(slot)%surface,1).ne.last_sync_bin .or. &
+              lbound(sync_surface_cache(slot)%surface,2).ne.0 .or. &
+              ubound(sync_surface_cache(slot)%surface,2).ne.nstep_search) &
+              deallocate(sync_surface_cache(slot)%surface)
+      endif
+      if(.not.allocated(sync_surface_cache(slot)%surface)) &
+           allocate(sync_surface_cache(slot)%surface( &
+           first_sync_bin:last_sync_bin,0:nstep_search))
+      sync_surface_cache(slot)%pcm=iwave
+      sync_surface_cache(slot)%surface= &
+           s0(first_sync_bin:last_sync_bin,0:nstep_search)
+      sync_surface_cache(slot)%nchunk=nchunk
+      sync_surface_cache(slot)%nsps=nsps
+      sync_surface_cache(slot)%first_bin=first_sync_bin
+      sync_surface_cache(slot)%last_bin=last_sync_bin
+      sync_surface_cache(slot)%nstep=nstep_search
+      sync_surface_cache(slot)%valid=.true.
+      sync_surface_cache_next=mod(slot,SYNC_SURFACE_CACHE_SIZE)+1
+   end subroutine store_sync_surface
 
    subroutine build_s0()
       use fftw3, only: fftwf_execute_dft
@@ -1004,6 +1180,14 @@ contains
       istep=0
       do i0=0,ntstep,12                     !Search over quarter-frame segment
          xdt=i0*dt
+         ! Subtraction only changes samples within the interferer's frame.
+         if(reuse_pristine_columns) then
+            if(i0+NSYNC_SYM*nss.le.interferer_start .or. &
+                 i0.ge.interferer_start+NFRAME_SYM*nss) then
+               istep=istep+1
+               cycle
+            endif
+         endif
          if(use_chirp) then
             sync_fft_caches(sync_fft_order)%input(0:NSYNC_SYM*nss-1)= &
                  sync_chirp_weights* &
@@ -1069,7 +1253,12 @@ contains
          istep=istep+1
       enddo
       nstep_search=istep-1
+      reuse_pristine_columns=.false.
       s0_valid=.true.
+      if(cache_raw_surface) then
+         call store_sync_surface()
+         cache_raw_surface=.false.
+      endif
    end subroutine build_s0
 
    subroutine channel_window()
@@ -1110,22 +1299,25 @@ contains
          enddo
       endif
 
-      if(ichan.eq.0) mask0(ja:jb,0:nstep_search)=.true.
+      if(ichan.eq.0) &
+           s0_channel0(ja:jb,0:nstep_search)=s0(ja:jb,0:nstep_search)
+      call refresh_peak_columns(0,nstep_search)
 
       do ic=1,nc0
+         ! Match maxloc's ties: earliest time column, then lowest frequency bin.
+         nsloc(2)=maxloc(column_peak(0:nstep_search),dim=1)
+         nsloc(1)=column_peak_bin(nsloc(2)-1)-ja+1
          if(ichan.eq.0) then
-            ! Channel 0 uses a private mask instead of zeroing s0
-            ! directly, so candidates that never pass the decode gate
-            ! don't eat into the fixed channels' shared search surface.
-            nsloc=maxloc(s0(ja:jb,0:nstep_search), &
-                 mask=mask0(ja:jb,0:nstep_search))
-            mask0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),  &
-                max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = .false.
+            ! Failed QSO candidates must leave the auxiliary search surface intact.
+            s0_channel0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ), &
+                max(  0, nsloc(2)-ntz ) : min( nstep_search, nsloc(2)+ntz ) ) = -huge(0.0)
          else
-            nsloc=maxloc(s0(ja:jb,0:nstep_search))
-            s0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ),        &
-                max(  0, nsloc(2)-ntz )    : min( nstep_search, nsloc(2)+ntz )   ) = 0.0
+            s0( max( ja, nsloc(1)-nfz+ja ) : min( jb, nsloc(1)+nfz+ja  ), &
+                max(  0, nsloc(2)-ntz ) : min( nstep_search, nsloc(2)+ntz ) ) = 0.0
          endif
+         call refresh_peak_columns(max(0,nsloc(2)-ntz), &
+              min(nstep_search,nsloc(2)+ntz), &
+              max(ja,nsloc(1)-nfz+ja),min(jb,nsloc(1)+nfz+ja))
          fbest   = (nsloc(1)-1+ja)*df2
          xdtbest = (nsloc(2)-1)*dt*12
 
@@ -1140,9 +1332,8 @@ contains
          cand(ncand)%xdt=xdtbest
          cand(ncand)%f1=fbest
 
-         a=0.
-         a(1)=-cand(ncand)%f1                                !Shift peak to zero frequency
-         call twkfreq(c0,c1,nchunk6,6000.0,a)
+         candidate_mixed_until=-1
+         call mix_candidate_symbols(nint(cand(ncand)%xdt/dt),NSYNC_SYM)
 
          pt=0.
          pa=0.
@@ -1197,14 +1388,7 @@ contains
             ncand=ncand+1
             cand(ncand)%xdt=xdt_retry
             cand(ncand)%f1=active_messages(ir)%f1
-            ! decode_and_merge reads tone powers from c1, which is only
-            ! valid for whichever frequency the blind-candidate loop
-            ! above last shifted it to -- re-shift it for this retry's
-            ! own frequency, or it silently correlates against the wrong
-            ! signal (dchristle, PR #337).
-            a=0.
-            a(1)=-cand(ncand)%f1
-            call twkfreq(c0,c1,nchunk6,6000.0,a)
+            candidate_mixed_until=-1
             nsync=-1   ! not meaningful for a sticky-sync retry; flags it in ndebug output
             call decode_and_merge(-1, decoded_ok)
             if(decoded_ok) call record_ch0_success()
@@ -1213,6 +1397,47 @@ contains
          enddo
       endif
    end subroutine process_channel
+
+   subroutine refresh_peak_columns(first_column,last_column,first_changed_bin,last_changed_bin)
+      integer, intent(in) :: first_column,last_column
+      integer, intent(in), optional :: first_changed_bin,last_changed_bin
+      integer :: column,location
+
+      do column=first_column,last_column
+         if(present(first_changed_bin) .and. present(last_changed_bin)) then
+            if(column_peak_bin(column).lt.first_changed_bin .or. &
+                 column_peak_bin(column).gt.last_changed_bin) cycle
+         endif
+         if(ichan.eq.0) then
+            location=maxloc(s0_channel0(ja:jb,column),dim=1)-1+ja
+            column_peak(column)=s0_channel0(location,column)
+         else
+            location=maxloc(s0(ja:jb,column),dim=1)-1+ja
+            column_peak(column)=s0(location,column)
+         endif
+         column_peak_bin(column)=location
+      enddo
+   end subroutine refresh_peak_columns
+
+   subroutine mix_candidate_symbols(first,symbol_count)
+      integer, intent(in) :: first,symbol_count
+      integer :: last,available_symbols
+
+      if(first.lt.0) then
+         a=0.
+         a(1)=-cand(ncand)%f1
+         call twkfreq(c0,c1,nchunk6,FSAMPLE,a)
+         candidate_mixed_until=-1
+         return
+      endif
+      if(first.ge.nchunk6) return
+      available_symbols=min(symbol_count,(nchunk6-first)/nss)
+      last=first+available_symbols*nss
+      if(candidate_mixed_until.ne.first) &
+           call jtty_mixer_start(candidate_mixer,-cand(ncand)%f1,FSAMPLE,first)
+      call jtty_mix_samples(candidate_mixer,c0(first:last-1),c1(first:last-1))
+      candidate_mixed_until=last
+   end subroutine mix_candidate_symbols
 
    subroutine record_ch0_success()
       ! Record channel 0's successful-decode neighborhood so Phase B can
@@ -1243,6 +1468,7 @@ contains
 
       decoded_ok=.false.
       payload_start=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss
+      call mix_candidate_symbols(payload_start,NCHAN_SYM)
       call jtty_correlate_payload_symbols(payload_correlator,c1,payload_start,zsym,zhalf)
       call jtty_tbcc_decode(zsym,zhalf,final_payload,success_dec)
       ! Half-symbol off-tone leakage is not a noise estimate; diagnostics use M1.

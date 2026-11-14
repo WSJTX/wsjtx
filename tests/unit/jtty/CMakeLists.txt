@@ -169,6 +169,11 @@ wsjt_link_common_fortran (test_jtty_surface_ranges)
 add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
 set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 180)
 
+add_executable (test_jtty_surface_cache test_jtty_surface_cache.f90)
+wsjt_link_common_fortran (test_jtty_surface_cache)
+add_test (NAME test_jtty_surface_cache COMMAND test_jtty_surface_cache)
+set_tests_properties (test_jtty_surface_cache PROPERTIES TIMEOUT 180)
+
 add_executable (test_jtty_display_layout test_jtty_display_layout.f90)
 target_include_directories (test_jtty_display_layout PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_jtty_display_layout)
@@ -307,6 +312,10 @@ add_executable (test_jtty_tbcc_code_profile test_jtty_tbcc_code_profile.f90)
 wsjt_link_common_fortran (test_jtty_tbcc_code_profile)
 add_test (NAME test_jtty_tbcc_code_profile COMMAND test_jtty_tbcc_code_profile)
 
+add_executable (test_jtty_frequency_mixer test_jtty_frequency_mixer.f90)
+wsjt_link_common_fortran (test_jtty_frequency_mixer)
+add_test (NAME test_jtty_frequency_mixer COMMAND test_jtty_frequency_mixer)
+
 add_executable (test_jtty_payload_correlators test_jtty_payload_correlators.f90)
 wsjt_link_common_fortran (test_jtty_payload_correlators)
 add_test (NAME test_jtty_payload_correlators COMMAND test_jtty_payload_correlators)
@@ -334,7 +343,7 @@ wsjt_link_common_fortran (test_wsjt_codec_jtty)
 target_compile_definitions (test_wsjt_codec_jtty PRIVATE
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
   FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav"
-  JTTY_SAMPLE_WAV="${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
+  JTTY_SAMPLE_WAV="${CMAKE_SOURCE_DIR}/samples/JTTY/261105_101915_567.wav")
 add_dependencies (test_wsjt_codec_jtty wsjt-codec test_decoder_engine)
 if (WSJT_BUILD_UTILS)
   target_compile_definitions (test_wsjt_codec_jtty PRIVATE RJTTY_EXECUTABLE="$<TARGET_FILE:rjtty>")
@@ -350,7 +359,7 @@ if (WSJT_ENABLE_TSAN)
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 # It decodes the in-tree sample, which source archives omit.
-if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
+if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/JTTY/261105_101915_567.wav")
   set_tests_properties (test_wsjt_codec_jtty PROPERTIES DISABLED TRUE)
 endif ()
 

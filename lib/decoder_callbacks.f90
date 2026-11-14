@@ -8,7 +8,7 @@ module decoder_callbacks
   use ft4_decode
   use fst4_decode, only: fst4_decoder
   use q65_decode
-  use streaming_emit, only: streaming_emit_enabled, streaming_emit_decode
+  use streaming_emit, only: streaming_emit_enabled, streaming_emit_decode, streaming_emit_flush
   use decoder_engine_types
   use jt65_host_support, only: write_jt65_averages
   use, intrinsic :: iso_c_binding, only: c_ptr,c_null_ptr,c_char,c_null_char
@@ -308,7 +308,7 @@ contains
     if(context_ios13.eq.0) write(13,1012) context_nutc,nint(sync),snr,dt,    &
          float(freq),drift,decoded,ft,nsum,nsmo
 1012 format(i4.4,i4,i5,f6.2,f8.0,i4,3x,a22,' JT65',3i3)
-    call flush(6)
+    call streaming_emit_flush()
 
     !$omp end critical(decode_results)
     endif
@@ -369,7 +369,7 @@ contains
     if(context_ios13.eq.0) write(13,1002) context_nutc,nint(sync),snr,dt,freq,  &
          drift,decoded
 1002 format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a22,' JT9')
-    call flush(6)
+    call streaming_emit_flush()
     !$omp end critical(decode_results)
     endif
     select type (typed_this => this)
@@ -534,7 +534,7 @@ contains
        endif
     endif
     if(context%render_legacy) then
-       call flush(6)
+       call streaming_emit_flush()
        if(context_ios13.eq.0) call flush(13)
     endif
 
@@ -683,7 +683,7 @@ contains
     endif
 
     if(context%render_legacy) then
-       call flush(6)
+       call streaming_emit_flush()
        if(context_ios13.eq.0) call flush(13)
     endif
 
@@ -771,7 +771,7 @@ contains
        flush(13)
     endif
 
-10  call flush(6)
+10  call streaming_emit_flush()
 
 20  continue
     select type (typed_this => this)
@@ -866,7 +866,7 @@ contains
     end if
 1005 format(a70)
 
-    call flush(6)
+    call streaming_emit_flush()
     if(context_ios13.eq.0) call flush(13)
     endif
 
@@ -982,7 +982,7 @@ contains
        if(context_ios13.eq.0) write(13,1004) display_utc,nint(snr1),nsnr,dt,freq,0,decoded
 1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     endif
-    call flush(6)
+    call streaming_emit_flush()
     if(context_ios13.eq.0) call flush(13)
     endif
 

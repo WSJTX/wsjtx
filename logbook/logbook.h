@@ -37,6 +37,17 @@ public:
             , QString const& mode
             , QByteArray const& ADIF_record);
   AD1CCty const * countries () const {return worked_before_.countries ();}
+  // Call worked on band (any mode; any band if band is empty), counting only
+  // QSOs made on one of days (UTC) when the set is not empty.
+  bool call_worked_on_band (QString const& call, QString const& band, QSet<QDate> const& days) const
+  {
+    return worked_before_.call_worked_on_days (call, QString {}, band, days);
+  }
+  // Number of different calls worked on band (any mode), as above.
+  int calls_worked_on_band (QString const& band, QSet<QDate> const& days) const
+  {
+    return worked_before_.calls_worked_on_days (band, days);
+  }
   void rescan ();
   bool erase_log () {return worked_before_.erase_log ();}
   void match (QString const& call, QString const& mode, QString const& grid,

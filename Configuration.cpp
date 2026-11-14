@@ -771,7 +771,10 @@ private:
   void enumerate_rigs ();
   void normalize_rig_selections (bool restore = false);
   void set_rig_invariants ();
-  enum class RadioValidationError { none, invalid_ptt_method, invalid_ptt_port };
+  enum class RadioValidationError { none, invalid_ptt_method, invalid_ptt_port, invalid_footswitch_port };
+  static bool footswitch_port_clashes (QString const& footswitch_port, QString const& cat_serial_port,
+                                       TransceiverFactory::PTTMethod, QString const& ptt_port);
+  void update_footswitch_controls ();
   RadioValidationError validate_radio_settings ();
   bool validate ();
   void fill_port_combo_box (QComboBox *);
@@ -1173,6 +1176,9 @@ private:
   int watchdog_;
   int tune_watchdog_time_;
   bool tune_watchdog_;
+  bool footswitch_enabled_ {false};
+  QString footswitch_port_;
+  int footswitch_pin_ {0};
   bool TX_messages_;
   bool enable_VHF_features_;
   bool decode_at_52s_;
@@ -1357,6 +1363,17 @@ bool Configuration::alternate_bindings() const {return m_->alternate_bindings_;}
 int Configuration::watchdog () const {return m_->watchdog_;}
 int Configuration::tune_watchdog_time () const {return m_->tune_watchdog_time_;}
 bool Configuration::tune_watchdog () const {return m_->tune_watchdog_;}
+bool Configuration::footswitch_enabled () const {return m_->footswitch_enabled_;}
+QString Configuration::footswitch_port () const {return m_->footswitch_port_;}
+int Configuration::footswitch_pin () const {return m_->footswitch_pin_;}
+bool Configuration::footswitch_port_clash () const
+{
+  auto const serial_CAT = TransceiverFactory::Capabilities::serial
+    == m_->transceiver_factory_.CAT_port_type (m_->rig_params_.rig_name);
+  return impl::footswitch_port_clashes (m_->footswitch_port_,
+                                        serial_CAT ? m_->rig_params_.serial_port : QString {},
+                                        m_->rig_params_.ptt_type, m_->rig_params_.ptt_port);
+}
 bool Configuration::TX_messages () const {return m_->TX_messages_;}
 bool Configuration::enable_VHF_features () const {return m_->enable_VHF_features_;}
 bool Configuration::decode_at_52s () const {return m_->decode_at_52s_;}
@@ -2537,6 +2554,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->split_rig_radio_button->setAccessibleName (tr ("Rig split operation"));
   ui_->split_emulate_radio_button->setAccessibleName (tr ("Fake It split operation"));
   ui_->CAT_poll_interval_spin_box->setAccessibleName (tr ("CAT poll interval"));
+  ui_->footswitch_group_box->setAccessibleName (tr ("Footswitch T/R"));
+  ui_->footswitch_enable_check_box->setAccessibleName (tr ("Use footswitch"));
+  ui_->footswitch_port_combo_box->setAccessibleName (tr ("Footswitch port"));
+  ui_->footswitch_pin_combo_box->setAccessibleName (tr ("Footswitch input line"));
   ui_->calibration_slope_ppm_spin_box->setAccessibleName (tr ("Frequency calibration slope"));
   ui_->calibration_intercept_spin_box->setAccessibleName (tr ("Frequency calibration intercept"));
   ui_->frequencies_table_view->setAccessibleName (tr ("Working frequencies table"));
@@ -2652,6 +2673,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     ui_->PTT_CAT_radio_button,
     ui_->PTT_RTS_radio_button,
     ui_->PTT_port_combo_box,
+    ui_->footswitch_enable_check_box,
+    ui_->footswitch_port_combo_box,
+    ui_->footswitch_pin_combo_box,
     ui_->TX_source_data_radio_button,
     ui_->TX_source_mic_radio_button,
     ui_->mode_none_radio_button,
@@ -3068,6 +3092,14 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->PTT_port_combo_box->setItemData (ui_->PTT_port_combo_box->count () - 1, "Delegate to proxy CAT service", Qt::ToolTipRole);
 
   //
+  // setup footswitch port and input pin combo boxes
+  //
+  fill_port_combo_box (ui_->footswitch_port_combo_box);
+  ui_->footswitch_pin_combo_box->addItems ({"CTS", "DSR", "DCD", "RI"});
+  connect (ui_->footswitch_enable_check_box, &QCheckBox::toggled,
+           this, &Configuration::impl::update_footswitch_controls);
+
+  //
   // setup hooks to keep audio channels aligned with devices
   //
   {
@@ -3393,6 +3425,10 @@ void Configuration::impl::initialize_models ()
   ui_->alternate_bindings_check_box->setChecked (alternate_bindings_);
   ui_->tx_watchdog_spin_box->setValue (watchdog_);
   ui_->tune_watchdog_check_box->setChecked(tune_watchdog_);
+  ui_->footswitch_enable_check_box->setChecked (footswitch_enabled_);
+  ui_->footswitch_port_combo_box->setCurrentText (footswitch_port_);
+  ui_->footswitch_pin_combo_box->setCurrentIndex (footswitch_pin_);
+  update_footswitch_controls ();
   ui_->tune_watchdog_spin_box->setValue (tune_watchdog_time_);
   ui_->TX_messages_check_box->setChecked (TX_messages_);
   ui_->enable_VHF_features_check_box->setChecked(enable_VHF_features_);
@@ -3896,6 +3932,9 @@ void Configuration::impl::read_settings ()
   alternate_bindings_ = settings_->value ("AlternateBindings", false).toBool ();
   watchdog_ = settings_->value ("TxWatchdog", 6).toInt ();
   tune_watchdog_ = settings_->value("TuneWatchdog",true).toBool ();
+  footswitch_enabled_ = settings_->value ("FootswitchEnabled", false).toBool ();
+  footswitch_port_ = settings_->value ("FootswitchPort").toString ();
+  footswitch_pin_ = qBound (0, settings_->value ("FootswitchPin", 0).toInt (), 3);
   tune_watchdog_time_ = settings_->value ("TuneWatchdogTime", 90).toInt ();
   TX_messages_ = settings_->value ("Tx2QSO", true).toBool ();
   enable_VHF_features_ = settings_->value("VHFUHF",false).toBool ();
@@ -4195,6 +4234,10 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("AlternateBindings", alternate_bindings_);
   settings_->setValue ("TxWatchdog", watchdog_);
   settings_->setValue ("TuneWatchdog", tune_watchdog_);
+  settings_->setValue ("FootswitchEnabled", footswitch_enabled_);
+  settings_->setValue ("FootswitchPort", footswitch_port_);
+  settings_->setValue ("FootswitchPin", footswitch_pin_);
+  settings_->remove ("FootswitchInvert"); // option withdrawn: normally open switch only
   settings_->setValue ("TuneWatchdogTime", tune_watchdog_time_);
   settings_->setValue ("Tx2QSO", TX_messages_);
   settings_->setValue ("CATForceDTR", rig_params_.force_dtr);
@@ -4476,7 +4519,63 @@ auto Configuration::impl::validate_radio_settings () -> RadioValidationError
       return RadioValidationError::invalid_ptt_port;
     }
 
+  if (ui_->footswitch_enable_check_box->isChecked ())
+    {
+      auto const serial_CAT = TransceiverFactory::Capabilities::serial
+        == transceiver_factory_.CAT_port_type (ui_->rig_combo_box->currentText ());
+      auto const footswitch_port = ui_->footswitch_port_combo_box->currentText ().trimmed ();
+      if (footswitch_port.isEmpty ()
+          || footswitch_port_clashes (footswitch_port,
+                                      serial_CAT ? ui_->CAT_port_combo_box->currentText () : QString {},
+                                      ptt_method, ptt_port))
+        {
+          return RadioValidationError::invalid_footswitch_port;
+        }
+    }
+
   return RadioValidationError::none;
+}
+
+bool Configuration::impl::footswitch_port_clashes (QString const& footswitch_port,
+                                                   QString const& cat_serial_port,
+                                                   TransceiverFactory::PTTMethod ptt_method,
+                                                   QString const& ptt_port)
+{
+  // Reduce a port name to the device it identifies, so different names for
+  // the same adapter match: \\.\COM4 and COM4 on Windows; on Linux and
+  // macOS symlinks such as /dev/serial/by-id/... resolve to /dev/ttyUSB0.
+  auto device = [] (QString port) {
+    port = port.trimmed ().remove (QRegularExpression {R"(^\\\\\.\\)"});
+#ifndef Q_OS_WIN
+    if (!port.isEmpty () && !port.startsWith ('/')) port.prepend ("/dev/");
+    auto const canonical = QFileInfo {port}.canonicalFilePath ();
+    if (!canonical.isEmpty ()) port = canonical;
+#endif
+    return port;
+  };
+#ifdef Q_OS_WIN
+  auto constexpr case_sensitivity = Qt::CaseInsensitive;
+#else
+  auto constexpr case_sensitivity = Qt::CaseSensitive;
+#endif
+  auto same = [&] (QString const& a, QString const& b) {
+    return !b.trimmed ().isEmpty ()
+      && 0 == QString::compare (device (a), device (b), case_sensitivity);
+  };
+  if (footswitch_port.trimmed ().isEmpty ()) return false;
+  if (same (footswitch_port, cat_serial_port)) return true;
+  return (TransceiverFactory::PTT_method_DTR == ptt_method
+          || TransceiverFactory::PTT_method_RTS == ptt_method)
+    && same (footswitch_port, ptt_port);
+}
+
+void Configuration::impl::update_footswitch_controls ()
+{
+  auto const enabled = ui_->footswitch_enable_check_box->isChecked ();
+  ui_->footswitch_port_label->setEnabled (enabled);
+  ui_->footswitch_port_combo_box->setEnabled (enabled);
+  ui_->footswitch_pin_label->setEnabled (enabled);
+  ui_->footswitch_pin_combo_box->setEnabled (enabled);
 }
 
 bool Configuration::impl::validate ()
@@ -4576,6 +4675,15 @@ bool Configuration::impl::validate ()
       return false;
     }
 
+  if (RadioValidationError::invalid_footswitch_port == radio_error)
+    {
+      find_tab (ui_->footswitch_port_combo_box);
+      MessageBox::critical_message (this, tr ("Invalid footswitch port"),
+                                    tr ("Select a serial port for the footswitch that is not "
+                                        "used for CAT or PTT."));
+      return false;
+    }
+
   if (ui_->rbField_Day->isEnabled () && ui_->rbField_Day->isChecked () &&
       !ui_->Field_Day_Exchange->hasAcceptableInput ())
     {
@@ -4614,6 +4722,9 @@ int Configuration::impl::exec ()
                                    // require the Transceiver to be
                                    // re-opened
   rig_changed_ = false;
+
+  // pick up USB serial adapters plugged in since the dialog was last shown
+  fill_port_combo_box (ui_->footswitch_port_combo_box);
 
   initialize_models ();
 
@@ -4896,6 +5007,9 @@ void Configuration::impl::accept ()
   alternate_bindings_ = ui_->alternate_bindings_check_box->isChecked ();
   watchdog_ = ui_->tx_watchdog_spin_box->value ();
   tune_watchdog_ = ui_->tune_watchdog_check_box->isChecked ();
+  footswitch_enabled_ = ui_->footswitch_enable_check_box->isChecked ();
+  footswitch_port_ = ui_->footswitch_port_combo_box->currentText ().trimmed ();
+  footswitch_pin_ = qMax (0, ui_->footswitch_pin_combo_box->currentIndex ());
   tune_watchdog_time_ = ui_->tune_watchdog_spin_box->value ();
   TX_messages_ = ui_->TX_messages_check_box->isChecked ();
   data_mode_ = static_cast<DataMode> (ui_->TX_mode_button_group->checkedId ());
@@ -7269,6 +7383,17 @@ bool Configuration::impl::open_rig (bool force)
       try
         {
           if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
+          // The running footswitch still holds its saved port, which the
+          // settings being opened (e.g. Test CAT) may now use for CAT or PTT.
+          if (footswitch_enabled_
+              && footswitch_port_clashes (footswitch_port_,
+                                          TransceiverFactory::Capabilities::serial
+                                          == transceiver_factory_.CAT_port_type (rig_data.rig_name)
+                                          ? rig_data.serial_port : QString {},
+                                          rig_data.ptt_type, rig_data.ptt_port))
+            {
+              Q_EMIT self_->footswitch_port_needed ();
+            }
           close_rig ();
           frequency_adapter_.default_projection (
             {0, calibration_.intercept, calibration_.slope_ppm, !frequency_calibration_disabled_});

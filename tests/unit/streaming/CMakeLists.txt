@@ -121,6 +121,14 @@ if (UNIX)
     add_test (NAME test_stream_stdin_${failure} COMMAND test_stream_stdin_failures ${failure})
     set_tests_properties (test_stream_stdin_${failure} PROPERTIES LABELS "streaming" TIMEOUT 60)
   endforeach ()
+  # The output queue (lib/stream_decode.c): order, held groups and quiet.
+  add_executable (test_stream_output_queue test_stream_output_queue.c)
+  target_include_directories (test_stream_output_queue PRIVATE ${CMAKE_SOURCE_DIR}/lib)
+  target_link_libraries (test_stream_output_queue Threads::Threads m)
+  foreach (scenario order group quiet_inside quiet_wakes quiet_outside quiet_race)
+    add_test (NAME test_stream_output_queue_${scenario} COMMAND test_stream_output_queue ${scenario})
+    set_tests_properties (test_stream_output_queue_${scenario} PROPERTIES LABELS "streaming" TIMEOUT 60)
+  endforeach ()
 endif ()
 
 # Source archives omit samples/.
@@ -587,7 +595,7 @@ set (decode_thread_samples TRUE)
 foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav JT65/JT65B/000000_0001.wav
     JT65/JT65B/000000_0002.wav JT65/JT65B/000000_0003.wav JT65/JT65B/000000_0004.wav JT65/JT65B/000000_0005.wav
     JT65/JT65B/000000_0006.wav FST4+FST4W/210115_0058.wav FST4+FST4W/201230_0300.wav
-    Q65/300A_Optical_Scatter/201210_0505.wav MSK144/181211_120800.wav JTTY/260807_134110.wav)
+    Q65/300A_Optical_Scatter/201210_0505.wav MSK144/181211_120800.wav JTTY/261105_101915_567.wav)
   if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/${sample}")
     set (decode_thread_samples FALSE)
   endif ()
@@ -719,11 +727,13 @@ if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
       ENVIRONMENT "WSJT_CODEC_TEST_INLINE=1"
       TIMEOUT ${streaming_msk144_timeout})
   endif ()
-  # Every stream row but these and the decode thread's again inline, a nested ctest of about 400 s: run before
-  # a merge.
+  # Every stream row but these, the decode thread's and the rows that need it (rows during a decode) again
+  # inline, a nested ctest of about 950 s: run before a merge.
   if (WSJT_ENABLE_STREAM_TIMING_TESTS)
     add_test (NAME test_streaming_decode_thread_inline_suite
-      COMMAND ${CMAKE_CTEST_COMMAND} -L streaming -E "^test_streaming_decode_thread_" -j 4 --output-on-failure
+      COMMAND ${CMAKE_CTEST_COMMAND} -L streaming
+        -E "^test_streaming_(decode_thread_|spectrum_rows_during_a_held_decode|spectrum_latency_)" -j 4
+        --output-on-failure
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
     set_tests_properties (test_streaming_decode_thread_inline_suite PROPERTIES
       LABELS "streaming;runtime"
@@ -731,4 +741,181 @@ if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
       RUN_SERIAL TRUE
       TIMEOUT 3600)
   endif ()
+endif ()
+
+# The receive chain's rows against the GUI's: spectrum_gui_model runs the
+# GUI's refspectrum_, symspec_, hspec_ and JttySpectrum on the same audio.
+add_executable (spectrum_gui_model spectrum_gui_model.cpp ${CMAKE_SOURCE_DIR}/widgets/JttySpectrum.cpp)
+target_include_directories (spectrum_gui_model PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
+target_link_libraries (spectrum_gui_model PRIVATE Qt5::Core)
+wsjt_link_common_fortran (spectrum_gui_model)
+if (WIN32)
+  set_property (TARGET spectrum_gui_model APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--stack,16777216")
+endif ()
+add_executable (test_streaming_spectrum test_streaming_spectrum.cpp)
+add_dependencies (test_streaming_spectrum wsjt-codec spectrum_gui_model test_decoder_engine test_decoder_engine_q65
+  test_decoder_engine_fst4 test_decoder_engine_jt4)
+target_link_libraries (test_streaming_spectrum Qt5::Test)
+target_compile_definitions (test_streaming_spectrum PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  SPECTRUM_GUI_MODEL="$<TARGET_FILE:spectrum_gui_model>")
+set (streaming_spectrum_environment
+  "WSJT_SAMPLES_DIR=${CMAKE_SOURCE_DIR}/samples"
+  "WSJT_ENGINE_FIXTURES=${CMAKE_BINARY_DIR}/tests/unit/decoder_engine"
+  "OMP_STACKSIZE=16M"
+  "QT_FORCE_STDERR_LOGGING=1")
+set (streaming_spectrum_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_spectrum_timeout 1200)
+  list (APPEND streaming_spectrum_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_spectrum_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+# TIMING rows, the measurements of decodes under a stalled reader and of
+# row latency during long decodes, register only with
+# WSJT_ENABLE_STREAM_TIMING_TESTS.
+function (wsjt_add_spectrum_test name function)
+  cmake_parse_arguments (row "SERIAL;TIMING" "PROCESSORS;TIMEOUT" "" ${ARGN})
+  if (NOT WSJT_ENABLE_STREAM_TIMING_TESTS AND row_TIMING)
+    return ()
+  endif ()
+  add_test (NAME test_streaming_spectrum_${name} COMMAND test_streaming_spectrum "${function}")
+  # QtTest exits 0 for a data tag it does not have: require the row's PASS.
+  # On Windows, where rows QSKIP, a row's SKIP reports it Skipped; elsewhere a
+  # SKIP fails for want of its PASS.
+  string (REPLACE ":" "\\(" pattern "${function}")
+  if (function MATCHES ":")
+    string (APPEND pattern "\\)")
+  else ()
+    string (APPEND pattern "\\(\\)")
+  endif ()
+  set (environment ${streaming_spectrum_environment})
+  set (timeout ${streaming_spectrum_timeout})
+  if (row_TIMEOUT)
+    list (FILTER environment EXCLUDE REGEX "^QTEST_FUNCTION_TIMEOUT=")
+    math (EXPR function_ms "${row_TIMEOUT} * 1000")
+    list (APPEND environment "QTEST_FUNCTION_TIMEOUT=${function_ms}")
+    set (timeout ${row_TIMEOUT})
+  endif ()
+  set_tests_properties (test_streaming_spectrum_${name} PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${environment}"
+    FIXTURES_REQUIRED "ft8_engine_wav;fst4_engine_wav;fst4w_engine_wav;q65_engine_wav;jt4_engine_wav"
+    TIMEOUT ${timeout}
+    PASS_REGULAR_EXPRESSION "PASS   : TestStreamingSpectrum::${pattern}"
+    FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
+  if (WIN32)
+    set_tests_properties (test_streaming_spectrum_${name} PROPERTIES
+      SKIP_REGULAR_EXPRESSION "SKIP   : TestStreamingSpectrum::${pattern}")
+  endif ()
+  if (row_SERIAL)
+    set_tests_properties (test_streaming_spectrum_${name} PROPERTIES RUN_SERIAL TRUE)
+  endif ()
+  if (row_PROCESSORS)
+    set_tests_properties (test_streaming_spectrum_${name} PROPERTIES PROCESSORS ${row_PROCESSORS})
+  endif ()
+endfunction ()
+# Source archives omit samples/: the rows need every recording they read.
+set (streaming_spectrum_samples TRUE)
+foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav JT65/JT65B/000000_0004.wav
+    FST4+FST4W/210115_0058.wav MSK144/181211_120500.wav MSK144/181211_120800.wav JTTY/261105_101915_567.wav)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/${sample}")
+    set (streaming_spectrum_samples FALSE)
+  endif ()
+endforeach ()
+if (streaming_spectrum_samples)
+  foreach (row "ft8 live" "ft8 live low sidelobes" "ft8 live and a half" "ft8 file" "ft8 file short" "ft8-mtd file"
+      "ft4 live" "ft4 file low sidelobes" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 file" "fst4 file"
+      "fst4w file" "fst4-60 live low sidelobes")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (rows_${name} "periodRowsMatchTheGui:${row}")
+  endforeach ()
+  wsjt_add_spectrum_test (rows_populated_wisdom rowsFromAPopulatedWisdom)
+  wsjt_add_spectrum_test (rows_on_within_a_period periodRowsBeginAtTheNextPeriod)
+  wsjt_add_spectrum_test (rows_on_in_the_first_block periodRowsOnInTheFirstBlock)
+  wsjt_add_spectrum_test (rows_after_a_one_block_period "rowsAfterAOneBlockPeriod:ft8")
+  wsjt_add_spectrum_test (fast_after_a_one_block_period "rowsAfterAOneBlockPeriod:msk144")
+  wsjt_add_spectrum_test (rows_after_spectrum_off_at_block_1 periodRowsAfterSpectrumOffAtBlock1)
+  wsjt_add_spectrum_test (rows_jt65jt9_after_a_period_mode_row jt65jt9RowsAfterAPeriodModeRow)
+  wsjt_add_spectrum_test (rows_after_a_jt65jt9_period periodRowsAfterAJt65jt9Period)
+  wsjt_add_spectrum_test (jtty_on_mid_block_while_equalizing jttyRowsOnMidBlockWhileEqualizing)
+  wsjt_add_spectrum_test (queue_drops_the_oldest rowsPastTheCapDropTheOldest)
+  wsjt_add_spectrum_test (queue_file_drops_nothing fileRowsPastTheCapAreAllKept)
+  wsjt_add_spectrum_test (queue_file_fast_drops_nothing "fileFastAndJttyRowsPastTheCapAreAllKept:msk144")
+  wsjt_add_spectrum_test (queue_file_jtty_drops_nothing "fileFastAndJttyRowsPastTheCapAreAllKept:jtty")
+  wsjt_add_spectrum_test (queue_waits_past_16_mib decodesWaitPastSixteenMebibytes TIMEOUT 600)
+  wsjt_add_spectrum_test (queue_keeps_curves curvesPastTheCapAreAllKept)
+  wsjt_add_spectrum_test (queue_replies_whole repliesStayWholePastTheCap)
+  wsjt_add_spectrum_test (queue_decodes_ahead_of_rows decodeLinesGoAheadOfQueuedRows)
+  wsjt_add_spectrum_test (queue_decodes_ahead_after_a_reply decodeLinesGoAheadAfterAReply)
+  wsjt_add_spectrum_test (queue_reply_whole_with_rows_queued "repliesStayWholeWithRowsQueued:render")
+  wsjt_add_spectrum_test (queue_reply_whole_after_pass_progress
+    "repliesStayWholeWithRowsQueued:render after pass_progress")
+  wsjt_add_spectrum_test (queue_live_rows_before_a_file_period liveRowsGoOutBeforeAFilePeriod)
+  wsjt_add_spectrum_test (queue_frame_too_large frameTooLargeEndsTheQueuedLines)
+  wsjt_add_spectrum_test (queue_keeps_errors errorsAreNeverDropped)
+  wsjt_add_spectrum_test (queue_thread_with_the_first_key writerThreadStartsWithTheFirstKey)
+  wsjt_add_spectrum_test (fast_on_period_1_off_on_after_block_20
+    "fastRowsWhenTurnedOnMidPeriod:on for period 1, off at period 2, on after its block 20")
+  foreach (row "120500" "120800" "120800 live" "120500 TR 30" "120800 TR 5")
+    string (REGEX REPLACE "[^a-zA-Z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (fast_${name} "fastRowsMatchTheGui:${row}")
+  endforeach ()
+  wsjt_add_spectrum_test (fast_on_after_block_20 "fastRowsWhenTurnedOnMidPeriod:on after block 20")
+  wsjt_add_spectrum_test (fast_on_off_on
+    "fastRowsWhenTurnedOnMidPeriod:on in block 13, off after block 30, on after block 40")
+  wsjt_add_spectrum_test (jtty_on_mid_session "jttyRowsWhenTurnedOnMidSession:on mid-session")
+  wsjt_add_spectrum_test (jtty_on_off_on "jttyRowsWhenTurnedOnMidSession:on, off and on")
+  foreach (row "plain" "low sidelobes after FT8 audio" "frames of 3455 samples")
+    string (TOLOWER "${row}" name)
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${name}")
+    wsjt_add_spectrum_test (jtty_${name} "jttyRowsMatchTheGui:${row}")
+  endforeach ()
+  foreach (row "plain" "low sidelobes")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (jtty_equal_period_rows_${name} "jttyRowsEqualPeriodRows:${row}")
+    wsjt_add_spectrum_test (jtty_near_jtty_spectrum_${name} "jttyRowsNearTheGuisJttySpectrum:${row}")
+  endforeach ()
+  foreach (row "ft4" "ft4 apply off apply" "msk144" "jtty")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (equalized_${name} "equalizedRowsMatchTheGui:${row}")
+  endforeach ()
+  foreach (row ft8 msk144 jtty)
+    wsjt_add_spectrum_test (measure_${row} "measureWritesTheGuisFile:${row}")
+  endforeach ()
+  foreach (row measuring applying)
+    wsjt_add_spectrum_test (clear_${row} "clearDeletesTheFile:${row}")
+  endforeach ()
+  wsjt_add_spectrum_test (equalized_decodes equalizedDecodesMatchTheFilteredInput)
+  wsjt_add_spectrum_test (file_input_never_equalized fileInputIsNeverEqualized)
+  foreach (row write read delete)
+    wsjt_add_spectrum_test (file_error_${row} "refSpectrumFileErrors:${row}")
+  endforeach ()
+  foreach (row "spectrum 1" "low_sidelobes string" "ref_spectrum on" "ref_spectrum 2" "ref_spectrum_clear string")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (keys_${name} "newKeysDeclineBadValues:${row}")
+  endforeach ()
+  foreach (row "ft8 file" "ft8-mtd file" "ft4 live" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 live"
+      "fst4 file" "fst4w file" "msk144 live" "jtty")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (decodes_${name} "decodesUnchangedByRows:${row}")
+  endforeach ()
+  wsjt_add_spectrum_test (decodes_deferred_final deferredFinalUnchangedByRows PROCESSORS 2)
+  wsjt_add_spectrum_test (decodes_again_after_the_stop decodeAgainAfterTheStopUnchangedByRows)
+  wsjt_add_spectrum_test (low_sidelobes_jt65jt9_decodes lowSidelobesReachesTheJt65Jt9Decoder)
+  foreach (row "spectrum" "fast_spectrum" "ref_spectrum" "spectrum jtty")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (ignored_${name} "clientsIgnoringTheRowsStillWork:${row}")
+  endforeach ()
+  wsjt_add_spectrum_test (rows_during_a_held_decode rowsKeepComingWhileADecodeIsHeld PROCESSORS 2)
+  wsjt_add_spectrum_test (queue_stall_past_the_cap stallPastTheCapLeavesLiveDecodes SERIAL TIMING TIMEOUT 600)
+  foreach (row "stall before pass 41" "stall at the stop")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (back_pressure_${name} "backPressureLeavesLiveDecodes:${row}" SERIAL TIMING TIMEOUT 600)
+  endforeach ()
+  foreach (row "ft8-mtd depth 3" "ft8-mtd depth 3 varied" "fst4-60 depth 3" "fst4-60 depth 3 varied")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_spectrum_test (latency_${name} "rowLatencyDuringTheSlowestDecodes:${row}" SERIAL TIMING TIMEOUT 900)
+  endforeach ()
 endif ()

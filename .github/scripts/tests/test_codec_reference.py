@@ -127,9 +127,9 @@ class CopyTest(unittest.TestCase):
         control = self.repo / check.CONTROL_SOURCE
         self.edit(control, "    call pack_phase9_(cfg, terr)\n", "    call get_int_(buf, '\"spectrum_rows\"', int_val, ok)\n    call pack_phase9_(cfg, terr)\n")
         emit = self.repo / "lib/streaming_emit.f90"
-        self.edit(emit, "contains\n", "contains\n  subroutine emit_spectrum_()\n    call put_('{\"v\":1,\"t\":\"spectrum\"}')\n"
+        self.edit(emit, "contains\n", "contains\n  subroutine emit_spectrum_()\n    call put_('{\"v\":1,\"t\":\"spectrum_probe\"}')\n"
                   "    call streaming_emit_error_code('spectrum_file', 'x')\n  end subroutine emit_spectrum_\n")
-        self.assertFails("missing row: configure key `spectrum_rows`", "missing row: output line `spectrum`",
+        self.assertFails("missing row: configure key `spectrum_rows`", "missing row: output line `spectrum_probe`",
                          "missing row: error code `spectrum_file`")
 
     def test_a_name_removed_from_the_source_leaves_a_stale_row(self):

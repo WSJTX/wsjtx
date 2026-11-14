@@ -16,6 +16,7 @@ private slots:
   void transitions();
   void clickRouting();
   void fullPileupSelection();
+  void filterToggleRequestsOneRedraw();
 };
 
 void TestActiveStations::transitions()
@@ -111,6 +112,27 @@ void TestActiveStations::fullPileupSelection()
   QVERIFY(QMetaObject::invokeMethod(&widget, "on_textEdit_clicked", Qt::DirectConnection));
   QCOMPARE(station.count(), 1);
   QCOMPARE(station.at(0).at(0).toInt(), Q65_CALLER_CAPACITY);
+}
+
+void TestActiveStations::filterToggleRequestsOneRedraw()
+{
+  QTemporaryDir directory;
+  QVERIFY(directory.isValid());
+  QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
+  ActiveStations widget(&settings, QFont{});
+  widget.setupUi(ActiveStations::DisplayMode::Q65);
+  QSignalSpy redraws(&widget, SIGNAL(activeStationsDisplay()));
+  QVERIFY(redraws.isValid());
+
+  for (auto name : {"cbWantedOnly", "cbReadyOnly"}) {
+    auto box = widget.findChild<QCheckBox *>(name);
+    QVERIFY(box);
+    redraws.clear();
+    box->toggle();
+    QCOMPARE(redraws.count(), 1);
+    box->toggle();
+    QCOMPARE(redraws.count(), 2);
+  }
 }
 
 QTEST_MAIN(TestActiveStations)

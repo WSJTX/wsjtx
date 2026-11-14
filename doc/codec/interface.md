@@ -27,7 +27,7 @@ Set `OMP_STACKSIZE=10M` in the codec's environment, as WSJT-X sets it for its de
 
 ## Directories and files
 
-- `-a`: the codec reads its FFTW wisdom, `jt9_wisdom.dat`, from here at the start and saves it here; it writes `timer.out` here in every session; MSK144 training writes its `.pcoeff` files here; JT4 and JT65 read `CALL3.TXT` from here; Q65 keeps its caller history, `tsil.3q`, here in the `na_vhf`, `ww_digi`, `arrl_digi` and `q65_pileup` activities and can append to `q65_decodes.txt`; FST4W reads and rewrites `fst4w_calls.txt` here. Keep it across runs.
+- `-a`: the codec reads its FFTW wisdom, `jt9_wisdom.dat`, from here at the start and saves it here; it writes `timer.out` here in every session; MSK144 training writes its `.pcoeff` files here; the reference-spectrum equalization reads and writes `refspec.dat` here, WSJT-X's file and format; JT4 and JT65 read `CALL3.TXT` from here; Q65 keeps its caller history, `tsil.3q`, here in the `na_vhf`, `ww_digi`, `arrl_digi` and `q65_pileup` activities and can append to `q65_decodes.txt`; FST4W reads and rewrites `fst4w_calls.txt` here. Keep it across runs.
 - `-t`: the decoders' temporary files, such as `decoded.txt` and `avemsg.txt`.
 - `-r`: `ALLCALL7.TXT`, the call list the multithreaded FT8 decoder loads. Without it the codec writes `ALLCALL7.TXT is too short or broken?` to standard error.
 - The working directory: JT4 can write `fort.77` there, and a file named `rx_messages.txt` there is a test hook: the FT8 decoder returns its lines as decodes, and JT65+JT9 decodes nothing while it is there. Start each codec in a working directory of its own.
@@ -111,7 +111,7 @@ This section follows a decode session from its first configure to its exit statu
 Send `busy_events` true, and keep the deadlines WSJT-X's watchdog keeps:
 
 - `busy` true comes at the start of every decode pass, with the pass's `mode`, `period_end` and `nzhsym`, and `again` true on a decode again; and when a final is deferred, with `deferred` true. `busy` false comes once no pass runs, no final waits and everything received before the last decode ended has been decided, and at `halt` or the end of input. With the decode thread, `busy` stays true across back-to-back passes; without one (a build without OpenMP, or none could be started, which stderr notes), it turns false between them too. It always returns to false. MSK144 sends no `busy` lines.
-- While `busy` is true, progress is a `busy`, `pass_progress` or `pass_skipped` line, or a `decode` whose mode is the last `busy` line's (JT65+JT9's decodes say JT9 or JT65). MSK144's lines and replies are not progress.
+- While `busy` is true, progress is a `busy`, `pass_progress` or `pass_skipped` line, or a `decode` whose mode is the last `busy` line's (JT65+JT9's decodes say JT9 or JT65). MSK144's lines, the rows under [Spectrum rows and equalization](#spectrum-rows-and-equalization) and replies are not progress.
 - Allow a pass this long between progress lines: on live audio, outside a decode again and after the first completion, 10 s in FT8 and 6 s in FT4; otherwise the greater of 60 s and four periods, or, before the first completion, of 300 s and four periods. A pass ends, and completes, at its `decode_finished` or at the next `busy` line; early FT8 passes send no `decode_finished`.
 - While `busy` is false no decode runs. Once a period's scheduled end has passed, whether or not the codec has read all its audio, its `decode_finished`, or a `busy` line naming its `period_end`, is due within the same time, except for the periods that send no `decode_finished` (see below). That deadline runs only while `busy` is false: a `busy` true suspends it, and it starts again from zero at the next `busy` false. On live audio either line can come before the period's last sample has been sent, since passes run at their stop points: count a period answered when its line arrives.
 - No deadline runs from a reply's first line to its last, nor while `planning` is true. Afterwards each deadline resumes where it stopped, so replies sent one after another cannot hide a hung decode.
@@ -124,6 +124,7 @@ Send `busy_events` true, and keep the deadlines WSJT-X's watchdog keeps:
 - Decode lines, `decode_finished`, `pass_skipped` and `busy` lines, and the errors for frames sent in a period mode come out in the order of the input that caused them: an error waits behind the decode work queued before it.
 - Periods' lines can interleave. A period's `decode` lines carry its label as `time` and its other lines carry it as `period_end`; group them by it. A configure that enters MSK144 or JTTY starts that mode at once, so the previous mode's remaining decode lines can follow the new mode's.
 - A reply to `pack` or `render` waits for no decode. It can come before the decode lines for audio sent before it, before a waiting final that starts just before it, and before the errors for configure, control or odd-length audio frames sent before it. Match an error that has no `id` by its `code`, not by the request in flight.
+- With `spectrum` or `ref_spectrum` on, other lines go out ahead of the live rows queued before them, and live rows can be discarded ([Spectrum rows and equalization](#spectrum-rows-and-equalization)).
 
 ### Exit status
 
@@ -134,11 +135,13 @@ Send `busy_events` true, and keep the deadlines WSJT-X's watchdog keeps:
 | 2 | An invalid command-line value (stderr only), or `-9` with a `-p` other than 60 (`configure_range_error` in place of `ready`) |
 
 - After an `out_of_memory` raised while queuing input for the decoder, and after JTTY's fatal errors, the status is not guaranteed to be 1.
+- Once the output queue runs ([Spectrum rows and equalization](#spectrum-rows-and-equalization)), an exit by a runtime error, or by a stop in code the codec shares with WSJT-X, loses the lines still queued, decodes included.
 - Treat the end of stdout before `ready` as a failed start, whatever the status: an unrecognized option prints the help on stdout and exits 0.
 
 ### Memory
 
 - Besides the input it buffers and queues (up to 16 MiB and 64 MiB, above), a codec process holds two buffers of 48 MB, the stream's period buffer and the decoder's; up to three spare copies of a pass's audio and a copy of the last decoded period's audio, each up to 43.2 MB (an FST4W-1800 period); and the decode thread's own copy of the decoders' thread-local arrays, about 2.7 MB on Linux, as each OpenMP thread has.
+- Once `spectrum` or `ref_spectrum` has been on, the output queue holds up to 20 rows (about 0.7 MB) and up to 16 MiB of other lines ([Spectrum rows and equalization](#spectrum-rows-and-equalization)), and its writer thread has a 256 KiB stack and, on Linux, its own copy of the thread-local arrays.
 - Once a session has decoded both MSK144 and a period mode that runs OpenMP threads, it holds a second pool of those threads, each with its copy.
 - When the codec cannot buffer or queue its input it sends `out_of_memory` and exits. When it cannot copy a pass's audio for the decoder it skips the pass (`pass_skipped`, reason `memory`), on file audio too.
 - On an 18-core arm64 Mac, the session under [A first session](#a-first-session) peaked at 121 MB resident in a fresh process, and at 268 MB with `multithreaded_ft8` true.
@@ -157,6 +160,23 @@ Send `busy_events` true, and keep the deadlines WSJT-X's watchdog keeps:
 - For example, `N1PJT HB9CQK -10` in the session below has `"dt":0.25`. WSJT-X shows 0.2; `(0.25).toFixed(1)` gives 0.3.
 - To show the whole line as WSJT-X does, follow the per-family layouts in [`lib/decoder_callbacks.f90`](../../lib/decoder_callbacks.f90), with the time as HHMM in periods of a minute or more.
 
+### Spectrum rows and equalization
+
+- The codec computes the data a client draws its spectrum, waterfall, signal meter and Fast Graph from, and draws nothing. A row carries numbers: the power and peak in dB of a block of samples, and the bins of a power spectrum, or in MSK144 Fast Graph columns. The pixels are the client's: averaging rows, summing bins into pixels, the bins' dB, Flatten, gain, zero and the palette. WSJT-X's waterfall does this in `WideGraph::dataSink2` ([`widgets/widegraph.cpp`](../../widgets/widegraph.cpp)) and `CPlotter::draw` ([`widgets/plotter.cpp`](../../widgets/plotter.cpp)).
+- The Cumulative and Linear Avg curves are the client's too. In a period WSJT-X starts both from the mean of `data`/1000 over the period's rows so far; in JTTY from the running mean of `data`/1000 over a session's rows up to the 625th (180 s), after which each row moves it by 1/625 of its difference from the row. Linear Avg is that curve flattened and smoothed by the client's settings.
+- The `spectrum` and `fast_spectrum` rows are optional. `spectrum` turns them on; at its start value, false, the codec computes none and sends none. With `spectrum` false and `ref_spectrum` `off`, the start values, no writer thread starts either.
+- Every row is computed from the audio as equalized (`ref_spectrum`), the signal the decoders hear, and every `spectrum` row in every mode the same way: the same samples from the same start give the same row.
+- `spectrum`, in every mode but MSK144 and JTTY: one row per 3,456-sample block of the period, live every block, from a file those up to the stop (JT65+JT9 every block). `k` is the block's end in samples from the period's start and `hsym` its index from 1. `power` and `peak` are WSJT-X's signal meter. `data` holds `bins` values, 6,827 from 0 to 5000 Hz: the linear power spectrum of the last 16,384 samples, zeros before the period's start, as WSJT-X's waterfall takes it (`symspec`'s `s` at gain 0, [`lib/symspec.f90`](../../lib/symspec.f90)); value m, from 0, is at m·`df` Hz. A period has rows only if `spectrum` is on when its first block completes; turned on later, rows start at the next period. Each period's rows start again at `hsym` 1.
+- `spectrum`, in JTTY: one row per 3,456 samples of a session from its first sample, or from the first after `spectrum` comes on (while equalizing, from the start of the block then held). `reception` is its session, the number the `session` line carries as `session`; `begin` and `end` are its first and after-last stream samples; the rest is as above, counted from the rows' first sample. The codec has no wall clock for a sample: time a row by the client's clock at `end`.
+- `fast_spectrum`, in MSK144 in place of `spectrum`: the Fast Graph, one row per 3,584-sample block of a period's first 30 s. The graph has up to 703 columns, one per 512 samples, or per 256 when `trperiod` is below 30; past the 703rd, each new column rewrites the last. A row carries the columns it writes: `first`, the 0-based index of the first, and `columns`, how many. `green` is each column's power in dB, and `data` each column's 64 bins of linear power, as `hspec`'s `s` at gain 0 ([`lib/hspec.f90`](../../lib/hspec.f90)): bin b, from 0, sums the 512-point FFT's bins 2b+1 and 2b+2, 23.4375 Hz each, up to 3000 Hz. `power` and `peak`, the signal meter, are the last column's with signal. Turned on after a period's first block, rows start with the block then completing, its `first` above 0; the earlier columns are not sent.
+- `low_sidelobes` is WSJT-X's "Waterfall spectra" setting: true is "Low sidelobes", a Nuttall window on each `spectrum` row's FFT, and false, the start, "Most sensitive"; WSJT-X starts at Low sidelobes. In the codec it also windows the symbol spectra JT65+JT9's JT9 decoder reads, so it can change those decodes; JT9 alone decodes from spectra of its own, without a window. `fast_spectrum` has no window.
+- Equalization is WSJT-X's reference-spectrum equalization, on live audio only, ahead of every decoder and every row. `ref_spectrum` `measure` builds the reference from the audio and rewrites `refspec.dat` in `-a` every 13,824 samples, passing the audio on unfiltered until a configure ends it: WSJT-X measures for 7 s, so send `off` or `apply` when done. `apply` is WSJT-X's Ref Spec: it loads `refspec.dat` and filters the audio by it.
+- `ref_spectrum_clear` true is WSJT-X's "Erase reference spectrum", except that it also ends a measurement: it zeros the measurement, deletes `refspec.dat` and sets `ref_spectrum` to `off` before the frame's own `ref_spectrum` applies, so `measure` in the same configure measures again from scratch. No `ref_spectrum` line follows a clear: clear the Reference curve shown.
+- A `ref_spectrum` line carries the reference curve in dB, at each rewrite while measuring and when `apply` loads the file. A file that cannot be written, read or deleted gives one `ref_spectrum_file` error until `ref_spectrum` changes or a clear, and the session goes on; `apply` without a readable file leaves the audio as it is and tries the file again every 3,456 samples or fewer.
+- In JTTY, while equalizing, audio waits for its 3,456-sample block, up to 288 ms, before it decodes. A block the client stops sending partway waits until the session closes: a `discontinuity`, `flush`, `halt`, the end of input, an odd-length audio frame or a mode change.
+- Once a configure first turns `spectrum` or `ref_spectrum` on, one writer thread writes every standard output line through a queue for the rest of the session; if it cannot start, the codec writes each line at once, as without it. On live audio a `spectrum` or `fast_spectrum` row waits there behind at most 19 others; when another arrives the oldest is discarded, so live rows never make a decode wait, and a `rows_dropped` line comes before the next such row written. Every other line, `ref_spectrum` lines and rows from a file included, goes out in order, ahead of the live rows queued before it, and is never discarded: past 16 MiB of them the codec waits for the reader, and decodes wait with it. A file session with `spectrum` on reaches that after about 9 unread FT8 periods. A configure from live audio to a file waits until the live rows queued are written.
+- Live, rows come at about 3.5 lines a second (MSK144 3.35, over a period's first 30 s), and 0.87 more while measuring. Arrays are base64 (RFC 4648) of IEEE float32 little-endian values, and every row is under 64 KiB.
+
 ### Keys that keep WSJT-X's behavior
 
 These configure keys carry WSJT-X's settings and state. Send the values WSJT-X would use; a key never sent keeps its starting value, apart from the resets, groups and call flags under [Configure](#configure).
@@ -171,6 +191,7 @@ These configure keys carry WSJT-X's settings and state. Send the values WSJT-X w
 - AP decoding: `ft8_ap_on` and `ap_width_hz` reach both FT8 decoders (in the multithreaded one, `ft8_ap_on` gates only its a8 pass); `ap_cq_only` reaches the single-threaded FT8 decoder, FT4, FST4 and Q65; `qso_progress_state` (0 to 5) reaches both FT8 decoders, FT4, JT65, JT65+JT9, FST4 and Q65.
 - The multithreaded FT8 decoder: `multithreaded_ft8` selects it, and only it reads `ft8_cycles`, `ft8_rxf_sensitivity`, `ft8_threads`, `ft8_low_threshold`, `ft8_subpass`, `ap_my_call`, `hide_ft8_duplicates`, `enable_dxc_search`, `wide_dxc_search`, `hound_mode`, `multi_instance`, `skip_tx1`, `nagain_filter`, `stop_hint`, `candthin_threshold` and `dt_center_seconds`, and the station state `last_tx_seconds_ago`, `currently_txing`, `mode_changed`, `sec_band_changed` and `delay_units`. `ft8_decoder_start` sets its pass schedule. An `ft8_threads` outside 0 to 24 declines a configure in FT8 (`configure_range_error`), single-threaded too.
 - SuperFox: `superfox_mode` and `even_sequence` drive SuperFox decoding, and `date` reaches only the SuperFox decoder.
+- Displays and equalization: `spectrum`, `low_sidelobes` (which also windows JT65+JT9's JT9 symbol spectra), `ref_spectrum` and `ref_spectrum_clear` ([Spectrum rows and equalization](#spectrum-rows-and-equalization)).
 - Q65: `max_drift_hz` sets Q65's drift search; `q65_pileup` (or a `contest_type` of `q65_pileup`) is WSJT-X's Q65 Pileup activity.
 
 ### A first session
@@ -228,7 +249,7 @@ The codec exited with status 0.
 | JTTY's `render` | Each `segment` line followed by its `pcm` lines, then `rendered` |
 
 - A request is refused by its `rejected` line, which carries its `id`; no `error` line carries one. The `error` lines a request can cause instead are `invalid_request_id`; `control_frame_too_large`, for a request frame over 262,144 bytes; `configure_parse_error`, for one without a readable `t`; and a fatal error, after which the codec exits.
-- The codec answers requests in the order sent, each at its place in the input, and a reply waits for no decode ([Ordering](#ordering)). A request holds up decoding instead: the codec reads no audio while it computes a render, so on live audio a pass whose audio arrives meanwhile runs late, and FT8's wall-clock stops can shorten it; and a reply's lines hold up the next decode line until the client reads them.
+- The codec answers requests in the order sent, each at its place in the input, and a reply waits for no decode ([Ordering](#ordering)). A request holds up decoding instead: the codec reads no audio while it computes a render, so on live audio a pass whose audio arrives meanwhile runs late, and FT8's wall-clock stops can shorten it; and a reply's lines hold up the next decode line until the client reads them; once the output queue runs ([Spectrum rows and equalization](#spectrum-rows-and-equalization)), only until they are queued, unless 16 MiB of lines wait.
 - A render takes from a fraction of a second (FT8) to seconds (JT65, WSPR or FST4 at 48000 Hz).
 
 ### Slot modes
@@ -375,7 +396,7 @@ JTTY sends typed text, keyboard to keyboard, in frames of 1.888 s with no period
 - A session ends at a `discontinuity`, a `flush`, an odd-length audio frame, a configure that leaves JTTY, `halt` and the end of input. The next JTTY audio sample begins a new one.
 - After each decoder step the codec sends one `jtty_update` line for each pending update, as WSJT-X takes them. Its `id` numbers messages, not requests, so route lines by `t`. Each message's last line is its `complete`, `expired` or `ended` one ([JTTY update states](#jtty-update-states)).
 - The decoder keeps a message's first 80 characters: its later frames move `latest` but add no text. Typed dots never make a `gaps` entry. A `freq`, `start` or `latest` that is not finite is null.
-- Between a session's `session` line and its last update come only `error` lines, replies to requests, `planning` lines and, when the session began with a mode change, the previous mode's remaining decode lines. An `odd_audio_frame` error comes before the `ended` lines it causes.
+- Between a session's `session` line and its last update come only `error` lines, replies to requests, `planning` lines, `spectrum`, `ref_spectrum` and `rows_dropped` lines and, when the session began with a mode change, the previous mode's remaining decode lines. An `odd_audio_frame` error comes before the `ended` lines it causes.
 - Ending a session also searches the audio window that extends past its last sample, unlike WSJT-X, so a last frame that ends shortly before the session does still decodes.
 - A fatal error ends the codec at once: a message in progress gets no last line.
 - The decoder searches `rxfreq` ± `ntol`, and two 300 Hz channels centered on 1350 and 1650 Hz, each center moved into `nfa` to `nfb` and the channel clipped to it: 1200 to 1800 Hz with the default `nfa` and `nfb`. Nothing whose lowest tone is above about 2950 Hz decodes, as in WSJT-X. A configure that would leave `rxfreq`, `ntol`, `nfa` or `nfb` outside 0 to 6000 Hz is declined (`configure_range_error`, with no `mode`); that is the range the keys take, not the band searched.
@@ -566,6 +587,7 @@ A control frame's `t` names the message.
 | `jt65_jt9_split_hz` | integer |  | 2700 (`--split`) | JT65+JT9's split: the lowest JT9 frequency, Hz. |
 | `kin_samples` | integer | no effect | set by the codec | The codec sets it before each decode. |
 | `last_tx_seconds_ago` | integer |  | 0 | Read only by the multithreaded FT8 decoder. |
+| `low_sidelobes` | boolean |  | false | WSJT-X's "Low sidelobes" waterfall setting: a Nuttall window on each `spectrum` row's FFT; false is its "Most sensitive". In the codec it also windows JT65+JT9's JT9 symbol spectra ([Spectrum rows and equalization](#spectrum-rows-and-equalization)). |
 | `max_drift_hz` | integer |  | 0 | WSJT-X's Max Drift for Q65, in symbol rates per transmission (not Hz), 0 to 50. |
 | `min_sync` | integer |  | 0 | The minimum sync (JT4, JT65 and JT65+JT9). |
 | `min_width` | integer |  | 1, JT4 submode A 0 | JT4's minimum width. |
@@ -585,11 +607,14 @@ A control frame's `t` names the message.
 | `q65_maxiters_level` | integer |  | 1 (`-d`) | Q65's iterations level; it agrees with `depth_level` when a frame has both. |
 | `q65_pileup` | boolean |  | false | WSJT-X's Q65 pileup decoding; one of the `contest_type` group. |
 | `qso_progress_state` | integer |  | 0 (`-Q`) | QSO progress, 0 to 5, for AP decoding (FT8, FT4, JT65, JT65+JT9, FST4 and Q65). |
+| `ref_spectrum` | string |  | off | Reference-spectrum equalization of live audio, ahead of every decoder and every row: `off`, `measure` or `apply` ([Spectrum rows and equalization](#spectrum-rows-and-equalization)). Another value is `configure_range_error`. |
+| `ref_spectrum_clear` | boolean |  | false | true erases the reference measurement, deletes `refspec.dat` in `-a` and sets `ref_spectrum` to `off`, before the frame's `ref_spectrum` applies; false does nothing. |
 | `robust_mode` | boolean |  | false | JT65+JT9's robust mode; only JT65+JT9 reads it. |
 | `sec_band_changed` | integer |  | 0 | Read only by the multithreaded FT8 decoder. |
 | `short_messages` | boolean |  | false | MSK144's Sh: short messages. |
 | `single_decode` | boolean |  | false | WSJT-X's single decode; one of the `contest_type` group. |
 | `skip_tx1` | boolean |  | false | WSJT-X's skip Tx1 (multithreaded FT8). |
+| `spectrum` | boolean |  | false | The `spectrum` and `fast_spectrum` rows, from which a client draws its spectrum, waterfall, signal meter and Fast Graph ([Spectrum rows and equalization](#spectrum-rows-and-equalization)). |
 | `stop_hint` | boolean |  | false | Read only by the multithreaded FT8 decoder. |
 | `swl` | boolean |  | false | MSK144's SWL. |
 | `t` | string |  |  | `configure`. |
@@ -644,6 +669,10 @@ The keys of `pack` and `render`. A request without `mode`, or with `"mode":"JTTY
 | `busy` | With `busy_events`: a decode pass starts (true), or no decode runs or waits (false). |
 | `pass_progress` | With `busy_events`: a decode pass is still running. |
 | `planning` | With `busy_events`: JTTY is measuring an FFT plan (true) or has done so (false); the codec reads no input meanwhile. |
+| `spectrum` | With `spectrum`, in every mode but MSK144: one row for a waterfall, a block's power and peak and the power spectrum of the last 16,384 samples. |
+| `fast_spectrum` | With `spectrum`, in MSK144: Fast Graph columns. |
+| `ref_spectrum` | With `ref_spectrum` measuring or applying: the reference curve in dB. |
+| `rows_dropped` | Live audio, with `spectrum`: the `spectrum` and `fast_spectrum` lines discarded since the last. |
 | `error` | An error, named by its `code`; three carry `msg` instead ([the `error` fields](#error)). |
 | `session` | A JTTY session began: its number and the stream index of its first sample. |
 | `jtty_update` | A JTTY message, growing, complete, expired or ended, with its text. |
@@ -740,6 +769,47 @@ Every line begins with `"v":1` and its `t`. The fields each line can carry follo
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `planning` | boolean | true before a JTTY step measures an FFT plan; false when it is done. |
+
+#### `spectrum`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `k` | integer | Not in JTTY: the block's end in samples from the period's start. |
+| `hsym` | integer | Not in JTTY: the block's index in the period, from 1. |
+| `reception` | integer | JTTY: the row's session, the `session` line's `session`. |
+| `begin` | integer | JTTY: the stream index of the row's first sample. |
+| `end` | integer | JTTY: the stream index after its last sample. |
+| `power` | number | The power in dB of the block's samples, less the first 10 of a period or of a JTTY session's rows: WSJT-X's signal meter. |
+| `peak` | number | The peak in dB of the same samples. |
+| `df` | number | The bins' spacing in Hz, 12000/16384. |
+| `bins` | integer | The number of bins, 6,827 (0 to 5000 Hz). |
+| `data` | string | The bins: the linear power spectrum of the last 16,384 samples, as `symspec`'s `s` at gain 0; value m, from 0, is at m·`df` Hz. IEEE float32 little-endian values, base64. |
+
+#### `fast_spectrum`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `k` | integer | The block's end in samples from the period's start. |
+| `first` | integer | The 0-based index of the first column the row writes: 0 at a period's first block, above 0 in the first row after `spectrum` comes on after a period's first block. |
+| `columns` | integer | The number of columns the row writes. |
+| `power` | number | The power in dB of the 512 samples of the row's last column with signal, WSJT-X's signal meter. |
+| `peak` | number | The peak in dB of the same samples. |
+| `green` | string | Each column's power in dB: float32 values, base64. |
+| `data` | string | Each column's 64 bins, column by column: linear power as `hspec`'s `s` at gain 0, bin b summing the 512-point FFT's bins 2b+1 and 2b+2: float32 values, base64. |
+
+#### `ref_spectrum`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `df` | number | The curve's bin spacing in Hz, 12000/6912. |
+| `bins` | integer | 3,456. |
+| `data` | string | The reference curve in dB, float32 values, base64: value m, from 0, is at (m+1)·`df` Hz, the third column of the (m+1)th line after the header line of `refspec.dat`, which rounds it. |
+
+#### `rows_dropped`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `lines` | integer | The `spectrum` and `fast_spectrum` lines discarded since the last `rows_dropped`. |
 
 #### `error`
 
@@ -890,6 +960,7 @@ The `code` of an `error` line.
 | `invalid_trperiod` | A configure whose `trperiod` is not a finite number above 0 and at most 1800; the frame is declined. |
 | `decode_rejected` | A decode attempt the decoder refused, with the option at fault in `field` and `detail`. |
 | `decode_again_unavailable` | A `nagain_flag` decode again that cannot run: there is no decoded period, the decoder is busy on live audio, or the mode or period changed first. |
+| `ref_spectrum_file` | `refspec.dat` could not be written, read or deleted; `detail` says which, with the path. Sent once until `ref_spectrum` changes or a clear; the session goes on. |
 | `odd_audio_frame` | An audio frame with an odd byte count; it is skipped. |
 | `control_frame_too_large` | A control frame longer than 262,144 bytes; it is skipped. |
 | `frame_too_large` | A frame longer than 43,200,000 bytes; the session ends, exit status 1. |

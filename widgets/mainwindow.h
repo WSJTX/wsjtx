@@ -93,6 +93,7 @@ namespace DecoderIpc {class Session;}
 #include "Ft8MtdDecodeCoordinator.hpp"
 #include "RigFrequencyChangePolicy.hpp"
 #include "BeaconTxController.hpp"
+#include "FootswitchInput.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -640,6 +641,10 @@ private slots:
   void end_tuning ();
   void stop_tuning ();
   void stopTuneATU();
+  void applyFootswitchSettings ();
+  void footswitchPressed ();
+  void footswitchReleased ();
+  void stopFootswitchTx ();
   void auto_tx_mode(bool);
   void on_actionMessage_averaging_triggered();
   void on_actionActiveStations_triggered();
@@ -876,6 +881,9 @@ private:
   void endQsoRepeat (QsoRepeatEnd, std::shared_ptr<QsoCompletion> context = {});
   void readWidebandDecodes();
   void refreshQmapActiveStations(QDateTime const& nowUtc);
+  void displayQ65ActiveStations();
+  QString activeStationsBand() const;
+  void showQ65QsoCount();
   void configActiveStations();
   bool sfox_tx();
   void clearSuperFoxPreparedTx();
@@ -1172,6 +1180,8 @@ private:
   qint32  m_fDop=0;
   qint32  m_echoSec0=0;
   qint32  m_fetched=0;
+  QDateTime m_qmapDisplayTime;   // readWidebandDecodes()'s last "now" (file-playback-aware);
+                                 // reused by redraw-only Active Stations refreshes
   qint32  m_position;
   qint64  m_decoderDiagSequence=0;
   qint64  m_decoderDiagActiveSequence=0;
@@ -1384,6 +1394,14 @@ private:
   QTimer rigTuneTimer;
   QTimer uploadTimer;
   QTimer tuneATU_Timer;
+  FootswitchInput m_footswitch;
+  bool m_footswitchTune {false}; // current Tune was started by the footswitch
+  int m_footswitchRetries {0};
+  bool m_footswitchPowerBypass {false}; // Tune power memory untouched by footswitch TX
+  QTimer m_footswitchLimitTimer;        // upper limit on one footswitch transmission
+  bool m_footswitchLimitReached {false}; // limit message showing until release
+  bool m_footswitchPortReleased {false}; // stopped so Settings could test CAT/PTT on its port
+  static int constexpr footswitch_tx_limit_ms {3 * 60 * 1000};
   QTimer TxAgainTimer;
   QTimer minuteTimer;
   QTimer splashTimer;
@@ -1490,8 +1508,6 @@ private:
     QString submode;
   };
   QMap<QString,EMECall> m_EMECall;
-
-  QMap<QString,bool> m_EMEworked;
 
   DecodedGridHistory m_decodedGridHistory;
 
@@ -1863,7 +1879,6 @@ private:
   Q_SLOT void ARRL_Digi_Display();
   void ARRL_Digi_Update(DecodedText dt);
   void activeWorked(QString call, QString band);
-  void read_log();
   void refreshPileupList();
   void handleVerifyMsg(int status, QDateTime ts, QString callsign, QString code, unsigned int hz, QString const &response);
   void writeFoxTxMsgs();

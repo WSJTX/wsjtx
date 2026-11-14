@@ -191,6 +191,7 @@ set (wsjtx_CXXSRCS
   DecoderProcessSupervisor.cpp
   ShmemDecoderBackend.cpp
   OperatingFrequency.cpp
+  FootswitchInput.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
   widgets/SpecOpLabel.cpp
@@ -326,14 +327,18 @@ set (wsjt_FSRCS
   lib/jtty/jtty_tbcc_list_decoder.f90
   lib/jtty/tbcc.f90
   lib/jtty/jtty_tbcc_decoder.f90
+  lib/jtty/jtty_frequency_mixer.f90
   lib/jtty/jtty_payload_correlators.f90
   lib/jtty/jtty_fec_mod.f90
   lib/jtty/jttycom.f90
   lib/jtty/jtty_mdecode.f90
   lib/jtty/jtty_receive_context.f90
   lib/jtty/jtty_filler.f90
+  lib/spectrum_rows.f90
   lib/streaming_jtty.f90
   lib/streaming_encode.f90
+  lib/refspectrum.f90
+  lib/streaming_receive.f90
 
   # remaining non-module sources
   lib/addit.f90
@@ -515,7 +520,6 @@ set (wsjt_FSRCS
   lib/qra/q65/q65_loops.f90
   lib/qra/q65/q65_set_list.f90
   lib/qra/q65/q65_set_list2.f90
-  lib/refspectrum.f90
   lib/savec2.f90
   lib/save_echo_params.f90
   lib/sec0.f90

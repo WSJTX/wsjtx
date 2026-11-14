@@ -3,6 +3,8 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QSet>
+#include <QDate>
 #include "AD1CCty.hpp"
 #include "HistoryFolder.hpp"
 #include "pimpl_h.hpp"
@@ -47,6 +49,13 @@ public:
                        AD1CCty::EntityView view) const;
   bool grid_worked (QString const& grid, QString const& mode, QString const& band) const;
   bool call_worked (QString const& call, QString const& mode, QString const& band) const;
+  // As call_worked, counting only QSOs made on one of days (their QSO_DATE,
+  // UTC); an empty set counts every QSO.
+  bool call_worked_on_days (QString const& call, QString const& mode, QString const& band,
+                            QSet<QDate> const& days) const;
+  // Number of different calls worked on band (any band if empty), any mode,
+  // counting only QSOs made on one of days when the set is not empty.
+  int calls_worked_on_days (QString const& band, QSet<QDate> const& days) const;
   bool continent_worked (Continent continent, QString const& mode, QString const& band) const;
   bool CQ_zone_worked (int CQ_zone, QString const& mode, QString const& band) const;
   bool ITU_zone_worked (int ITU_zone, QString const& mode, QString const& band) const;
