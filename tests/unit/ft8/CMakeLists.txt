@@ -49,6 +49,13 @@ wsjt_link_common_fortran (test_ft8_subtract_lowpass)
 add_test (NAME test_ft8_subtract_lowpass COMMAND test_ft8_subtract_lowpass)
 set_tests_properties (test_ft8_subtract_lowpass PROPERTIES TIMEOUT 120)
 
+add_executable (test_ft8var_subtract_lowpass
+  test_ft8var_subtract_lowpass.f90)
+target_include_directories (test_ft8var_subtract_lowpass PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_ft8var_subtract_lowpass)
+add_test (NAME test_ft8var_subtract_lowpass COMMAND test_ft8var_subtract_lowpass)
+set_tests_properties (test_ft8var_subtract_lowpass PROPERTIES TIMEOUT 120)
+
 add_executable (test_osd174_91_fast
   test_osd174_91_fast.f90)
 wsjt_link_common_fortran (test_osd174_91_fast)
@@ -73,6 +80,19 @@ if (TARGET wsjt_fort_omp)
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=4;OMP_THREAD_LIMIT=4"
     PROCESSORS 4
     TIMEOUT 30)
+
+  add_executable (test_ft8var_subtract_concurrent
+    test_ft8var_subtract_concurrent.f90)
+  target_include_directories (test_ft8var_subtract_concurrent PRIVATE
+    ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
+  target_link_libraries (test_ft8var_subtract_concurrent PRIVATE
+    wsjt_fort_omp wsjt_fortran_openmp)
+  add_test (NAME test_ft8var_subtract_concurrent
+    COMMAND test_ft8var_subtract_concurrent)
+  set_tests_properties (test_ft8var_subtract_concurrent PROPERTIES
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=4;OMP_THREAD_LIMIT=4"
+    PROCESSORS 4
+    TIMEOUT 60)
 
   add_executable (test_ft8_mtd_transaction_concurrent
     test_ft8_mtd_transaction_concurrent.f90)

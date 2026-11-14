@@ -4,15 +4,14 @@ subroutine cwfilter(first,knowledge,render_legacy)
   use ft8_codec_context, only: get_ft8_codec_state
   use ft8var_codec_context, only: genft8sdvar_for_state
 
-  use ft8_mod1, only : cw,windowc1,windowx,pivalue,facx,mcq,m73,mrrr,one,twopi,facc1,dt,csync,idtone25,csynccq, &
+  use ft8_mod1, only : windowc1,windowx,pivalue,facx,mcq,m73,mrrr,one,twopi,facc1,dt,csync,idtone25,csynccq, &
                        idtone25_valid, &
-                       NFILT1,NFILT2,endcorr,ctwkw,ctwkn,ctwk256
+                       NFILT1,endcorr,ctwkw,ctwkn,ctwk256
   use jt65_mod9, only: load_callsign_database, callsign_database_available
   use prog_args ! path to files
   use streaming_emit, only: streaming_emit_enabled
   use, intrinsic :: iso_fortran_env, only: error_unit
 
-  parameter (NFFT=180000)
   complex, allocatable :: csig0(:)
   real*4 window1(-NFILT1/2:NFILT1/2)
   character*37 msgcq25(25),msgsent37
@@ -150,24 +149,16 @@ subroutine cwfilter(first,knowledge,render_legacy)
     process_initialized=.true.
   endif
 
-! this filter is being used for signal subtraction
-! Create and normalize the filter
+! Edge correction for the low-pass in subtractft8var
   if(first) then
-    fac=1.0/float(nfft)
     sumw=0.0
     do j=-NFILT1/2,NFILT1/2
        window1(j)=cos(pivalue*j/NFILT1)**2
        sumw=sumw+window1(j)
     enddo
-    cw=0.
-    do j=-NFILT1/2,NFILT1/2
-      cw(modulo(j-1,NFFT)+1)=window1(j)/sumw
-    enddo
     do j=1,NFILT1/2+1
       endcorr(j)=1.0/(1.0-sum(window1(j-1:NFILT1/2))/sumw)
     enddo
-    call four2avar(cw,NFFT,1,-1,1)
-    cw=cw*fac
   endif
 
   return  
