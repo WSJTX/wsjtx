@@ -190,7 +190,7 @@ module streaming_jtty
   use streaming_emit, only: streaming_emit_error, streaming_emit_error_code, &
        streaming_emit_json_escape, streaming_emit_line, streaming_emit_planning, &
        streaming_emit_hold, streaming_emit_base64, streaming_emit_quiet,       &
-       streaming_emit_jtty_spectrum
+       streaming_emit_jtty_spectrum, streaming_emit_jtty_prepared_audio
   use streaming_apply, only: params_block
   use streaming_control, only: configure_fields, encode_request,               &
        parse_encode_request, parse_render_request
@@ -205,7 +205,7 @@ module streaming_jtty
 
   public :: jtty_audio, jtty_end, jtty_range_key, jtty_emit_range_error,      &
        jtty_release, jtty_note_station, jtty_encode, jtty_measuring,          &
-       jtty_spectrum_rows
+       jtty_spectrum_rows, jtty_prepared_audio
   ! The reply lines and the station's call the slot modes' encode shares
   ! (lib/streaming_encode.f90).
   public :: encode_emit_rejected, encode_emit_pcm, encode_station_call
@@ -349,6 +349,17 @@ contains
     end do
     rows_next_ = first_sample + size(samples)
   end subroutine jtty_spectrum_rows
+
+  ! The samples delivered, the stream's from first_sample on, as the session
+  ! decodes them, for configure's prepared_audio; a session begins with them
+  ! if none is open.
+  subroutine jtty_prepared_audio(samples, first_sample)
+    integer(int16), intent(in) :: samples(:)
+    integer(int64), intent(in) :: first_sample
+    if (size(samples) .eq. 0) return
+    if (.not. session_open_) call begin_session_(first_sample)
+    call streaming_emit_jtty_prepared_audio(int(session_, int64), first_sample, samples)
+  end subroutine jtty_prepared_audio
 
   ! params are the settings the session decoded with.
   subroutine jtty_end(params)

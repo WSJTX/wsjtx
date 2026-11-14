@@ -235,6 +235,8 @@ module streaming_control
      logical                :: ref_spectrum_out_of_range = .false.
      logical                :: ref_spectrum_clear_set   = .false.
      logical                :: ref_spectrum_clear       = .false.
+     logical                :: prepared_audio_set       = .false.
+     logical                :: prepared_audio           = .false.
      ! MSK144's receive options, in every mode, each in force until another
      ! configure sets it: the GUI's "Sh" (short_messages) and "SWL" check
      ! boxes, each independent of the other, its "Measure phase response"
@@ -1030,6 +1032,16 @@ contains
        if (ok) then
           cfg%ref_spectrum_clear_set = .true.
           cfg%ref_spectrum_clear     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"prepared_audio"', 'prepared_audio', 'bool',          &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"prepared_audio"', lval, ok)
+       if (ok) then
+          cfg%prepared_audio_set = .true.
+          cfg%prepared_audio     = lval
        end if
     end if
 

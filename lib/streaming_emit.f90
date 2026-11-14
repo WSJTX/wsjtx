@@ -164,10 +164,10 @@
 !                     1, as after JTTY's fatal errors (lib/streaming_jtty.f90).
 !
 ! Memory, besides the input buffered and queued (pass_skipped): the decoder's
-! own buffer, 48 MB; once spectrum or ref_spectrum has been on, the output
-! queue, up to 20 rows (about 0.7 MB) and 16 MiB of other lines; up
-! to three spare copies of a pass's audio, kept for the next, and the last
-! decoded period's copy, kept for a decode again, each up
+! own buffer, 48 MB; once spectrum, ref_spectrum or prepared_audio has been
+! on, the output queue, up to 20 rows (about 0.7 MB) and 16 MiB of other
+! lines; up to three spare copies of a pass's audio, kept for the next, and
+! the last decoded period's copy, kept for a decode again, each up
 ! to 43.2 MB (FST4W-1800); the decode thread's own copy of the decoders'
 ! thread-local arrays (about 6 MB on Linux), as each OpenMP thread has; and,
 ! once a session has decoded both MSK144 and a period mode that runs OpenMP
@@ -270,12 +270,18 @@
 !                       measurement in progress goes on, from scratch: a
 !                       client gets that with ref_spectrum "measure" in the
 !                       same configure.
+!   prepared_audio      boolean, false: the audio after the receive chain,
+!                       the signal the decoders hear, sent back from live
+!                       audio (the prepared_audio lines below), so that a
+!                       client can save it, as the GUI saves its equalized
+!                       audio.
 ! Rows: spectrum and fast_spectrum, from the audio as equalized, and
 ! ref_spectrum, the reference curve. With spectrum false and ref_spectrum
-! "off" no row is written. Once a configure first turns either on, every
-! stdout line goes through a queue, and one writer thread writes them (if that
-! thread cannot start, lines are written at once, as before). On live audio a
-! spectrum or fast_spectrum row waits there behind at most 19 others: when
+! "off" no row is written. Once a configure first turns one of spectrum,
+! ref_spectrum and prepared_audio on, every stdout line goes through a
+! queue, and one writer thread writes them (if that thread cannot start,
+! lines are written at once, as before). On live audio a spectrum or
+! fast_spectrum row waits there behind at most 19 others: when
 ! another arrives the oldest is discarded, about 5.8 s of a period mode's rows
 ! behind (6 s of MSK144's), so no decode waits on a live reader that falls
 ! behind, and a rows_dropped line stands before the next live spectrum or
@@ -283,10 +289,11 @@
 ! period's Fast Graph, as a dropped spectrum row leaves one in the waterfall;
 ! the next row's J shows it. Every other line goes out in the order the codec
 ! makes it, ahead of the live rows queued before it, and no row goes out
-! inside a reply or a held pair. ref_spectrum lines, every row from a file and
-! every other line are never discarded: past 16 MiB of them queued the codec
-! waits for the reader, and decodes wait with it, as they do at a full pipe
-! without the queue. A file session with spectrum on reaches that after about
+! inside a reply or a held pair. ref_spectrum and prepared_audio lines, every
+! row from a file and every other line are never discarded: past 16 MiB of
+! them queued the codec waits for the reader, and decodes wait with it, as
+! they do at a full pipe without the queue. A file session with spectrum on
+! reaches that after about
 ! 9 unread FT8 periods, and a long render's pcm lines can reach it. A
 ! configure from live audio to a file waits until the live rows queued are
 ! written. An end writes everything queued, a fatal error's line last; a fatal
@@ -380,6 +387,49 @@
 !                     rows_dropped line, a live row the codec had no memory
 !                     for among them.
 !                     Live audio only.
+!   prepared_audio    {"v":1,"t":"prepared_audio","k":K,"samples":N,"data":"..."}
+!                     With prepared_audio, from live audio only: a period
+!                     mode's or MSK144's audio after the receive chain
+!                     (equalized while ref_spectrum is "apply", otherwise as
+!                     received), which a period mode's decoders read up to
+!                     the stop and MSK144's a block at a time: one
+!                     line per 3456-sample block (MSK144's 3584) from the
+!                     period's start, past the stop, through its last whole
+!                     block (JT65+JT9, which has no stop, through its last
+!                     sample). K: the end of its samples in samples from the
+!                     period's start, rising by N within a period and
+!                     starting again with the next (the lines carry no
+!                     label); data: N int16 little-endian samples, base64, as
+!                     the pcm lines carry audio. A period has lines only when
+!                     prepared_audio is on, on live audio, as its first block
+!                     completes; turned on later, they start at the next
+!                     period; once a block goes without one, the period sends
+!                     no more. A part block: before the stop in a period mode
+!                     a flush, halt or end of input sends its samples so far,
+!                     and so does a configure that moves the stop to audio
+!                     already in, after which the period goes on and the rest
+!                     of the block goes with its end; otherwise it is
+!                     dropped (a discontinuity, a change of mode or period,
+!                     and in MSK144 or past the stop a flush, halt or end of
+!                     input). A block's line comes after any ref_spectrum
+!                     line the block brings and before its spectrum or
+!                     fast_spectrum row.
+!   prepared_audio (JTTY)
+!                     {"v":1,"t":"prepared_audio","reception":R,"begin":B,
+!                      "end":E,"data":"..."}
+!                     JTTY's, for each piece of audio handed to its session
+!                     while prepared_audio is on: while equalizing, blocks of
+!                     3456 samples counted from the session's first sample
+!                     (shorter where equalizing starts or stops or the
+!                     session closes), otherwise each audio frame as it
+!                     comes, in pieces of up to 4096 samples. R its session,
+!                     B and E its first and after-last stream samples.
+!                     prepared_audio lines are never discarded and never
+!                     progress for busy_events: in blocks about 32 KB/s
+!                     (more in JTTY with short audio frames, one line each),
+!                     so a reader that stops for minutes (about 9 at 32 KB/s)
+!                     stalls the codec past 16 MiB queued, above. Each is
+!                     under 64 KiB.
 !
 ! Activation: lib/jt9.f90 calls streaming_emit_set_enabled(.true.) when the
 ! stream session starts; only wsjt-codec runs the stream. Decoder per-mode sites
@@ -502,6 +552,8 @@ module streaming_emit
   public :: streaming_emit_fast_spectrum
   public :: streaming_emit_ref_spectrum
   public :: streaming_emit_ref_spectrum_error
+  public :: streaming_emit_prepared_audio
+  public :: streaming_emit_jtty_prepared_audio
 
   ! Values as their little-endian bytes in base64 (RFC 4648 section 4).
   interface streaming_emit_base64
@@ -819,6 +871,29 @@ contains
     call put_rows_('{"v":1,"t":"ref_spectrum","df":' // real_text_(df) // ',"bins":' // &
          int_text_(size(bins)) // ',"data":"' // streaming_emit_base64(bins) // '"}', .false.)
   end subroutine streaming_emit_ref_spectrum
+
+  ! A period mode's or MSK144's samples after the receive chain: k, their
+  ! end in samples from the period's start. Never discarded.
+  subroutine streaming_emit_prepared_audio(k, samples)
+    integer,        intent(in) :: k
+    integer(int16), intent(in) :: samples(:)
+    if (.not. enabled_) return
+    call put_rows_('{"v":1,"t":"prepared_audio","k":' // int_text_(k) // ',"samples":' // &
+         int_text_(size(samples)) // ',"data":"' // streaming_emit_base64(samples) // '"}', &
+         .false.)
+  end subroutine streaming_emit_prepared_audio
+
+  ! JTTY's: its session (reception), and the stream's samples from
+  ! first_sample on.
+  subroutine streaming_emit_jtty_prepared_audio(reception, first_sample, samples)
+    integer(int64), intent(in) :: reception, first_sample
+    integer(int16), intent(in) :: samples(:)
+    if (.not. enabled_) return
+    call put_rows_('{"v":1,"t":"prepared_audio","reception":' // int64_text_(reception) // &
+         ',"begin":' // int64_text_(first_sample) // ',"end":' //                          &
+         int64_text_(first_sample + size(samples)) // ',"data":"' //                       &
+         streaming_emit_base64(samples) // '"}', .false.)
+  end subroutine streaming_emit_jtty_prepared_audio
 
   function pass_fields_(mode, label, nzhsym) result(fields)
     integer,          intent(in) :: mode, nzhsym

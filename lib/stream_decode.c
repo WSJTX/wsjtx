@@ -11,11 +11,12 @@
  * and, with the queue empty, once the frame loop has read that far or is
  * blocked with nothing buffered from before it (lib/stream_stdin.c).
  *
- * The output queue: once spectrum or ref_spectrum is on, every stdout line
- * (lib/streaming_emit.f90) is queued, under the writer lock, for a writer
- * thread, the only thread that then writes stdout, so no other thread waits
- * on a reader. Past STREAM_ROWS_CAP droppable row entries the oldest is
- * discarded and its lines counted for the writer's next rows_dropped line;
+ * The output queue: once spectrum, ref_spectrum or prepared_audio is on,
+ * every stdout line (lib/streaming_emit.f90) is queued, under the writer
+ * lock, for a writer thread, the only thread that then writes stdout, so no
+ * other thread waits on a reader. Past STREAM_ROWS_CAP droppable row
+ * entries the oldest is discarded and its lines counted for the writer's
+ * next rows_dropped line;
  * past STREAM_ROWS_OTHER_CAP bytes of other lines the queuing thread waits.
  * The other entries keep their order among themselves and go ahead of every
  * droppable one. While a held group is open (the writer lock held more than
