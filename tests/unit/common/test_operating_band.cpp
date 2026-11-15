@@ -254,6 +254,7 @@ private Q_SLOTS:
     auto context = ft8 ();
     auto const state = receiving (5357000, "60m");
     auto const first = controller.transition (state, context, Event::Observation);
+    QVERIFY (first.apSuppression);
     context.mode = "FST4";
     context.period = 120;
     auto const plan = controller.transition (state, context, Event::ModeConfigured);
@@ -358,6 +359,7 @@ private Q_SLOTS:
     auto state = receiving (10489540000ULL, "3cm");
     state.frequency.tx = state.frequency.correctedTx = 2301065000;
     auto const receivingPlan = controller.transition (state, context, Event::Observation);
+    QVERIFY (receivingPlan.reporting);
     state.dial = displayedDial (state.frequency, true, true);
     state.band = "13cm";
     auto const transmittingPlan = controller.transition (state, context, Event::Observation);
@@ -391,6 +393,7 @@ private Q_SLOTS:
     QVERIFY (plan.bandChanged);
     QVERIFY (plan.restorePower);
     QVERIFY (plan.eraseActivity);
+    QVERIFY (controller.state ());
     QCOMPARE (controller.state ()->band, QString {});
     QCOMPARE (controller.state ()->rxBand, QString {"20m"});
   }
@@ -418,6 +421,10 @@ private Q_SLOTS:
     Controller controller;
     auto const first = controller.transition (receiving (), ft8 (), Event::Observation);
     auto const second = controller.transition (receiving (7074000, "40m"), ft8 (), Event::Selection);
+    QVERIFY (first.reporting);
+    QVERIFY (first.apSuppression);
+    QVERIFY (second.reporting);
+    QVERIFY (second.apSuppression);
     QVERIFY (!controller.completeReporting (first.reporting->identity, 7074000));
     QVERIFY (!controller.completeReporting (second.reporting->identity, 14074000));
     QVERIFY (!controller.completeAP (first.apSuppression->identity));

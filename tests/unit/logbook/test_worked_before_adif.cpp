@@ -935,6 +935,13 @@ void TestWorkedBeforeAdif::destruction_cancels_running_scan_data ()
 void TestWorkedBeforeAdif::destruction_cancels_running_scan ()
 {
   QFETCH (bool, pending_rescan);
+  struct ConcurrentScans
+  {
+    QThreadPool * pool {QThreadPool::globalInstance ()};
+    int previous_max {pool->maxThreadCount ()};
+    ConcurrentScans () { pool->setMaxThreadCount (qMax (2, previous_max)); }
+    ~ConcurrentScans () { pool->setMaxThreadCount (previous_max); }
+  } concurrent_scans;
   QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<EOR>"));
   QSemaphore entered, release;
   std::atomic_bool timed_out {false};
@@ -951,7 +958,7 @@ void TestWorkedBeforeAdif::destruction_cancels_running_scan ()
         if (selected.compare_exchange_strong (expected, &stop))
           {
             entered.release ();
-            if (!release.tryAcquire (1, 5000)) timed_out.store (true);
+            if (!release.tryAcquire (1, 30000)) timed_out.store (true);
           }
       }
   };
