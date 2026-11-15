@@ -137,6 +137,12 @@ void MainWindow::applyOperatingBandPlan (OperatingBand::Plan const& plan,
       m_secBandChanged = QDateTime::currentMSecsSinceEpoch () / 1000;
       m_wideGraph->setDialFreq (state.frequency.rx / 1.e6);
     }
+  // Q65 Active Stations: #, Wanted only and QSOs are per band, so a band
+  // change redraws them at once (not only at the next decode or log entry).
+  // Not in Q65 Pileup: its window shows the pileup list (clicks select from
+  // m_callers) and no per-band count, as for Ctrl+Shift+R.
+  if (plan.rxBandChanged && context.mode == "Q65" && m_ActiveStationsWidget
+      && m_specOp != SpecOp::Q65_PILEUP) displayQ65ActiveStations ();
   if (plan.nominalChanged && m_astroWidget)
     m_astroWidget->nominal_frequency (state.frequency.rx, state.frequency.tx);
   if (plan.reporting)
