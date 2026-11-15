@@ -194,6 +194,12 @@ program test_streaming_control
   call expect_prepared('{"t":"configure","spectrum":true}', -1, '')
   call expect_prepared('{"t":"configure","prepared_audio":1}', -1, 'prepared_audio')
   call expect_prepared('{"t":"configure","prepared_audio":"true"}', -1, 'prepared_audio')
+  ! fast is a boolean (-1: unset): fast JT9.
+  call expect_fast('{"t":"configure","mode":"JT9","fast":true}', 1, '')
+  call expect_fast('{"t":"configure","fast":false,"trperiod":60}', 0, '')
+  call expect_fast('{"t":"configure","mode":"JT9"}', -1, '')
+  call expect_fast('{"t":"configure","fast":1}', -1, 'fast')
+  call expect_fast('{"t":"configure","fast":"true"}', -1, 'fast')
 
   ! Conflicting depth keys are named by their wire keys.
   call expect_conflict('{"t":"configure","depth":3,"depth_level":2}', 'depth', 'depth alone')
@@ -510,6 +516,31 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_prepared
+
+  ! fast as parsed (0 or 1; -1: unset), or the key a type error names.
+  subroutine expect_fast(frame, expected, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    integer,          intent(in) :: expected
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action, got
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    got = -1
+    if (cfg%fast_set) got = merge(1, 0, cfg%fast)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key .and. got .eq. -1
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and. got .eq. expected
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_fast
 
   ! aggressive as parsed, or the key a type error names.
   subroutine expect_aggressive(frame, set, value, bad_key)

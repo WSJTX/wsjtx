@@ -138,6 +138,7 @@ set (wsjt_codec_FSRCS
   lib/jt9.f90
   lib/jt9a_stub.f90
   lib/streaming_decode.f90
+  lib/streaming_jtty_review.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # stdin helpers: Windows binary mode, terminal check
   lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
@@ -346,6 +347,9 @@ set (wsjt_FSRCS
   lib/streaming_encode.f90
   lib/refspectrum.f90
   lib/streaming_receive.f90
+  lib/streaming_freqcal.f90
+  lib/streaming_echo.f90
+  lib/streaming_side.f90
 
   # remaining non-module sources
   lib/addit.f90

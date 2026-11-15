@@ -1,9 +1,10 @@
 module jt65_host_support
   use jt65_decode, only: jt65_decoder,jt65_average_entry
   use prog_args, only: data_dir
+  use streaming_side, only: side_averages
   implicit none
   private
-  public :: load_jt65_calls,write_jt65_averages
+  public :: load_jt65_calls,write_jt65_averages,emit_jt65_averages
 
 contains
 
@@ -58,4 +59,18 @@ contains
     endfile(unit)
     flush(unit)
   end subroutine write_jt65_averages
+
+  ! The averages event (lib/streaming_side.f90): the entries write_jt65_averages
+  ! writes, each with its HHMM label, after the attempt labelled utc.
+  subroutine emit_jt65_averages(decoder,utc)
+    class(jt65_decoder), intent(inout) :: decoder
+    integer, intent(in) :: utc
+    type(jt65_average_entry) :: entries(64)
+    integer :: count
+
+    call decoder%get_averages(entries,count)
+    call side_averages('JT65',utc,.false.,count,entries(:count)%used,entries(:count)%utc, &
+         entries(:count)%sync,entries(:count)%dt,entries(:count)%frequency,              &
+         entries(:count)%polarity)
+  end subroutine emit_jt65_averages
 end module jt65_host_support

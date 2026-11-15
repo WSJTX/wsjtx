@@ -1,7 +1,8 @@
 ! The stream's MSK144, decoded as the GUI's hspec decodes it (lib/hspec.f90):
 ! at each 3584-sample block end k of a period, from 7168 to 30 s, mskrtd on
 ! the period's samples [k-7168, k), unless either half is all zeros. Its Fast
-! Graph's columns are hspec's, as the GUI draws them (lib/spectrum_rows.f90).
+! Graph's columns, and fast JT9's, are hspec's, as the GUI draws them
+! (lib/spectrum_rows.f90).
 module msk144_stream
   use streaming_emit, only: streaming_emit_decode, streaming_emit_msk144_trained, &
        time_form, streaming_emit_fast_spectrum
@@ -75,8 +76,14 @@ contains
     settings%train = btrain
     if (line(1:1) .ne. char(0)) then
        call msk144_line_fields(line, utc, snr, dt, freq, message, training, ok)
-       if (ok) call streaming_emit_decode('MSK144', utc, snr, dt, freq,       &
-            message, training=training, form=form)
+       ! Its period, trperiod's whole seconds, as the GUI passes it to hspec.
+       if (ok .and. present(form)) then
+          call streaming_emit_decode('MSK144', utc, snr, dt, freq, message,   &
+               training=training, form=form, period=int(form%trperiod))
+       else if (ok) then
+          call streaming_emit_decode('MSK144', utc, snr, dt, freq, message,   &
+               training=training)
+       end if
     end if
     if (trainings_done .ne. done) call streaming_emit_msk144_trained(        &
          trained_call, trained_file, trained_terms)
@@ -92,16 +99,16 @@ contains
 
   ! The Fast Graph at block end k of id2, the period's samples, while
   ! configure's spectrum is on: hspec's columns as the GUI's fastSink has hspec
-  ! write them at each block end, and a fast_spectrum row of the columns
-  ! written. The period's blocks it has not been given, while
-  ! spectrum was off, go through it first without rows, so that its columns
-  ! stay the GUI's.
-  subroutine msk144_fast_spectrum(id2, k, trperiod)
+  ! write them at each block end, MSK144's blocks of 3584 samples or fast
+  ! JT9's of 3456, and a fast_spectrum row of the columns written. The
+  ! period's blocks it has not been given, while spectrum was off, go through
+  ! it first without rows, so that its columns stay the GUI's.
+  subroutine msk144_fast_spectrum(id2, k, trperiod, block)
     integer*2, intent(in) :: id2(*)
-    integer,   intent(in) :: k, trperiod
+    integer,   intent(in) :: k, trperiod, block
     integer :: kk
     if (.not. receive%spectrum) return
-    do kk = given_k_ + MSK144_BLOCK, k - MSK144_BLOCK, MSK144_BLOCK
+    do kk = given_k_ + block, k - block, block
        call fast_draw_(id2, kk, trperiod, .false.)
     end do
     call fast_draw_(id2, k, trperiod, .true.)

@@ -507,6 +507,66 @@ foreach (row IN LISTS streaming_msk144_rows)
     TIMEOUT ${streaming_msk144_timeout})
 endforeach ()
 
+# Fast JT9 against the GUI's decode: fast_jt9_gui_model calls fast_decode_ as
+# MainWindow::decode() does, on the codec's own renders with noise added. The
+# retry row runs about 38 s on a fixed schedule, alone: its busy try has 2 s
+# to spare, and its free try 4 s less the codec's startup, its first period's
+# read and decode (test_streaming_fast_jt9.cpp). The arrival row, paced at real
+# time, is a TIMING row. Sanitizer builds run neither.
+add_executable (fast_jt9_gui_model fast_jt9_gui_model.cpp)
+target_include_directories (fast_jt9_gui_model PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (fast_jt9_gui_model)
+add_executable (test_streaming_fast_jt9 test_streaming_fast_jt9.cpp)
+add_dependencies (test_streaming_fast_jt9 wsjt-codec fast_jt9_gui_model)
+target_link_libraries (test_streaming_fast_jt9 Qt5::Test)
+target_compile_definitions (test_streaming_fast_jt9 PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  FAST_JT9_GUI_MODEL="$<TARGET_FILE:fast_jt9_gui_model>")
+set (streaming_fast_jt9_rows decodesMatchTheGui busyDecoderSkipsThePeriod busyDecoderRetries
+  cutShortPeriodDecodesAsAShortFile slowJt9AtSixtySecondsSubmodeE memoryRetriesThenSkips
+  "fastEntryDefaults:from FT8 with rxfreq 1200" "fastEntryDefaults:fast frame carries rxfreq and ntol"
+  "fastEntryDefaults:trperiod alone keeps rxfreq" "fastEntryDefaults:redundant fast keeps rxfreq and ntol"
+  "fastEntryDefaults:fast turning on from slow JT9" "fastEntryDefaults:mode frame in fast JT9 enters again"
+  "txFollowsFastEntry:entry sets it to 700" "txFollowsFastEntry:entry keeps a sent tx_audio_offset_hz"
+  "slowJt9DefaultsAfterFast:back to slow JT9 resets ntol"
+  "slowJt9DefaultsAfterFast:slow JT9 from FT8 keeps rxfreq")
+if (WSJT_ENABLE_STREAM_TIMING_TESTS)
+  list (APPEND streaming_fast_jt9_rows decodesArriveOnTime)
+endif ()
+set (streaming_fast_jt9_environment "QT_FORCE_STDERR_LOGGING=1")
+set (streaming_fast_jt9_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  list (REMOVE_ITEM streaming_fast_jt9_rows decodesArriveOnTime busyDecoderRetries)
+  set (streaming_fast_jt9_timeout 1200)
+  list (APPEND streaming_fast_jt9_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_fast_jt9_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+# QtTest exits 0 for a data tag it does not have: each row requires its PASS.
+foreach (row IN LISTS streaming_fast_jt9_rows)
+  string (REGEX REPLACE "[^A-Za-z0-9]+" "_" name "${row}")
+  string (REPLACE ":" "\\(" pattern "${row}")
+  if (row MATCHES ":")
+    string (APPEND pattern "\\)")
+  else ()
+    string (APPEND pattern "\\(")
+  endif ()
+  add_test (NAME test_streaming_fast_jt9_${name} COMMAND test_streaming_fast_jt9 "${row}")
+  set_tests_properties (test_streaming_fast_jt9_${name} PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_fast_jt9_environment}"
+    TIMEOUT ${streaming_fast_jt9_timeout}
+    PASS_REGULAR_EXPRESSION "PASS   : TestStreamingFastJt9::${pattern}"
+    FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
+endforeach ()
+if (NOT (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN))
+  set_tests_properties (test_streaming_fast_jt9_busyDecoderRetries PROPERTIES RUN_SERIAL TRUE)
+  if (WSJT_ENABLE_STREAM_TIMING_TESTS)
+    set_tests_properties (test_streaming_fast_jt9_decodesArriveOnTime PROPERTIES RUN_SERIAL TRUE)
+  endif ()
+endif ()
+
 # Period-mode decodes on the codec's decode thread while the main thread
 # reads, renders and decodes MSK144 and JTTY. Integration rows run real-time sessions;
 # the timed ones run alone.
@@ -859,13 +919,16 @@ if (streaming_spectrum_samples)
   wsjt_add_spectrum_test (queue_thread_with_prepared_audio "writerThreadStartsWithTheFirstKey:prepared_audio")
   wsjt_add_spectrum_test (fast_on_period_1_off_on_after_block_20
     "fastRowsWhenTurnedOnMidPeriod:on for period 1, off at period 2, on after its block 20")
-  foreach (row "120500" "120800" "120800 live" "120500 TR 30" "120800 TR 5")
+  foreach (row "120500" "120800" "120800 live" "120500 TR 30" "120800 TR 5"
+      "fast JT9" "fast JT9 live" "fast JT9 TR 30" "fast JT9 TR 10" "fast JT9 TR 5")
     string (REGEX REPLACE "[^a-zA-Z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (fast_${name} "fastRowsMatchTheGui:${row}")
   endforeach ()
   wsjt_add_spectrum_test (fast_on_after_block_20 "fastRowsWhenTurnedOnMidPeriod:on after block 20")
   wsjt_add_spectrum_test (fast_on_off_on
     "fastRowsWhenTurnedOnMidPeriod:on in block 13, off after block 30, on after block 40")
+  wsjt_add_spectrum_test (fast_jt9_on_off_on
+    "fastRowsWhenTurnedOnMidPeriod:fast JT9 on in block 13, off after block 30, on after block 40")
   wsjt_add_spectrum_test (jtty_on_mid_session "jttyRowsWhenTurnedOnMidSession:on mid-session")
   wsjt_add_spectrum_test (jtty_on_off_on "jttyRowsWhenTurnedOnMidSession:on, off and on")
   foreach (row "plain" "low sidelobes after FT8 audio" "frames of 3455 samples")
@@ -878,8 +941,9 @@ if (streaming_spectrum_samples)
     wsjt_add_spectrum_test (jtty_equal_period_rows_${name} "jttyRowsEqualPeriodRows:${row}")
     wsjt_add_spectrum_test (jtty_near_jtty_spectrum_${name} "jttyRowsNearTheGuisJttySpectrum:${row}")
   endforeach ()
-  foreach (row "ft4" "ft4 apply off apply" "msk144" "jtty")
-    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+  foreach (row "ft4" "ft4 apply off apply" "msk144" "fast JT9" "jtty")
+    string (TOLOWER "${row}" name)
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${name}")
     wsjt_add_spectrum_test (equalized_${name} "equalizedRowsMatchTheGui:${row}")
   endforeach ()
   foreach (row ft8 msk144 jtty)
@@ -937,3 +1001,282 @@ if (streaming_spectrum_samples)
     wsjt_add_spectrum_test (latency_${name} "rowLatencyDuringTheSlowestDecodes:${row}" SERIAL TIMING TIMEOUT 900)
   endforeach ()
 endif ()
+
+# FreqCal against the GUI's measurement: freqcal_gui_model calls freqcal_ as
+# MainWindow::dataSink does, on generated carriers; the equalized rows take
+# the GUI's equalized samples from spectrum_gui_model, and fast JT9's
+# compares with fast_jt9_gui_model on them.
+add_executable (freqcal_gui_model freqcal_gui_model.cpp)
+target_include_directories (freqcal_gui_model PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (freqcal_gui_model)
+add_executable (test_streaming_freqcal test_streaming_freqcal.cpp)
+add_dependencies (test_streaming_freqcal wsjt-codec freqcal_gui_model spectrum_gui_model fast_jt9_gui_model)
+target_link_libraries (test_streaming_freqcal Qt5::Test)
+target_compile_definitions (test_streaming_freqcal PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  FREQCAL_GUI_MODEL="$<TARGET_FILE:freqcal_gui_model>"
+  SPECTRUM_GUI_MODEL="$<TARGET_FILE:spectrum_gui_model>"
+  FAST_JT9_GUI_MODEL="$<TARGET_FILE:fast_jt9_gui_model>")
+set (streaming_freqcal_environment "QT_FORCE_STDERR_LOGGING=1")
+set (streaming_freqcal_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_freqcal_timeout 1200)
+  list (APPEND streaming_freqcal_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_freqcal_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+# QtTest exits 0 for a data tag it does not have: each row requires its PASS.
+foreach (row
+    "measurementsMatchTheGui:5 s file" "measurementsMatchTheGui:5 s live"
+    "measurementsMatchTheGui:10 s file" "measurementsMatchTheGui:10 s live"
+    "measurementsMatchTheGui:15 s file" "measurementsMatchTheGui:15 s live"
+    "measurementsMatchTheGui:30 s file" "measurementsMatchTheGui:30 s live"
+    "measurementsMatchTheGui:15 s weak" "measurementsMatchTheGui:15 s ntol above rxfreq"
+    "measurementsMatchTheGui:15 s strong one outside" "measurementsMatchTheGui:15 s silence"
+    "timeIsTheLabelPlusTheSamples:30 s across midnight" "timeIsTheLabelPlusTheSamples:10 s nutc"
+    "periodRules:trperiod 60" "periodRules:trperiod 20" "periodRules:trperiod 7.5" "periodRules:no trperiod"
+    "periodRules:trperiod 45 later" "periodRules:fast" "periodRules:rxfreq 199" "periodRules:rxfreq 5001"
+    "periodRules:ntol 0" "periodRules:ntol 1001 later" "periodRules:integer code"
+    "periodRules:lower case" "periodRules:mixed case" "periodRules:edges" "periodRules:ntol 2000 with mode, capped"
+    "entryDefaults:from FT8 with rxfreq 100" "entryDefaults:from fast JT9 with rxfreq 700"
+    "entryDefaults:trperiod alone keeps rxfreq" "entryDefaults:mode again"
+    noDecoderLines "rowsAsThePeriodModes:live" "rowsAsThePeriodModes:file" equalizedMeasurementsMatchTheGui
+    fastJt9DecodesTheEqualizedAudio linesKeepInputOrder clientsIgnoringFreqcalStillWork)
+  string (REGEX REPLACE "[^A-Za-z0-9]+" "_" name "${row}")
+  string (REPLACE ":" "\\(" pattern "${row}")
+  if (row MATCHES ":")
+    string (APPEND pattern "\\)")
+  else ()
+    string (APPEND pattern "\\(\\)")
+  endif ()
+  add_test (NAME test_streaming_freqcal_${name} COMMAND test_streaming_freqcal "${row}")
+  set_tests_properties (test_streaming_freqcal_${name} PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_freqcal_environment}"
+    TIMEOUT ${streaming_freqcal_timeout}
+    PASS_REGULAR_EXPRESSION "PASS   : TestStreamingFreqcal::${pattern}"
+    FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
+endforeach ()
+
+# Echo
+# Echo against the GUI's measurement: echo_gui_model calls save_echo_params_
+# and avecho_ as MainWindow::dataSink's Echo block does, on the codec's own
+# Echo renders moved in frequency, echosim's files (WSJT_BUILD_UTILS) and the
+# GUI's equalized samples (spectrum_gui_model).
+add_executable (echo_gui_model echo_gui_model.cpp)
+target_include_directories (echo_gui_model PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
+target_link_libraries (echo_gui_model PRIVATE Qt5::Core)
+wsjt_link_common_fortran (echo_gui_model)
+add_executable (test_streaming_echo test_streaming_echo.cpp)
+add_dependencies (test_streaming_echo wsjt-codec echo_gui_model spectrum_gui_model)
+target_link_libraries (test_streaming_echo Qt5::Test)
+target_compile_definitions (test_streaming_echo PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  ECHO_GUI_MODEL="$<TARGET_FILE:echo_gui_model>"
+  SPECTRUM_GUI_MODEL="$<TARGET_FILE:spectrum_gui_model>")
+if (WSJT_BUILD_UTILS)
+  add_dependencies (test_streaming_echo echosim)
+  target_compile_definitions (test_streaming_echo PRIVATE ECHOSIM="$<TARGET_FILE:echosim>")
+endif ()
+set (streaming_echo_rows measuresMatchTheGui keysInForceAtTheNinthHalfSymbol fileInputReadsInBandParameters
+  transmitHalvesFollowTheInput spectrumRowsAsThePeriodModes noJt9DecodeInEcho shortPeriodsAreNotMeasured
+  configureChecksTheEchoKeys clearAverageRestartsTheCall toneLeavesTheFirstSamplesAsSent fractionalDopplerTruncates
+  abortedMeasurementsMatchTheGui errorsKeepInputOrderInEcho)
+set (streaming_echo_environment "QT_FORCE_STDERR_LOGGING=1")
+# Source archives omit samples/.
+set (streaming_echo_samples FT8/210703_133430.wav FT4/000000_000002.wav JT65/JT65B/000000_0001.wav
+  JT65/JT65B/000000_0002.wav JT65/JT65B/000000_0003.wav JT65/JT65B/000000_0004.wav JT65/JT65B/000000_0005.wav
+  JT65/JT65B/000000_0006.wav)
+set (streaming_echo_have_samples TRUE)
+foreach (sample IN LISTS streaming_echo_samples)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/${sample}")
+    set (streaming_echo_have_samples FALSE)
+  endif ()
+endforeach ()
+if (streaming_echo_have_samples)
+  list (APPEND streaming_echo_rows equalizedMeasuresMatchTheGui clientsIgnoringEchoStillWork
+    clearAverageSentInEchoStaysInEcho)
+  list (APPEND streaming_echo_environment "WSJT_SAMPLES_DIR=${CMAKE_SOURCE_DIR}/samples")
+endif ()
+set (streaming_echo_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_echo_timeout 1200)
+  list (APPEND streaming_echo_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_echo_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+foreach (row IN LISTS streaming_echo_rows)
+  add_test (NAME test_streaming_echo_${row} COMMAND test_streaming_echo ${row})
+  set_tests_properties (test_streaming_echo_${row} PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_echo_environment}"
+    TIMEOUT ${streaming_echo_timeout})
+endforeach ()
+
+# Side outputs and labels. Each side event against the file jt9
+# writes in WAV mode for the same audio, in fresh directories; the Q65 caller
+# list's edit keys against the GUI's rm_q3list (side_gui_model) between jt9
+# runs; the submode and period labels on decode events. Fox, the Q65 contest
+# and JT4 averaging have no recordings: their audio comes from the simulators
+# (WSJT_BUILD_UTILS), at SNR 99, where they draw no noise, so every build's
+# audio is the same; the tests add JT4's noise from a fixed seed.
+add_executable (side_gui_model side_gui_model.f90)
+wsjt_link_common_fortran (side_gui_model)
+add_executable (fox_gui_model fox_gui_model.f90)
+target_include_directories (fox_gui_model PRIVATE ${CMAKE_SOURCE_DIR}/lib)
+wsjt_link_common_fortran (fox_gui_model)
+# The decoder's stack, as jt9's.
+if (WIN32)
+  set_property (TARGET fox_gui_model APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--stack,16777216")
+endif ()
+add_executable (test_streaming_side test_streaming_side.cpp)
+add_dependencies (test_streaming_side jt9 wsjt-codec side_gui_model fox_gui_model)
+target_include_directories (test_streaming_side PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_streaming_side wsjt_qt wsjt_fort_common Qt5::Test)
+target_compile_definitions (test_streaming_side PRIVATE
+  JT9_EXECUTABLE="$<TARGET_FILE:jt9>"
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  SIDE_GUI_MODEL="$<TARGET_FILE:side_gui_model>"
+  FOX_GUI_MODEL="$<TARGET_FILE:fox_gui_model>")
+set (streaming_side_environment "WSJT_SHARE_DIR=${CMAKE_SOURCE_DIR}" "QT_FORCE_STDERR_LOGGING=1")
+set (streaming_side_timeout 600)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_side_timeout 2400)
+  list (APPEND streaming_side_environment "QTEST_FUNCTION_TIMEOUT=2400000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_side_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+set (streaming_side_samples FALSE)
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/JT65/JT65B/000000_0004.wav")
+  set (streaming_side_samples TRUE)
+  list (APPEND streaming_side_environment "WSJT_SAMPLES_DIR=${CMAKE_SOURCE_DIR}/samples")
+endif ()
+if (WSJT_BUILD_UTILS)
+  set (side "${CMAKE_CURRENT_BINARY_DIR}/side")
+  list (APPEND streaming_side_environment "WSJT_SIDE_FIXTURES=${side}")
+  add_dependencies (test_streaming_side ft8sim q65sim jt4sim)
+  foreach (dir fox-A fox-B fox-C fox-D q65-W q65-K q65-G jt4)
+    file (MAKE_DIRECTORY "${side}/${dir}")
+  endforeach ()
+  # Fox: three callers of K1ABC and a CQ.
+  add_test (NAME prepare_side_fox_a COMMAND ft8sim "K1ABC W9XYZ EN37" 1500 0.0 0 0 1 99
+    WORKING_DIRECTORY "${side}/fox-A")
+  add_test (NAME prepare_side_fox_b COMMAND ft8sim "K1ABC K9AN EN50" 1800 0.0 0 0 1 99
+    WORKING_DIRECTORY "${side}/fox-B")
+  add_test (NAME prepare_side_fox_c COMMAND ft8sim "CQ W1AW FN31" 1200 0.0 0 0 1 99
+    WORKING_DIRECTORY "${side}/fox-C")
+  add_test (NAME prepare_side_fox_d COMMAND ft8sim "K1ABC G4XYZ IO91" 1300 0.0 0 0 1 99
+    WORKING_DIRECTORY "${side}/fox-D")
+  # A Q65 contest: three callers of K1ABC, each with a grid.
+  add_test (NAME prepare_side_q65_w COMMAND q65sim "K1ABC W9XYZ EN37" A 1500 0.0 0.0 0.0 1 30 1 1 99
+    WORKING_DIRECTORY "${side}/q65-W")
+  add_test (NAME prepare_side_q65_k COMMAND q65sim "K1ABC K9AN EN50" A 1800 0.0 0.0 0.0 1 30 1 1 99
+    WORKING_DIRECTORY "${side}/q65-K")
+  add_test (NAME prepare_side_q65_g COMMAND q65sim "K1ABC G4XYZ IO91" A 1200 0.0 0.0 0.0 1 30 1 1 99
+    WORKING_DIRECTORY "${side}/q65-G")
+  add_test (NAME prepare_side_jt4 COMMAND jt4sim "K1ABC W9XYZ EN37" A 1 0.0 0.0 1 99
+    WORKING_DIRECTORY "${side}/jt4")
+  set_tests_properties (prepare_side_fox_a prepare_side_fox_b prepare_side_fox_c prepare_side_fox_d
+    prepare_side_q65_w prepare_side_q65_k prepare_side_q65_g prepare_side_jt4 PROPERTIES
+    FIXTURES_SETUP side_sim_wavs TIMEOUT 30)
+endif ()
+function (wsjt_add_side_test name function fixtures)
+  add_test (NAME test_streaming_side_${name} COMMAND test_streaming_side "${function}")
+  # QtTest exits 0 for a data tag it does not have, and for a skip: require the row's PASS.
+  string (REPLACE ":" "\\(" pattern "${function}")
+  if (function MATCHES ":")
+    string (APPEND pattern "\\)")
+  else ()
+    string (APPEND pattern "\\(\\)")
+  endif ()
+  set_tests_properties (test_streaming_side_${name} PROPERTIES
+    LABELS "streaming;runtime;decode"
+    ENVIRONMENT "${streaming_side_environment}"
+    TIMEOUT ${streaming_side_timeout}
+    PASS_REGULAR_EXPRESSION "PASS   : TestStreamingSide::${pattern}"
+    FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
+  if (fixtures)
+    set_tests_properties (test_streaming_side_${name} PROPERTIES FIXTURES_REQUIRED "${fixtures}")
+  endif ()
+endfunction ()
+foreach (row "remove string" "remove numbers" "remove 51" "clear string" "fox clear string")
+  string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+  wsjt_add_side_test (keys_${name} "editKeysDeclineBadValues:${row}" "")
+endforeach ()
+if (streaming_side_samples)
+  foreach (row "jt65 averages" "q65 sync averaged" "q65 sync averaged narrow")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_side_test (equal_jt9_${name} "eventsEqualJt9sSideFiles:${row}" "")
+  endforeach ()
+  foreach (row "jt4 A then F" "q65 A then D" "jt65 B" "jt9 A then fast E then fast H" "msk144 15 then 30"
+      "jt65jt9 JT65 lines only" "ft8 none")
+    string (TOLOWER "${row}" name)
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${name}")
+    wsjt_add_side_test (labels_${name} "decodesCarryTheirLabels:${row}" "")
+  endforeach ()
+  foreach (row averages q65_sync)
+    wsjt_add_side_test (ignored_${row} "clientsIgnoringTheSideEventsStillWork:${row}" "")
+  endforeach ()
+endif ()
+if (WSJT_BUILD_UTILS)
+  foreach (row "fox" "fox mtd" "jt4 averages" "q65 sync and callers")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_side_test (equal_jt9_${name} "eventsEqualJt9sSideFiles:${row}" side_sim_wavs)
+  endforeach ()
+  foreach (row "remove" "remove two" "remove one not listed" "clear" "clear false")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_side_test (edits_${name} "q65CallerEditsRoundTrip:${row}" side_sim_wavs)
+  endforeach ()
+  foreach (row fox_callers q65_callers)
+    wsjt_add_side_test (ignored_${row} "clientsIgnoringTheSideEventsStillWork:${row}" side_sim_wavs)
+  endforeach ()
+  foreach (row "clear" "clear false")
+    string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+    wsjt_add_side_test (fox_${name} "foxCallersClearRoundTrip:${row}" side_sim_wavs)
+  endforeach ()
+  if (TEST test_streaming_side_equal_jt9_fox_mtd)
+    set_tests_properties (test_streaming_side_equal_jt9_fox_mtd PROPERTIES PROCESSORS 2)
+  endif ()
+endif ()
+
+# JTTY review
+# The jtty_review request against the GUI's review (Jtty::Decoder driven as
+# startJttyReview and pumpJttyReceive drive it), the 180 s history, the
+# review's busy lines and what ends a review. Each row is its own process,
+# whose initTestCase measures JTTY's FFT plans into its own data directory.
+# Sanitizer builds get longer limits, as the fast JT9, FreqCal and Echo blocks.
+add_executable (test_streaming_jtty_review test_streaming_jtty_review.cpp)
+target_include_directories (test_streaming_jtty_review PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}
+  ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (test_streaming_jtty_review PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_streaming_jtty_review)
+add_dependencies (test_streaming_jtty_review wsjt-codec)
+target_compile_definitions (test_streaming_jtty_review PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>")
+set (streaming_jtty_review_rows reviewDecodesAsTheGuiDoes reviewRefusals historyKeepsTheLast180Seconds
+  reviewLeavesLiveDecodingUnchanged reviewJoinsTheBusyState clientRulesStartNoDeadlineDuringAReview
+  whatAReviewRefusesAndWhatEndsIt cancelledReviewDropsItsLastUpdates clientsIgnoringReviewLinesStillWork
+  fileInputReviewsItsOwnSessions decodeThreadBusyEndsDuringAReview)
+set (streaming_jtty_review_environment "QT_FORCE_STDERR_LOGGING=1")
+set (streaming_jtty_review_timeout 600)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_jtty_review_timeout 1200)
+  list (APPEND streaming_jtty_review_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_jtty_review_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+foreach (row IN LISTS streaming_jtty_review_rows)
+  add_test (NAME test_streaming_jtty_review_${row} COMMAND test_streaming_jtty_review ${row})
+  set_tests_properties (test_streaming_jtty_review_${row} PROPERTIES
+    LABELS "streaming;jtty;runtime"
+    ENVIRONMENT "${streaming_jtty_review_environment}"
+    TIMEOUT ${streaming_jtty_review_timeout})
+endforeach ()
+# Its timing depends on a held pass; it runs alone, and CTest reports a run
+# whose timing did not exercise it as skipped.
+set_tests_properties (test_streaming_jtty_review_decodeThreadBusyEndsDuringAReview PROPERTIES RUN_SERIAL TRUE
+  SKIP_REGULAR_EXPRESSION "SKIP   : TestStreamingJttyReview::decodeThreadBusyEndsDuringAReview")
