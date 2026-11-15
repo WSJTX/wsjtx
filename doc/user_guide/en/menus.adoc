@@ -74,29 +74,28 @@ progress in an EME contest.
 image::active_stations_QMAP.png[align="center"]
 
 The *Cabrillo...* button beside the days (also *File | Export ARRL EME
-Cabrillo log ...*) makes a Cabrillo log for the ARRL EME contest from
-the ADIF log: the QSOs on the chosen days, on the bands you tick, with
-both stations' 4-character grid squares on every QSO line as the rules
-require. The ADIF log holds every QSO made on those days, in any mode:
-the modes found are shown with their QSO counts, so untick any that
-were not EME (for example FT8 or MSK144 on 2 m). A QSO that another
-program logged with a propagation mode other than EME (PROP_MODE) is
-left out. A station counts once
-per band from each grid it works from; repeats are left out and listed.
-QSOs logged without a grid are listed so you can type their grids in
-all at once; the grids you type are remembered. A grid found in another
-QSO with the same station is used, and shown so that you can check it
-and type the right one if it differs. ARRL takes one log for all bands
-and weekends, so a station that logs on several PCs can *Add file...*
-for each PC's ADIF log: they are merged, and a QSO found in two of them
-counts once; if the two logs give different grids for it you are asked
-to type the right one. Every ADIF file is only read, never changed, and
-the Cabrillo file cannot be saved over one of them. The two band
-groups (50-1296 MHz and 2.3 GHz and up) have their own weekends; a QSO
-on a band of the other group than its weekend's (the group with more
-QSOs that weekend) is flagged for checking, and a box lets you leave
-such QSOs out. The dialog shows the claimed score and the file as it
-will be saved; upload the saved file at
+Cabrillo log ...*) makes the Cabrillo log for an ARRL EME contest entry
+from your ADIF log. It takes the QSOs made on the chosen days and writes
+both stations' 4-character grid squares on every QSO line, as the rules
+require. The dialog shows the claimed score and the file as it will be
+saved.
+
+* *Logs:* _WSJT-X_'s own ADIF log is used. *Add file...* adds another,
+  for example the log of a second PC; several logs are merged and a QSO
+  found in two of them counts once. The logs are only read.
+* *Bands* and *Modes:* untick any band you are not entering, and any
+  mode whose QSOs were not EME (the ADIF log holds everything you
+  worked on those days).
+* *Missing grids:* QSOs logged without a grid are listed so that you
+  can type the grids in. A grid known from another QSO with the same
+  station is filled in for you to check. What you type is remembered.
+* A station counts once per band from each grid it works from; repeats
+  are left out.
+* The 50-1296 MHz bands and the bands from 2.3 GHz up have their own
+  contest weekends. QSOs that seem to be on the other group's weekend
+  are pointed out, and a box lets you leave them out.
+
+Save the file and upload it at
 contests.arrl.org/arrlemescoresubmission.php.
 
 .SWL Mode

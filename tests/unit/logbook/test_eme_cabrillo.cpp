@@ -79,7 +79,33 @@ private slots:
   void real_log ();
   void dummy_logs ();
   void timing ();
+  void picture ();
 };
+
+// Optional: a picture of the dialog with the dummy logs, to look at it.
+// EME_CABRILLO_DUMMY=<folder> EME_CABRILLO_PICTURE=<file.png>
+void TestEmeCabrillo::picture ()
+{
+  auto const folder = qEnvironmentVariable ("EME_CABRILLO_DUMMY"), file = qEnvironmentVariable ("EME_CABRILLO_PICTURE");
+  if (folder.isEmpty () || file.isEmpty ()) QSKIP ("EME_CABRILLO_DUMMY or EME_CABRILLO_PICTURE not set");
+  QTemporaryDir directory;
+  QVERIFY (directory.isValid ());
+  QSettings settings {directory.filePath ("settings.ini"), QSettings::IniFormat};
+  settings.setValue ("EmeCabrillo/Logs", QStringList {QDir {folder}.filePath ("pc10_wsjtx_log.adi"),
+                                                      QDir {folder}.filePath ("pc23_wsjtx_log.adi")});
+  settings.setValue ("EmeCabrillo/Operator", "MULTI-OP");
+  QSet<QDate> days;
+  for (auto const& day : {"2026-08-08", "2026-08-09", "2026-09-05", "2026-09-06",
+                          "2026-10-31", "2026-11-01", "2026-11-28", "2026-11-29"})
+    days << QDate::fromString (day, Qt::ISODate);
+  EmeCabrilloDialog dialog {&settings, directory.filePath ("wsjtx_log.adi"), "DL3WDG", "JN68LM", days,
+                            directory.path ()};
+  dialog.resize (qEnvironmentVariableIntValue ("EME_CABRILLO_PICTURE_WIDTH") > 0
+                 ? qEnvironmentVariableIntValue ("EME_CABRILLO_PICTURE_WIDTH") : 720, 860);
+  dialog.show ();
+  QVERIFY (QTest::qWaitForWindowExposed (&dialog));
+  QVERIFY (dialog.grab ().save (file));
+}
 
 // Optional: how long a big log takes. EME_CABRILLO_TIMING=<records>.
 void TestEmeCabrillo::timing ()

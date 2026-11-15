@@ -68,8 +68,9 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
 
   // the logs: WSJT-X's own and/or other ADIF files (e.g. one from each PC
   // of a multi-operator station), merged; all only read
-  auto logs_box = new QGroupBox {tr ("Logs (several are merged into one entry; the same QSO in two of them counts once)"),
-                                 this};
+  auto logs_box = new QGroupBox {tr ("Logs"), this};
+  logs_box->setToolTip (tr ("The ADIF logs the entry is made from. Several are merged into one entry, and a "
+                            "QSO found in two of them counts once. Every log is only read."));
   auto logs_box_layout = new QVBoxLayout {logs_box};
   logs_layout_ = new QGridLayout;
   logs_box_layout->addLayout (logs_layout_);
@@ -82,7 +83,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   add_own_button_->setToolTip (tr ("Add WSJT-X's own ADIF log (%1).").arg (QDir::toNativeSeparators (own_log_path_)));
   connect (add_own_button_, &QPushButton::clicked, this, [this] {add_log (own_log ());});
   logs_buttons->addWidget (add_own_button_);
-  logs_buttons->addWidget (new QLabel {tr ("Every log is only read."), logs_box}, 1);
+  logs_buttons->addWidget (new QLabel {tr ("Only read."), logs_box}, 1);
   logs_box_layout->addLayout (logs_buttons);
   layout->addWidget (logs_box);
 
@@ -111,14 +112,16 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   modes_layout_ = new QHBoxLayout;
   layout->addLayout (modes_layout_);
   // shown only when a weekend has QSOs of the other band group
-  off_weekend_box_ = new QCheckBox {tr ("Leave out QSOs on a band whose group (50-1296 MHz / 2.3 GHz and up) "
-                                        "isn't contested on that weekend"), this};
-  off_weekend_box_->setToolTip (tr ("A weekend's band group is the one with more QSOs on it."));
+  off_weekend_box_ = new QCheckBox {tr ("Leave out QSOs made on the other band group's weekend"), this};
+  off_weekend_box_->setToolTip (tr ("50-1296 MHz and 2.3 GHz and up have their own contest weekends. A weekend's "
+                                    "group is taken to be the one with more QSOs on it."));
   off_weekend_box_->setVisible (false);
   layout->addWidget (off_weekend_box_);
 
   // QSOs logged without a grid: all listed, to type them in at once
-  grids_box_ = new QGroupBox {tr ("Grids missing in the log - type them in (Enter or Tab)"), this};
+  grids_box_ = new QGroupBox {tr ("Missing grids"), this};
+  grids_box_->setToolTip (tr ("QSOs logged without a grid, or whose grid needs checking. Type the grid and press "
+                              "Enter or Tab. The grids you type are remembered; the ADIF logs are not changed."));
   grids_layout_ = new QGridLayout {grids_box_};
   layout->addWidget (grids_box_);
 
@@ -165,7 +168,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   layout->addWidget (preview_, 1);
 
   auto buttons = new QHBoxLayout;
-  auto hint = new QLabel {tr ("Upload the saved file at contests.arrl.org/arrlemescoresubmission.php"), this};
+  auto hint = new QLabel {tr ("Upload at contests.arrl.org/arrlemescoresubmission.php"), this};
   hint->setTextInteractionFlags (Qt::TextSelectableByMouse);
   buttons->addWidget (hint, 1);
   save_button_ = new QPushButton {tr ("Save…"), this};
@@ -456,27 +459,28 @@ void EmeCabrilloDialog::refresh ()
   for (auto const& day : DaysCalendar::sorted (days_))
     if (day.dayOfWeek () < 6) weekdays << QLocale {QLocale::English}.toString (day, "ddd yyyy-MM-dd");
   if (weekdays.size ())
-    warnings << tr ("Not a Saturday or Sunday: %1 (contest weekends run Sat 00:00 - Sun 23:59 UTC).")
+    warnings << tr ("Not a Saturday or Sunday: %1.")
       .arg (weekdays.join (", "));
-  if (days_.size () && selection_.qsos.isEmpty ()) warnings << tr ("No EME QSOs on these days and bands.");
+  if (days_.size () && selection_.qsos.isEmpty ()) warnings << tr ("No EME QSOs on these days, bands and modes.");
   if (selection_.off_weekend.size ())
     {
       QStringList off;
       for (auto const& qso : selection_.off_weekend) off << qso_text (qso);
       warnings << (off_weekend_box_->isChecked ()
-                   ? tr ("%1 QSO(s) on a band not contested that weekend LEFT OUT: %2")
-                   : tr ("%1 QSO(s) on a band not contested that weekend KEPT - check them: %2"))
-        .arg (selection_.off_weekend.size ()).arg (off.join (", "));
+                   ? tr ("%1 QSO(s) on the other band group's weekend left out: %2")
+                   : tr ("%1 QSO(s) on the other band group's weekend - check: %2"))
+        .arg (selection_.off_weekend.size ())
+        .arg (off.mid (0, 6).join (", ") + (off.size () > 6 ? QString {" ..."} : QString {}));
     }
   if (selection_.no_grid.size ())
     {
       QStringList calls;
       for (auto const& qso : selection_.no_grid) calls << qso.call;
-      warnings << tr ("%1 QSO(s) left out until you type their grid in above: %2")
+      warnings << tr ("%1 QSO(s) need a grid: %2")
         .arg (selection_.no_grid.size ()).arg (calls.join (", "));
     }
   if (selection_.no_time.size ())
-    warnings << tr ("%1 QSO(s) left out: no usable time (TIME_ON or TIME_OFF) in the log: %2")
+    warnings << tr ("%1 QSO(s) without a time left out: %2")
       .arg (selection_.no_time.size ()).arg (selection_.no_time.mid (0, 12).join (", "));
   // the header takes My Call and My Grid, each QSO line its own record's
   // STATION_CALLSIGN and MY_GRIDSQUARE: logs from other PCs may differ
@@ -495,67 +499,78 @@ void EmeCabrilloDialog::refresh ()
     return list.join (", ");
   };
   if (other_calls.size () && !my_call_.isEmpty ())
-    warnings << tr ("QSOs logged as %1, not My Call %2: the header says %2 - check.")
+    warnings << tr ("Logged as %1, not My Call %2 - check.")
       .arg (listed (other_calls), my_call_);
   if (other_grids.size () && !EmeCabrillo::grid4 (my_grid_).isEmpty ())
-    warnings << tr ("QSOs logged from %1, not My Grid %2: the header says %2 - check.")
+    warnings << tr ("Logged from %1, not My Grid %2 - check.")
       .arg (listed (other_grids), EmeCabrillo::grid4 (my_grid_));
   if (no_own_grid)
-    warnings << tr ("QSOs without an own grid (no MY_GRIDSQUARE in the log and no My Grid): cannot be saved.");
+    warnings << tr ("Some QSOs have no own grid: cannot be saved.");
 
   QString html;
   for (auto const& w : warnings) html += "<p style='color:#c00000'>" + escaped (w) + "</p>";
   if (selection_.qsos.size ())
     {
       auto const s = EmeCabrillo::score (selection_.qsos);
-      html += "<table cellspacing='0' cellpadding='1'><tr><th align='left'>" + tr ("Band")
-        + "</th><th align='right'>&nbsp;&nbsp;" + tr ("QSOs") + "</th><th align='right'>&nbsp;&nbsp;"
-        + tr ("Grids") + "</th></tr>";
+      // the bands across, so that many bands do not push the file out of view
+      QString bands_row, qsos_row, grids_row;
       for (auto const& b : s.bands)
-        html += QString {"<tr><td>%1</td><td align='right'>%2</td><td align='right'>%3</td></tr>"}
-          .arg (b.band).arg (b.qsos).arg (b.grids);
-      html += QString {"<tr><td><b>%1</b></td><td align='right'><b>%2</b></td><td align='right'><b>%3</b></td>"
-                       "<td>&nbsp;&nbsp;<b>%4</b></td></tr></table>"}
-        .arg (tr ("Total")).arg (selection_.qsos.size ()).arg (s.multipliers)
-        .arg (tr ("claimed score %1 x %2 = %3").arg (s.points).arg (s.multipliers).arg (s.claimed));
+        {
+          bands_row += QString {"<th align='right'>&nbsp;&nbsp;%1</th>"}.arg (b.band);
+          qsos_row += QString {"<td align='right'>%1</td>"}.arg (b.qsos);
+          grids_row += QString {"<td align='right'>%1</td>"}.arg (b.grids);
+        }
+      html += "<table cellspacing='0' cellpadding='1'><tr><th align='left'>" + tr ("Band") + "</th>" + bands_row
+        + "<th align='right'>&nbsp;&nbsp;" + tr ("Total") + "</th></tr><tr><td>" + tr ("QSOs") + "</td>" + qsos_row
+        + QString {"<td align='right'><b>%1</b></td></tr>"}.arg (selection_.qsos.size ())
+        + "<tr><td>" + tr ("Grids") + "</td>" + grids_row
+        + QString {"<td align='right'><b>%1</b></td></tr></table>"}.arg (s.multipliers)
+        + "<p><b>" + escaped (tr ("Claimed score %1 x %2 = %3").arg (s.points).arg (s.multipliers).arg (s.claimed))
+        + "</b></p>";
     }
-  // each weekend's band group, as worked out from the logs
+  // Below the score: one line for what was left out, the weekends only
+  // when they matter; the details (which dupes, the counts) in the tooltip.
+  QStringList details;
+  bool weekends_matter = !selection_.off_weekend.isEmpty ();
+  QStringList weekend_texts;
   for (auto const& weekend : selection_.weekends)
     {
       QStringList days, counts;
-      for (auto const& day : weekend.days) days << day.toString ("dd.MM.");
+      for (auto const& day : weekend.days) days << QLocale {QLocale::English}.toString (day, "d MMM");
       for (auto i = weekend.qsos.cbegin (); i != weekend.qsos.cend (); ++i)
         counts << QString {"%1 %2"}.arg (i.key ()).arg (i.value ());
-      auto const what = !weekend.group.isEmpty () ? weekend.group
-        : weekend.qsos.isEmpty () ? tr ("no QSOs")
-        : tr ("both band groups equally - can't tell, all kept");
-      auto line = escaped (tr ("Weekend %1 %2: %3").arg (days.join ('/')).arg (weekend.days.first ().year ())
-                           .arg (what) + (counts.size () ? "  (" + counts.join (", ") + " " + tr ("QSOs") + ")"
-                                          : QString {}));
-      html += weekend.group.isEmpty () && !weekend.qsos.isEmpty ()
-        ? "<p style='color:#c00000'>" + line + "</p>" : "<p>" + line + "</p>";
+      auto const tie = weekend.group.isEmpty () && !weekend.qsos.isEmpty ();
+      weekends_matter |= tie;
+      weekend_texts << days.join ('/') + ": " + (tie ? tr ("both groups equally") : weekend.group.isEmpty ()
+                                                 ? tr ("no QSOs") : weekend.group);
+      details << tr ("Weekend %1: %2").arg (days.join ('/'), counts.isEmpty () ? tr ("no QSOs") : counts.join (", "));
     }
+  if (weekends_matter) html += "<p>" + escaped (tr ("Weekends: %1").arg (weekend_texts.join ("; "))) + "</p>";
   int copies = 0;
   for (auto const& record : copies_) copies += days_.contains (EmeCabrillo::record_date (record));
-  if (copies)
-    html += "<p>" + escaped (tr ("%1 QSO(s) on the days are in more than one log - counted once.").arg (copies))
-      + "</p>";
-  if (selection_.operators.size ())
-    html += "<p>" + escaped (tr ("OPERATOR in the logs: %1").arg (selection_.operators.join (' '))) + "</p>";
+  QStringList left_out;
+  if (selection_.dupes.size ()) left_out << tr ("%1 dupes").arg (selection_.dupes.size ());
+  if (copies) left_out << tr ("%1 in two logs").arg (copies);
+  if (selection_.satellite) left_out << tr ("%1 satellite").arg (selection_.satellite);
+  if (selection_.not_eme) left_out << tr ("%1 not EME (PROP_MODE)").arg (selection_.not_eme);
+  if (selection_.mode_out) left_out << tr ("%1 in unticked modes").arg (selection_.mode_out);
+  if (left_out.size ()) html += "<p>" + escaped (tr ("Left out: %1.").arg (left_out.join (", "))) + "</p>";
   if (selection_.dupes.size ())
     {
       QStringList dupes;
       for (auto const& qso : selection_.dupes) dupes << qso_text (qso);
-      html += "<p>" + escaped (tr ("%1 left out as worked before on the band from the same grid: %2")
-                               .arg (selection_.dupes.size ()).arg (dupes.join (", "))) + "</p>";
+      details << tr ("Dupes (worked before on the band from the same grid): %1").arg (dupes.join (", "));
     }
-  if (selection_.satellite)
-    html += "<p>" + escaped (tr ("%1 satellite QSO(s) left out (not EME).").arg (selection_.satellite)) + "</p>";
-  if (selection_.not_eme)
-    html += "<p>" + escaped (tr ("%1 QSO(s) logged with another PROP_MODE than EME left out.").arg (selection_.not_eme))
-      + "</p>";
-  if (selection_.mode_out)
-    html += "<p>" + escaped (tr ("%1 QSO(s) in an unticked mode left out.").arg (selection_.mode_out)) + "</p>";
+  // the operators the logs name, if the Operators box does not have them all
+  if (multi_op_->isChecked ())
+    {
+      QStringList missing;
+      auto const listed_operators = operators_->text ().toUpper ().split (QRegularExpression {"[\\s,]+"}, Qt::SkipEmptyParts);
+      for (auto const& op : selection_.operators) if (!listed_operators.contains (op)) missing << op;
+      if (missing.size ())
+        html += "<p>" + escaped (tr ("Also in the logs as operator: %1").arg (missing.join (' '))) + "</p>";
+    }
+  summary_->setToolTip (details.join ("\n"));
   summary_->setText (html);
   preview_->setPlainText (text_);
   save_button_->setEnabled (selection_.qsos.size () && !my_call_.isEmpty () && !no_own_grid);
@@ -584,7 +599,7 @@ void EmeCabrilloDialog::show_modes ()
         });
       modes_layout_->addWidget (box);
     }
-  auto hint = new QLabel {tr ("untick a mode that wasn't EME"), this};
+  auto hint = new QLabel {tr ("untick any that weren't EME"), this};
   hint->setStyleSheet ("color:#666666");
   modes_layout_->addWidget (hint);
   modes_layout_->addStretch ();
@@ -632,14 +647,12 @@ void EmeCabrilloDialog::show_grid_rows ()
     if (!qso.grid2.isEmpty () && !qso.entered)  // the logs disagree: the user settles it
       {
         colour = "#c00000";
-        return tr ("logs disagree: %1 or %2 - %1 used; type the right one").arg (qso.grid, qso.grid2);
+        return tr ("logs disagree: %1 or %2").arg (qso.grid, qso.grid2);
       }
     if (qso.dupe)                       // that grid makes it a repeat: say so, keep the row
       {
         colour = "#b06000";
-        return (qso.entered ? tr ("%1 typed: %2 already counted from there - left out; type the right grid if it was another")
-                : tr ("%1 from another QSO: %2 already counted from there - left out; type the right grid if it was another"))
-          .arg (qso.grid, qso.call);
+        return tr ("%1: already counted - retype if it was another grid").arg (qso.grid);
       }
     if (qso.entered)
       {
@@ -649,10 +662,10 @@ void EmeCabrilloDialog::show_grid_rows ()
     if (qso.filled)
       {
         colour = "#b06000";
-        return tr ("%1 from another QSO with %2 - check, or type the right one").arg (qso.grid, qso.call);
+        return tr ("%1 from another QSO - check").arg (qso.grid);
       }
     colour = "#c00000";
-    return tr ("needed - left out until you type it");
+    return tr ("needed");
   };
   // one row per QSO key: the same call logged twice in a minute shares a box
   QStringList keys;
