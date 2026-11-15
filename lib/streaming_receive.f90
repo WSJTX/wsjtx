@@ -51,7 +51,7 @@ module streaming_receive
        logical(1),       intent(in)    :: bclear, brefspec, buseref
        character(len=*), intent(in)    :: fname
      end subroutine refspectrum
-     function c_remove(path) result(status) bind(C, name='remove')
+     function c_remove(path) result(status) bind(C, name='stream_remove_file')
        import :: c_char, c_int
        character(kind=c_char), intent(in) :: path(*)
        integer(c_int) :: status
@@ -120,16 +120,12 @@ contains
   ! then off, which the GUI's Erase is not while it measures.
   subroutine clear_()
     logical(1) :: clear, off
-    logical :: exists
     clear = .true.
     off = .false.
     call refspectrum(work_, 0, clear, off, off, path_())
     call set_ref_(REF_SPECTRUM_OFF)
     error_sent_ = .false.
-    inquire(file=path_(), exist=exists)
-    if (exists) then
-       if (c_remove(path_() // c_null_char) .ne. 0) call file_error_('delete', .false.)
-    end if
+    if (c_remove(path_() // c_null_char) .ne. 0) call file_error_('delete', .false.)
   end subroutine clear_
 
   ! refspectrum on work_(1:count) in mode, planning its FFTs as the GUI's
