@@ -4016,10 +4016,7 @@ void MainWindow::startWaitRetry(bool reply, int milliseconds, QDateTime const& r
   auto& timer = reply ? stopWRTimer : stopWCTimer;
   timer.disconnect(this);
   connect(&timer, &QTimer::timeout, this, [this, reply, generation = context.generation] {
-    auto const& attempt = reply ? m_waitReplyAttempt : m_waitCallAttempt;
-    if (!attempt || attempt->generation != generation) return;
-    if (reply) stopWRTimeout();
-    else stopWCTimeout();
+    dispatchWaitRetryTimeout(reply, generation);
   });
   if (reply) {
     m_waitReplyAttempt = context;
@@ -4030,6 +4027,14 @@ void MainWindow::startWaitRetry(bool reply, int milliseconds, QDateTime const& r
     no_wait_and_call = owner == WaitCallTimeoutOwner::WaitAndCall;
     stopWCTimer.start(milliseconds);
   }
+}
+
+void MainWindow::dispatchWaitRetryTimeout(bool reply, quint64 generation)
+{
+  auto const& attempt = reply ? m_waitReplyAttempt : m_waitCallAttempt;
+  if (!attempt || attempt->generation != generation) return;
+  if (reply) stopWRTimeout();
+  else stopWCTimeout();
 }
 
 void MainWindow::acknowledgeWaitReply(DecodedText const& message, QDateTime const& receivedPeriod)

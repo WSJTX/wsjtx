@@ -46,6 +46,7 @@ extern bool pounce;
 extern bool wait_and_call;
 extern bool no_wait_and_call;
 extern QString ignoreList;
+extern bool programStart;
 
 namespace
 {
@@ -260,7 +261,7 @@ void BestSPApplicationTestController::begin ()
 void BestSPApplicationTestController::prepare ()
 {
   if (finished_) return;
-  if (!backend_->ready () || window_->m_logBook.countries ()->lookup ("JA1ABC")
+  if (programStart || !backend_->ready () || window_->m_logBook.countries ()->lookup ("JA1ABC")
       .identity (AD1CCty::EntityView::DXCC).name.isEmpty ())
     {
       retry_.start ();
@@ -273,17 +274,29 @@ void BestSPApplicationTestController::prepare ()
       retry_.start ();
       return;
     }
-  // Settings processes queued rig reports while the scripted decoder is active.
-  if (window_->m_rigState.frequency () != 14080000)
+  auto const state = window_->m_operatingFrequency.snapshot ();
+  if (state.pendingRx || state.pendingTx || window_->m_pendingModeRetune.pending ()
+      || window_->m_modeEntries.active ())
     {
-      if (!require (window_->m_config.transceiver_frequency (
-                      14080000, RigFrequencyChangePolicy::ChangeKind::NominalQsy),
+      retry_.start ();
+      return;
+    }
+  if (window_->m_mode != "FT4")
+    {
+      window_->on_actionFT4_triggered ();
+      window_->m_guiTimer.stop ();
+      retry_.start ();
+      return;
+    }
+  if (state.rx != 14080000 || window_->m_rigState.frequency () != 14080000)
+    {
+      if (!require (window_->requestBandChange (
+                      14080000, MainWindow::FrequencyRequestOrigin::User),
                     "Cannot initialize the dummy radio frequency.")) return;
       retry_.start ();
       return;
     }
   timeout_.stop ();
-  window_->on_actionFT4_triggered ();
   window_->m_guiTimer.stop ();
   if (!require (window_->m_logBook.add ("W1AAA", "FN31", "20m", "FT4",
                  "<call:5>W1AAA <gridsquare:4>FN31 <band:3>20m <mode:3>FT4"),
@@ -291,10 +304,32 @@ void BestSPApplicationTestController::prepare ()
   if (run ()) finish (true, "All Best S+P application scenarios passed.");
 }
 
+bool BestSPApplicationTestController::waitUntil (
+  std::function<bool()> const& ready, QString const& failure)
+{
+  if (ready ()) return true;
+  QEventLoop loop;
+  QTimer poll;
+  QTimer watchdog;
+  poll.setInterval (5);
+  watchdog.setSingleShot (true);
+  connect (&poll, &QTimer::timeout, &loop, [&] {if (ready ()) loop.quit ();});
+  connect (&watchdog, &QTimer::timeout, &loop, &QEventLoop::quit);
+  poll.start ();
+  watchdog.start (5000);
+  loop.exec ();
+  return require (ready (), failure);
+}
+
 bool BestSPApplicationTestController::startRequest (quint64 frequency, QString const& scenario)
 {
   scenario_ = scenario;
   window_->setBestSPArmed (false);
+  if (!waitUntil ([this] {
+        auto const state = window_->m_operatingFrequency.snapshot ();
+        return !state.pendingRx && !state.pendingTx && !window_->m_pendingModeRetune.pending ()
+          && !window_->m_modeEntries.active ();
+      }, "Radio activity did not settle before preparing the scripted request.")) return false;
   window_->m_operatingFrequency = OperatingFrequency {frequency};
   window_->m_operatingFrequency.requestNominal (frequency, {}, false);
   window_->m_freqNominalPeriod = frequency;
@@ -610,7 +645,7 @@ bool BestSPApplicationTestController::settingsCQSelection ()
       timedOut = true;
       if (auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ())) dialog->reject ();
     });
-    QTimer::singleShot (0, window_, [&] {
+    QTimer::singleShot (0, &guard, [&] {
       auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ());
       if (!dialog) return;
       auto * option = dialog->findChild<QCheckBox *> ("enable_Wait_features_check_box");

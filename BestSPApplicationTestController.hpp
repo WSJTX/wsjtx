@@ -3,6 +3,7 @@
 #define BEST_SP_APPLICATION_TEST_CONTROLLER_HPP
 
 #include <memory>
+#include <functional>
 
 #include <QObject>
 #include <QString>
@@ -41,6 +42,7 @@ public:
 
 private:
   void prepare ();
+  bool waitUntil (std::function<bool()> const&, QString const& failure);
   bool run ();
   bool armingEligibility ();
   bool audioFrequencyChanges ();

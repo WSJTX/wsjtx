@@ -1790,6 +1790,7 @@ private:
                        bool acknowledge = true,
                        WaitCallTimeoutOwner owner = WaitCallTimeoutOwner::WaitAndCall);
   void cancelWaitRetry (bool reply);
+  void dispatchWaitRetryTimeout (bool reply, quint64 generation);
   void acknowledgeWaitReply (DecodedText const&, QDateTime const&);
   void invalidateWaitRetries ();
   void showContestHint(DecodedMessageReaction::ContestHint hint);

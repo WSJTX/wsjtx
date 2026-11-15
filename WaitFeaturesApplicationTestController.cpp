@@ -40,16 +40,7 @@ extern bool wait_and_call;
 extern bool no_wait_and_call;
 extern QString ignoreList;
 extern QString earlyDecodes;
-
-namespace
-{
-  void drainEvents ()
-  {
-    QEventLoop loop;
-    QTimer::singleShot (20, &loop, &QEventLoop::quit);
-    loop.exec ();
-  }
-}
+extern bool programStart;
 
 QString WaitFeaturesApplicationTestController::prepareSettings (QSettings * settings)
 {
@@ -87,7 +78,7 @@ void WaitFeaturesApplicationTestController::begin ()
 void WaitFeaturesApplicationTestController::prepare ()
 {
   if (finished_) return;
-  if (!backend_->ready () || window_->m_logBook.countries ()->lookup ("W1AW")
+  if (programStart || !backend_->ready () || window_->m_logBook.countries ()->lookup ("W1AW")
       .identity (AD1CCty::EntityView::DXCC).name.isEmpty ())
     {
       retry_.start ();
@@ -100,10 +91,17 @@ void WaitFeaturesApplicationTestController::prepare ()
       retry_.start ();
       return;
     }
-  if (window_->m_rigState.frequency () != 14074000)
+  auto const state = window_->m_operatingFrequency.snapshot ();
+  if (state.pendingRx || state.pendingTx || window_->m_pendingModeRetune.pending ()
+      || window_->m_modeEntries.active ())
     {
-      if (!require (window_->m_config.transceiver_frequency (
-                      14074000, RigFrequencyChangePolicy::ChangeKind::NominalQsy),
+      retry_.start ();
+      return;
+    }
+  if (state.rx != 14074000 || window_->m_rigState.frequency () != 14074000)
+    {
+      if (!require (window_->requestBandChange (
+                      14074000, MainWindow::FrequencyRequestOrigin::User),
                     "Cannot initialize the dummy radio frequency.")) return;
       retry_.start ();
       return;
@@ -128,6 +126,11 @@ bool WaitFeaturesApplicationTestController::startReception (
   else if (mode == "Q65") window_->on_actionQ65_triggered ();
   else window_->on_actionFT8_triggered ();
   window_->m_guiTimer.stop ();
+  if (!waitUntil ([this] {
+        auto const state = window_->m_operatingFrequency.snapshot ();
+        return !state.pendingRx && !state.pendingTx && !window_->m_pendingModeRetune.pending ()
+          && !window_->m_modeEntries.active ();
+      }, "Mode entry did not settle before preparing the scripted reception.")) return false;
   window_->m_operatingFrequency = OperatingFrequency {14074000};
   window_->m_operatingFrequency.requestNominal (14074000, {}, false);
   window_->m_freqNominalPeriod = 14074000;
@@ -332,12 +335,12 @@ bool WaitFeaturesApplicationTestController::run ()
   record ("K1ABC W1AW -10");
   if (!require (window_->stopWCTimer.isActive () && window_->m_waitCallAttempt,
                 "A same-period decode prematurely acknowledged Wait and Call.")) return false;
-  window_->stopWCTimer.setInterval (1);
+  auto const acknowledgedGeneration = window_->m_waitCallAttempt->generation;
   if (!nextReception ()) return false;
   record ("K1ABC W1AW -10");
   if (!require (!window_->stopWCTimer.isActive () && !window_->m_waitCallAttempt,
                 "A later directed answer left the Wait and Call deadline armed.")) return false;
-  drainEvents ();
+  window_->dispatchWaitRetryTimeout (false, acknowledgedGeneration);
   if (!require (enableTxIs (true), "The canceled Wait and Call deadline stopped the resumed QSO.")) return false;
 
   if (!startReception ("FT8", "unanswered Wait and Call reaches its deadline")) return false;
@@ -346,17 +349,16 @@ bool WaitFeaturesApplicationTestController::run ()
   if (!require (enableTxIs (true) && window_->m_waitCallAttempt,
                 "The unanswered Wait and Call fixture did not start.")) return false;
   window_->stopWCTimer.setInterval (1);
-  drainEvents ();
-  if (!require (enableTxIs (false) && !window_->stopWCTimer.isActive ()
-                && !window_->m_waitCallAttempt && !window_->ui->DX_Call_Button->isChecked (),
-                "The unanswered Wait and Call attempt did not stop at its deadline.")) return false;
+  if (!waitUntil ([this] {
+        return enableTxIs (false) && !window_->stopWCTimer.isActive ()
+          && !window_->m_waitCallAttempt && !window_->ui->DX_Call_Button->isChecked ();
+      }, "The unanswered Wait and Call attempt did not stop at its deadline.")) return false;
 
   if (!startReception ("FT8", "DX Call off and on starts a fresh calling attempt")) return false;
   window_->ui->DX_Call_Button->click ();
   record ("CQ W1AW FN31");
   if (!require (bool (window_->m_waitCallAttempt), "The initial calling attempt did not start.")) return false;
   auto const callGeneration = window_->m_waitCallAttempt->generation;
-  window_->stopWCTimer.setInterval (1);
   window_->ui->DX_Call_Button->click ();
   if (!require (!window_->stopWCTimer.isActive () && !window_->m_waitCallAttempt
                 && !wait_and_call && !no_wait_and_call,
@@ -368,15 +370,19 @@ bool WaitFeaturesApplicationTestController::run ()
   if (!require (enableTxIs (true) && window_->m_waitCallAttempt
                 && window_->m_waitCallAttempt->generation != callGeneration,
                 "Rearming DX Call did not create a new calling attempt.")) return false;
-  drainEvents ();
+  auto const replacementCall = window_->m_waitCallAttempt->generation;
+  window_->dispatchWaitRetryTimeout (false, callGeneration);
   if (!require (enableTxIs (true) && window_->stopWCTimer.isActive (),
                 "The previous calling deadline stopped the rearmed attempt.")) return false;
+  window_->dispatchWaitRetryTimeout (false, replacementCall);
+  if (!require (enableTxIs (false) && !window_->stopWCTimer.isActive ()
+                && !window_->m_waitCallAttempt,
+                "The replacement calling deadline did not complete its own attempt.")) return false;
 
   if (!startReception ("FT8", "Halt Tx cancels the old retry before rearming")) return false;
   record ("K1ABC W1AW -10");
   if (!require (bool (window_->m_waitReplyAttempt), "The initial reply did not create retry state.")) return false;
   auto const generation = window_->m_waitReplyAttempt->generation;
-  window_->stopWRTimer.setInterval (1);
   window_->on_stopTxButton_clicked ();
   if (!require (!window_->stopWRTimer.isActive () && !window_->m_waitReplyAttempt,
                 "Halt Tx retained the prior reply deadline.")) return false;
@@ -385,9 +391,13 @@ bool WaitFeaturesApplicationTestController::run ()
   if (!require (enableTxIs (true) && window_->m_waitReplyAttempt
                 && window_->m_waitReplyAttempt->generation != generation,
                 "The reply after Halt Tx did not create a fresh attempt.")) return false;
-  drainEvents ();
+  window_->dispatchWaitRetryTimeout (true, generation);
   if (!require (enableTxIs (true) && window_->stopWRTimer.isActive (),
                 "An old retry deadline affected the newly armed attempt.")) return false;
+  window_->stopWRTimer.setInterval (1);
+  if (!waitUntil ([this] {
+        return enableTxIs (false) && !window_->stopWRTimer.isActive () && !window_->m_waitReplyAttempt;
+      }, "The replacement reply deadline did not complete through its timer callback.")) return false;
   return correctionScenarios ();
 }
 
@@ -403,7 +413,7 @@ bool WaitFeaturesApplicationTestController::waitUntil (
   connect (&poll, &QTimer::timeout, &loop, [&] {if (ready ()) loop.quit ();});
   connect (&guard, &QTimer::timeout, &loop, &QEventLoop::quit);
   poll.start ();
-  guard.start (1000);
+  guard.start (5000);
   loop.exec ();
   return require (ready (), failure);
 }
@@ -421,7 +431,7 @@ bool WaitFeaturesApplicationTestController::setOption (
       timedOut = true;
       if (auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ())) dialog->reject ();
     });
-    QTimer::singleShot (0, window_, [&] {
+    QTimer::singleShot (0, &guard, [&] {
       auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ());
       if (!dialog) return;
       auto * option = dialog->findChild<QCheckBox *> (name);
@@ -611,7 +621,14 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
   window_->m_tune = true;
   window_->ui->tuneButton->setChecked (true);
   int hints = 0;
+  bool hintTimedOut = false;
   QTimer closeHint;
+  QTimer hintWatchdog;
+  hintWatchdog.setSingleShot (true);
+  connect (&hintWatchdog, &QTimer::timeout, &closeHint, [&] {
+    hintTimedOut = true;
+    if (auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ())) dialog->reject ();
+  });
   connect (&closeHint, &QTimer::timeout, window_, [&] {
     if (auto * box = qobject_cast<QMessageBox *> (QApplication::activeModalWidget ())) {
       ++hints;
@@ -619,11 +636,15 @@ bool WaitFeaturesApplicationTestController::correctionScenarios ()
     }
   });
   closeHint.start (1);
+  hintWatchdog.start (5000);
   DecodedText direct {"120000 -10  0.3 1500 ~  K1ABC W1AW -10"};
   window_->applyQsoReactionPlan (hintPlan, direct);
-  drainEvents ();
+  auto const hintFinished = waitUntil ([&] {
+    return hintTimedOut || (hints == 1 && !QApplication::activeModalWidget ());
+  }, "The queued contest hint did not finish.");
   closeHint.stop ();
-  if (!require (!window_->m_auto && !window_->m_bDoubleClicked
+  hintWatchdog.stop ();
+  if (!hintFinished || !require (!hintTimedOut && !window_->m_auto && !window_->m_bDoubleClicked
                 && window_->m_contestModeHintShown && hints == 1,
                 "Rejected enabling discarded finalization or consumed an undisplayed hint.")) return false;
   window_->m_tune = false;
@@ -652,7 +673,6 @@ bool WaitFeaturesApplicationTestController::legacyMessageScenarios ()
   window_->m_restart = true;
   window_->guiUpdate ();
   window_->m_guiTimer.stop ();
-  drainEvents ();
   if (!require (!window_->m_restart && !window_->m_generated_message_error
                 && window_->m_currentMessage.trimmed () == "W1AW K1ABC 73"
                 && window_->m_qsoCompletion == logged && logged->logState == QsoCompletion::LogState::Accepted
@@ -760,7 +780,9 @@ bool WaitFeaturesApplicationTestController::tuneShutdownScenarios ()
       if (start == Start::Reply && !nextReception ()) return false;
       request ();
       if (!require (enableTxIs (true), "The same request failed after Tune shutdown completed.")) return false;
-      drainEvents ();
+      if (!waitUntil ([this] {
+            return !window_->ptt0Timer.isActive () && !window_->m_rigState.ptt ();
+          }, "Tune cleanup did not release PTT after accepting the new transmission.")) return false;
       if (!require (enableTxIs (true), "Old Tune cleanup stopped the accepted transmission.")) return false;
     }
   }
