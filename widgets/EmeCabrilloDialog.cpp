@@ -16,6 +16,7 @@
 #include <QLocale>
 #include <QPlainTextEdit>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScrollArea>
@@ -95,7 +96,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
           count_logs ();                // each log's "on the days" count
           show_logs ();
           refresh ();
-        });
+        }, tr ("No days chosen: nothing to export."));
     });
   days_row->addWidget (days_button_);
   days_label_ = new QLabel {this};
@@ -176,9 +177,11 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   outer->addLayout (buttons);
 
   read_settings ();
+  // the entry's details change only the header of the file, not which QSOs
+  // are in it: the preview is made again, the logs are not gone through
   for (auto edit : {operators_, location_, name_, address_, city_, state_, postcode_, country_, email_})
-    connect (edit, &QLineEdit::textChanged, this, &EmeCabrilloDialog::refresh);
-  connect (single_op_, &QRadioButton::toggled, this, &EmeCabrilloDialog::refresh);
+    connect (edit, &QLineEdit::textChanged, this, &EmeCabrilloDialog::update_text);
+  connect (single_op_, &QRadioButton::toggled, this, &EmeCabrilloDialog::update_text);
   connect (off_weekend_box_, &QCheckBox::toggled, this, &EmeCabrilloDialog::refresh);
   // Enter in a grid box must only take the grid, never press a button
   for (auto button : findChildren<QPushButton *> ())
@@ -302,7 +305,18 @@ void EmeCabrilloDialog::load ()
       log_records_ << records;
     }
   copies_.clear ();
-  records_ = EmeCabrillo::merge (log_records_, &copies_);
+  // Made ready once, here (sorted, dates read, known grids collected): a
+  // change of days, bands, modes or grids then only goes through the QSOs
+  // on the chosen days.
+  log_ = EmeCabrillo::prepare (EmeCabrillo::merge (log_records_, &copies_));
+  log_dates_.clear ();
+  for (auto const& records : log_records_)
+    {
+      QVector<QDate> dates;
+      dates.reserve (records.size ());
+      for (auto const& r : records) dates << EmeCabrillo::record_date (r);
+      log_dates_ << dates;
+    }
   count_logs ();
   show_logs ();
   refresh ();
@@ -325,9 +339,8 @@ void EmeCabrilloDialog::count_logs ()
           continue;
         }
       int on_days = 0, no_date = 0;
-      for (auto const& r : log_records_[i])
+      for (auto const& date : log_dates_.value (i))
         {
-          auto const date = QDate::fromString (r.value ("QSO_DATE").trimmed (), "yyyyMMdd");
           if (!date.isValid ()) ++no_date;
           else if (days_.contains (date)) ++on_days;
         }
@@ -395,6 +408,13 @@ EmeCabrillo::Header EmeCabrilloDialog::header () const
   return h;
 }
 
+// The header changed (name, address, operators ...): the same QSOs, a new text
+void EmeCabrilloDialog::update_text ()
+{
+  text_ = EmeCabrillo::cabrillo_text (header (), selection_.qsos);
+  preview_->setPlainText (text_);
+}
+
 void EmeCabrilloDialog::refresh ()
 {
   auto const n = days_.size ();
@@ -402,26 +422,25 @@ void EmeCabrilloDialog::refresh ()
   days_label_->setText (DaysCalendar::text (days_, tr ("(the same days as Active Stations' \"on days\")")));
 
   // bands with QSOs on the days; those unticked are left out
-  auto const all = EmeCabrillo::select (records_, days_, my_call_, my_grid_, {}, fixes_);
+  auto const all = EmeCabrillo::select (log_, days_, my_call_, my_grid_, {}, fixes_);
   QSet<QString> chosen;
   for (auto const& band : all.bands)
     if (!bands_off_.contains (band)) chosen << band;
   if (chosen.isEmpty () && !all.bands.isEmpty ()) chosen << "-"; // none ticked: nothing
   // modes on those days and bands; those unticked are left out
-  auto const with_all_modes = EmeCabrillo::select (records_, days_, my_call_, my_grid_, chosen, fixes_);
+  auto const with_all_modes = EmeCabrillo::select (log_, days_, my_call_, my_grid_, chosen, fixes_);
   QSet<QString> modes;
   for (auto i = with_all_modes.modes.cbegin (); i != with_all_modes.modes.cend (); ++i)
     if (!modes_off_.contains (i.key ())) modes << i.key ();
   if (modes.isEmpty () && !with_all_modes.modes.isEmpty ()) modes << "-"; // none ticked: nothing
-  selection_ = EmeCabrillo::select (records_, days_, my_call_, my_grid_, chosen, fixes_,
+  selection_ = EmeCabrillo::select (log_, days_, my_call_, my_grid_, chosen, fixes_,
                                     off_weekend_box_->isChecked (), modes);
   off_weekend_box_->setVisible (!selection_.off_weekend.isEmpty ());
   // operators named in the logs (several PCs): into an empty box, once
   if (!operators_filled_ && selection_.operators.size () && operators_->text ().trimmed ().isEmpty ())
     {
       operators_filled_ = true;
-      operators_->setText (selection_.operators.join (' ')); // refreshes again
-      return;
+      operators_->setText (selection_.operators.join (' '));
     }
   text_ = EmeCabrillo::cabrillo_text (header (), selection_.qsos);
   show_bands ();
@@ -456,6 +475,9 @@ void EmeCabrilloDialog::refresh ()
       warnings << tr ("%1 QSO(s) left out until you type their grid in above: %2")
         .arg (selection_.no_grid.size ()).arg (calls.join (", "));
     }
+  if (selection_.no_time.size ())
+    warnings << tr ("%1 QSO(s) left out: no usable time (TIME_ON or TIME_OFF) in the log: %2")
+      .arg (selection_.no_time.size ()).arg (selection_.no_time.mid (0, 12).join (", "));
   // the header takes My Call and My Grid, each QSO line its own record's
   // STATION_CALLSIGN and MY_GRIDSQUARE: logs from other PCs may differ
   QSet<QString> other_calls, other_grids;
@@ -513,10 +535,8 @@ void EmeCabrilloDialog::refresh ()
       html += weekend.group.isEmpty () && !weekend.qsos.isEmpty ()
         ? "<p style='color:#c00000'>" + line + "</p>" : "<p>" + line + "</p>";
     }
-  QSet<QString> day_strings;
-  for (auto const& day : days_) day_strings << day.toString ("yyyyMMdd");
   int copies = 0;
-  for (auto const& record : copies_) copies += day_strings.contains (record.value ("QSO_DATE").trimmed ());
+  for (auto const& record : copies_) copies += days_.contains (EmeCabrillo::record_date (record));
   if (copies)
     html += "<p>" + escaped (tr ("%1 QSO(s) on the days are in more than one log - counted once.").arg (copies))
       + "</p>";
@@ -531,6 +551,9 @@ void EmeCabrilloDialog::refresh ()
     }
   if (selection_.satellite)
     html += "<p>" + escaped (tr ("%1 satellite QSO(s) left out (not EME).").arg (selection_.satellite)) + "</p>";
+  if (selection_.not_eme)
+    html += "<p>" + escaped (tr ("%1 QSO(s) logged with another PROP_MODE than EME left out.").arg (selection_.not_eme))
+      + "</p>";
   if (selection_.mode_out)
     html += "<p>" + escaped (tr ("%1 QSO(s) in an unticked mode left out.").arg (selection_.mode_out)) + "</p>";
   summary_->setText (html);
@@ -606,6 +629,11 @@ void EmeCabrilloDialog::show_bands ()
 void EmeCabrilloDialog::show_grid_rows ()
 {
   auto state_of = [] (EmeCabrillo::Qso const& qso, QString& colour) {
+    if (!qso.grid2.isEmpty () && !qso.entered)  // the logs disagree: the user settles it
+      {
+        colour = "#c00000";
+        return tr ("logs disagree: %1 or %2 - %1 used; type the right one").arg (qso.grid, qso.grid2);
+      }
     if (qso.dupe)                       // that grid makes it a repeat: say so, keep the row
       {
         colour = "#b06000";
@@ -711,14 +739,37 @@ void EmeCabrilloDialog::grid_typed (QString const& key)
 bool EmeCabrilloDialog::save_to (QString const& path)
 {
   refresh ();
-  QFile file {path};
-  if (!file.open (QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
+  // Never onto one of the logs the entry is made from, also not through a
+  // link to it: they are only read, and the log would be lost.
+  QFileInfo const target {path};
+  for (auto const& entry : logs_)
     {
-      MessageBox::warning_message (this, tr ("Cabrillo log"), tr ("Cannot open \"%1\" for writing: %2")
+      QFileInfo const log {entry == own_log () ? own_log_path_ : entry};
+      auto const same = target.exists () && log.exists ()
+        ? target.canonicalFilePath () == log.canonicalFilePath ()
+        : QDir::cleanPath (target.absoluteFilePath ()) == QDir::cleanPath (log.absoluteFilePath ());
+      if (same)
+        {
+          MessageBox::warning_message (this, tr ("Cabrillo log"),
+                                       tr ("\"%1\" is one of the logs the entry is made from. Saving the Cabrillo "
+                                           "file there would destroy that log: choose another name.")
+                                       .arg (QDir::toNativeSeparators (path)));
+          return false;
+        }
+    }
+  // Written to a temporary file beside it and put in place only when all of
+  // it is on disk: a full disk leaves no cut-off entry, and an earlier
+  // export of that name stays as it was.
+  QSaveFile file {path};
+  auto const bytes = text_.toLatin1 ();
+  if (!file.open (QIODevice::WriteOnly | QIODevice::Text)
+      || file.write (bytes) != bytes.size ()
+      || !file.commit ())
+    {
+      MessageBox::warning_message (this, tr ("Cabrillo log"), tr ("Cannot write \"%1\": %2")
                                    .arg (QDir::toNativeSeparators (path), file.errorString ()));
       return false;
     }
-  file.write (text_.toLatin1 ());
   return true;
 }
 

@@ -31,7 +31,7 @@ namespace DaysCalendar
     return result.join (", ");
   }
 
-  void show (QWidget * anchor, QSet<QDate> * days, std::function<void ()> changed)
+  void show (QWidget * anchor, QSet<QDate> * days, std::function<void ()> changed, QString const& none_text)
   {
     auto popup = new QFrame {anchor, Qt::Popup};
     popup->setAttribute (Qt::WA_DeleteOnClose);
@@ -106,8 +106,7 @@ namespace DaysCalendar
             style = "QToolButton{border:1px solid #0050c0}";
           cell->setStyleSheet (style);
         }
-      list->setText (days->isEmpty () ? QCoreApplication::translate ("DaysCalendar", "No days chosen: every QSO counts.")
-                     : text (*days, {}));
+      list->setText (days->isEmpty () ? none_text : text (*days, {}));
     };
     auto on_change = [=] {
       refresh ();

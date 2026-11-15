@@ -285,7 +285,7 @@ void ActiveStations::chooseWantedDays()
   DaysCalendar::show (ui->pbWantedDays, &m_wantedDays, [this] {
       showWantedDays ();
       emit activeStationsDisplay ();
-    });
+    }, tr ("No days chosen: every QSO counts."));
 }
 
 QSet<QDate> ActiveStations::chosenDays() const

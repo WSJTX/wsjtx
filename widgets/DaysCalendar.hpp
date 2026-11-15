@@ -22,8 +22,9 @@ namespace DaysCalendar
   //! clicking a day adds it to *days or removes it, then changed () is
   //! called at once. Monday first; today (UTC) is outlined. Closes on
   //! Close, Esc or a click outside it. *days must outlive the popup (it is
-  //! a child of anchor).
-  void show (QWidget * anchor, QSet<QDate> * days, std::function<void ()> changed);
+  //! a child of anchor). none_text is shown when no day is chosen: what that
+  //! means is the caller's to say (every QSO counts; nothing to export ...).
+  void show (QWidget * anchor, QSet<QDate> * days, std::function<void ()> changed, QString const& none_text);
 }
 
 #endif

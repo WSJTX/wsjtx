@@ -1,5 +1,8 @@
 #include <QtTest>
+#include <QApplication>
 #include <QCheckBox>
+#include <QFileInfo>
+#include <QTimer>
 #include <QDir>
 #include <QFile>
 #include <QPushButton>
@@ -67,13 +70,49 @@ private slots:
   void score_and_text ();
   void several_logs_and_weekends ();
   void review_points ();
+  void copies_dates_and_propagation ();
+  void save_is_safe ();
   void dialog ();
   void dialog_several_logs ();
   void dialog_keeps_typed_grids ();
   void buttons_stay_in_view ();
   void real_log ();
   void dummy_logs ();
+  void timing ();
 };
+
+// Optional: how long a big log takes. EME_CABRILLO_TIMING=<records>.
+void TestEmeCabrillo::timing ()
+{
+  auto const count = qEnvironmentVariableIntValue ("EME_CABRILLO_TIMING");
+  if (count <= 0) QSKIP ("EME_CABRILLO_TIMING not set");
+  QVector<EmeCabrillo::Record> records;
+  QDate const start {2020, 1, 1};
+  for (int i = 0; i < count; ++i)
+    {
+      auto const day = start.addDays (i * 7919 % 2500);   // not in time order
+      records << EmeCabrillo::Record {
+        {"CALL", QString {"K%1ABC"}.arg (i % 5000)}, {"QSO_DATE", day.toString ("yyyyMMdd")},
+        {"TIME_ON", QString {"%1"}.arg (i % 2400, 4, 10, QChar {'0'}).replace (2, 1, QChar ('0' + i % 6))},
+        {"BAND", i % 3 ? "2m" : "23cm"}, {"MODE", "MFSK"}, {"SUBMODE", i % 2 ? "FT8" : "Q65"},
+        {"GRIDSQUARE", QString {"FN%1"}.arg (i % 100, 2, 10, QChar {'0'})}};
+    }
+  QSet<QDate> const days {start.addDays (300), start.addDays (301), start.addDays (1000), start.addDays (1001)};
+  QElapsedTimer timer;
+  timer.start ();
+  auto const log = EmeCabrillo::prepare (records);
+  auto const sort_ms = timer.restart ();
+  EmeCabrillo::Selection s;
+  for (int i = 0; i < 3; ++i) s = EmeCabrillo::select (log, days, "DL3WDG", "JN68");
+  auto const select_ms = timer.restart ();
+  for (int i = 0; i < 3; ++i) s = EmeCabrillo::select (records, days, "DL3WDG", "JN68");
+  auto const unsorted_ms = timer.restart ();
+  auto const text = EmeCabrillo::cabrillo_text ({}, s.qsos);
+  qInfo () << count << "records: made ready once" << sort_ms << "ms; three selects from that" << select_ms
+           << "ms; three selects from the records as read" << unsorted_ms << "ms; text of" << s.qsos.size () << "QSOs"
+           << timer.elapsed () << "ms";
+  QVERIFY (!text.isEmpty ());
+}
 
 namespace
 {
@@ -224,6 +263,139 @@ void TestEmeCabrillo::review_points ()
   // the last record of a file cut short, without its <EOR>, still counts
   QCOMPARE (EmeCabrillo::read_adif ("<CALL:4>K1JT<EOR><CALL:5>W5LUA <BAND:2>2m").size (), 2);
   QCOMPARE (EmeCabrillo::read_adif ("<CALL:4>K1JT<EOR>\n").size (), 1);
+}
+
+// A copy that knows more, logs that disagree, PROP_MODE, TIME_OFF and
+// QSO_DATE_OFF, no time at all, the weekend's group from what is chosen,
+// header marks inside a field, records already in time order.
+void TestEmeCabrillo::copies_dates_and_propagation ()
+{
+  QSet<QDate> const day {QDate {2026, 10, 31}};
+  // the first log has no grid for K1JT, its copy in the second has; the
+  // two logs give different grids for W5LUA
+  QVector<EmeCabrillo::Record> copies;
+  auto const merged = EmeCabrillo::merge (
+    {EmeCabrillo::read_adif (record ("K1JT", "20261031", "0300", "23cm")
+                             + record ("W5LUA", "20261031", "0400", "23cm", "EM13")),
+     EmeCabrillo::read_adif (record ("K1JT", "20261031", "030030", "23cm", "FN20")
+                             + record ("W5LUA", "20261031", "0400", "23cm", "EM12"))}, &copies);
+  QCOMPARE (merged.size (), 2);
+  QCOMPARE (copies.size (), 2);
+  auto const s = EmeCabrillo::select (merged, day, "DL3WDG", "JN68");
+  QCOMPARE (s.qsos.size (), 2);
+  QCOMPARE (s.qsos[0].grid, QString {"FN20"});          // from the copy
+  QVERIFY (s.no_grid.isEmpty ());
+  QCOMPARE (calls (s.need_grid), QStringList {"W5LUA"}); // for the user to settle
+  QCOMPARE (s.need_grid[0].grid, QString {"EM13"});
+  QCOMPARE (s.need_grid[0].grid2, QString {"EM12"});
+  QHash<QString, QString> fixes;
+  fixes[s.need_grid[0].key] = "EM12";
+  auto const settled = EmeCabrillo::select (merged, day, "DL3WDG", "JN68", {}, fixes);
+  QCOMPARE (settled.qsos[1].grid, QString {"EM12"});
+  QVERIFY (settled.qsos[1].entered);
+  // the other way round the same two grids are flagged too
+  auto const reversed = EmeCabrillo::merge (
+    {EmeCabrillo::read_adif (record ("W5LUA", "20261031", "0400", "23cm", "EM12")),
+     EmeCabrillo::read_adif (record ("W5LUA", "20261031", "0400", "23cm", "EM13"))});
+  QCOMPARE (EmeCabrillo::select (reversed, day, "DL3WDG", "JN68").need_grid.size (), 1);
+
+  // PROP_MODE: EME or none may be EME; TR is not, SAT is a satellite QSO
+  auto const propagation = EmeCabrillo::read_adif (
+    record ("K1JT", "20261031", "0300", "23cm", "FN20", "MFSK", field ("PROP_MODE", "EME"))
+    + record ("G4CCH", "20261031", "0400", "23cm", "IO91", "MFSK", field ("PROP_MODE", "TR"))
+    + record ("ON8BB", "20261031", "0500", "23cm", "JO20", "MFSK", field ("PROP_MODE", "SAT"))
+    // only the end of the QSO is logged
+    + field ("CALL", "OK1KIR") + field ("QSO_DATE_OFF", "20261031") + field ("TIME_OFF", "0615")
+    + field ("BAND", "23cm") + field ("GRIDSQUARE", "JO70") + field ("MODE", "CW") + "<EOR>"
+    // no time at all
+    + field ("CALL", "SP6JLW") + field ("QSO_DATE", "20261031") + field ("BAND", "23cm")
+    + field ("GRIDSQUARE", "JO80") + field ("MODE", "CW") + "<EOR>");
+  auto const p = EmeCabrillo::select (propagation, day, "DL3WDG", "JN68");
+  QCOMPARE (calls (p.qsos), (QStringList {"K1JT", "OK1KIR"}));
+  QCOMPARE (p.qsos[1].time, QString {"0615"});
+  QCOMPARE (p.qsos[1].date, QDate (2026, 10, 31));
+  QCOMPARE (p.not_eme, 1);
+  QCOMPARE (p.satellite, 1);
+  QCOMPARE (p.no_time, QStringList {"SP6JLW"});
+  QVERIFY (!EmeCabrillo::cabrillo_text ({}, p.qsos).contains (" 0000 "));
+  QCOMPARE (EmeCabrillo::record_key (propagation[3]), QString {"OK1KIR|20261031|0615"});
+
+  // a microwave weekend: one 10 GHz Q65 QSO and ten 2 m FT8 ones
+  QByteArray log;
+  log += record ("OK1KIR", "20260905", "0100", "3cm", "JO70", "MFSK", field ("SUBMODE", "Q65"));
+  for (int i = 0; i < 10; ++i)
+    log += record (QString {"DL%1XYZ"}.arg (i), "20260905", QString {"02%1"}.arg (i, 2, 10, QChar {'0'}), "2m",
+                   "JO62", "MFSK", field ("SUBMODE", "FT8"));
+  QSet<QDate> const saturday {QDate {2026, 9, 5}};
+  auto const records = EmeCabrillo::read_adif (log);
+  auto const with_ft8 = EmeCabrillo::select (records, saturday, "DL3WDG", "JN68", {}, {}, true);
+  QCOMPARE (with_ft8.weekends[0].group, QString {"50-1296 MHz"});
+  auto const q65_only = EmeCabrillo::select (records, saturday, "DL3WDG", "JN68", {}, {}, true, {"Q65"});
+  QCOMPARE (q65_only.weekends[0].group, QString {"2.3 GHz and up"}); // FT8 no longer decides
+  QCOMPARE (calls (q65_only.qsos), QStringList {"OK1KIR"});
+  QVERIFY (q65_only.off_weekend.isEmpty ());
+  auto const only_10g = EmeCabrillo::select (records, saturday, "DL3WDG", "JN68", {"10G"}, {}, true);
+  QCOMPARE (calls (only_10g.qsos), QStringList {"OK1KIR"});       // nor does an unticked band
+
+  // <EOH> and <EOR> inside a field are text, not marks
+  auto const headerless = EmeCabrillo::read_adif ("<CALL:4>K1JT <COMMENT:5><EOH> <BAND:2>2m <EOR>");
+  QCOMPARE (headerless.size (), 1);
+  QCOMPARE (headerless[0].value ("COMMENT"), QString {"<EOH>"});
+  QCOMPARE (headerless[0].value ("BAND"), QString {"2m"});
+  auto const with_header = EmeCabrillo::read_adif (
+    "my log <ADIF_VER:5>3.1.4 <eoh>\n<CALL:5>W5LUA <NOTES:5><EOR> <BAND:2>2m <eor>");
+  QCOMPARE (with_header.size (), 1);
+  QCOMPARE (with_header[0].value ("NOTES"), QString {"<EOR>"});
+  QVERIFY (!with_header[0].contains ("ADIF_VER"));
+
+  // a log made ready once gives the same entry as the records as read
+  auto const unsorted = EmeCabrillo::read_adif (pc23_log () + pc10_log ());
+  QCOMPARE (EmeCabrillo::cabrillo_text ({}, EmeCabrillo::select (EmeCabrillo::prepare (unsorted),
+                                                                  six_days (), "DL3WDG", "JN68").qsos),
+            EmeCabrillo::cabrillo_text ({}, EmeCabrillo::select (unsorted, six_days (), "DL3WDG", "JN68").qsos));
+}
+
+// Save never replaces a log the entry is made from, also not through a
+// link; it reports a file it cannot write, and then leaves an earlier
+// export as it was.
+void TestEmeCabrillo::save_is_safe ()
+{
+  QTemporaryDir directory;
+  QVERIFY (directory.isValid ());
+  auto const adif = write_file (directory, "wsjtx_log.adi", contest_log ());
+  auto const other = write_file (directory, "other.adi", pc23_log ());
+  QSettings settings {directory.filePath ("settings.ini"), QSettings::IniFormat};
+  settings.setValue ("EmeCabrillo/Logs", QStringList {EmeCabrilloDialog::own_log (), other});
+  EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", contest_days (), directory.path ()};
+  // the message boxes of a refused save are closed as they come up
+  QTimer closer;
+  connect (&closer, &QTimer::timeout, [] {
+      if (auto box = QApplication::activeModalWidget ()) box->close ();
+    });
+  closer.start (20);
+  QVERIFY (!dialog.save_to (adif));                     // WSJT-X's own log
+  QVERIFY (!dialog.save_to (other));                    // another input log
+  QVERIFY (!dialog.save_to (directory.filePath ("./other.adi")));   // the same file, written differently
+  auto const link = directory.filePath ("link.adi");
+  if (QFile::link (other, link) && QFileInfo {link}.isSymLink ()
+      && QFileInfo {link}.canonicalFilePath () == QFileInfo {other}.canonicalFilePath ())
+    QVERIFY (!dialog.save_to (link));                   // a link to it
+  for (auto const& path : {adif, other})
+    {
+      QFile file {path};
+      QVERIFY (file.open (QIODevice::ReadOnly));
+      QCOMPARE (file.readAll (), path == adif ? contest_log () : pc23_log ());
+    }
+  // a normal save, then one that cannot be written: the first stays whole
+  auto const out = directory.filePath ("entry.log");
+  QVERIFY (dialog.save_to (out));
+  QFile saved {out};
+  QVERIFY (saved.open (QIODevice::ReadOnly | QIODevice::Text));
+  auto const first = saved.readAll ();
+  saved.close ();
+  QCOMPARE (QString::fromLatin1 (first), dialog.cabrillo_text ());
+  QVERIFY (!dialog.save_to (directory.filePath ("no_such_folder/entry.log")));
+  QCOMPARE (QDir {directory.path ()}.entryList ({"entry.log*"}).size (), 1);   // no temporary file left
 }
 
 // Two logs in the dialog, the band-group check, WSJT-X's own log added and a

@@ -79,7 +79,9 @@ the ADIF log: the QSOs on the chosen days, on the bands you tick, with
 both stations' 4-character grid squares on every QSO line as the rules
 require. The ADIF log holds every QSO made on those days, in any mode:
 the modes found are shown with their QSO counts, so untick any that
-were not EME (for example FT8 or MSK144 on 2 m). A station counts once
+were not EME (for example FT8 or MSK144 on 2 m). A QSO that another
+program logged with a propagation mode other than EME (PROP_MODE) is
+left out. A station counts once
 per band from each grid it works from; repeats are left out and listed.
 QSOs logged without a grid are listed so you can type their grids in
 all at once; the grids you type are remembered. A grid found in another
@@ -87,7 +89,9 @@ QSO with the same station is used, and shown so that you can check it
 and type the right one if it differs. ARRL takes one log for all bands
 and weekends, so a station that logs on several PCs can *Add file...*
 for each PC's ADIF log: they are merged, and a QSO found in two of them
-counts once. Every ADIF file is only read, never changed. The two band
+counts once; if the two logs give different grids for it you are asked
+to type the right one. Every ADIF file is only read, never changed, and
+the Cabrillo file cannot be saved over one of them. The two band
 groups (50-1296 MHz and 2.3 GHz and up) have their own weekends; a QSO
 on a band of the other group than its weekend's (the group with more
 QSOs that weekend) is flagged for checking, and a box lets you leave

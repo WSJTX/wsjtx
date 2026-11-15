@@ -26,7 +26,9 @@ namespace EmeCabrillo
   QVector<Record> read_adif (QByteArray const& adif);
 
   //! Cabrillo band of a record ("50", "144", "1.2G", "10G" ...), empty if it
-  //! is not on an EME contest band or is a satellite QSO.
+  //! is not on an EME contest band, is a satellite QSO, or is logged with
+  //! another PROP_MODE than EME (records without PROP_MODE - WSJT-X writes
+  //! none - may be EME).
   QString band_code (Record const&);
 
   //! Cabrillo mode of a record: CW, PH or DG (any digital mode).
@@ -44,8 +46,28 @@ namespace EmeCabrillo
   //! A 4-character grid square ("JN68") from a grid, empty if it is none.
   QString grid4 (QString const& grid);
 
-  //! Identity of a logged QSO: call, QSO_DATE and the minute of TIME_ON.
+  //! The QSO's date: QSO_DATE, else QSO_DATE_OFF (ARRL's ADIF field list
+  //! allows either); invalid if neither is a date.
+  QDate record_date (Record const&);
+
+  //! The QSO's time, hhmm: TIME_ON, else TIME_OFF; empty if neither is a
+  //! time. Such a QSO is reported, never written as 0000.
+  QString record_time (Record const&);
+
+  //! Identity of a logged QSO: call, record_date () and record_time ().
   QString record_key (Record const&);
+
+  //! A log made ready for select (): everything that does not depend on
+  //! the days, bands, modes or typed grids is worked out once here, so that
+  //! a selection only goes through the QSOs on the chosen days.
+  struct Log
+  {
+    QVector<Record> records;            // in time order
+    QVector<QDate> dates;               // record_date () of each, so in order too
+    QHash<QString, QString> known;      // call -> the newest grid logged for it
+  };
+
+  Log prepare (QVector<Record> const& records);
 
   //! The contest's two band groups have their own weekends (for example
   //! 2.3 GHz and up on two weekends, 50-1296 MHz on two later ones). Which
@@ -60,7 +82,10 @@ namespace EmeCabrillo
   //! as one list, each tagged "_FILE" = the index of its log. The same QSO
   //! (record_key and band) in a later log is a copy (one log imported into
   //! the other) and is left out, into copies if given; repeats inside one
-  //! log are kept - they are the contest's dupes.
+  //! log are kept - they are the contest's dupes. A copy may know more
+  //! than the record kept: its grid is taken if that one has none, and a
+  //! different grid is noted in "_GRID2" for the user to settle, so that
+  //! the order of the logs does not decide the exchange.
   QVector<Record> merge (QVector<QVector<Record>> const& logs, QVector<Record> * copies = nullptr);
 
   struct Qso
@@ -77,6 +102,7 @@ namespace EmeCabrillo
     bool filled {false};        // grid taken from another QSO with the call
     bool entered {false};       // grid typed in by the user
     bool dupe {false};          // worked before on the band from that grid
+    QString grid2;              // another log has this other grid for the QSO
     QString mode_name;          // mode_name ()
     QString op;                 // OPERATOR
   };
@@ -99,7 +125,10 @@ namespace EmeCabrillo
     QMap<QString, int> modes;   // mode_name -> QSOs on the days and bands
     int mode_out {0};           // left out: their mode was not chosen
     QSet<QString> bands;        // bands with QSOs on the days (before the band choice)
+    QStringList no_time;        // calls of QSOs without a usable time: left out
+    int not_eme {0};            // logged with another PROP_MODE than EME or SAT
     QVector<Weekend> weekends;  // the days as weekends, with their band group
+                                // (from the QSOs on the bands and modes chosen)
     QVector<Qso> off_weekend;   // on a band of the other group than their weekend's
     QStringList operators;      // OPERATOR fields of the QSOs kept, sorted
     int satellite {0};
@@ -114,6 +143,14 @@ namespace EmeCabrillo
   //! its weekend's group is listed in off_weekend and, if
   //! leave_out_off_weekend, left out. modes (mode_name values; empty = all)
   //! leaves the other modes out.
+  Selection select (Log const& log, QSet<QDate> const& days,
+                    QString const& my_call, QString const& my_grid,
+                    QSet<QString> const& bands = {},
+                    QHash<QString, QString> const& fixes = {},
+                    bool leave_out_off_weekend = false,
+                    QSet<QString> const& modes = {});
+
+  //! The same from records as read: select (prepare (records), ...).
   Selection select (QVector<Record> const& records, QSet<QDate> const& days,
                     QString const& my_call, QString const& my_grid,
                     QSet<QString> const& bands = {},

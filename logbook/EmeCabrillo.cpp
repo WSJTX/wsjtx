@@ -50,27 +50,95 @@ namespace EmeCabrillo
         || record.value ("PROP_MODE").trimmed ().toUpper () == "SAT";
     }
 
-    QString padded_time (QString const& time_on)
+    // Another propagation than EME, as logged: "SAT", "TR", "MS" ...; empty
+    // for EME and for records without PROP_MODE (WSJT-X writes none).
+    QString other_propagation (Record const& record)
     {
-      return (time_on.trimmed () + "0000").left (4);
+      if (is_satellite (record)) return QStringLiteral ("SAT");
+      auto const mode = record.value ("PROP_MODE").trimmed ().toUpper ();
+      return mode == "EME" ? QString {} : mode;
     }
 
-    bool earlier (Record const& a, Record const& b)
+    // hhmmss of TIME_ON, else of TIME_OFF (seconds 00 if not logged); empty
+    // if neither is a time
+    bool all_digits (QString const& text)
     {
-      auto const da = a.value ("QSO_DATE"), db = b.value ("QSO_DATE");
-      if (da != db) return da < db;
-      return (a.value ("TIME_ON") + "000000").left (6) < (b.value ("TIME_ON") + "000000").left (6);
+      for (auto const& c : text) if (c < QChar {'0'} || c > QChar {'9'}) return false;
+      return !text.isEmpty ();
     }
+
+    QString time6 (Record const& record)
+    {
+      for (auto const * name : {"TIME_ON", "TIME_OFF"})
+        {
+          auto const time = record.value (name).trimmed ();
+          if ((time.size () == 4 || time.size () == 6) && all_digits (time)) return (time + "00").left (6);
+        }
+      return {};
+    }
+
+    // yyyymmdd of QSO_DATE, else of QSO_DATE_OFF; empty if neither is a date
+    QString date8 (Record const& record)
+    {
+      for (auto const * name : {"QSO_DATE", "QSO_DATE_OFF"})
+        {
+          auto const date = record.value (name).trimmed ();
+          if (date.size () == 8 && all_digits (date)
+              && QDate::isValid (date.left (4).toInt (), date.mid (4, 2).toInt (), date.mid (6, 2).toInt ()))
+            return date;
+        }
+      return {};
+    }
+
+  }
+
+  QDate record_date (Record const& record)
+  {
+    return QDate::fromString (date8 (record), "yyyyMMdd");
+  }
+
+  QString record_time (Record const& record)
+  {
+    return time6 (record).left (4);
+  }
+
+  Log prepare (QVector<Record> const& records)
+  {
+    // sorted by a key made once per record (date, time), not by reading
+    // the fields again at every comparison
+    QVector<QString> keys;
+    keys.reserve (records.size ());
+    for (auto const& record : records) keys << date8 (record) + time6 (record);
+    QVector<int> order (records.size ());
+    for (int i = 0; i < order.size (); ++i) order[i] = i;
+    std::stable_sort (order.begin (), order.end (), [&keys] (int a, int b) {return keys[a] < keys[b];});
+    Log log;
+    log.records.reserve (records.size ());
+    log.dates.reserve (records.size ());
+    for (auto const index : order)
+      {
+        auto const& record = records[index];
+        log.records << record;
+        log.dates << QDate::fromString (keys[index].left (8), "yyyyMMdd");  // invalid if it has none
+        // the newest grid logged for each call, for QSOs logged without one
+        auto const grid = record.value ("GRIDSQUARE");
+        if (!grid.isEmpty ())
+          {
+            auto const g = grid4 (grid);
+            if (!g.isEmpty ()) log.known[record.value ("CALL").trimmed ().toUpper ()] = g;
+          }
+      }
+    return log;
   }
 
   QVector<Record> read_adif (QByteArray const& adif)
   {
     static QRegularExpression const tag {QStringLiteral ("<([A-Za-z0-9_]+)(?::(\\d+)(?::[A-Za-z])?)?>")};
     QVector<Record> records;
-    // the header, if there is one, ends at <EOH>
+    // The tags are read in order and every field's text is skipped by its
+    // length, so an "<EOH>" or "<EOR>" inside a field (a comment, say) is
+    // never taken for the real one.
     int position = 0;
-    auto const eoh = adif.toUpper ().indexOf ("<EOH>");
-    if (eoh >= 0) position = eoh + 5;
     // work on Latin-1 text so that offsets are byte offsets, as ADIF counts
     auto const text = QString::fromLatin1 (adif);
     Record current;
@@ -80,7 +148,12 @@ namespace EmeCabrillo
         if (!match.hasMatch ()) break;
         auto const name = match.captured (1).toUpper ();
         position = match.capturedEnd ();
-        if (name == "EOR")
+        if (name == "EOH")
+          {
+            // what came before the first record was the header
+            if (records.isEmpty ()) current.clear ();
+          }
+        else if (name == "EOR")
           {
             if (!current.isEmpty ()) records << current;
             current.clear ();
@@ -99,7 +172,7 @@ namespace EmeCabrillo
 
   QString band_code (Record const& record)
   {
-    if (is_satellite (record)) return {};
+    if (!other_propagation (record).isEmpty ()) return {};
     auto const band = record.value ("BAND").trimmed ().toLower ();
     if (!band.isEmpty ())
       {
@@ -166,8 +239,7 @@ namespace EmeCabrillo
 
   QString record_key (Record const& record)
   {
-    return record.value ("CALL").trimmed ().toUpper () + '|' + record.value ("QSO_DATE").trimmed ()
-      + '|' + padded_time (record.value ("TIME_ON"));
+    return record.value ("CALL").trimmed ().toUpper () + '|' + date8 (record) + '|' + record_time (record);
   }
 
   QString band_group (QString const& band_code)
@@ -195,7 +267,12 @@ namespace EmeCabrillo
 
   QVector<Record> merge (QVector<QVector<Record>> const& logs, QVector<Record> * copies)
   {
-    QHash<QString, int> first;          // QSO -> the log it was first seen in
+    struct First
+    {
+      int log;                          // the log the QSO was first seen in
+      int index;                        // its place in result
+    };
+    QHash<QString, First> first;
     QVector<Record> result;
     for (int i = 0; i < logs.size (); ++i)
       for (auto record : logs[i])
@@ -204,12 +281,21 @@ namespace EmeCabrillo
           if (band.isEmpty ()) band = record.value ("BAND").trimmed ().toLower ();
           auto const key = record_key (record) + '|' + band;
           record["_FILE"] = QString::number (i);
-          if (first.value (key, i) != i)
+          auto const seen = first.constFind (key);
+          if (seen != first.cend () && seen->log != i)
             {
+              // a copy - but it may know more than the record kept
+              auto& kept = result[seen->index];
+              auto const grid = grid4 (record.value ("GRIDSQUARE"));
+              auto const kept_grid = grid4 (kept.value ("GRIDSQUARE"));
+              if (!grid.isEmpty () && kept_grid.isEmpty ())
+                kept["GRIDSQUARE"] = record.value ("GRIDSQUARE");
+              else if (!grid.isEmpty () && grid != kept_grid)
+                kept["_GRID2"] = grid;  // the logs disagree: for the user to settle
               if (copies) *copies << record;
               continue;
             }
-          first.insert (key, i);
+          if (seen == first.cend ()) first.insert (key, First {i, int (result.size ())});
           result << record;
         }
     return result;
@@ -220,22 +306,61 @@ namespace EmeCabrillo
                     QSet<QString> const& bands, QHash<QString, QString> const& fixes,
                     bool leave_out_off_weekend, QSet<QString> const& modes)
   {
+    return select (prepare (records), days, my_call, my_grid, bands, fixes, leave_out_off_weekend, modes);
+  }
+
+  Selection select (Log const& log, QSet<QDate> const& days,
+                    QString const& my_call, QString const& my_grid,
+                    QSet<QString> const& bands, QHash<QString, QString> const& fixes,
+                    bool leave_out_off_weekend, QSet<QString> const& modes)
+  {
     Selection result;
-    auto sorted = records;
-    std::stable_sort (sorted.begin (), sorted.end (), earlier);
-    // each weekend's band group = the group with more QSOs that weekend
-    QHash<QDate, QString> group_of_day;
+    // The records on the chosen days, in time order: the log's dates are in
+    // order, so each day's records are found without going through the log.
+    QList<QDate> chosen_days;
+    for (auto const& day : days) if (day.isValid ()) chosen_days << day;
+    std::sort (chosen_days.begin (), chosen_days.end ());
+    QVector<int> chosen;
+    for (auto const& day : chosen_days)
+      {
+        auto const range = std::equal_range (log.dates.cbegin (), log.dates.cend (), day);
+        for (auto i = range.first; i != range.second; ++i)
+          if (!log.records[int (i - log.dates.cbegin ())].value ("CALL").trimmed ().isEmpty ())
+            chosen << int (i - log.dates.cbegin ());
+      }
+    // Each weekend's band group = the group with more QSOs that weekend,
+    // counting only what can be in the entry: QSOs on a band or in a mode
+    // that is not chosen do not decide (ten 2 m FT8 contacts must not turn
+    // a microwave weekend into a 50-1296 MHz one).
     for (auto const& days_of_weekend : weekends (days))
       {
         Weekend weekend;
         weekend.days = days_of_weekend;
-        for (auto const& record : sorted)
-          {
-            auto const date = QDate::fromString (record.value ("QSO_DATE").trimmed (), "yyyyMMdd");
-            if (record.value ("CALL").trimmed ().isEmpty () || !days_of_weekend.contains (date)) continue;
-            auto const band = band_code (record);
-            if (!band.isEmpty ()) ++weekend.qsos[band_group (band)];
-          }
+        result.weekends << weekend;
+      }
+    QHash<QDate, int> weekend_of_day;
+    for (int i = 0; i < result.weekends.size (); ++i)
+      for (auto const& day : result.weekends[i].days) weekend_of_day[day] = i;
+    // a typed grid also serves the call's other QSOs, if none has a grid logged
+    auto known = log.known;
+    QHash<QString, QString> typed;      // call -> a grid typed for one of its QSOs
+    for (auto const index : chosen)
+      {
+        auto const& record = log.records[index];
+        auto const band = band_code (record);
+        if (!band.isEmpty () && (bands.isEmpty () || bands.contains (band))
+            && (modes.isEmpty () || modes.contains (mode_name (record))))
+          ++result.weekends[weekend_of_day.value (log.dates[index])].qsos[band_group (band)];
+        if (fixes.isEmpty ()) continue;
+        auto const g = grid4 (fixes.value (record_key (record)));
+        auto const call = record.value ("CALL").trimmed ().toUpper ();
+        if (!g.isEmpty () && !typed.contains (call)) typed[call] = g;
+      }
+    for (auto i = typed.cbegin (); i != typed.cend (); ++i)
+      if (!known.contains (i.key ())) known[i.key ()] = i.value ();
+    QHash<QDate, QString> group_of_day;
+    for (auto& weekend : result.weekends)
+      {
         int most = 0;
         for (auto i = weekend.qsos.cbegin (); i != weekend.qsos.cend (); ++i)
           {
@@ -249,33 +374,21 @@ namespace EmeCabrillo
                 weekend.group.clear ();     // as many of each: can't tell
               }
           }
-        for (auto const& day : days_of_weekend) group_of_day[day] = weekend.group;
-        result.weekends << weekend;
-      }
-    // the newest grid logged for each call, for QSOs logged without one
-    QHash<QString, QString> known;
-    for (auto const& record : sorted)
-      {
-        auto const g = grid4 (record.value ("GRIDSQUARE"));
-        if (!g.isEmpty ()) known[record.value ("CALL").trimmed ().toUpper ()] = g;
-      }
-    // a typed grid also serves the call's other QSOs, if none has a grid logged
-    for (auto const& record : sorted)
-      {
-        auto const g = grid4 (fixes.value (record_key (record)));
-        auto const call = record.value ("CALL").trimmed ().toUpper ();
-        if (!g.isEmpty () && !known.contains (call)) known[call] = g;
+        for (auto const& day : weekend.days) group_of_day[day] = weekend.group;
       }
     QSet<QString> seen;
-    for (auto const& record : sorted)
+    for (auto const index : chosen)
       {
+        auto const& record = log.records[index];
         auto const call = record.value ("CALL").trimmed ().toUpper ();
-        auto const date = QDate::fromString (record.value ("QSO_DATE").trimmed (), "yyyyMMdd");
-        if (call.isEmpty () || !days.contains (date)) continue;
+        auto const date = log.dates[index];
         auto const band = band_code (record);
         if (band.isEmpty ())
           {
-            if (is_satellite (record)) ++result.satellite; else ++result.other;
+            auto const propagation = other_propagation (record);
+            if (propagation == "SAT") ++result.satellite;
+            else if (!propagation.isEmpty ()) ++result.not_eme;   // logged as TR, MS ...
+            else ++result.other;
             continue;
           }
         result.bands << band;
@@ -296,7 +409,12 @@ namespace EmeCabrillo
         qso.band = band;
         qso.mode = mode_code (record);
         qso.date = date;
-        qso.time = padded_time (record.value ("TIME_ON"));
+        qso.time = record_time (record);
+        if (qso.time.isEmpty ())        // no TIME_ON or TIME_OFF: reported, never 0000
+          {
+            result.no_time << call;
+            continue;
+          }
         qso.my_call = record.value ("STATION_CALLSIGN").trimmed ().toUpper ();
         if (qso.my_call.isEmpty ()) qso.my_call = my_call.trimmed ().toUpper ();
         qso.my_grid = grid4 (record.value ("MY_GRIDSQUARE"));
@@ -304,7 +422,8 @@ namespace EmeCabrillo
         qso.call = call;
         qso.key = record_key (record);
         qso.grid = grid4 (record.value ("GRIDSQUARE"));
-        if (qso.grid.isEmpty () && !grid4 (fixes.value (qso.key)).isEmpty ())
+        qso.grid2 = grid4 (record.value ("_GRID2"));    // another log has another grid
+        if ((qso.grid.isEmpty () || !qso.grid2.isEmpty ()) && !grid4 (fixes.value (qso.key)).isEmpty ())
           {
             qso.grid = grid4 (fixes.value (qso.key));
             qso.entered = true;
@@ -314,7 +433,7 @@ namespace EmeCabrillo
             qso.grid = known.value (call);
             qso.filled = true;
           }
-        qso.op =record.value ("OPERATOR").trimmed ().toUpper ();
+        qso.op = record.value ("OPERATOR").trimmed ().toUpper ();
         auto const weekend_group = group_of_day.value (date);
         if (!weekend_group.isEmpty () && band_group (band) != weekend_group)
           {
@@ -333,11 +452,12 @@ namespace EmeCabrillo
             qso.dupe = true;
             result.dupes << qso;
             // still listed for its grid: the filled or typed one may be wrong
-            if (qso.filled || qso.entered) result.need_grid << qso;
+            if (qso.filled || qso.entered || !qso.grid2.isEmpty ()) result.need_grid << qso;
             continue;
           }
         seen << once;
-        if (qso.filled || qso.entered) result.need_grid << qso;
+        // also when the logs disagree about the grid: the user settles it
+        if (qso.filled || qso.entered || !qso.grid2.isEmpty ()) result.need_grid << qso;
         result.qsos << qso;
       }
     QSet<QString> operators;

@@ -63,6 +63,7 @@ private:
   void choose_file ();
   void load ();
   void refresh ();
+  void update_text ();
   void count_logs ();
   void show_logs ();
   void show_bands ();
@@ -82,7 +83,8 @@ private:
   QVector<QVector<EmeCabrillo::Record>> log_records_;
   QVector<int> log_state_;              // per log: 0 read, 1 own log not there yet, 2 unreadable
   QStringList log_info_;                // per log: what it holds, or the error
-  QVector<EmeCabrillo::Record> records_; // merged
+  QVector<QVector<QDate>> log_dates_;   // the date of each of their records
+  EmeCabrillo::Log log_;                // merged and made ready for select ()
   QVector<EmeCabrillo::Record> copies_; // the same QSO in a later log
   QStringList load_errors_;
   bool operators_filled_ {false};
