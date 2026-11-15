@@ -573,6 +573,62 @@ bool OperatingBandApplicationTestController::modeEntry ()
     return state.rx == 9998200 && !state.pendingRx && !state.pendingTx;
   }, "FreqCal did not safely resume at the remaining reference after the list shrank.")) return false;
 
+  frequencies->frequency_list ({item (10000000, Modes::FreqCal), item (15000000, Modes::FreqCal)});
+  auto const monitoring_before_reference = window_->m_monitoring;
+  window_->ui->RxFreqSpinBox->setValue (1000);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return !state.pendingRx && !state.pendingTx;
+  }, "FreqCal did not settle after the audio change before choosing a reference.")) return false;
+  int reference_row = -1;
+  for (int row = 0; row < frequencies->rowCount () && reference_row < 0; ++row)
+    {
+      Frequency frequency;
+      if (window_->workingFrequencyAt (row, frequency) && frequency == 15000000) reference_row = row;
+    }
+  if (!require (reference_row >= 0, "The FreqCal fixture lost its 15 MHz reference row.")) return false;
+  window_->on_bandComboBox_activated (reference_row);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 14999000 && !state.pendingRx && !state.pendingTx;
+  }, "Choosing a FreqCal reference did not put it at the Rx audio frequency.")) return false;
+  if (!require (window_->m_frequency_list_fcal_iter != frequencies->end ()
+                && window_->m_frequency_list_fcal_iter->frequency_ == 15000000,
+                "Choosing a FreqCal reference left the calibration position elsewhere.")) return false;
+  window_->freqCalStep ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 9999000 && !state.pendingRx && !state.pendingTx;
+  }, "The calibration cycle did not continue from the chosen FreqCal reference.")) return false;
+  window_->on_bandComboBox_activated (reference_row);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 14999000 && !state.pendingRx && !state.pendingTx;
+  }, "Choosing the FreqCal reference again did not put it at the Rx audio frequency.")) return false;
+  window_->ui->RxFreqSpinBox->setValue (1200);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 14998800 && !state.pendingRx && !state.pendingTx;
+  }, "A FreqCal audio change after choosing a reference did not keep that reference.")) return false;
+  window_->ui->RxFreqSpinBox->setValue (1000);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 14999000 && !state.pendingRx && !state.pendingTx
+      && window_->m_rigState.frequency () == state.correctedRx;
+  }, "FreqCal did not return to the 1000 Hz audio reference.")) return false;
+  if (!setFrequency (window_->m_operatingFrequency.rx () + 1000, true)) return false;
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 15000000 && !state.pendingRx && !state.pendingTx;
+  }, "A 1 kHz FreqCal dial step onto a reference frequency was not a plain step.")) return false;
+  window_->monitor (false);
+  window_->ui->monitorButton->click ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return window_->m_monitoring && state.rx == 15000000 && !state.pendingRx && !state.pendingTx;
+  }, "Restarting Monitor pulled a FreqCal dial set to a reference frequency back to reference - Rx.")) return false;
+  if (!monitoring_before_reference) window_->monitor (false);
+
   auto const empty_list_frequency = window_->m_operatingFrequency.rx ();
   frequencies->frequency_list ({});
   window_->ui->actionFreqCal->trigger ();

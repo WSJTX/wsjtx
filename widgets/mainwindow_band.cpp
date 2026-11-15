@@ -180,7 +180,7 @@ void MainWindow::applyOperatingBandPlan (OperatingBand::Plan const& plan,
   if (plan.flushSpots) m_psk_Reporter.sendReport ();
   if (plan.monitor && *plan.monitor != m_monitoring) monitor (*plan.monitor);
   if (!current ()) return;
-  if (plan.initializeFreqCal) m_frequency_list_fcal_iter = m_config.frequencies ()->find (state.frequency.rx);
+  if (plan.initializeFreqCal) m_frequency_list_fcal_iter = calibrationEntryForDial (state.frequency.rx);
   if (plan.updateTxPlan) setXIT (context.txAudio);
   if (!current ()) return;
   if (plan.resetFox) FoxReset ("BandChange");
@@ -224,6 +224,23 @@ void MainWindow::applyOperatingBandPlan (OperatingBand::Plan const& plan,
   if (plan.rxChanged && !m_modeEntries.active ()) statusChanged ();
 }
 
+// In FreqCal a list entry is a station to receive, so choosing one tunes
+// the dial to entry - Rx rather than to the entry itself.
+auto MainWindow::listSelectionDial (Frequency entry) const -> Frequency
+{
+  if (m_mode != "FreqCal") return entry;
+  auto const dial = OperatingBand::calibrationDial (entry, ui->RxFreqSpinBox->value ());
+  return dial ? *dial : entry;
+}
+
+// FreqCal tunes the dial to entry - Rx, so the entry being received is dial + Rx.
+auto MainWindow::calibrationEntryForDial (Frequency dial) const -> FrequencyList_v2_101::const_iterator
+{
+  auto const frequencies = m_config.frequencies ();
+  auto const reference = OperatingBand::calibrationReference (dial, ui->RxFreqSpinBox->value ());
+  return reference ? frequencies->find (*reference) : frequencies->end ();
+}
+
 void MainWindow::completeModeFrequencyChange (ModeEntry::Operation const& operation)
 {
   auto const& request = operation.request;
@@ -232,13 +249,7 @@ void MainWindow::completeModeFrequencyChange (ModeEntry::Operation const& operat
   bool accepted = false;
   std::optional<Frequency> target;
   if (request.mode == "FreqCal")
-    {
-      auto const rx = m_operatingFrequency.rx ();
-      auto const audio = ui->RxFreqSpinBox->value ();
-      auto const frequencies = m_config.frequencies ();
-      m_frequency_list_fcal_iter = audio >= 0 && rx <= std::numeric_limits<Frequency>::max () - audio
-        ? frequencies->find (rx + audio) : frequencies->end ();
-    }
+    m_frequency_list_fcal_iter = calibrationEntryForDial (m_operatingFrequency.rx ());
   if (m_modeEntries.current (operation.identity) && policy.target != ModeEntry::TargetKind::None
       && nominalFrequencyChangeAllowed (request.userInitiated ? FrequencyRequestOrigin::User : FrequencyRequestOrigin::Automatic))
     {
