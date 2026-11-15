@@ -138,7 +138,6 @@
 #include "CabrilloLogWindow.hpp"
 #include "ExportCabrillo.h"
 #include "EmeCabrilloDialog.hpp"
-#include "DaysCalendar.hpp"
 #include "SettingsGroup.hpp"
 #include "Network/Cloudlog.hpp"
 #include "ui_mainwindow.h"
@@ -5124,8 +5123,6 @@ void MainWindow::on_actionActiveStations_triggered()
   // connect up another signal to handle clicks in the Activity window when in Fox mode
   connect(m_ActiveStationsWidget.data(), SIGNAL(queueActiveWindowHound(QString)),this,SLOT(queueActiveWindowHound2(QString)),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
   connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
-  connect(m_ActiveStationsWidget.data(), &ActiveStations::exportEmeCabrillo,
-          this, &MainWindow::on_actionExport_EME_Cabrillo_log_triggered, Qt::UniqueConnection);
   m_ActiveStationsWidget->setScore(m_score);
   showQ65QsoCount();
 }
@@ -12755,9 +12752,10 @@ void MainWindow::on_actionExport_Cabrillo_log_triggered()
     }
 }
 
-// A Cabrillo log for the ARRL EME contest from the ADIF log, on the days
-// chosen in Active Stations ("on days"); changing them here changes them
-// there too.
+// A Cabrillo log for the ARRL EME contest from the ADIF log, on the
+// dialog's own contest days. Active Stations' "on days" are only the first
+// suggestion; after that the two are kept apart, so log work never changes
+// what is used while operating.
 void MainWindow::on_actionExport_EME_Cabrillo_log_triggered()
 {
   QSet<QDate> days;
@@ -12777,17 +12775,6 @@ void MainWindow::on_actionExport_EME_Cabrillo_log_triggered()
   auto const adif = m_config.adif_log_file_path ();
   EmeCabrilloDialog dialog {m_settings, adif, m_config.my_callsign (), m_config.my_grid (), days,
                             QFileInfo {adif}.absolutePath (), this};
-  connect (&dialog, &EmeCabrilloDialog::days_changed, this, [this] (QSet<QDate> const& chosen) {
-      if (m_ActiveStationsWidget)
-        {
-          m_ActiveStationsWidget->setChosenDays (chosen);
-          return;
-        }
-      SettingsGroup group {m_settings, "ActiveStations"};
-      QStringList list;
-      for (auto const& day : DaysCalendar::sorted (chosen)) list << day.toString (Qt::ISODate);
-      m_settings->setValue ("WantedDayList", list);
-    });
   dialog.exec ();
 }
 

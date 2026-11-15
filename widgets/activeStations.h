@@ -37,11 +37,8 @@ public:
   // list); empty (= every QSO counts) when the "on days" box is not checked.
   QSet<QDate> wantedDays() const;
   // The chosen days themselves, whether or not "on days" is checked (the
-  // ARRL EME Cabrillo export uses them too).
+  // ARRL EME Cabrillo dialog's first suggestion; it keeps its own after).
   QSet<QDate> chosenDays() const;
-  void setChosenDays(QSet<QDate> const&);
-  // "Cabrillo…" clicked (Q65 list): make an ARRL EME Cabrillo log.
-  Q_SIGNAL void exportEmeCabrillo();
   void setRate(int n);
   void setBandChanges(int n);
   void setScore(int n);

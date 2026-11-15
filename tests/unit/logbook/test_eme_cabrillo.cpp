@@ -75,6 +75,7 @@ private slots:
   void dialog ();
   void dialog_several_logs ();
   void dialog_keeps_typed_grids ();
+  void dialog_keeps_own_days ();
   void buttons_stay_in_view ();
   void real_log ();
   void dummy_logs ();
@@ -522,6 +523,35 @@ void TestEmeCabrillo::dialog_keeps_typed_grids ()
     QVERIFY (!dialog.cabrillo_text ().contains ("G4CCH"));
   }
   QCOMPARE (settings.value ("EmeCabrillo/TypedGrids").toStringList ().size (), 1);
+}
+
+// The dialog's contest days are its own: the days it is opened with (Active
+// Stations' "on days") count only the first time; after that the saved days
+// are used, whatever Active Stations has meanwhile.
+void TestEmeCabrillo::dialog_keeps_own_days ()
+{
+  QTemporaryDir directory;
+  QVERIFY (directory.isValid ());
+  auto const adif = write_file (directory, "wsjtx_log.adi", QByteArray {"<EOH>\n"}
+                                + record ("W5LUA", "20261031", "0400", "23cm", "EM13")
+                                + record ("G4CCH", "20261101", "0800", "23cm", "IO91")
+                                + record ("K2UYH", "20261128", "0900", "23cm", "FN20"));
+  QSettings settings {directory.filePath ("settings.ini"), QSettings::IniFormat};
+  QSet<QDate> const weekend {QDate {2026, 10, 31}, QDate {2026, 11, 1}};
+  QSet<QDate> const other {QDate {2026, 11, 28}};
+  {
+    EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", weekend, directory.path ()};
+    QCOMPARE (dialog.days (), weekend);                             // first time: as given
+    QCOMPARE (dialog.selection ().qsos.size (), 2);
+  }
+  QCOMPARE (settings.value ("EmeCabrillo/Days").toStringList (),
+            (QStringList {"2026-10-31", "2026-11-01"}));
+  QVERIFY (!settings.contains ("ActiveStations/WantedDayList"));    // never written
+  {
+    EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", other, directory.path ()};
+    QCOMPARE (dialog.days (), weekend);                             // its own, not "other"
+    QCOMPARE (dialog.selection ().qsos.size (), 2);
+  }
 }
 
 // Save and Close stay in view in a small window with many missing grids.

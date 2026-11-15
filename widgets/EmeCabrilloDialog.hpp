@@ -37,6 +37,8 @@ class EmeCabrilloDialog final
   Q_OBJECT
 
 public:
+  //! days: used only the first time - after that the dialog keeps its own
+  //! contest days in the settings, apart from Active Stations' "on days".
   EmeCabrilloDialog (QSettings *, QString const& adif_path, QString const& my_call,
                      QString const& my_grid, QSet<QDate> const& days,
                      QString const& save_directory, QWidget * parent = nullptr);
@@ -54,7 +56,7 @@ public:
   //! Write the Cabrillo file; false (and a message) if it cannot.
   bool save_to (QString const& path);
 
-  //! The chosen days changed (Active Stations uses the same days).
+  //! The chosen contest days changed (the dialog's own days).
   Q_SIGNAL void days_changed (QSet<QDate> const&);
 
 private:

@@ -215,16 +215,6 @@
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QToolButton" name="pbCabrillo">
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Make a Cabrillo log for the ARRL EME contest from the ADIF log (or several logs, merged): the QSOs on the chosen days, with both grid squares on every line.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Cabrillo…</string>
-           </property>
-          </widget>
-         </item>
         </layout>
        </item>
       </layout>

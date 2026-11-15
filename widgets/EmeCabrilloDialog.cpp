@@ -87,7 +87,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   logs_box_layout->addLayout (logs_buttons);
   layout->addWidget (logs_box);
 
-  // contest days (the same days as Active Stations' "on days") and bands
+  // contest days (the dialog's own, saved; not Active Stations') and bands
   auto days_row = new QHBoxLayout;
   days_row->addWidget (new QLabel {tr ("Contest days"), this});
   days_button_ = new QToolButton {this};
@@ -214,6 +214,18 @@ void EmeCabrilloDialog::read_settings ()
     {
       logs_ = QStringList {own_log ()};
     }
+  // "Days": the dialog's own contest days, kept apart from Active Stations'
+  // "on days" so that log work never changes what is used while operating;
+  // first time: the days the dialog was opened with
+  if (settings_->contains ("Days"))
+    {
+      days_.clear ();
+      for (auto const& text : settings_->value ("Days").toStringList ())
+        {
+          auto const day = QDate::fromString (text, Qt::ISODate);
+          if (day.isValid ()) days_.insert (day);
+        }
+    }
   off_weekend_box_->setChecked (settings_->value ("LeaveOutOtherGroup", false).toBool ());
   // grids typed in for QSOs logged without one: kept between sessions
   for (auto const& item : settings_->value ("TypedGrids").toStringList ())
@@ -238,6 +250,9 @@ void EmeCabrilloDialog::write_settings ()
   SettingsGroup group {settings_, "EmeCabrillo"};
   settings_->setValue ("window/geometry", saveGeometry ());
   settings_->setValue ("Logs", logs_.isEmpty () ? QStringList {QStringLiteral ("<none>")} : logs_);
+  QStringList days;
+  for (auto const& day : DaysCalendar::sorted (days_)) days << day.toString (Qt::ISODate);
+  settings_->setValue ("Days", days);
   settings_->setValue ("LeaveOutOtherGroup", off_weekend_box_->isChecked ());
   QStringList typed;
   for (auto i = fixes_.cbegin (); i != fixes_.cend (); ++i) typed << i.key () + '=' + i.value ();
@@ -422,7 +437,7 @@ void EmeCabrilloDialog::refresh ()
 {
   auto const n = days_.size ();
   days_button_->setText (n == 0 ? tr ("choose…") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
-  days_label_->setText (DaysCalendar::text (days_, tr ("(the same days as Active Stations' \"on days\")")));
+  days_label_->setText (DaysCalendar::text (days_, tr ("(choose the contest days)")));
 
   // bands with QSOs on the days; those unticked are left out
   auto const all = EmeCabrillo::select (log_, days_, my_call_, my_grid_, {}, fixes_);

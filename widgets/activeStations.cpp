@@ -49,7 +49,6 @@ ActiveStations::ActiveStations(QSettings * settings, QFont const& font, QWidget 
   setupUi(DisplayMode::Standard);
   connect(ui->cbWantedDays, &QCheckBox::toggled, this, &ActiveStations::wantedDaysChanged);
   connect(ui->pbWantedDays, &QToolButton::clicked, this, &ActiveStations::chooseWantedDays);
-  connect(ui->pbCabrillo, &QToolButton::clicked, this, &ActiveStations::exportEmeCabrillo);
   connect(ui->RecentStationsPlainTextEdit, SIGNAL(cursorPositionChanged()), this, SLOT(on_textEdit_clicked()));
 }
 
@@ -143,7 +142,6 @@ void ActiveStations::setupUi(DisplayMode mode) {
   // The chosen days only apply to the Q65 (QMAP) list's #, Wanted only and QSOs.
   ui->cbWantedDays->setVisible(mode == DisplayMode::Q65);
   ui->pbWantedDays->setVisible(mode == DisplayMode::Q65);
-  ui->pbCabrillo->setVisible(mode == DisplayMode::Q65);
   ui->label_2->setVisible(standard);
   ui->label_3->setVisible(standard);
   ui->score->setVisible(standard);
@@ -291,14 +289,6 @@ void ActiveStations::chooseWantedDays()
 QSet<QDate> ActiveStations::chosenDays() const
 {
   return m_wantedDays;
-}
-
-void ActiveStations::setChosenDays(QSet<QDate> const& days)
-{
-  if (days == m_wantedDays) return;
-  m_wantedDays = days;
-  showWantedDays ();
-  emit activeStationsDisplay ();
 }
 
 void ActiveStations::setRate(int n)
