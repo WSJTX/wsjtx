@@ -699,6 +699,7 @@ set (wsjt_CSRCS
   lib/ft8var/ft8_tsan.c
   lib/ftrsd/ftrsdap.c
   lib/sgran.c
+  lib/stream_remove_file.c
   lib/golay24_table.c
   lib/gran.c
   lib/igray.c

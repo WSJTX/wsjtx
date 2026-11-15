@@ -10,13 +10,7 @@
  * stream_stdin_is_terminal tells whether stdin is a terminal rather than a
  * stream (lib/jt9.f90).
  *
- * stream_remove_file deletes a file the stream owns, a missing file counting
- * as deleted. The stream must not ask gfortran whether the file exists: on
- * Windows an INQUIRE(FILE=) of an existing file ends the reader thread's
- * stdin (lib/stream_stdin.c), its next read returning end of input.
- *
- * Called via bind(C) interfaces from lib/streaming_io.f90,
- * lib/streaming_receive.f90 and lib/jt9.f90.
+ * Called via bind(C) interfaces from lib/streaming_io.f90 and lib/jt9.f90.
  * C linkage gives the exact symbol name (no Fortran trailing-underscore
  * mangling), matched by bind(C, name="...").
  */
@@ -28,8 +22,6 @@
 #else
 #include <unistd.h>
 #endif
-#include <errno.h>
-#include <stdio.h>
 
 void stream_set_stdin_binary(void)
 {
@@ -47,10 +39,4 @@ int stream_stdin_is_terminal(void)
 #else
   return isatty(STDIN_FILENO);
 #endif
-}
-
-/* 0 once path is gone, -1 if it is still there. */
-int stream_remove_file(char const *path)
-{
-  return 0 == remove(path) || ENOENT == errno ? 0 : -1;
 }
