@@ -21,10 +21,30 @@ contains
 end module
 
 subroutine decoder_engine_test_jt9_signal(submode,start_sample,spread_hz,frequency_hz,samples) bind(C)
-  use iso_c_binding, only: c_int,c_int16_t,c_int64_t,c_float
+  use iso_c_binding, only: c_int,c_int16_t,c_float
   implicit none
   integer(c_int), value :: submode,start_sample
   real(c_float), value :: spread_hz,frequency_hz
+  integer(c_int16_t), intent(out) :: samples(720000)
+  interface
+     subroutine decoder_engine_test_jt9_signal_level(submode,start_sample,spread_hz, &
+          frequency_hz,amplitude,samples) bind(C)
+       import :: c_int,c_int16_t,c_float
+       integer(c_int), value :: submode,start_sample
+       real(c_float), value :: spread_hz,frequency_hz,amplitude
+       integer(c_int16_t), intent(out) :: samples(720000)
+     end subroutine
+  end interface
+  call decoder_engine_test_jt9_signal_level(submode,start_sample,spread_hz,frequency_hz,45.0,samples)
+end subroutine
+
+! The signal at the given amplitude over the test noise (uniform, +/-100).
+subroutine decoder_engine_test_jt9_signal_level(submode,start_sample,spread_hz, &
+     frequency_hz,amplitude,samples) bind(C)
+  use iso_c_binding, only: c_int,c_int16_t,c_int64_t,c_float
+  implicit none
+  integer(c_int), value :: submode,start_sample
+  real(c_float), value :: spread_hz,frequency_hz,amplitude
   integer(c_int16_t), intent(out) :: samples(720000)
   integer :: tones(85),itype,i,symbol,j
   integer(c_int64_t) :: random_state
@@ -46,7 +66,7 @@ subroutine decoder_engine_test_jt9_signal(submode,start_sample,spread_hz,frequen
      do i=1,6912
         j=start_sample+(symbol-1)*6912+i
         phase=modulo(phase+step+twopi*spread_hz*sin(twopi*0.4d0*j/12000.0d0)/12000.0d0,twopi)
-        samples(j)=samples(j)+int(45.0d0*sin(phase),c_int16_t)
+        samples(j)=samples(j)+int(real(amplitude,kind=8)*sin(phase),c_int16_t)
      enddo
   enddo
 end subroutine

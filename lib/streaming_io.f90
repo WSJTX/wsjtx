@@ -973,6 +973,11 @@ contains
     op%live = live_audio
     op%ending = ending
     op%params = shared_data%params
+    ! JT9 windows the spectra it builds itself by bit 0x100 of ndepth; the
+    ! bit comes from low_sidelobes alone, not from the depth a client sent.
+    op%params%ndepth = iand(op%params%ndepth, not(256))
+    if (mode .eq. 9 .and. receive%low_sidelobes) &
+         op%params%ndepth = ior(op%params%ndepth, 256)
     op%form = label_form
   end subroutine make_op
 

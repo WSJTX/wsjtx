@@ -36,6 +36,14 @@ else ()
   set_tests_properties (test_decoder_engine_jt9 PROPERTIES
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=1;OMP_THREAD_LIMIT=1;OMP_STACKSIZE=1M")
 endif ()
+# Weak JT9A recordings, 1400 Hz in uniform noise, where the Low sidelobes
+# window changes the SNR the decoder reports on at least one of them.
+foreach (amplitude 4 4.2 4.9 5)
+  add_test (NAME prepare_jt9_engine_wav_${amplitude} COMMAND test_decoder_engine_jt9
+    --write-wav ${CMAKE_CURRENT_BINARY_DIR}/jt9-weak-${amplitude}.wav 1400 ${amplitude})
+  set_tests_properties (prepare_jt9_engine_wav_${amplitude} PROPERTIES
+    FIXTURES_SETUP jt9_engine_wav TIMEOUT 30)
+endforeach ()
 
 add_library (test_decoder_engine_jt65_signal STATIC
   ../jt65/jt65_test_fixture.f90 jt65_engine_signal.f90)

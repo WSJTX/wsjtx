@@ -801,7 +801,7 @@ function (wsjt_add_spectrum_test name function)
   set_tests_properties (test_streaming_spectrum_${name} PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${environment}"
-    FIXTURES_REQUIRED "ft8_engine_wav;fst4_engine_wav;fst4w_engine_wav;q65_engine_wav;jt4_engine_wav"
+    FIXTURES_REQUIRED "ft8_engine_wav;fst4_engine_wav;fst4w_engine_wav;q65_engine_wav;jt4_engine_wav;jt9_engine_wav"
     TIMEOUT ${timeout}
     PASS_REGULAR_EXPRESSION "PASS   : TestStreamingSpectrum::${pattern}"
     FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
@@ -904,6 +904,7 @@ if (streaming_spectrum_samples)
   wsjt_add_spectrum_test (decodes_deferred_final deferredFinalUnchangedByRows PROCESSORS 2)
   wsjt_add_spectrum_test (decodes_again_after_the_stop decodeAgainAfterTheStopUnchangedByRows)
   wsjt_add_spectrum_test (low_sidelobes_jt65jt9_decodes lowSidelobesReachesTheJt65Jt9Decoder)
+  wsjt_add_spectrum_test (low_sidelobes_jt9_decodes lowSidelobesReachesTheJt9Decoder)
   foreach (row "spectrum" "fast_spectrum" "ref_spectrum" "spectrum jtty")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (ignored_${name} "clientsIgnoringTheRowsStillWork:${row}")

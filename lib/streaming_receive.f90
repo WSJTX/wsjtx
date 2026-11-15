@@ -32,7 +32,7 @@ module streaming_receive
   ! The keys as accepted configures set them.
   type, public :: receive_settings
      logical :: spectrum = .false.
-     logical :: low_sidelobes = .false.
+     logical :: low_sidelobes = .true.
      integer :: ref_spectrum = REF_SPECTRUM_OFF
   end type receive_settings
   type(receive_settings), public, protected, save :: receive

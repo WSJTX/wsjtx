@@ -892,7 +892,7 @@ contains
     write(delay, '(f16.1)') p%emedelay
     write(error_unit, '(a,i0,a,i0,a,i0,a,i0,a,l1,a,l1,a,l1,2a)')            &
          'wsjt-codec: pass nzhsym=', p%nzhsym,                               &
-         ' samples=', samples, ' depth=', p%ndepth,                          &
+         ' samples=', samples, ' depth=', iand(p%ndepth, not(256)),         &
          ' cycles=', p%nft8cycles,                                           &
          ' multithreaded=', p%lmultift8,                                     &
          ' live=', .not. p%ndiskdat,                                         &
