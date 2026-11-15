@@ -20,6 +20,7 @@
 #include <QSettings>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStatusBar>
 #include <QTemporaryDir>
 #include <QVector>
 
@@ -682,6 +683,134 @@ bool OperatingBandApplicationTestController::modeEntry ()
                 && window_->m_operatingFrequency.rx () == empty_list_frequency
                 && !window_->m_operatingFrequency.snapshot ().pendingRx,
                 "An empty FreqCal reference list allowed an invalid step or audio retune.")) return false;
+
+  // The "None" radio reports no ranges, so nothing is out of range until a test sets them.
+  frequencies->frequency_list ({item (100000, Modes::FreqCal), item (10000000, Modes::FreqCal),
+                                item (15000000, Modes::FreqCal)});
+  window_->ui->actionFT8->trigger ();
+  if (!setFrequency (14998500)) return false;
+  if (!require (!window_->m_config.rig_ranges_pending ()
+                && !window_->m_config.rig_cannot_tune (98500)
+                && !window_->m_config.rig_cannot_tune (9998500),
+                "The None radio reported ranges, or its ranges were still pending.")) return false;
+  // Lower edge 150 kHz, so a 100 kHz reference is out of range.
+  window_->m_config.set_rig_tuning_ranges_for_test ({{150000, 1500000000}});
+  if (!require (window_->m_config.rig_cannot_tune (98500)
+                && !window_->m_config.rig_cannot_tune (9998500)
+                && window_->m_config.rig_cannot_tune (1600000000),
+                "The set ranges did not reach the FreqCal checks.")) return false;
+  window_->ui->actionFreqCal->trigger ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 9998500 && !state.pendingRx && !state.pendingTx;
+  }, "FreqCal entry did not skip the reference the radio cannot tune.")) return false;
+  if (!require (window_->m_frequency_list_fcal_iter != frequencies->end ()
+                && window_->m_frequency_list_fcal_iter->frequency_ == 10000000
+                && window_->statusBar ()->currentMessage ().contains ("10.000 MHz"),
+                "FreqCal did not name the first reference the radio can tune.")) return false;
+  window_->freqCalStep ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 14998500 && !state.pendingRx && !state.pendingTx
+      && window_->m_frequency_list_fcal_iter->frequency_ == 15000000;
+  }, "FreqCal did not step to the second tunable reference.")) return false;
+  window_->freqCalStep ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 9998500 && !state.pendingRx && !state.pendingTx
+      && window_->m_frequency_list_fcal_iter->frequency_ == 10000000;
+  }, "The FreqCal cycle did not wrap past the reference the radio cannot tune.")) return false;
+
+  frequencies->frequency_list ({item (100000, Modes::FreqCal), item (120000, Modes::FreqCal)});
+  window_->ui->actionFT8->trigger ();
+  if (!setFrequency (14998500)) return false;
+  window_->statusBar ()->clearMessage ();
+  window_->ui->actionFreqCal->trigger ();
+  if (!require (window_->m_frequency_list_fcal_iter == frequencies->end ()
+                && window_->m_operatingFrequency.rx () == 14998500
+                && !window_->m_operatingFrequency.snapshot ().pendingRx
+                && window_->statusBar ()->currentMessage ().startsWith ("No FreqCal reference"),
+                "FreqCal entry requested a frequency when the radio can tune no reference.")) return false;
+  window_->statusBar ()->clearMessage ();
+  window_->freqCalStep ();
+  if (!require (window_->m_frequency_list_fcal_iter == frequencies->end ()
+                && window_->m_operatingFrequency.rx () == 14998500
+                && !window_->m_operatingFrequency.snapshot ().pendingRx
+                && window_->statusBar ()->currentMessage ().startsWith ("No FreqCal reference"),
+                "The FreqCal cycle requested a reference the radio cannot tune.")) return false;
+
+  // 151.6 kHz - 1500 Hz is in range; with Rx 1700 Hz the dial would fall below 150 kHz.
+  frequencies->frequency_list ({item (151600, Modes::FreqCal), item (10000000, Modes::FreqCal)});
+  window_->ui->actionFT8->trigger ();
+  if (!setFrequency (14998500)) return false;
+  window_->ui->actionFreqCal->trigger ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 150100 && !state.pendingRx && !state.pendingTx;
+  }, "FreqCal did not start at a reference just inside the radio's range.")) return false;
+  window_->ui->RxFreqSpinBox->setValue (1700);
+  if (!require (window_->m_operatingFrequency.rx () == 150100
+                && !window_->m_operatingFrequency.snapshot ().pendingRx
+                && window_->ui->RxFreqSpinBox->value () == 1500
+                && window_->ui->RxFreqSpinBox_2->value () == 1500,
+                "An Rx change that leaves the radio's range retuned or left Rx out of step.")) return false;
+
+  // The "Ignore range" box (FreqCal only) lets FreqCal use references below the range.
+  frequencies->frequency_list ({item (100000, Modes::FreqCal), item (10000000, Modes::FreqCal)});
+  window_->ui->actionFT8->trigger ();
+  if (!setFrequency (14998500)) return false;
+  if (!require (window_->ui->freqcal_range_check_box->isHidden (),
+                "The Ignore range box is visible outside FreqCal.")) return false;
+  window_->ui->actionFreqCal->trigger ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 9998500 && !state.pendingRx && !state.pendingTx;
+  }, "FreqCal entry did not skip the reference below the range before Ignore range is ticked.")) return false;
+  if (!require (!window_->ui->freqcal_range_check_box->isHidden ()
+                && !window_->ui->freqcal_range_check_box->isChecked ()
+                && !window_->m_config.rig_range_override (),
+                "The Ignore range box is not shown unchecked in FreqCal.")) return false;
+  window_->statusBar ()->clearMessage ();
+  window_->ui->freqcal_range_check_box->setChecked (true);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 98500 && !state.pendingRx && !state.pendingTx;
+  }, "Ticking Ignore range did not restart FreqCal at the first reference.")) return false;
+  if (!require (window_->m_config.rig_range_override ()
+                && window_->m_frequency_list_fcal_iter != frequencies->end ()
+                && window_->m_frequency_list_fcal_iter->frequency_ == 100000
+                && !window_->statusBar ()->currentMessage ().contains ("radio's range"),
+                "Ignore range did not select the first reference quietly.")) return false;
+  window_->ui->freqcal_range_check_box->setChecked (false);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 9998500 && !state.pendingRx && !state.pendingTx
+      && window_->m_frequency_list_fcal_iter->frequency_ == 10000000;
+  }, "Unticking Ignore range did not return FreqCal to the first reference in range.")) return false;
+  if (!require (!window_->m_config.rig_range_override (),
+                "Clearing Ignore range did not turn the override off.")) return false;
+
+  // A saved "Ignore range" is shown checked on FreqCal entry and honoured there.
+  window_->m_config.set_rig_range_override (true);
+  window_->ui->actionFT8->trigger ();
+  if (!setFrequency (14998500)) return false;
+  window_->ui->actionFreqCal->trigger ();
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 98500 && !state.pendingRx && !state.pendingTx;
+  }, "A saved Ignore range was not honoured on FreqCal entry.")) return false;
+  if (!require (window_->ui->freqcal_range_check_box->isChecked (),
+                "A saved Ignore range was not shown checked in FreqCal.")) return false;
+  window_->ui->freqcal_range_check_box->setChecked (false);
+  if (!waitUntil ([&] {
+    auto const state = window_->m_operatingFrequency.snapshot ();
+    return state.rx == 9998500 && !state.pendingRx && !state.pendingTx;
+  }, "Clearing the saved Ignore range did not return FreqCal to a reference in range.")) return false;
+
+  // Unknown ranges (no ranges reported) never make a reference unreachable.
+  window_->m_config.set_rig_tuning_ranges_for_test ({});
+  if (!require (!window_->m_config.rig_cannot_tune (98500) && !window_->m_config.rig_cannot_tune (1600000000),
+                "A rig without ranges had a reference treated as out of range.")) return false;
 
   frequencies->frequency_list (Frequencies::default_items ());
   window_->ui->actionFT8->trigger ();

@@ -44,6 +44,7 @@ QDebug operator << (QDebug d, Transceiver::TransceiverState const& s)
     << "; LEVEL: " << s.level_ << "dBm"
     << "; POWER: " << s.power_ << "mWatts"
     << "; SWR: " << s.swr_
+    << "; TUNING_RANGES: " << s.tuning_ranges_.size ()
     << "; TX_SESSION: " << s.tx_request_.session_id.value ()
     << "; TX_GENERATION: " << s.tx_request_.generation.value ()
     << ")\n";
@@ -101,7 +102,8 @@ bool operator != (Transceiver::TransceiverState const& lhs, Transceiver::Transce
     || lhs.txvolume_ != rhs.txvolume_
     || lhs.level_ != rhs.level_
     || lhs.power_ != rhs.power_
-    || lhs.swr_ != rhs.swr_;
+    || lhs.swr_ != rhs.swr_
+    || lhs.tuning_ranges_ != rhs.tuning_ranges_;
 }
 
 bool operator == (Transceiver::TransceiverState const& lhs, Transceiver::TransceiverState const& rhs)

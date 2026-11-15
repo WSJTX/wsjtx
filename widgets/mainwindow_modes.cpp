@@ -1029,7 +1029,12 @@ void MainWindow::setupFreqCal()
 //                               18:15:47      0  1  1500  1550.349     0.100    3.5   10.2
   ui->lh_decodes_headings_label->setText("  UTC      Freq CAL Offset  fMeas       DF     Level   S/N");
   ui->measure_check_box->setChecked (false);
+  {
+    QSignalBlocker const range {ui->freqcal_range_check_box};
+    ui->freqcal_range_check_box->setChecked (m_config.rig_range_override ());
+  }
   applyModeUiState({ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                    ModeUiControl::TrPeriod, ModeUiControl::Measure});
+                    ModeUiControl::TrPeriod, ModeUiControl::Measure,
+                    ModeUiControl::FreqCalRange});
   statusChanged();
 }

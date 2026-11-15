@@ -611,6 +611,27 @@ int HamlibTransceiver::do_start ()
 
   m_->error_check (rig_open (m_->rig_.data ()), tr ("opening connection to rig"));
 
+  // A rig receives wherever it transmits, so the transmit ranges are added.
+  // Hamlib (4.7.2 in our builds) swaps the second caps lists in when the first
+  // receive list is empty, so for backends that fill only the second lists
+  // rx_range_list holds the transmit bands alone. The "None" rig controls no
+  // radio, so it reports no ranges.
+  RigFrequency::Ranges tuning_ranges;
+  if (RIG_MODEL_DUMMY != m_->rig_.data ()->caps->rig_model)
+    {
+      auto const * rig_state = HAMLIB_STATE (m_->rig_.data ());
+      for (auto const * range_list : {rig_state->rx_range_list, rig_state->tx_range_list})
+        {
+          for (int i = 0; i < HAMLIB_FRQRANGESIZ && !RIG_IS_FRNG_END (range_list[i]); ++i)
+            {
+              if (range_list[i].startf >= 0 && range_list[i].endf >= range_list[i].startf)
+                tuning_ranges.push_back ({static_cast<Frequency> (std::llround (range_list[i].startf)),
+                                          static_cast<Frequency> (std::llround (range_list[i].endf))});
+            }
+        }
+    }
+  update_tuning_ranges (tuning_ranges);
+
   // reset dynamic state
   m_->one_VFO_ = false;
   m_->vfo_roles_.reset ();

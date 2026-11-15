@@ -1664,6 +1664,19 @@ When not checked you can view the calibration results.</string>
                       </property>
                      </widget>
                     </item>
+                    <item>
+                     <widget class="QCheckBox" name="freqcal_range_check_box">
+                      <property name="toolTip">
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Calibration skips reference frequencies outside the range that the rig reports.&lt;br/&gt;Check this if your radio can tune outside that range, for example an SDR that uses another radio's model.&lt;br/&gt;Checking or clearing it restarts calibration at the first usable reference.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      </property>
+                      <property name="accessibleDescription">
+                       <string>Check this to use calibration references outside the range that the rig reports.</string>
+                      </property>
+                      <property name="text">
+                       <string>Ignore range</string>
+                      </property>
+                     </widget>
+                    </item>
                    </layout>
                   </item>
                   <item row="2" column="0" colspan="2">
@@ -6838,6 +6851,7 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>cbSWL</tabstop>
   <tabstop>pbBestSP</tabstop>
   <tabstop>measure_check_box</tabstop>
+  <tabstop>freqcal_range_check_box</tabstop>
   <tabstop>tabWidget</tabstop>
   <tabstop>txrb1</tabstop>
   <tabstop>txrb2</tabstop>
