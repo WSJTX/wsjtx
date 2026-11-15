@@ -9,14 +9,22 @@ namespace
 {
   constexpr int legacyCapacityBytes = 2 * 120 * 12000;
 
+  template<typename T>
+  void putLittleEndian (QByteArray& bytes, int offset, T value)
+  {
+    char encoded[sizeof (T)];
+    qToLittleEndian (value, encoded);
+    bytes.replace (offset, sizeof (encoded), encoded, sizeof (encoded));
+  }
+
   QByteArray wav (quint32 declaredBytes, int actualBytes)
   {
     QByteArray result (44 + actualBytes, '\0');
     auto put16 = [&] (int offset, quint16 value) {
-      qToLittleEndian (value, result.data () + offset);
+      putLittleEndian (result, offset, value);
     };
     auto put32 = [&] (int offset, quint32 value) {
-      qToLittleEndian (value, result.data () + offset);
+      putLittleEndian (result, offset, value);
     };
     result.replace (0, 4, "RIFF");
     put32 (4, 36u + quint32 (declaredBytes));
@@ -255,7 +263,7 @@ private slots:
     QVERIFY (process.waitForFinished (5000));
     QCOMPARE (process.exitStatus (), QProcess::NormalExit);
     QCOMPARE (process.exitCode (), 0);
-    qToLittleEndian (quint16 (2), contents.data () + 48);
+    putLittleEndian (contents, 48, quint16 (2));
     QVERIFY (file.open (QIODevice::ReadOnly));
     QCOMPARE (file.readAll (), contents);
   }
