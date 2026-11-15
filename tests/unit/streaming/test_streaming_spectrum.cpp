@@ -1733,7 +1733,7 @@ private slots:
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelDir ("turned on within a period"), pcm + pcm, modelSettings (false)
+    auto const model = runModel (modelDir ("turned on within a period"), pcm + pcm, modelSettings (true)
                                  << QString {"period live 0 %1"}.arg (m.samples)
                                  << QString {"period live %1 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
@@ -1802,7 +1802,7 @@ private slots:
     auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
     // The second turn-on changes the other keys too.
-    QList<QJsonObject> const on {{{"spectrum", true}}, {{"spectrum", true}, {"low_sidelobes", true}}};
+    QList<QJsonObject> const on {{{"spectrum", true}}, {{"spectrum", true}, {"low_sidelobes", false}}};
     auto const codec = runInput (sessionHeader () + configure (with (JttySettings, {{"live_audio", true}}))
                                  + toggled (pcm, toggles, on, {}, FrameSamples) + halt ());
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
@@ -1817,7 +1817,7 @@ private slots:
       {
         auto const from = toggles.at (i);
         auto const to = i + 1 < toggles.size () ? toggles.at (i + 1) : n;
-        script << modelSettings (on.value (i / 2).value ("low_sidelobes").toBool ())
+        script << modelSettings (on.value (i / 2).value ("low_sidelobes").toBool (true))
                << QString {"jtty %1 %2 %3 %1"}.arg (from).arg (to - from).arg (reception);
       }
     auto const model = runModel (modelDir (QTest::currentDataTag ()), pcm, script);
@@ -1839,7 +1839,7 @@ private slots:
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelDir ("on in the first block"), pcm + pcm, modelSettings (false)
+    auto const model = runModel (modelDir ("on in the first block"), pcm + pcm, modelSettings (true)
                                  << QString {"period live 0 %1"}.arg (m.samples)
                                  << QString {"period live %1 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
@@ -1878,9 +1878,9 @@ private slots:
       return msk144 ? QString {"msk144 0 %1 15"}.arg (count) : QString {"period live 0 %1"}.arg (count);
     };
     auto const first = runModel (modelDir (QString {"%1 one block"}.arg (QTest::currentDataTag ())),
-                                 pcm.left (2 * block), modelSettings (false) << command (block));
+                                 pcm.left (2 * block), modelSettings (true) << command (block));
     auto const second = runModel (modelDir (QString {"%1 then a period"}.arg (QTest::currentDataTag ())), pcm,
-                                  modelSettings (false) << command (Ft8PeriodSamples));
+                                  modelSettings (true) << command (Ft8PeriodSamples));
     QVERIFY2 (first.ok && second.ok, qPrintable (first.failure + second.failure));
     QCOMPARE (first.rows.size (), 1);
     auto const difference = compareKeptRows (codec->lines, first.rows + second.rows, true);
@@ -1904,7 +1904,7 @@ private slots:
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelDir ("off after block 1"), pcm + pcm, modelSettings (false)
+    auto const model = runModel (modelDir ("off after block 1"), pcm + pcm, modelSettings (true)
                                  << QString {"period live 0 %1"}.arg (m.samples)
                                  << QString {"period live %1 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
@@ -1962,7 +1962,7 @@ private slots:
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelDir ("after a JT65+JT9 period"), pcm + ft8Pcm, modelSettings (false)
+    auto const model = runModel (modelDir ("after a JT65+JT9 period"), pcm + ft8Pcm, modelSettings (true)
                                  << QString {"period live 0 %1"}.arg (mixed.samples)
                                  << QString {"period live %1 %2"}.arg (mixed.samples).arg (ft8.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
@@ -1999,7 +1999,7 @@ private slots:
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelPath, pcm, modelSettings (false) << "datadir " + modelPath << "reference apply"
+    auto const model = runModel (modelPath, pcm, modelSettings (true) << "datadir " + modelPath << "reference apply"
                                  << QString {"jtty 0 %1 1 0 %2"}.arg (pcm.size () / 2).arg (3 * HsymSamples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
     QVERIFY2 (countKind (model.rows, "jtty") > 0 && 3 * HsymSamples == model.rows.at (1).ints.at (1),
@@ -2035,7 +2035,7 @@ private slots:
     QVERIFY (writeFile (applyDir + "/refspec.dat", reference));
     QByteArray input = sessionHeader ();
     QByteArray sent;
-    QStringList script = modelSettings (false) << "datadir " + applyDir;
+    QStringList script = modelSettings (true) << "datadir " + applyDir;
     if ("jtty" == kind)
       {
         auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
@@ -2207,7 +2207,7 @@ private slots:
     QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
     auto const rows = rowsOf (codec.lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    QStringList script = modelSettings (false) << "datadir " + modelPath << "reference " + before
+    QStringList script = modelSettings (true) << "datadir " + modelPath << "reference " + before
       << QString {"period live 0 %1"}.arg (m.samples) << "erase";
     if (measuring) script << "reference measure";
     script << QString {"period live %1 %1"}.arg (m.samples);
@@ -2433,9 +2433,10 @@ private slots:
   }
 
   // Every mode's decodes, JT65+JT9's, MSK144's and JTTY's among them, are the
-  // same with the rows and low_sidelobes on as with both off; JT65+JT9's
-  // with low_sidelobes on in both, since it windows that mode's symbol
-  // spectra. From a file FT8's early passes run without the clock.
+  // same with the rows and low_sidelobes on as with the rows off and
+  // low_sidelobes off; JT9's and JT65+JT9's have low_sidelobes on in both,
+  // since it windows the spectra they decode. From a file FT8's early passes
+  // run without the clock.
   void decodesUnchangedByRows_data ()
   {
     QTest::addColumn<QString> ("mode");
@@ -2500,8 +2501,8 @@ private slots:
     shared.directory = directory.path ();
     auto const on = runInput (input (keys), shared);
     QVERIFY2 (on->clean (), qPrintable (on->report ()));
-    auto const off = runInput (input ("jt65jt9" == mode ? QJsonObject {{"low_sidelobes", keys.value ("low_sidelobes")}}
-                                                       : QJsonObject {}), shared);
+    bool const windowed = "jt9" == mode || "jt65jt9" == mode;
+    auto const off = runInput (input ({{"low_sidelobes", windowed}}), shared);
     QVERIFY2 (off->clean (), qPrintable (off->report ()));
     QVERIFY2 (!messageSet (off->lines).isEmpty () || "jtty" == mode, qPrintable (off->report ()));
     auto const rows = rowsOf (on->lines);
@@ -2532,6 +2533,45 @@ private slots:
     QCOMPARE (messageSet (on->lines), messageSet (off->lines));
     QVERIFY2 (decodeLines (on->lines, m.sorted) != decodeLines (off->lines, m.sorted),
               "low_sidelobes did not reach JT65+JT9's JT9 decoder");
+  }
+
+  // low_sidelobes windows the spectra JT9 alone decodes from, and starts on
+  // as in WSJT-X. The depth a client sends does not set the window, and a
+  // configure that sends only depth keeps it. Weak recordings with the
+  // receive frequency off the signal, where the window changes the decode
+  // line (its SNR) on some of them.
+  void lowSidelobesReachesTheJt9Decoder ()
+  {
+    QJsonObject const settings {{"mode", "JT9"}, {"trperiod", 60}, {"nutc", 0}, {"depth", 1},
+                                {"rxfreq", 1500}, {"ntol", 20}};
+    bool moved = false;
+    for (auto const amplitude : {"4", "4.2", "4.9", "5"})
+      {
+        auto const wav = fixture (QString {"jt9-weak-%1.wav"}.arg (amplitude));
+        auto const pcm = period (wavPcm (wav), 60 * SampleRate);
+        QVERIFY2 (!pcm.isEmpty (), "no recording");
+        auto const run = [&] (QJsonObject const& keys) {
+          return runInput (sessionHeader () + configure (with (settings, keys)) + audio (pcm) + halt ());
+        };
+        auto const off = run ({{"low_sidelobes", false}});
+        QVERIFY2 (off->clean (), qPrintable (off->report ()));
+        auto const on = run ({{"low_sidelobes", true}});
+        QVERIFY2 (on->clean (), qPrintable (on->report ()));
+        auto const start = run ({});
+        QVERIFY2 (start->clean (), qPrintable (start->report ()));
+        auto const bit = run ({{"low_sidelobes", false}, {"depth", 1 | 256}});
+        QVERIFY2 (bit->clean (), qPrintable (bit->report ()));
+        auto const depthOnly = runInput (sessionHeader () + configure (with (settings, {{"low_sidelobes", true}}))
+                                         + configure ({{"depth", 1}}) + audio (pcm) + halt ());
+        QVERIFY2 (depthOnly->clean (), qPrintable (depthOnly->report ()));
+        QVERIFY2 (!messageSet (off->lines).isEmpty (), qPrintable (off->report ()));
+        QCOMPARE (messageSet (on->lines), messageSet (off->lines));
+        QCOMPARE (decodeLines (start->lines, false), decodeLines (on->lines, false));
+        QCOMPARE (decodeLines (depthOnly->lines, false), decodeLines (on->lines, false));
+        QCOMPARE (decodeLines (bit->lines, false), decodeLines (off->lines, false));
+        moved = moved || decodeLines (on->lines, false) != decodeLines (off->lines, false);
+      }
+    QVERIFY2 (moved, "low_sidelobes did not reach the JT9 decoder");
   }
 
   // A multithreaded final deferred while the decoder is held decodes the same
@@ -2749,7 +2789,7 @@ private slots:
     QCOMPARE (decodeLines (on), decodeLines (off));
     auto const rows = rowsOf (on);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelDir ("past the cap"), pcm + pcm, modelSettings (false)
+    auto const model = runModel (modelDir ("past the cap"), pcm + pcm, modelSettings (true)
                                  << QString {"period live 0 %1"}.arg (m.samples)
                                  << QString {"period live %1 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
@@ -2775,7 +2815,7 @@ private slots:
     QCOMPARE (count (lines, outType ("rows_dropped")), 0);
     auto const rows = rowsOf (lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelDir ("file past the cap"), pcm + pcm, modelSettings (false, m.stop)
+    auto const model = runModel (modelDir ("file past the cap"), pcm + pcm, modelSettings (true, m.stop)
                                  << QString {"period file 0 %1"}.arg (m.samples)
                                  << QString {"period file %1 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
@@ -3027,7 +3067,7 @@ private slots:
       .arg (behind).arg (stop);
     QVERIFY2 (behind > 0, qPrintable ("every row up to the stop came before the period's first decode line\n"
                                       + show (lines)));
-    auto const model = runModel (modelDir ("decodes ahead of rows"), pcm, modelSettings (false)
+    auto const model = runModel (modelDir ("decodes ahead of rows"), pcm, modelSettings (true)
                                  << QString {"period live 0 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
     auto const difference = compareKeptRows (lines, model.rows, true);
@@ -3066,7 +3106,7 @@ private slots:
     codec.paceReading (8192);
     auto const settings = with (m.settings, {{"live_audio", true}, {"spectrum", true}, {"busy_events", progress}});
     QByteArray sent;
-    QStringList script = modelSettings (false);
+    QStringList script = modelSettings (true);
     if (progress)
       {
         codec.write (sessionHeader () + configure (settings) + audio (pcm));
@@ -3158,7 +3198,7 @@ private slots:
                                     "line"}.arg (behindTheReply).arg (behindTheDecode);
     QVERIFY2 (behindTheDecode > 0, "every row queued before the reply came before the first decode line after it");
     QVERIFY2 (behindTheReply > 0, "every row queued before the reply came before it");
-    auto const model = runModel (modelDir ("decodes ahead after a reply"), pcm, modelSettings (false)
+    auto const model = runModel (modelDir ("decodes ahead after a reply"), pcm, modelSettings (true)
                                  << QString {"period live 0 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
     auto const difference = compareKeptRows (lines, model.rows, true);
@@ -3217,7 +3257,7 @@ private slots:
     auto const fileLines = lines.mid (boundary);
     QCOMPARE (count (fileLines, outType ("spectrum")), fileRows (m.samples, m.stop));
     QCOMPARE (count (fileLines, outType ("rows_dropped")), 0);
-    auto const model = runModel (modelDir ("live then file"), pcm + pcm, modelSettings (false, m.stop)
+    auto const model = runModel (modelDir ("live then file"), pcm + pcm, modelSettings (true, m.stop)
                                  << QString {"period live 0 %1"}.arg (m.samples)
                                  << QString {"period file %1 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
@@ -3655,7 +3695,7 @@ private slots:
     QVERIFY2 (sorted.last () <= bound, "a row came later than the bound");
     auto const rows = rowsOf (lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    QStringList script = modelSettings (false, m.stop);
+    QStringList script = modelSettings (true, m.stop);
     for (int p = 0; p < periods; ++p) script << QString {"period live %1 %2"}.arg (p * m.samples).arg (m.samples);
     auto const model = runModel (modelDir (QTest::currentDataTag ()), sent, script);
     QVERIFY2 (model.ok, qPrintable (model.failure));

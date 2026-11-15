@@ -441,7 +441,7 @@ private:
   std::vector<short> audio_;
   std::string refspec_ {"refspec.dat"};
   std::string equalized_;
-  bool lowSidelobes_ {false};
+  bool lowSidelobes_ {true};
   int stop_ {50};
   bool refSpec_ {false};
   bool useRef_ {false};

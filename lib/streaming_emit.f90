@@ -247,10 +247,10 @@
 !   spectrum            boolean, false at the start: the rows below, from
 !                       which a client draws its spectrum, waterfall and
 !                       signal meter.
-!   low_sidelobes       boolean, false: the GUI's "Low sidelobes" (a Nuttall
-!                       window on each spectrum row's FFT and on the symbol
-!                       spectra JT65+JT9's JT9 decoder reads; fast_spectrum
-!                       has no window, as the GUI's Fast Graph has none).
+!   low_sidelobes       boolean, true at the start: the GUI's "Low sidelobes" (a
+!                       Nuttall window on each spectrum row's FFT and on the
+!                       symbol spectra the JT9 decoders read; fast_spectrum has
+!                       no window, as the GUI's Fast Graph has none).
 !   ref_spectrum        "off" (the start), "measure" or "apply": the GUI's
 !                       reference-spectrum equalization on live audio
 !                       (live_audio), ahead of every decoder and every row

@@ -374,8 +374,8 @@ private slots:
   }
 
   // jt9 decoding a WAV file and the stream decoding the same audio with a
-  // configure equal to jt9's options: the stream's events, rendered, are
-  // jt9's lines.
+  // configure equal to jt9's options (the stream's low_sidelobes starts on, as
+  // jt9 -l): the stream's events, rendered, are jt9's lines.
   void matchesJt9_data ()
   {
     QTest::addColumn<QStringList> ("files");
@@ -407,8 +407,8 @@ private slots:
           {"ft8_decoder_start", 3}});
     row ("ft4", {"FT4/000000_000002.wav"}, {"--ft4", "-d", "3"}, 7.5,
          {{"mode", "FT4"}, {"depth", 3}, {"ntol", 20}}, true);
-    row ("jt9", {"JT9/130418_1742.wav"}, {"-9"}, 60, {{"mode", "JT9"}, {"ntol", 20}}, true);
-    row ("jt9-d3", {"JT9/130418_1742.wav"}, {"-9", "-d", "3"}, 60, {{"mode", "JT9"}, {"depth", 3}, {"ntol", 20}});
+    row ("jt9", {"JT9/130418_1742.wav"}, {"-9", "-l"}, 60, {{"mode", "JT9"}, {"ntol", 20}}, true);
+    row ("jt9-d3", {"JT9/130418_1742.wav"}, {"-9", "-l", "-d", "3"}, 60, {{"mode", "JT9"}, {"depth", 3}, {"ntol", 20}});
     auto with = [] (QJsonObject keys, QJsonObject const& more) {
       for (auto it = more.begin (); it != more.end (); ++it) keys.insert (it.key (), it.value ());
       return keys;
