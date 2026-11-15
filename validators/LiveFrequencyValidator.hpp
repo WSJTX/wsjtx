@@ -45,6 +45,7 @@ public:
   void fixup (QString& input) const override;
 
   Q_SIGNAL void valid (Frequency) const;
+  Q_SIGNAL void unresolvedSubmission () const;
 
 private:
   Bands const * bands_;

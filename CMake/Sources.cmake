@@ -195,10 +195,14 @@ set (wsjtx_CXXSRCS
   ShmemDecoderBackend.cpp
   OperatingFrequency.cpp
   FootswitchInput.cpp
+  OperatingBand.cpp
+  ModeEntry.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
+  widgets/mainwindow_band.cpp
+  widgets/mainwindow_modes.cpp
   widgets/mainwindow_jtty.cpp
   widgets/mainwindow_jtty_receive.cpp
   JttyReceiveResultController.cpp
@@ -330,6 +334,7 @@ set (wsjt_FSRCS
   lib/jtty/jtty_tbcc_list_decoder.f90
   lib/jtty/tbcc.f90
   lib/jtty/jtty_tbcc_decoder.f90
+  lib/jtty/jtty_frequency_mixer.f90
   lib/jtty/jtty_payload_correlators.f90
   lib/jtty/jtty_fec_mod.f90
   lib/jtty/jttycom.f90

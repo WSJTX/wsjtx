@@ -85,6 +85,8 @@ namespace
                               band_editor.setCurrentText (bands.find (nominal_frequency));
                             }
                         });
+      QObject::connect (validator.get (), &LiveFrequencyValidator::unresolvedSubmission,
+                        [&] {band_editor.setCurrentText (bands.find (nominal_frequency));});
     }
 
     void enter (QString const& text, QString const& completed_text = {})
@@ -163,6 +165,8 @@ private Q_SLOTS:
   void live_frequency_entry_requests_one_qsy ();
   void live_frequency_band_entry_requests_working_frequency ();
   void live_frequency_rejected_request_preserves_selection ();
+  void live_frequency_unresolved_submission_data ();
+  void live_frequency_unresolved_submission ();
   void live_frequency_focus_loss_without_edit_is_harmless ();
 };
 
@@ -503,12 +507,56 @@ void TestFrequencyEditors::live_frequency_rejected_request_preserves_selection (
 void TestFrequencyEditors::live_frequency_focus_loss_without_edit_is_harmless ()
 {
   LiveFrequencyEditorFixture fixture;
+  QSignalSpy unresolved {fixture.validator.get (), &LiveFrequencyValidator::unresolvedSubmission};
   fixture.band_editor.lineEdit ()->setText ("10368.200000");
   fixture.band_editor.setFocus ();
   QCoreApplication::processEvents ();
 
   fixture.send_focus_out ();
   QCOMPARE (fixture.band_editor.currentText (), QString {"3cm"});
+  QVERIFY (fixture.requests.isEmpty ());
+  QVERIFY (unresolved.isEmpty ());
+}
+
+void TestFrequencyEditors::live_frequency_unresolved_submission_data ()
+{
+  QTest::addColumn<QString> ("entry");
+  QTest::addColumn<bool> ("focus_loss");
+  QTest::newRow ("missing band on Return") << QString {"23cm"} << false;
+  QTest::newRow ("missing band on focus loss") << QString {"23cm"} << true;
+  QTest::newRow ("filtered band on Return") << QString {"3cm"} << false;
+  QTest::newRow ("filtered band on focus loss") << QString {"3cm"} << true;
+  QTest::newRow ("empty submission on Return") << QString {} << false;
+  QTest::newRow ("empty submission on focus loss") << QString {} << true;
+}
+
+void TestFrequencyEditors::live_frequency_unresolved_submission ()
+{
+  QFETCH (QString, entry);
+  QFETCH (bool, focus_loss);
+  LiveFrequencyEditorFixture fixture;
+  fixture.nominal_frequency = preferred_20m_frequency;
+  fixture.frequencies.filter (IARURegions::ALL, Modes::FT8, true);
+  fixture.band_editor.setCurrentText ("20m");
+  QSignalSpy unresolved {fixture.validator.get (), &LiveFrequencyValidator::unresolvedSubmission};
+  auto * editor = fixture.band_editor.lineEdit ();
+  editor->setFocus ();
+  editor->selectAll ();
+  if (entry.isEmpty ()) QTest::keyClick (editor, Qt::Key_Backspace);
+  else QTest::keyClicks (editor, entry);
+
+  QVERIFY (unresolved.isEmpty ());
+  QVERIFY (fixture.requests.isEmpty ());
+  QCOMPARE (fixture.band_editor.currentText (), entry);
+  if (focus_loss) fixture.send_focus_out ();
+  else QTest::keyClick (editor, Qt::Key_Return);
+
+  QCOMPARE (unresolved.count (), 1);
+  QVERIFY (fixture.requests.isEmpty ());
+  QCOMPARE (fixture.nominal_frequency, preferred_20m_frequency);
+  QCOMPARE (fixture.band_editor.currentText (), QString {"20m"});
+  fixture.send_focus_out ();
+  QCOMPARE (unresolved.count (), 1);
   QVERIFY (fixture.requests.isEmpty ());
 }
 

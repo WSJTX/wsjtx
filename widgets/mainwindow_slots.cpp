@@ -36,7 +36,6 @@ extern bool m_displayBand;
 extern bool wait_and_call;
 extern bool no_wait_and_call;
 extern bool no_a7_decodes;
-extern bool keep_frequency;
 extern bool keep_msk144_frequency;
 extern bool msk144qsy;
 extern bool keep_last_tx_label;
@@ -90,7 +89,7 @@ void MainWindow::on_monitorButton_clicked (bool checked)
           operatingFrequencyContext (), [this] (RigFrequency::Request const& request) {
             return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
           }, online);
-        applyOperatingFrequencyTransition (transition);
+        synchronizeOperatingBandState ();
         applyMonitorEffects (true, transition.restorationAccepted);
       }
     else
@@ -582,7 +581,7 @@ void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
   if (checked && m_tune==false) { // we're starting tuning so remember Tx and change pwr to Tune value
     m_footswitchPowerBypass = m_footswitchTune;
     if (m_config.pwrBandTuneMemory () && !m_footswitchTune) {
-      auto const& curBand = ui->bandComboBox->currentText();
+      auto const curBand = operatingBandName ();
       m_pwrBandTxMemory[curBand] = ui->outAttenuation->value(); // remember our Tx pwr
       m_PwrBandSetOK = false;
       if (m_pwrBandTuneMemory.contains(curBand)) {
@@ -905,6 +904,11 @@ void MainWindow::setBestSPArmed (bool armed, QString const& feedback)
 
 void MainWindow::on_houndButton_clicked (bool checked)
 {
+  configureHound (checked, checked ? ModeEntry::RetunePolicy::Working : ModeEntry::RetunePolicy::Preserve);
+}
+
+void MainWindow::configureHound (bool checked, ModeEntry::RetunePolicy policy)
+{
   if (checked) {
     HoldTxFreqStatus = ui->cbHoldTxFreq->isChecked();  // save state of the Hold Tx Freq checkbox
     m_config.setSpecial_Hound();
@@ -913,11 +917,9 @@ void MainWindow::on_houndButton_clicked (bool checked)
     ui->txb1->setEnabled(true);
   } else {
     m_config.setSpecial_None();
-    keep_frequency = true;
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
   m_specOp=m_config.special_op_id();
-  on_actionFT8_triggered();
+  set_mode ("FT8", policy);
   check_button_color();
 }
 

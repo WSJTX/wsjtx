@@ -58,6 +58,8 @@ namespace DecoderIpc {class Session;}
 #include "ReferenceSpectrum.hpp"
 #include "Radio.hpp"
 #include "OperatingFrequency.hpp"
+#include "OperatingBand.hpp"
+#include "ModeEntry.hpp"
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
@@ -359,9 +361,33 @@ public:
   void jttyDecodeAgainAtSample(quint64 reception, qint64 sample);
 
 private:
+  enum class FrequencyChangeIntent {Observation, NominalRequest, BandSelection};
+  void requestModeChange (ModeEntry::Request, std::function<void()> setup = {});
+  void scheduleModeRefresh (int, QString const&, std::function<void()>);
+  void configureHound (bool, ModeEntry::RetunePolicy);
+  void applyRemoteConfiguration (quint32 frequency_tolerance, QString const& submode,
+                                 bool fast_mode, quint32 tr_period, quint32 rx_df,
+                                 QString const& dx_call, QString const& dx_grid, bool generate_messages);
+  bool configureMode (QString const&);
+  void completeModeFrequencyChange (ModeEntry::Operation const&);
+  void resumeModeRetune ();
+  void setupFST4 ();
+  void setupFST4W ();
+  void setupFT4 ();
+  void setupFT8 ();
+  void setupJT4 ();
+  void setupJT9 ();
+  void setupJT65 ();
+  void setupQ65 ();
+  void setupJTTY ();
+  bool setupMSK144 ();
+  void setupWSPR ();
+  void setupEcho ();
+  void setupFreqCal ();
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
   friend class BestSPApplicationTestController;
   friend class WaitFeaturesApplicationTestController;
+  friend class OperatingBandApplicationTestController;
 #endif
   enum class DecodeOwner
   {
@@ -638,10 +664,8 @@ private slots:
   void on_actionQSY_Monitor_triggered();
   void alertQSYmessage();
   void on_actionShort_list_of_add_on_prefixes_and_suffixes_triggered();
-  void band_changed (Frequency);
   void monitor (bool);
   void applyMonitorEffects (bool checked, bool restored);
-  void applyOperatingFrequencyTransition (OperatingFrequency::Transition const&);
   OperatingFrequency::Context operatingFrequencyContext () const;
   void end_tuning ();
   void stop_tuning ();
@@ -852,7 +876,7 @@ private:
   void startPendingRigTune ();
   void cancelRigTune ();
   void updateRadioModeStatus ();
-  void set_mode (QString const& mode);
+  void set_mode (QString const& mode, ModeEntry::RetunePolicy = ModeEntry::RetunePolicy::Working);
   void dispatchTxRequest (TxEvidence::TxRequest const& request);
   void beginTxEvidenceSession ();
   void beginTxEvidenceGeneration (qint64 committedEndSample = -1,
@@ -1083,8 +1107,16 @@ private:
   QScopedPointer<ColorHighlighting> m_colorHighlighting;
   Transceiver::TransceiverState m_rigState;
   QPointer<MessageBox> m_swrWarning;
-  Frequency  m_lastDialFreq;
-  QString m_lastBand;
+  OperatingBand::Controller m_operatingBandController;
+  ModeEntry::Queue m_modeEntries;
+  // Setup callbacks must not publish or apply frequency effects against provisional controls.
+  bool m_modeSetupActive {false};
+  ModeEntry::PendingRetune m_pendingModeRetune;
+  QMap<quint64, std::function<void()>> m_modeSetupContinuations;
+  std::optional<QString> m_renderedBand;
+  QTimer m_bandReportingTimer;
+  QTimer m_bandApTimer;
+  QTimer m_bandMskTimer;
   QString m_lastCallsign;
   Frequency  m_dialFreqRxWSPR;  // best guess at WSPR QRG
   bool m_QSYMessageCreatorValue = false;
@@ -1478,7 +1510,6 @@ private:
   QMetaObject::Connection m_statusWarningConnection;
   QString m_statusBarStyleBeforeWarning;
   QString m_xRcvd;               //Contest exchange received
-  QString m_currentBand;
   QString m_currentBandPeriod;
   QString m_nextCall;
   QString m_nextGrid;
@@ -1579,7 +1610,6 @@ private:
   QString m_QSOText;
   unsigned m_downSampleFactor;
   QThread::Priority m_audioThreadPriority;
-  bool m_bandEdited;
   bool m_splitMode;
   bool m_monitoring=false;
   bool m_echoRunning=false;
@@ -1722,11 +1752,22 @@ private:
   bool shortList(QString callsign) const;
   void transmit (double snr = 99.);
   void rigFailure (QString const& reason);
-  void pskSetLocal ();
+  void pskSetLocal (QString const& rx_band);
   void pskPost(DecodedText const& decodedtext);
   void pskPost(DecodedText const& decodedtext,
                DecodeOperatingContext const& context);
   void displayDialFrequency ();
+  Frequency displayedDialFrequency () const;
+  QString operatingBand () const;
+  QString operatingBandName () const;
+  QString nominalRxBand () const;
+  QString processedOperatingBand () const;
+  OperatingBand::Context operatingBandContext () const;
+  void applyOperatingBandPlan (OperatingBand::Plan const&, OperatingBand::State const&,
+                               OperatingBand::Context const&);
+  void updateBandEditor (bool force = false);
+  void synchronizeOperatingBandState (FrequencyChangeIntent = FrequencyChangeIntent::Observation);
+  void completeBandReportingTransition (quint64 identity);
   void transmitDisplay (bool);
   void handleDecodeSelection(QString const& line, Qt::KeyboardModifiers modifiers,
                              DecodedMessageReaction::SelectionOrigin selection_origin,
@@ -1773,16 +1814,16 @@ private:
     RigFrequencyChangePolicy::ChangeKind) const;
   bool nominalFrequencyChangeAllowed (FrequencyRequestOrigin);
   bool requestNominalFrequencyChange (Frequency, FrequencyRequestOrigin);
+  bool tryRequestNominalFrequencyChange (Frequency, FrequencyRequestOrigin, bool monitoring);
   bool dispatchNominalFrequency (RigFrequency::Request const&, FrequencyRequestOrigin, bool monitoring);
   bool m_frequencyRetryRequested = false;
   bool requestBandChange (Frequency, FrequencyRequestOrigin);
   bool workingFrequencyAt (int row, Frequency&) const;
-  void applyBandChange (Frequency, Frequency previous_frequency);
   bool requestBandButtonFrequency (Frequency lookup_frequency, Frequency fallback_frequency,
                                    double msk144_tr_period = 0.);
   bool requestAlternateBandFrequency (Frequency);
   bool reapplyCurrentRigFrequencyCorrection ();
-  void restoreNominalFrequencySelection ();
+  void restoreOperatingBandSelection ();
   void WSPR_history(Frequency dialFreq, int ndecodes);
   QString beacon_start_time (int n = 0);
   QString WSPR_message();

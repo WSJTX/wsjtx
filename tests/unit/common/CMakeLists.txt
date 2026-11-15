@@ -421,6 +421,22 @@ target_include_directories (test_operating_frequency PRIVATE ${CMAKE_BINARY_DIR}
 target_link_libraries (test_operating_frequency Qt5::Test)
 add_test (NAME test_operating_frequency COMMAND test_operating_frequency)
 
+add_executable (test_operating_band
+  test_operating_band.cpp
+  ${CMAKE_SOURCE_DIR}/OperatingBand.cpp
+)
+target_include_directories (test_operating_band PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_operating_band Qt5::Test)
+add_test (NAME test_operating_band COMMAND test_operating_band)
+
+add_executable (test_mode_entry
+  test_mode_entry.cpp
+  ${CMAKE_SOURCE_DIR}/ModeEntry.cpp
+)
+target_include_directories (test_mode_entry PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries (test_mode_entry Qt5::Test)
+add_test (NAME test_mode_entry COMMAND test_mode_entry)
+
 add_executable (test_frequency_adapter test_frequency_adapter.cpp)
 target_link_libraries (test_frequency_adapter Qt5::Test)
 add_test (NAME test_frequency_adapter COMMAND test_frequency_adapter)

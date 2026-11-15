@@ -80,6 +80,15 @@ set_tests_properties (test_jtty_adjacent_decode PROPERTIES
   TIMEOUT 180
 )
 
+add_executable (test_jtty_wide_channel_search test_jtty_wide_channel_search.f90)
+target_include_directories (test_jtty_wide_channel_search PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_wide_channel_search)
+add_test (NAME test_jtty_wide_channel_search COMMAND test_jtty_wide_channel_search)
+set_tests_properties (test_jtty_wide_channel_search PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_wide_channel_search: all checks passed"
+  TIMEOUT 180
+)
+
 add_executable (test_jtty_structured_decode
   test_jtty_structured_decode.f90
   jtty_cpp_n1mm_smoke.cpp)
@@ -159,6 +168,11 @@ add_executable (test_jtty_surface_ranges test_jtty_surface_ranges.f90)
 wsjt_link_common_fortran (test_jtty_surface_ranges)
 add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
 set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 180)
+
+add_executable (test_jtty_surface_cache test_jtty_surface_cache.f90)
+wsjt_link_common_fortran (test_jtty_surface_cache)
+add_test (NAME test_jtty_surface_cache COMMAND test_jtty_surface_cache)
+set_tests_properties (test_jtty_surface_cache PROPERTIES TIMEOUT 180)
 
 add_executable (test_jtty_display_layout test_jtty_display_layout.f90)
 target_include_directories (test_jtty_display_layout PRIVATE ${CMAKE_BINARY_DIR})
@@ -311,6 +325,10 @@ add_test (NAME test_jtty_tbcc_decoder COMMAND test_jtty_tbcc_decoder)
 add_executable (test_jtty_tbcc_code_profile test_jtty_tbcc_code_profile.f90)
 wsjt_link_common_fortran (test_jtty_tbcc_code_profile)
 add_test (NAME test_jtty_tbcc_code_profile COMMAND test_jtty_tbcc_code_profile)
+
+add_executable (test_jtty_frequency_mixer test_jtty_frequency_mixer.f90)
+wsjt_link_common_fortran (test_jtty_frequency_mixer)
+add_test (NAME test_jtty_frequency_mixer COMMAND test_jtty_frequency_mixer)
 
 add_executable (test_jtty_payload_correlators test_jtty_payload_correlators.f90)
 wsjt_link_common_fortran (test_jtty_payload_correlators)

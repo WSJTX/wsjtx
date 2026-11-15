@@ -441,7 +441,7 @@ bool m_displayBand = false;
 bool wait_and_call = false;
 bool no_wait_and_call = false;
 bool no_a7_decodes = false;
-bool keep_frequency = false;
+
 bool keep_msk144_frequency = false;
 bool msk144qsy = false;
 bool keep_last_tx_label = false;
@@ -553,7 +553,6 @@ MainWindow::MainWindow(QDir const& temp_directory,
   m_fastGraph (new FastGraph(m_settings)),
   // no parent so that it has a taskbar icon
   m_logDlg (new LogQSO (program_title (), m_settings, &m_config, &m_logBook, nullptr)),
-  m_lastDialFreq {0},
   m_dialFreqRxWSPR {0},
   m_detector {new Detector {RX_SAMPLE_RATE, double(NTMAX), downSampleFactor}},
   m_FFTSize {6192 / 2},         // conservative value to avoid buffer overruns
@@ -678,7 +677,6 @@ MainWindow::MainWindow(QDir const& temp_directory,
     std::make_unique<ShmemDecoderBackend> (decoderSession, dec_data, dec_data_mutex ())},
   m_downSampleFactor (downSampleFactor),
   m_audioThreadPriority (QThread::HighPriority),
-  m_bandEdited {false},
   m_splitMode {false},
   m_monitoring {false},
   m_tx_when_ready {false},
@@ -1358,6 +1356,10 @@ MainWindow::MainWindow(QDir const& temp_directory,
   // Hook up working frequencies.
   ui->bandComboBox->setModel (m_config.frequencies ());
   ui->bandComboBox->setModelColumn (FrequencyList_v2_101::frequency_mhz_column);
+  auto const refresh_band_editor = [this] {updateBandEditor (true);};
+  connect (m_config.frequencies (), &QAbstractItemModel::dataChanged, this, refresh_band_editor);
+  connect (m_config.frequencies (), &QAbstractItemModel::modelReset, this, refresh_band_editor);
+  connect (m_config.frequencies (), &QAbstractItemModel::layoutChanged, this, refresh_band_editor);
 
   // Enable live band combo box entry validation and action.
   auto band_validator = new LiveFrequencyValidator {ui->bandComboBox
@@ -1372,7 +1374,8 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (band_validator, &LiveFrequencyValidator::valid, this, [this] (Frequency frequency) {
     requestBandChange (frequency, FrequencyRequestOrigin::User);
   });
-  connect (ui->bandComboBox->lineEdit (), &QLineEdit::textEdited, [this] (QString const&) {m_bandEdited = true;});
+  connect (band_validator, &LiveFrequencyValidator::unresolvedSubmission, this,
+           [this] {updateBandEditor (true);});
 
   // hook up configuration signals
   connect (&m_config, &Configuration::leavingSettings, this, &MainWindow::handle_leavingSettings);
@@ -1401,21 +1404,24 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (&m_config, &Configuration::frequency_result, this,
            [this] (RigFrequency::Result const& result) {
              m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation ());
-             applyOperatingFrequencyTransition (m_operatingFrequency.handleResult (result));
+             m_operatingFrequency.handleResult (result);
+             synchronizeOperatingBandState ();
              if (result.outcome == RigFrequency::Outcome::Established)
                {
                  if (result.request.path == RigFrequency::Path::Tx)
                    setXIT (ui->TxFreqSpinBox->value ());
                  reapplyCurrentRigFrequencyCorrection ();
                }
+             resumeModeRetune ();
            });
   connect (&m_config, &Configuration::frequency_observation, this,
            [this] (RigFrequency::Evidence const& report) {
              m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation ());
              auto const transition = m_operatingFrequency.observe (report, operatingFrequencyContext ());
-             applyOperatingFrequencyTransition (transition);
+             synchronizeOperatingBandState ();
              if (transition.before.rx != transition.after.rx)
                setXIT (ui->TxFreqSpinBox->value ());
+             resumeModeRetune ();
            });
   connect (&m_config, &Configuration::frequency_failure, this,
            [this] (QString const& reason) {
@@ -1466,7 +1472,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
       statusUpdate ();
 #if defined(Q_OS_WIN)
       QTimer::singleShot (250, this, [=] {
-        if (requestNominalFrequencyChange (
+        if (m_mode != "Echo" && requestNominalFrequencyChange (
               m_operatingFrequency.remembered (), FrequencyRequestOrigin::Automatic))
           {
             m_msk144basefreq = m_operatingFrequency.remembered ();  // This is needed for Hamradio Deluxe
@@ -1748,29 +1754,12 @@ MainWindow::MainWindow(QDir const& temp_directory,
   ui->cbFast9->setChecked(m_bFast9 or m_bFastMode);
 
   set_mode (m_mode);
-  if(m_mode=="Echo") monitor(false);  //Don't auto-start Monitor in Echo mode.
-
-  // Ensure that the correct frequency is set and displayed
-  if(m_mode=="Echo") {
-    QTimer::singleShot (5000, this, [=] {
-      auto const& row = m_config.frequencies ()->best_working_frequency (m_operatingFrequency.rx ());
-      Frequency frequency;
-      if (workingFrequencyAt (row, frequency)
-          && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic))
-        {
-          ui->bandComboBox->setCurrentIndex (row);
-          requestBandChange (frequency, FrequencyRequestOrigin::Automatic);
-        }
-      if (m_monitoring) ui->monitorButton->click();
-    });
-  }
-
   ui->sbSubmode->setValue (vhf || m_mode == "Q65" ? m_nSubMode : 0);
 
   if(m_mode=="MSK144") {
     if (m_tci_audio) {
       QTimer::singleShot (5000, this, [=] {
-        if (ui->bandComboBox->currentText()!="OOB") {
+        if (!operatingBand ().isEmpty ()) {
           Q_EMIT m_config.transceiver_trfrequency(1000.0);
         } else {
           rigFailure("TCI audio cannot be started as frequency is OOB");
@@ -1782,7 +1771,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   } else {
     if (m_tci_audio) {
       QTimer::singleShot (5000, this, [=] {
-        if (ui->bandComboBox->currentText()!="OOB") {
+        if (!operatingBand ().isEmpty ()) {
           Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
         } else {
           rigFailure("TCI audio cannot be started as frequency is OOB");
@@ -2674,7 +2663,7 @@ void MainWindow::dataSink(qint64 frames)
     QString t=QString::fromLatin1(line);
     DecodedText decodedtext {t};
     ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign(),
-          m_mode, m_config.DXCC(), m_logBook, m_currentBand, m_config.ppfx());
+          m_mode, m_config.DXCC(), m_logBook, nominalRxBand (), m_config.ppfx());
     if (ui->measure_check_box->isChecked ()) {
       // Append results text to file "fmt.all".
       QFile f {m_config.writeable_data_dir ().absoluteFilePath ("fmt.all")};
@@ -3067,7 +3056,7 @@ void MainWindow::fastSink(qint64 frames)
     ctx.territory2 = m_config.Territory2();
     ctx.territory3 = m_config.Territory3();
     ctx.territory4 = m_config.Territory4();
-    ctx.currentBand = m_currentBand;
+    ctx.currentBand = nominalRxBand ();
     ctx.mode = m_mode;
     ctx.pounce = pounce;
     ctx.respondPolicy = autoRespondPolicy ();
@@ -3112,7 +3101,7 @@ void MainWindow::fastSink(qint64 frames)
       bool ITUZoneB4onBand;
       auto const& looked_up = m_logBook.countries ()->lookup (deCall);
       m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-        continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
+        continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, nominalRxBand ());
       if (callB4onBand && ui->actionIgnoreB4->isChecked() && !ui->cbBypass->isChecked()) {
         ignored = true;
         m_muted = true;
@@ -3207,7 +3196,7 @@ void MainWindow::fastSink(qint64 frames)
         // display "73" messages for us also in the right pane
         if (m_mode=="MSK144" && text.mid(22).contains(m_baseCall + " " + m_hisCall + " 73")) {
             ui->decodedTextBrowser2->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
-              m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
+              m_logBook, nominalRxBand (), m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
             applyHighlighting(decodedtext, ui->decodedTextBrowser2, false, play_Wanted, play_DXcall);
         }
     }
@@ -3277,7 +3266,7 @@ void MainWindow::fastSink(qint64 frames)
         if (ui->actionHighlightB4->isChecked()) {
             auto const& looked_up = m_logBook.countries ()->lookup (deCall);
             m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                             continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
+                             continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, nominalRxBand ());
             if (callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
         }
         if (ui->actionHighlightToday->isChecked() && (
@@ -3440,7 +3429,7 @@ void MainWindow::showQSYMessage(QString message)
 void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settings dialog)
 {
   inSettings = true;
-  keep_frequency = true;
+
   m_config.read_CALL3_version();
   // things that might change that we need know about
   auto callsign = m_config.my_callsign ();
@@ -3464,7 +3453,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     on_dxGridEntry_textChanged (m_hisGrid); // recalculate distances in case of units change
     enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
 
-    pskSetLocal ();
+    pskSetLocal (nominalRxBand ());
     // this will close the connection to PSKReporter if it has been
     // disabled
     if (psk_on && !m_config.spot_to_psk_reporter ())
@@ -3505,7 +3494,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
         && !m_monitoring && !m_transmitting && g_iptt!=1) {
       if(m_mode=="MSK144") {
         if (m_tci_audio) {
-          if (ui->bandComboBox->currentText()!="OOB") {
+          if (!operatingBand ().isEmpty ()) {
             Q_EMIT m_config.transceiver_trfrequency(1000.0);
           } else {
             rigFailure("TCI audio cannot be started as frequency is OOB");
@@ -3515,7 +3504,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
         }
       } else {
         if (m_tci_audio) {
-          if (ui->bandComboBox->currentText()!="OOB") {
+          if (!operatingBand ().isEmpty ()) {
             Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
           } else {
             rigFailure("TCI audio cannot be started as frequency is OOB");
@@ -3527,7 +3516,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
       on_monitorButton_clicked (true); // reset audio streams
     }
 
-    if (rigFailed or ui->bandComboBox->currentText()=="OOB") displayDialFrequency ();   // reset frequency only when needed
+    if (rigFailed or operatingBand ().isEmpty ()) displayDialFrequency ();   // reset frequency only when needed
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
     if (!vhf && m_mode != "Q65") ui->sbSubmode->setValue (0);
@@ -3567,7 +3556,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
       m_q65PileupCopiedCallers.clear();
       ui->tx1->setEnabled(true);
       ui->txb1->setEnabled(true);
-      set_mode(m_mode);
+      set_mode(m_mode, ModeEntry::RetunePolicy::Preserve);
     }
     chkFT4();
     if(SpecOp::EU_VHF==m_specOp and m_config.my_grid().size()<6) {
@@ -3580,7 +3569,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
           "Fox-and-Hound operation is available only in FT8 mode.\nGo back and change your selection.");
     }
     ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
-    set_mode(m_mode);
+    set_mode(m_mode, ModeEntry::RetunePolicy::Preserve);
 
     // ensure a balanced layout
     qreal pointSize = m_config.text_font().pointSizeF();
@@ -3594,10 +3583,10 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     check_button_color();
     cancelBestSPForCQSelection ();
     rigFailed = false;
-    keep_frequency = false;
+
     inSettings = false;
   } else {
-    keep_frequency = false;
+
     inSettings = false;
     if (m_footswitchPortReleased) applyFootswitchSettings ();  // Test CAT/PTT released its port
   }
@@ -3625,7 +3614,7 @@ void MainWindow::monitor (bool state)
          if(t_rxdelay > 2.3 && t_rxdelay < 2.8 && m_tEcho > t_rxdelay) ms=int(1000*(m_tEcho-t_rxdelay));
       }
       if (m_tci_audio) {
-        if (ui->bandComboBox->currentText()!="OOB") {
+        if (!operatingBand ().isEmpty ()) {
           if(ms>=10) {
             QTimer::singleShot (ms, this, [this] {
               if (m_monitoring && m_tci_audio)
@@ -3649,7 +3638,7 @@ void MainWindow::monitor (bool state)
     }
   } else {
     if (m_tci_audio) {
-      if (ui->bandComboBox->currentText()!="OOB") {
+      if (!operatingBand ().isEmpty ()) {
         Q_EMIT m_config.transceiver_audio(false);
       } else {
         rigFailure("TCI audio cannot be stopped as frequency is OOB");
@@ -3940,7 +3929,7 @@ void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QSt
           updateHoundVerificationStyle ();
         }
         ui->decodedTextBrowser->displayDecodedText(DecodedText{msg}, m_config.my_callsign(), m_mode, m_config.DXCC(),
-                                                   m_logBook, m_currentBand, m_config.ppfx(), false, false, 0.0, false, -99, "", true);
+                                                   m_logBook, nominalRxBand (), m_config.ppfx(), false, false, 0.0, false, -99, "", true);
         write_all("Ck",msg);
       }
     }
@@ -3970,35 +3959,9 @@ void MainWindow::bumpFqso(int n)                                 //bumpFqso()
 
 void MainWindow::displayDialFrequency ()
 {
-  if (ui->actionUse_Dark_Style->isChecked()) ui->bandComboBox->setStyleSheet("QLineEdit {background-color: #31363b}");  // initialize dark style at startup
-  Frequency dial_frequency {m_rigState.ptt () ?
-      (m_rigState.split () ? m_operatingFrequency.correctedTx ()
-                          : m_operatingFrequency.tx ()) :
-      m_operatingFrequency.correctedRx ()};
-
-  // lookup band
-  auto const& band_name = m_config.bands ()->find (dial_frequency);
-  if (m_lastBand != band_name or m_freqNominalPeriod != m_operatingFrequency.rx ())
-    {
-      // only change this when necessary as we get called a lot and it
-      // would trash any user input to the band combo box line edit
-      if (m_lastBand != band_name) {
-        ui->bandComboBox->setCurrentText (band_name.size () ? band_name : m_config.bands ()->oob ());
-        m_wideGraph->setRxBand (band_name);
-        m_lastBand = band_name;
-        band_changed (dial_frequency);
-      }
-      // prevent wrong frequencies for all.txt, PSK Reporter and highlighting for late decodes after band changes
-      m_displayBand = false;
-      no_decodes_to_UDP = true;  // prevent wrong frequencies for devices connected via UDP
-      QTimer::singleShot ((int(600.0*m_TRperiod)), this, [=] {
-          m_freqNominalPeriod = m_operatingFrequency.rx ();
-          m_currentBandPeriod = m_currentBand;
-          m_displayBand = true;
-          no_decodes_to_UDP = false;  // prevent wrong frequencies for devices connected via UDP
-          pskSetLocal ();   // prevent wrong frequencies for PSK Reporter antenna description
-      });
-    }
+  if (ui->actionUse_Dark_Style->isChecked()) ui->bandComboBox->setStyleSheet("QLineEdit {background-color: #31363b}");
+  auto const dial_frequency = displayedDialFrequency ();
+  updateBandEditor ();
 
   // search working frequencies for one we are within 10kHz of (1 Mhz
   // of on VHF and up)
@@ -4023,9 +3986,6 @@ void MainWindow::displayDialFrequency ()
 
   update_dynamic_property (ui->labDialFreq, "OOB", !valid);
   ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
-  if(m_mode=="MSK144" && !msk144qsy) m_msk144basefreq = dial_frequency;  // MSK144 QSY
-
-  if (ui->actionBand_Buttons->isChecked()) check_button_color();  // update band buttons when dialling the VFO
 }
 
 void MainWindow::cancelWaitRetry(bool reply)
@@ -4051,7 +4011,7 @@ void MainWindow::startWaitRetry(bool reply, int milliseconds, QDateTime const& r
                                 bool acknowledge, WaitCallTimeoutOwner owner)
 {
   cancelWaitRetry(reply);
-  WaitRetryContext context {Radio::base_callsign(m_hisCall), m_mode, m_currentBand,
+  WaitRetryContext context {Radio::base_callsign(m_hisCall), m_mode, nominalRxBand (),
                             m_TRperiod, receivedPeriod, ++m_waitRetryGeneration, acknowledge};
   auto& timer = reply ? stopWRTimer : stopWCTimer;
   timer.disconnect(this);
@@ -4095,7 +4055,7 @@ void MainWindow::acknowledgeWaitReply(DecodedText const& message, QDateTime cons
         || receivedPeriod < attempt->receivedPeriod
         || ((reply || m_mode != "MSK144") && receivedPeriod == attempt->receivedPeriod)) return;
     if (attempt->call != Radio::base_callsign(m_hisCall) || attempt->mode != m_mode
-        || attempt->band != m_currentBand || attempt->period != m_TRperiod) return;
+        || attempt->band != nominalRxBand () || attempt->period != m_TRperiod) return;
     bool const waitCall = !reply && m_waitCallTimeoutOwner == WaitCallTimeoutOwner::WaitAndCall;
     cancelWaitRetry(reply);
     if (waitCall && ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click();
@@ -4109,7 +4069,7 @@ void MainWindow::stopWRTimeout()
   auto const attempt = m_waitReplyAttempt;
   cancelWaitRetry(true);
   if (!attempt || attempt->call != Radio::base_callsign(m_hisCall) || attempt->mode != m_mode
-      || attempt->band != m_currentBand || attempt->period != m_TRperiod) return;
+      || attempt->band != nominalRxBand () || attempt->period != m_TRperiod) return;
   auto_tx_mode(false);
 }
 
@@ -4119,7 +4079,7 @@ void MainWindow::stopWCTimeout()
   auto const owner = m_waitCallTimeoutOwner;
   cancelWaitRetry(false);
   if (!attempt || attempt->call != Radio::base_callsign(m_hisCall) || attempt->mode != m_mode
-      || attempt->band != m_currentBand || attempt->period != m_TRperiod) return;
+      || attempt->band != nominalRxBand () || attempt->period != m_TRperiod) return;
   if (owner == WaitCallTimeoutOwner::None) return;
   if (owner == WaitCallTimeoutOwner::WaitAndCall && ui->DX_Call_Button->isChecked())
     ui->DX_Call_Button->click();
@@ -4128,6 +4088,7 @@ void MainWindow::stopWCTimeout()
 
 void MainWindow::statusChanged()
 {
+  if (m_modeSetupActive) return;
   auto const prior_spec_op = m_specOp;
   m_specOp=m_config.special_op_id();  // update m_specOp
   if (m_specOp != prior_spec_op) {
@@ -5166,6 +5127,8 @@ void MainWindow::read_wav_file (QString const& fname)
 {
   if (jttyDrainInProgress()) return;
   if (m_wav_load_coordinator.isLoading ()) return;
+
+  m_pendingModeRetune.cancel ();
 
   if (m_mode=="FT8" && (m_multithreadFT8 or m_operatingFrequency.rx ()>45000000)) {
     m_nDecodes=0;                  // reset the decodes counter
@@ -7471,7 +7434,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
             // This hack sets the font.  Surely there's a better way!
             DecodedText dt{"."};
             ui->decodedTextBrowser->displayDecodedText (dt, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                m_logBook, m_currentBand, m_config.ppfx ());
+                m_logBook, nominalRxBand (), m_config.ppfx ());
             m_bDisplayedOnce=true;
           }
         } else {
@@ -7646,7 +7609,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         if(!pounce && (!m_bestSP.armed () or m_mode!="FT4")) {
           // insert blank line when band was changed
-          if (m_config.insert_blank () && SpecOp::FOX!=m_specOp && m_band_changed && (m_currentBandPeriod == m_currentBand)) {
+          if (m_config.insert_blank () && SpecOp::FOX!=m_specOp && m_band_changed && (m_currentBandPeriod == nominalRxBand ())) {
             if (ui->actionUse_Dark_Style->isChecked()) {
               ui->decodedTextBrowser2->insertText(("------------------- " + m_currentBandPeriod + " -----------------"), "#a2a2a2", "#000000");
             } else {
@@ -7656,7 +7619,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
           if (m_config.alert_Enabled() && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) ui->decodedTextBrowser->new_period (); // ensure alerts are played
           ui->decodedTextBrowser2->displayDecodedText (decodedtext0, m_config.my_callsign (), m_mode, m_config.DXCC (),
-            m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points, "", m_muted, &classification);
+            m_logBook, nominalRxBand (), m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points, "", m_muted, &classification);
           applyHighlighting(decodedtext, ui->decodedTextBrowser2, false, play_Wanted, play_DXcall, &classification);
         }
         m_QSOText = decodedtext.string ().trimmed ();
@@ -8608,7 +8571,6 @@ void MainWindow::guiUpdate()
     }
 
     if(m_mode=="FST4") chk_FST4_freq_range();
-    m_currentBand=m_config.bands()->find(m_operatingFrequency.rx ());
     if( SpecOp::HOUND == m_specOp ) {
       qint32 tHound=QDateTime::currentMSecsSinceEpoch()/1000 - m_tAutoOn;
       //To keep calling Fox, Hound must reactivate Enable Tx at least once every 2 minutes
@@ -9373,9 +9335,10 @@ void MainWindow::on_txrb6_toggled(bool status)
   }
   if(m_mode=="MSK144" && !programStart && !m_band_changed && !keep_msk144_frequency
       && hasMsk144BaseFrequency ()) {
+    QScopedValueRollback<bool> qsy {msk144qsy, false};
     if (requestNominalFrequencyChange (m_msk144basefreq, FrequencyRequestOrigin::User))
       {
-        msk144qsy = false;
+        qsy.commit ();
       }
   }
 }
@@ -9525,10 +9488,11 @@ void MainWindow::handleDecodeSelection(
         {
           keep_msk144_frequency = true;
           monitor (true);
+          QScopedValueRollback<bool> qsy {msk144qsy, true};
           if (requestNominalFrequencyChange (dial_frequency, FrequencyRequestOrigin::User))
             {
               ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
-              msk144qsy = true;
+              qsy.commit ();
             }
           keep_msk144_frequency = false;
         }
@@ -9608,7 +9572,7 @@ DecodedMessageReaction::QsoReactionSnapshot MainWindow::qsoReactionSnapshot(
         || (m_qsoCompletion->phase == QsoCompletion::Phase::TimedOut
             && !repeatContextIsCurrent (m_qsoCompletion)))
       snapshot.completion.phase = QsoCompletionPhase::Cancelled;
-    if (m_qsoCompletion->matches (m_hisCall, m_mode, m_currentBand, m_TRperiod))
+    if (m_qsoCompletion->matches (m_hisCall, m_mode, nominalRxBand (), m_TRperiod))
       snapshot.completion.logRequested = m_qsoCompletion->logState != QsoCompletion::LogState::None;
   }
   snapshot.loggingEnabled = m_config.prompt_to_log() || m_config.autoLog();
@@ -9888,7 +9852,7 @@ void MainWindow::refreshQsoPane(DecodedText const& message)
   if (previous == current || message.isTX()) return;
 
   if (m_mode == "MSK144" && m_config.insert_blank() && m_band_changed
-      && m_currentBandPeriod == m_currentBand && !BlankLineInserted) {
+      && m_currentBandPeriod == nominalRxBand () && !BlankLineInserted) {
     if (ui->actionUse_Dark_Style->isChecked()) {
       ui->decodedTextBrowser2->insertText(
         "------------------- " + m_currentBandPeriod + " -----------------", "#a2a2a2", "#000000");
@@ -9901,7 +9865,7 @@ void MainWindow::refreshQsoPane(DecodedText const& message)
   }
   if (!current.contains(m_baseCall) || m_mode == "MSK144") {
     ui->decodedTextBrowser2->displayDecodedText(
-      message, m_config.my_callsign(), m_mode, m_config.DXCC(), m_logBook, m_currentBand,
+      message, m_config.my_callsign(), m_mode, m_config.DXCC(), m_logBook, nominalRxBand (),
       m_config.ppfx(), false, false, 0.0, false, -99, "", m_muted);
   }
   m_QSOText = current;
@@ -10560,16 +10524,15 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       ui->jt65Button->clearFocus();
   }
   if(ui->houndButton->hasFocus() && (event->button() & Qt::RightButton)) {     // toggle SuperFox mode
-      keep_frequency = true;
+
       not_erase = true;         // prevent erasing the decodedTextBrowser
       m_config.toggle_SF();
       QTimer::singleShot (250, this, [=] {
-        keep_frequency = false;
+
         not_erase = false;
       });
-      on_actionFT8_triggered();
+      set_mode("FT8", ModeEntry::RetunePolicy::Preserve);
       ui->houndButton->clearFocus();
-      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
   }
   // Search callsign on qrz.com, qrzcq.com or hamqth.com
   if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {   // search callsign on QRZ.com
@@ -10618,14 +10581,14 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->DecodeButton->clearFocus();
   }
   if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // Switch contest mode on/off
-      keep_frequency = true;
+
       not_erase = true;  // prevent erasing the decodedTextBrowser
       QTimer::singleShot (350, this, [=] {not_erase = false;});
       m_specOp=m_config.special_op_id();
       if (!m_config.bSpecialOp()) {
         m_config.setSpecial_On();
         if (m_specOp==SpecOp::HOUND) {
-        ui->houndButton->click();
+        configureHound (true, ModeEntry::RetunePolicy::Preserve);
         }
       } else {
         m_config.setSpecial_None();
@@ -10643,7 +10606,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       if(m_specOp!=nContest0) {
         ui->tx1->setEnabled(true);
         ui->txb1->setEnabled(true);
-        set_mode(m_mode);
+        set_mode(m_mode, ModeEntry::RetunePolicy::Preserve);
       }
       displayDialFrequency ();
       update_watchdog_label ();
@@ -10661,12 +10624,11 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
       if (!isSuperHoundOperation ()) m_houndVerified = false;
       updateHoundVerificationStyle ();
-      set_mode(m_mode);
+      set_mode(m_mode, ModeEntry::RetunePolicy::Preserve);
       configActiveStations();
       check_button_color();
       ui->ft8Button->clearFocus();
       statusChanged();
-      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
   }
   // freeze the Tx5 text
   if(ui->txb5->hasFocus() && (event->button() & Qt::RightButton)) {
@@ -11489,936 +11451,6 @@ void MainWindow::setDecodeHeadings(QString const& lh, QString const& rh)
   ui->rh_decodes_headings_label->setText(rh);
 }
 
-void MainWindow::on_actionFST4_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("FST4"));
-  QTimer::singleShot (50, this, [=] {
-    ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
-    ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-    on_sbSubmode_valueChanged(ui->sbSubmode->value());
-    ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
-  });
-  m_mode="FST4";
-  if(m_specOp==SpecOp::HOUND) {
-  m_config.setSpecial_None();
-  m_specOp=m_config.special_op_id();
-  }
-  ui->actionFST4->setChecked(true);
-  m_bFast9=false;
-  m_bFastMode=false;
-  m_fastGraph->hide();
-  m_wideGraph->show();
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  initializeFFT(6912);
-  setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
-  WSPR_config(false);
-  if(m_config.single_decode()) {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                      ModeUiControl::Report, ModeUiControl::TrPeriod,
-                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
-                      ModeUiControl::DecodeDepth, ModeUiControl::Respond});
-    m_wideGraph->setSingleDecode(true);
-  } else {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::Report,
-                      ModeUiControl::TrPeriod, ModeUiControl::AutoSequence,
-                      ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
-                      ModeUiControl::HoldTxFrequency, ModeUiControl::DecodeDepth,
-                      ModeUiControl::Respond, ModeUiControl::LowFrequency,
-                      ModeUiControl::HighFrequency});
-    m_wideGraph->setSingleDecode(false);
-    ui->sbFtol->setValue(20);
-  }
-  setup_status_bar(false);
-  ui->cbAutoSeq->setChecked(true);
-  m_wideGraph->setMode(m_mode);
-  m_wideGraph->setPeriod(m_TRperiod,6912);
-  m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
-  m_wideGraph->setTol(ui->sbFtol->value());
-  m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
-  m_wideGraph->setFST4_FreqRange(ui->sbF_Low->value(),ui->sbF_High->value());
-  chk_FST4_freq_range();
-  switch_mode (Modes::FST4);
-  m_wideGraph->setMode(m_mode);
-  ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
-  ui->sbTR->setValue (m_settings->value ("TRPeriod_FST4", 60).toInt());    // remember sbTR settings by mode
-  QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
-  setTxFirstModeEnabled (true);
-  statusChanged();
-  m_bOK_to_chk=true;
-  chk_FST4_freq_range();
-}
-
-void MainWindow::on_actionFST4W_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("FST4W"));
-  m_mode="FST4W";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  ui->actionFST4W->setChecked(true);
-  m_bFast9=false;
-  m_bFastMode=false;
-  m_fastGraph->hide();
-  m_wideGraph->show();
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  initializeFFT(6912);
-  WSPR_config(true);
-  applyModeUiState({ModeUiControl::WsprControls, ModeUiControl::DecodeDepth,
-                    ModeUiControl::Fst4wTrPeriod});
-  setup_status_bar(false);
-  ui->band_hopping_group_box->setChecked(false);
-  ui->band_hopping_group_box->setVisible(false);
-  on_sbTR_FST4W_valueChanged (ui->sbTR_FST4W->value ());
-  ui->WSPRfreqSpinBox->setMinimum(100);
-  ui->WSPRfreqSpinBox->setMaximum(5000);
-  m_wideGraph->setMode(m_mode);
-  m_wideGraph->setPeriod(m_TRperiod,6912);
-  m_wideGraph->setTxFreq(ui->WSPRfreqSpinBox->value());
-  m_wideGraph->setRxFreq(ui->sbFST4W_RxFreq->value());
-  m_wideGraph->setTol(ui->sbFST4W_FTol->value());
-  ui->sbFtol->setValue(100);
-  switch_mode (Modes::FST4W);
-  statusChanged();
-}
-
-void MainWindow::on_actionFT4_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("FT4"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT4_triggered();});
-  QTimer::singleShot (50, this, [=] {
-    ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
-    ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-    on_sbSubmode_valueChanged(ui->sbSubmode->value());
-    ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
-  });
-  m_mode="FT4";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  m_TRperiod=7.5;
-  bool bVHF=m_config.enable_VHF_features();
-  m_bFast9=false;
-  m_bFastMode=false;
-  WSPR_config(false);
-  switch_mode (Modes::FT4);
-  initializeFFT(6912);
-  m_hsymStop=21;
-  setup_status_bar (bVHF);
-  m_toneSpacing=12000.0/576.0;
-  ui->actionFT4->setChecked(true);
-  m_wideGraph->setMode(m_mode);
-  m_send_RR73=true;
-  VHF_features_enabled(bVHF);
-  ui->cbAutoSeq->setChecked(true);
-  m_fastGraph->hide();
-  m_wideGraph->show();
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
-  setDecodeHeadings("  UTC   dB   DT Freq    " + tr ("Message"), "  UTC   dB   DT Freq    " + tr ("Message"));
-  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                    ModeUiControl::RxFrequency, ModeUiControl::Report,
-                    ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                    ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
-                    ModeUiControl::DecodeDepth, ModeUiControl::Respond,
-                    ModeUiControl::CqOnly});
-  setTxButtonsEnabled(true);
-  setTxFirstModeEnabled (true);
-  chkFT4();
-  statusChanged();
-}
-
-void MainWindow::on_actionFT8_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("FT8"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT8_triggered();});
-  QTimer::singleShot (50, this, [=] {
-    if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
-    if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
-    if(SpecOp::HOUND == m_specOp && m_config.superFox()) {
-      clearDX();
-      // Stale F/H decodes left in the Band Activity / Rx Frequency windows
-      // can be double-clicked to re-prime Tx against a callsign that is no
-      // longer valid in SuperFox/Hound (where the target comes from the
-      // Active Stations widget via the $VERIFY$ flow).  Erase them so the
-      // user-trap surface is gone.  Reported by AF8C, 2026-05-03.
-      ui->decodedTextBrowser->erase ();
-      ui->decodedTextBrowser2->erase ();
-    }
-    on_sbSubmode_valueChanged(ui->sbSubmode->value());
-    ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
-  });
-  m_mode="FT8";
-  bool bVHF=m_config.enable_VHF_features();
-  m_bFast9=false;
-  m_bFastMode=false;
-  WSPR_config(false);
-  initializeFFT(6912);
-  if (m_multithreadFT8 && !(m_specOp==SpecOp::HOUND && m_config.superFox())) {
-    if (m_ft8DecoderStart==0) m_hsymStop=49;
-    else if (m_ft8DecoderStart==1) {
-      m_hsymStop=50;
-      m_earlyDecode2=46;
-    }
-    else if (m_ft8DecoderStart==2) m_hsymStop=48;
-    else if (m_ft8DecoderStart==3) m_hsymStop=49;
-    else if (m_ft8DecoderStart==4) m_hsymStop=50;
-  } else {
-    m_hsymStop=50;
-    m_earlyDecode2=47;
-  }
-  setup_status_bar (bVHF);
-  m_toneSpacing=0.0;                   //???
-  ui->actionFT8->setChecked(true);     //???
-  m_wideGraph->setMode(m_mode);
-  VHF_features_enabled(bVHF);
-  ui->cbAutoSeq->setChecked(true);
-  m_TRperiod=15.0;
-  ui->sbFtol->setValue (m_settings->value ("Ftol_SF", 50).toInt()); // restore last used Ftol parameter
-  m_fastGraph->hide();
-  m_wideGraph->show();
-  ui->rh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
-  if(SpecOp::FOX==m_specOp) {
-    ui->lh_decodes_title_label->setText(tr ("Stations calling DXpedition %1").arg (m_config.my_callsign()));
-    ui->lh_decodes_headings_label->setText( "Call         Grid   dB  Freq   Dist Age Cont Score");
-  } else {
-    ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-    ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
-  }
-
-  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                    ModeUiControl::RxFrequency, ModeUiControl::Report,
-                    ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                    ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
-                    ModeUiControl::DecodeDepth, ModeUiControl::ApFt8,
-                    ModeUiControl::Respond, ModeUiControl::CqOnly});
-  setTxButtonsEnabled(true);
-  setTxFirstModeEnabled (true);
-  ui->cbAutoSeq->setEnabled(true);
-  if(SpecOp::FOX==m_specOp) {
-    ui->txFirstCheckBox->setChecked(true);
-    setTxFirstModeEnabled (false);
-    ui->cbHoldTxFreq->setChecked(true);
-    ui->cbAutoSeq->setEnabled(false);
-    m_wideGraph->setSuperFox(false);
-    if(m_config.superFox()) {
-      ui->TxFreqSpinBox->setValue(750);            //SuperFox transmits at 750 Hz
-      m_wideGraph->setSuperFox(true);
-    } else {
-      ui->TxFreqSpinBox->setValue(500);
-    }
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::Report,
-                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
-                      ModeUiControl::DecodeDepth, ModeUiControl::DxpedLabel,
-                      ModeUiControl::RxAll, ModeUiControl::FoxQueueTab});
-    ui->cbRxAll->setText(tr("Show Already Worked"));
-    ui->labDXped->setText(specOpLabel());
-    on_fox_log_action_triggered();
-    if (m_ActiveStationsWidget) m_ActiveStationsWidget->setClickOK(true); // allow clicks
-  }
-  if(SpecOp::HOUND == m_specOp) {
-    ui->houndButton->setChecked(true);
-    ui->txFirstCheckBox->setChecked(false);
-    setTxFirstModeEnabled (false);
-    ui->cbAutoSeq->setEnabled(false);
-    if(ui->tabWidget->currentIndex() == fox_queue_tab_index) {
-      ui->tabWidget->setCurrentIndex(standard_messages_tab_index);
-    }
-    ui->cbHoldTxFreq->setChecked(true);
-    m_wideGraph->setSuperHound(false);
-    if(m_config.superFox()) {
-      applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                        ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                        ModeUiControl::Report, ModeUiControl::AutoSequence,
-                        ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
-                        ModeUiControl::DecodeDepth, ModeUiControl::DxpedLabel,
-                        ModeUiControl::RxAll});
-      ui->cbRxAll->setEnabled(false);
-      m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
-      m_wideGraph->setTol(ui->sbFtol->value());
-      m_wideGraph->setSuperHound(true);
-      clearDX();
-      if(ui->RxFreqSpinBox->value() < 700 or ui->RxFreqSpinBox->value() > 800)
-        ui->RxFreqSpinBox->setValue(750);
-    } else {
-      applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                        ModeUiControl::RxFrequency, ModeUiControl::Report,
-                        ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                        ModeUiControl::CopyTxToRx, ModeUiControl::DecodeDepth,
-                        ModeUiControl::DxpedLabel, ModeUiControl::RxAll});
-      ui->cbRxAll->setEnabled(true);
-      m_wideGraph->setSuperHound(false);
-      ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-    }
-    ui->labDXped->setText(specOpLabel());
-    ui->txrb1->setChecked(true);
-    setTxButtonsEnabled(false);
-    if (m_ActiveStationsWidget) m_ActiveStationsWidget->setClickOK(false);
-  } else {
-    switch_mode (Modes::FT8);
-  }
-  if(m_specOp != SpecOp::HOUND) {
-      ui->houndButton->setChecked(false);
-      m_wideGraph->setSuperHound(false);
-  }
-
-  m_specOp=m_config.special_op_id();
-  if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
-    QString t0 = specOpLabel();
-    if(t0.isEmpty()) {
-      ui->labDXped->setVisible(false);
-    } else {
-      ui->labDXped->setVisible(true);
-      ui->labDXped->setText(t0);
-    }
-    if(m_specOp!=SpecOp::Q65_PILEUP) on_contest_log_action_triggered();
-  }
-
-  if((SpecOp::FOX==m_specOp or SpecOp::HOUND==m_specOp) and !m_config.superFox() and !m_config.split_mode()
-     and !m_bWarnedSplit and m_config.rig_name() != "None") {
-    QString errorMsg;
-    MessageBox::critical_message (this,
-       "Operation in FT8 DXpedition mode normally requires\n"
-       " *Split* rig control (either *Rig* or *Fake It* on\n"
-       "the *Settings | Radio* tab.)", errorMsg);
-    m_bWarnedSplit=true;
-  }
-  m_houndVerified = false;
-  updateHoundVerificationStyle ();
-  statusChanged();
-  configActiveStations();
-}
-
-void MainWindow::on_actionJT4_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("JT4"));
-  QTimer::singleShot (50, this, [=] {
-    ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
-    ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-  });
-  m_mode="JT4";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  bool bVHF=m_config.enable_VHF_features();
-  WSPR_config(false);
-  switch_mode (Modes::JT4);
-  m_TRperiod=60.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  initializeFFT(6912);
-  m_hsymStop=176;
-  if(m_config.decode_at_52s()) m_hsymStop=184;
-  m_toneSpacing=0.0;
-  ui->actionJT4->setChecked(true);
-  VHF_features_enabled(true);
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  m_wideGraph->setMode(m_mode);
-  m_bFastMode=false;
-  m_bFast9=false;
-  setup_status_bar (bVHF);
-  ui->sbSubmode->setMaximum(6);
-  setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
-  if(bVHF) {
-    // restore last used parameters
-    ui->sbFtol->setValue (m_settings->value ("Ftol_JT4", 50).toInt());
-    m_nSubMode=m_settings->value("SubMode_JT4",0).toInt();
-    ui->sbSubmode->setValue(m_settings->value("SubMode_JT4",0).toInt());
-    QTimer::singleShot (50, this, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
-    m_bShMsgs=m_settings->value("ShMsgs_JT4",false).toBool();
-    ui->cbShMsgs->setChecked(m_bShMsgs);
-  } else {
-    ui->sbSubmode->setValue(0);
-  }
-  if(bVHF) {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                      ModeUiControl::Report, ModeUiControl::ShortMessages,
-                      ModeUiControl::AutoSequence, ModeUiControl::Tx6,
-                      ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
-                      ModeUiControl::Submode, ModeUiControl::Sync,
-                      ModeUiControl::ClearAverage, ModeUiControl::DecodeDepth,
-                      ModeUiControl::IncludeAveraging,
-                      ModeUiControl::IncludeCorrelation, ModeUiControl::Respond});
-  } else {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::Report,
-                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                      ModeUiControl::CopyTxToRx, ModeUiControl::ClearAverage,
-                      ModeUiControl::DecodeDepth, ModeUiControl::Respond});
-  }
-  fast_config(false);
-  setTxFirstModeEnabled (true);
-  statusChanged();
-}
-
-void MainWindow::on_actionJT9_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("JT9"));
-  m_mode="JT9";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  bool bVHF=m_config.enable_VHF_features();
-  // restore last used parameters
-  if(bVHF && m_mode!="JT65" && !blocked) {
-    ui->sbSubmode->setMaximum(7);
-    m_bFast9=m_settings->value("JT9_Fast",false).toBool();
-    ui->cbFast9->setChecked(m_bFast9 or m_bFastMode);
-    ui->sbFtol->setValue (m_settings->value ("Ftol_JT9", 50).toInt());
-    m_nSubMode=m_settings->value("SubMode",0).toInt();
-    ui->sbSubmode->setValue(m_nSubMode);
-    QTimer::singleShot (50, this, [=] {
-      on_sbTR_valueChanged (ui->sbTR->value());
-      on_sbSubmode_valueChanged(ui->sbSubmode->value());
-    });
-  }
-//  m_bFast9=ui->cbFast9->isChecked();
-  m_bFastMode=m_bFast9;
-  WSPR_config(false);
-  switch_mode (Modes::JT9);
-  initializeFFT(6912);
-  m_hsymStop=173;
-  if(m_config.decode_at_52s()) m_hsymStop=179;
-  setup_status_bar (bVHF);
-  m_toneSpacing=0.0;
-  ui->actionJT9->setChecked(true);
-  m_wideGraph->setMode(m_mode);
-  VHF_features_enabled(bVHF);
-  if(m_nSubMode>=4 and bVHF) {
-    ui->cbFast9->setEnabled(true);
-  } else {
-    ui->cbFast9->setEnabled(false);
-    ui->cbFast9->setChecked(false);
-  }
-  ui->sbSubmode->setMaximum(7);
-  if(m_bFast9) {
-    ui->sbTR->values ({5, 10, 15, 30});
-    if(bVHF && m_mode!="JT65" && !blocked) ui->sbTR->setValue (m_settings->value ("TRPeriod", 15).toInt());  // restore last used TRperiod
-    on_sbTR_valueChanged (ui->sbTR->value());
-    m_wideGraph->hide();
-    m_fastGraph->showNormal();
-    ui->TxFreqSpinBox->setValue(700);
-    ui->RxFreqSpinBox->setValue(700);
-    setDecodeHeadings("  UTC   dB    T Freq    " + tr ("Message"), "  UTC   dB    T Freq    " + tr ("Message"));
-  } else {
-//    ui->cbAutoSeq->setChecked(false);
-    if (m_mode != "FST4")
-      {
-        m_TRperiod=60.0;
-        setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
-      }
-  }
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
-  if(bVHF) {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                      ModeUiControl::Report, ModeUiControl::CqTxFrequency,
-                      ModeUiControl::Fast9, ModeUiControl::AutoSequence,
-                      ModeUiControl::CopyRxToTx, ModeUiControl::CopyTxToRx,
-                      ModeUiControl::HoldTxFrequency, ModeUiControl::Submode,
-                      ModeUiControl::Sync, ModeUiControl::DecodeDepth,
-                      ModeUiControl::Respond});
-  } else {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::Report,
-                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
-                      ModeUiControl::DecodeDepth, ModeUiControl::Respond,
-                      ModeUiControl::CqOnly});
-  }
-  fast_config(m_bFastMode);
-//  ui->cbAutoSeq->setVisible(m_bFast9);
-  setTxFirstModeEnabled (true);
-  statusChanged();
-}
-
-void MainWindow::on_actionJT65_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("JT65"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionJT65_triggered();});
-  QTimer::singleShot (50, this, [=] {
-    ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
-    ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-  });
-  on_actionJT9_triggered();
-  m_mode="JT65";
-  m_jt65ClearAveragesPending = true;
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  bool bVHF=m_config.enable_VHF_features();
-  WSPR_config(false);
-  switch_mode (Modes::JT65);
-  m_TRperiod=60.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  initializeFFT(6912);
-  m_hsymStop=174;
-  if(m_config.decode_at_52s()) m_hsymStop=183;
-  m_toneSpacing=0.0;
-  ui->actionJT65->setChecked(true);
-  VHF_features_enabled(bVHF);
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  m_wideGraph->setMode(m_mode);
-  m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
-  m_wideGraph->setTol(ui->sbFtol->value());
-  m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
-  setup_status_bar (bVHF);
-  m_bFastMode=false;
-  m_bFast9=false;
-  ui->sbSubmode->setMaximum(2);
-  if(bVHF) {
-    // restore last used parameters
-    ui->sbFtol->setValue (m_settings->value ("Ftol_JT65", 50).toInt());
-    m_nSubMode=m_settings->value("SubMode_JT65",0).toInt();
-    ui->sbSubmode->setValue(m_settings->value("SubMode_JT65",0).toInt());
-    QTimer::singleShot (50, this, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
-    m_bShMsgs=m_settings->value("ShMsgs_JT65",false).toBool();
-    ui->cbShMsgs->setChecked(m_bShMsgs);
-  } else {
-    ui->sbSubmode->setValue(0);
-    setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
-  }
-  if(bVHF) {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                      ModeUiControl::Report, ModeUiControl::ShortMessages,
-                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                      ModeUiControl::CopyTxToRx, ModeUiControl::Submode,
-                      ModeUiControl::Sync, ModeUiControl::ClearAverage,
-                      ModeUiControl::IncludeAveraging,
-                      ModeUiControl::IncludeCorrelation, ModeUiControl::ApJt65,
-                      ModeUiControl::Respond});
-  } else {
-    applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                      ModeUiControl::RxFrequency, ModeUiControl::Report,
-                      ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                      ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
-                      ModeUiControl::DecodeDepth, ModeUiControl::Respond,
-                      ModeUiControl::CqOnly});
-  }
-  fast_config(false);
-//  if(ui->cbShMsgs->isChecked()) {
-//    ui->cbAutoSeq->setChecked(false);
-//    ui->cbAutoSeq->setVisible(false);
-//  }
-  if (m_config.decode_at_52s() && m_config.auto_astro() && !ui->actionAstronomical_data->isChecked())
-    ui->actionAstronomical_data->setChecked (true);
-  setTxFirstModeEnabled (true);
-  statusChanged();
-}
-
-void MainWindow::on_actionQ65_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("Q65"));
-  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionQ65_triggered();});
-  QTimer::singleShot (50, this, [=] {
-    ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
-    ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-  });
-  m_mode="Q65";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  ui->actionQ65->setChecked(true);
-  switch_mode(Modes::Q65);
-  ui->cbAutoSeq->setChecked(true);
-  fast_config(false);
-  WSPR_config(false);
-  setup_status_bar(true);
-  m_bFastMode=false;
-  m_bFast9=false;
-  initializeFFT(6912);
-  m_hsymStop=49;
-  ui->sbTR->values ({15, 30, 60, 120, 300});
-  // restore last used parameters
-  ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());
-  ui->sbFtol->setValue (m_settings->value ("Ftol_Q65", 50).toInt());
-  ui->sbSubmode->setValue(m_settings->value("SubMode_Q65",0).toInt());
-  m_nSubMode=ui->sbSubmode->value();
-  QTimer::singleShot (50, this, [=] {
-    on_sbTR_valueChanged (ui->sbTR->value());
-    on_sbSubmode_valueChanged(ui->sbSubmode->value());
-  });
-  m_bShMsgs=m_settings->value("ShMsgs_Q65",false).toBool();
-  ui->cbShMsgs->setChecked(m_bShMsgs);
-  QString fname {QDir::toNativeSeparators(m_config.temp_dir().absoluteFilePath ("red.dat"))};
-  m_wideGraph->setRedFile(fname);
-  m_wideGraph->setMode(m_mode);
-  m_wideGraph->setPeriod(m_TRperiod,6912);
-  m_wideGraph->setTol(ui->sbFtol->value());
-  m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
-  m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
-  switch_mode (Modes::Q65);
-  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                    ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                    ModeUiControl::Report, ModeUiControl::TrPeriod,
-                    ModeUiControl::ShortMessages, ModeUiControl::AutoSequence,
-                    ModeUiControl::Tx6, ModeUiControl::CopyRxToTx,
-                    ModeUiControl::CopyTxToRx, ModeUiControl::Submode,
-                    ModeUiControl::ClearAverage, ModeUiControl::DecodeDepth,
-                    ModeUiControl::IncludeAveraging,
-                    ModeUiControl::Respond, ModeUiControl::AutoClearAverage,
-                    ModeUiControl::MaxDrift});
-  setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-
-  m_specOp=m_config.special_op_id();
-  if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
-    QString t0 = specOpLabel();
-    if(t0.isEmpty()) {
-      ui->labDXped->setVisible(false);
-    } else {
-      ui->labDXped->setVisible(true);
-      ui->labDXped->setText(t0);
-    }
-    if(m_specOp!=SpecOp::Q65_PILEUP) {
-        on_contest_log_action_triggered();
-    } else {
-        if(ui->txrb1->isChecked()) on_txb2_clicked();
-        ui->tx1->setEnabled(true);
-        ui->txb1->setEnabled(true);
-    }
-  }
-  if (m_config.decode_at_52s() && m_config.auto_astro() && !ui->actionAstronomical_data->isChecked())
-    ui->actionAstronomical_data->setChecked (true);
-  setTxFirstModeEnabled (true);
-  statusChanged();
-}
-
-void MainWindow::on_actionJTTY_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  bool const enteringJtty = m_mode != "JTTY";
-  noteTxModeChange (QStringLiteral ("JTTY"));
-  on_stopButton_clicked();
-  m_mode = "JTTY";
-  ui->actionJTTY->setChecked(true);
-  switch_mode (Modes::JTTY);
-  WSPR_config(false);
-  VHF_features_enabled(false);
-  m_wideGraph->setMode(m_mode);
-  ui->cbAutoSeq->setChecked(false);
-  m_bFastMode=false;
-  m_bFast9=false;
-  m_nsps=6912;
-  initializeFFT(m_nsps);
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
-  m_TRperiod=180;                   // Legacy timed interfaces; JTTY receive uses sample coordinates.
-  m_hsymStop=620;
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  if (enteringJtty)
-    {
-      QTimer::singleShot (50, this, [=] {
-        ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
-        ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-      });
-    }
-//  ui->RxFreqSpinBox_2->setSingleStep(200);
-  ui->sbFtol_2->values ({2, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
-  // Reapply the marker because setting the spinbox to its existing value emits no change.
-  m_wideGraph->setRxFreq(ui->RxFreqSpinBox_2->value());
-  m_wideGraph->setTol(ui->sbFtol_2->value());
-  m_fastGraph->hide();
-  m_wideGraph->showNormal();
-  setDecodeHeadings("", "");
-  updateJttyDecodeHeadings();
-  updateJttyPttStateLabel();
-  setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
-  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
-                    ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                    ModeUiControl::Report, ModeUiControl::TrPeriod,
-                    ModeUiControl::AutoSequence, ModeUiControl::CopyRxToTx,
-                    ModeUiControl::CopyTxToRx, ModeUiControl::HoldTxFrequency,
-                    ModeUiControl::DecodeDepth, ModeUiControl::Respond});
-  // JTTY's decoder has no Fast/Deep behavior to select -- force Normal and
-  // disable the other two rather than offer a choice that does nothing.
-  ui->actionMediumDecode->setChecked(true);
-  ui->actionQuickDecode->setEnabled(false);
-  ui->actionDeepestDecode->setEnabled(false);
-  setup_status_bar (false);
-  monitor(true);
-}
-
-
-void MainWindow::on_actionMSK144_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  m_hsymStop=105;
-  m_TRperiod=ui->sbTR->value();
-  if(SpecOp::EU_VHF < m_specOp) {
-// We are rejecting the requested mode change, so re-check the old mode
-    if("FT8"==m_mode) ui->actionFT8->setChecked(true);
-    if("JT4"==m_mode) ui->actionJT4->setChecked(true);
-    if("JT9"==m_mode) ui->actionJT9->setChecked(true);
-    if("JT65"==m_mode) ui->actionJT65->setChecked(true);
-    if("Q65"==m_mode) ui->actionQ65->setChecked(true);
-    if("WSPR"==m_mode) ui->actionWSPR->setChecked(true);
-    if("Echo"==m_mode) ui->actionEcho->setChecked(true);
-    if("FreqCal"==m_mode) ui->actionFreqCal->setChecked(true);
-    if("FST4"==m_mode) ui->actionFST4->setChecked(true);
-    if("FST4W"==m_mode) ui->actionFST4W->setChecked(true);
-// Make sure that MSK144 is not checked.
-    ui->actionMSK144->setChecked(false);
-    MessageBox::warning_message (this, tr ("Improper mode"),
-       "MSK144 not available if Fox, Hound, Field Day, FT Roundup, WW Digi. or ARRL Digi contest is selected.");
-    return;
-  }
-  noteTxModeChange (QStringLiteral ("MSK144"));
-  m_mode="MSK144";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  ui->actionMSK144->setChecked(true);
-  switch_mode (Modes::MSK144);
-  initializeFFT(6, 7 * 512);
-  setup_status_bar (true);
-  m_toneSpacing=0.0;
-  WSPR_config(false);
-  VHF_features_enabled(true);
-  ui->cbAutoSeq->setChecked(true);
-  m_bFastMode=true;
-  m_bFast9=false;
-  ui->sbTR->values ({5, 10, 15, 30});
-  // restore last used parameters
-  if (!programStart) {
-    if (m_currentBand=="2m") ui->sbTR->setValue (m_msk144_tr2);
-    else if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_msk144_tr6);
-    else ui->sbTR->setValue (m_msk144_tr);
-  }
-  setTxFirstModeEnabled (true);
-  QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
-  ui->sbFtol->setValue (m_settings->value ("Ftol_MSK144", 50).toInt());   // restore last used parameter
-  m_bShMsgs=m_settings->value("ShMsgs_MSK144",false).toBool();
-  ui->cbShMsgs->setChecked(m_bShMsgs);
-  m_wideGraph->hide();
-  m_fastGraph->showNormal();
-  ui->TxFreqSpinBox->setValue(1500);
-  ui->RxFreqSpinBox->setValue(1500);
-  ui->RxFreqSpinBox->setMinimum(1400);
-  ui->RxFreqSpinBox->setMaximum(1600);
-  ui->RxFreqSpinBox->setSingleStep(10);
-  setDecodeHeadings("  UTC   dB    T Freq    " + tr ("Message"), "  UTC   dB    T Freq    " + tr ("Message"));
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  m_fastGraph->setTRPeriod(m_TRperiod);
-  setDecodeTitles(tr ("Band Activity"), tr ("Tx Messages"));
-  ui->actionMSK144->setChecked(true);
-  ui->rptSpinBox->setMinimum(-8);
-  ui->rptSpinBox->setMaximum(24);
-  ui->rptSpinBox->setValue(0);
-  ui->rptSpinBox->setSingleStep(1);
-  ui->sbFtol->values ({20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
-  applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::RxFrequency,
-                    ModeUiControl::FrequencyTolerance, ModeUiControl::Report,
-                    ModeUiControl::TrPeriod, ModeUiControl::CqTxFrequency,
-                    ModeUiControl::ShortMessages, ModeUiControl::AutoSequence,
-                    ModeUiControl::DecodeDepth, ModeUiControl::Swl,
-                    ModeUiControl::Respond});
-  fast_config(m_bFastMode);
-  statusChanged();
-
-  QString t0 = specOpLabel();
-  if(t0.isEmpty()) {
-    ui->labDXped->setVisible(false);
-  } else {
-    ui->labDXped->setVisible(true);
-    ui->labDXped->setText(t0);
-    on_contest_log_action_triggered();
-  }
-  if(!(programStart or m_operatingFrequency.rx () == 0)) m_msk144basefreq = m_operatingFrequency.rx ();  // MSK144 QSY
-}
-
-void MainWindow::on_actionWSPR_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("WSPR"));
-  m_mode="WSPR";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  WSPR_config(true);
-  switch_mode (Modes::WSPR);
-  m_TRperiod=120.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  initializeFFT(6912);
-  m_hsymStop=396;
-  m_toneSpacing=12000.0/8192.0;
-  setup_status_bar (false);
-  ui->actionWSPR->setChecked(true);
-  VHF_features_enabled(false);
-  ui->WSPRfreqSpinBox->setMinimum(1400);
-  ui->WSPRfreqSpinBox->setMaximum(1600);
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  m_wideGraph->setMode(m_mode);
-  m_bFastMode=false;
-  m_bFast9=false;
-  ui->TxFreqSpinBox->setValue(ui->WSPRfreqSpinBox->value());
-  applyModeUiState({ModeUiControl::WsprControls, ModeUiControl::DecodeDepth});
-  fast_config(false);
-  enterBeaconMode ();
-  statusChanged();
-}
-
-void MainWindow::on_actionEcho_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("Echo"));
-  int nd=int(m_ndepth&3);
-  on_actionJT4_triggered();
-  // Don't allow decoding depth to be changed just because Echo mode was entered:
-  if(nd==1) ui->actionQuickDecode->setChecked (true);
-  if(nd==2) ui->actionMediumDecode->setChecked (true);
-  if(nd==3) ui->actionDeepestDecode->setChecked (true);
-
-  m_mode="Echo";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  ui->actionEcho->setChecked(true);
-  m_TRperiod=3.0;
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  initializeFFT(6912);
-  m_hsymStop=9;
-  m_toneSpacing=1.0;
-  switch_mode(Modes::Echo);
-  setup_status_bar (true);
-  m_wideGraph->setMode(m_mode);
-  ui->TxFreqSpinBox->setValue(1500);
-  ui->TxFreqSpinBox->setEnabled (false);
-  if(!m_echoGraph->isVisible()) m_echoGraph->show();
-  if (!ui->actionAstronomical_data->isChecked ()) {
-    ui->actionAstronomical_data->setChecked (true);
-  }
-  m_bFastMode=false;
-  m_bFast9=false;
-  WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width  Dgrd     N     Q     DF    SNR   dBerr   TS  EchoMsg");
-  applyModeUiState({ModeUiControl::ClearAverage, ModeUiControl::EchoGraph});
-  fast_config(false);
-  ui->sbEchoAvg->values ({1, 2, 5, 10, 20, 50, 100});
-  statusChanged();
-  monitor(false);  //Don't auto-start Monitor in Echo mode.
-
-  // Ensure that the correct frequency is set and displayed
-  QTimer::singleShot (500, this, [=] {
-    auto const& row = m_config.frequencies ()->best_working_frequency (m_operatingFrequency.rx ());
-    Frequency frequency;
-    if (workingFrequencyAt (row, frequency)
-        && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic))
-      {
-        ui->bandComboBox->setCurrentIndex (row);
-        requestBandChange (frequency, FrequencyRequestOrigin::Automatic);
-      }
-    if (m_monitoring) ui->monitorButton->click();
-  });
-}
-
-void MainWindow::on_actionFreqCal_triggered()
-{
-  if (jttyDrainInProgress()) { ui->actionJTTY->setChecked(true); return; }
-  noteTxModeChange (QStringLiteral ("FreqCal"));
-  on_actionJT9_triggered();
-  m_mode="FreqCal";
-  if(m_specOp==SpecOp::HOUND) {
-    m_config.setSpecial_None();
-    m_specOp=m_config.special_op_id();
-  }
-  ui->actionFreqCal->setChecked(true);
-  switch_mode(Modes::FreqCal);
-  m_wideGraph->setMode(m_mode);
-  ui->sbTR->values ({5, 10, 15, 30});
-  on_sbTR_valueChanged (ui->sbTR->value());
-  if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
-    Q_EMIT m_config.transceiver_period(m_TRperiod);
-  if (!m_tci_audio) {
-    m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-    m_detector->setTRPeriod(m_TRperiod); // marshals to the audio thread
-  }
-  initializeFFT(6912);
-  m_hsymStop=((int(m_TRperiod/0.288))/8)*8;
-  m_frequency_list_fcal_iter = m_config.frequencies ()->begin ();
-  ui->RxFreqSpinBox->setValue(1500);
-  setup_status_bar (true);
-//                               18:15:47      0  1  1500  1550.349     0.100    3.5   10.2
-  ui->lh_decodes_headings_label->setText("  UTC      Freq CAL Offset  fMeas       DF     Level   S/N");
-  ui->measure_check_box->setChecked (false);
-  applyModeUiState({ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,
-                    ModeUiControl::TrPeriod, ModeUiControl::Measure});
-  statusChanged();
-}
-
 void MainWindow::switch_mode (Mode mode)
 {
   clear_generated_message_error ();
@@ -12427,10 +11459,6 @@ void MainWindow::switch_mode (Mode mode)
     m_q65PileupCopiedCallers.clear();
   }
   updateJttyReceivePolicy(m_mode == "JTTY");
-  if (mode != Modes::MSK144) m_msk144basefreq = 0;
-  no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
-  msk144qsy = false;     // MSK144 QSY
-  QTimer::singleShot ((int(1500.0*m_TRperiod)), this, [=] {no_a7_decodes = false;});
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
@@ -12439,13 +11467,6 @@ void MainWindow::switch_mode (Mode mode)
    }
   m_fastGraph->setMode(m_mode);
   m_config.frequencies ()->filter (m_config.region (), mode, true); // filter on current time
-  auto const& row = m_config.frequencies ()->best_working_frequency (m_operatingFrequency.rx ());
-  Frequency frequency;
-  if (!keep_frequency && workingFrequencyAt (row, frequency)
-      && nominalFrequencyChangeAllowed (FrequencyRequestOrigin::Automatic)) {
-      ui->bandComboBox->setCurrentIndex (row);
-      requestBandChange (frequency, FrequencyRequestOrigin::Automatic);
-  }
   ui->rptSpinBox->setSingleStep(1);
   ui->rptSpinBox->setMinimum(-50);
   ui->rptSpinBox->setMaximum(49);
@@ -12471,7 +11492,6 @@ void MainWindow::switch_mode (Mode mode)
     if (!(m_mode=="Echo" or ((m_mode=="Q65" or m_mode=="JT65") && m_config.decode_at_52s()))
         && ui->actionAstronomical_data->isChecked () && m_config.auto_astro()) ui->actionAstronomical_data->setChecked (false);
   });
-  check_button_color();
   updateDecodeControls ();
 }
 
@@ -12586,7 +11606,7 @@ void MainWindow::on_RxFreqSpinBox_valueChanged(int n)
     }
   }
   m_wideGraph->setRxFreq(n);
-  if (m_mode == "FreqCal") {
+  if (m_mode == "FreqCal" && !m_modeSetupActive) {
     if (m_frequency_list_fcal_iter != m_config.frequencies ()->end ())
       {
         if (!requestNominalFrequencyChange (
@@ -12820,26 +11840,9 @@ void MainWindow::on_actionOpen_ADIF_log_folder_triggered ()
   QDesktopServices::openUrl (QUrl::fromLocalFile (QFileInfo {m_config.adif_log_file_path ()}.absolutePath ()));
 }
 
-void MainWindow::on_bandComboBox_currentIndexChanged (int index)
+void MainWindow::on_bandComboBox_currentIndexChanged (int)
 {
-  if (keep_frequency)
-    {
-      restoreNominalFrequencySelection ();
-      return;
-    }
-
-  auto const& frequencies = m_config.frequencies ();
-  auto const& source_index = frequencies->mapToSource (frequencies->index (index, FrequencyList_v2_101::frequency_column));
-  Frequency frequency {m_operatingFrequency.rx ()};
-  if (source_index.isValid ())
-    {
-      frequency = frequencies->frequency_list ()[source_index.row ()].frequency_;
-    }
-
-  // Lookup band
-  auto const& band  = m_config.bands ()->find (frequency);
-  ui->bandComboBox->setCurrentText (band.size () ? band : m_config.bands ()->oob ());
-  displayDialFrequency ();
+  updateBandEditor (true);
 }
 
 void MainWindow::on_bandComboBox_editTextChanged (QString const& text)
@@ -12863,11 +11866,7 @@ void MainWindow::on_bandComboBox_activated (int index)
     {
       frequency = frequencies->frequency_list ()[source_index.row ()].frequency_;
     }
-  if (requestBandChange (frequency, FrequencyRequestOrigin::User))
-    {
-      setXIT (ui->TxFreqSpinBox->value ());
-      m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
-    }
+  requestBandChange (frequency, FrequencyRequestOrigin::User);
 //  m_specOp=m_config.special_op_id();
 //  if (m_specOp==SpecOp::HOUND) auto_tx_mode(false);  // only required if RETURN intiates TXing
 }
@@ -12876,23 +11875,18 @@ bool MainWindow::requestBandChange (Frequency frequency, FrequencyRequestOrigin 
 {
   if (!nominalFrequencyChangeAllowed (origin))
     {
-      restoreNominalFrequencySelection ();
+      restoreOperatingBandSelection ();
       return false;
     }
-  auto const previous_frequency = m_operatingFrequency.rx ();
-  if (!RigFrequencyChangePolicy::requestWhileMonitoring (
-        m_monitoring,
-        [this] (bool state) {monitor (state);},
-        [this, frequency, origin] {
-          return requestNominalFrequencyChange (frequency, origin);
-        }))
+  if (!tryRequestNominalFrequencyChange (frequency, origin, true))
     {
-      restoreNominalFrequencySelection ();
+      restoreOperatingBandSelection ();
       return false;
     }
 
-  m_bandEdited = true;
-  applyBandChange (frequency, previous_frequency);
+  m_pendingModeRetune.cancel ();
+  synchronizeOperatingBandState (FrequencyChangeIntent::BandSelection);
+  updateBandEditor (true);
   return true;
 }
 
@@ -12929,19 +11923,16 @@ bool MainWindow::requestBandButtonFrequency (Frequency lookup_frequency,
       if (!workingFrequencyAt (row, frequency)) return false;
       ui->bandComboBox->setCurrentIndex (row);
       if (!requestBandChange (frequency, FrequencyRequestOrigin::User)) return false;
-      setXIT (ui->TxFreqSpinBox->value ());
-      m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
     }
   else
     {
-      keep_frequency = true;
+
       if (!requestNominalFrequencyChange (fallback_frequency, FrequencyRequestOrigin::User))
         {
-          keep_frequency = false;
-          restoreNominalFrequencySelection ();
+
+          restoreOperatingBandSelection ();
           return false;
         }
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
       setXIT (ui->TxFreqSpinBox->value ());
     }
   return true;
@@ -12951,122 +11942,21 @@ bool MainWindow::requestAlternateBandFrequency (Frequency frequency)
 {
   if (!nominalFrequencyChangeAllowed (FrequencyRequestOrigin::User)) return false;
 
-  keep_frequency = true;
   if (!requestNominalFrequencyChange (frequency, FrequencyRequestOrigin::User))
     {
-      keep_frequency = false;
-      restoreNominalFrequencySelection ();
+
+      restoreOperatingBandSelection ();
       return false;
     }
-  QTimer::singleShot (250, this, [=] {keep_frequency = false;});
   setXIT (ui->TxFreqSpinBox->value ());
   return true;
 }
 
-void MainWindow::restoreNominalFrequencySelection ()
+void MainWindow::restoreOperatingBandSelection ()
 {
-  m_bandEdited = false;
   QSignalBlocker const blocker {ui->bandComboBox};
-  auto const band = m_config.bands ()->find (m_operatingFrequency.rx ());
-  ui->bandComboBox->setCurrentText (band.size () ? band : m_config.bands ()->oob ());
+  updateBandEditor (true);
   displayDialFrequency ();
-}
-
-void MainWindow::band_changed (Frequency frequency)
-{
-  applyBandChange (frequency, m_operatingFrequency.rx ());
-}
-
-void MainWindow::applyBandChange (Frequency f, Frequency previous_frequency)
-{
-  if (m_config.bands ()->find (f) != m_config.bands ()->find (previous_frequency))
-    endQsoRepeat (QsoRepeatEnd::Superseded);
-  if (f != previous_frequency) setBestSPArmed (false);
-  if (f != previous_frequency) cancelPendingFt8Decode ("dial frequency changed");
-  m_autoRespondPeriodState.disarm();
-  msk144qsy = false;  // MSK144 QSY
-  // Don't allow a7 decodes during the first period because they can be leftovers from the previous band
-  no_a7_decodes = true;
-  QTimer::singleShot ((int(1500.0*m_TRperiod)), this, [=] {no_a7_decodes = false;});
-
-  // Set the attenuation value if options are checked
-  if (m_config.pwrBandTxMemory() && !m_tune) {
-    auto curBand = m_config.bands()->find(f);
-    if (curBand.isEmpty()) curBand = m_config.bands()->oob();
-    if (m_pwrBandTxMemory.contains(curBand)) {
-      ui->outAttenuation->setValue(m_pwrBandTxMemory[curBand].toInt());
-    }
-    else {
-      m_pwrBandTxMemory[curBand] = ui->outAttenuation->value();
-    }
-  }
-
-  if (m_bandEdited && !keep_frequency) {
-    if (m_mode!="WSPR" && !ui->pbBandHopping->isChecked() && !ui->DX_Call_Button->isChecked()) { // preserves auto Tx
-      if (f + m_wideGraph->nStartFreq () > previous_frequency + ui->TxFreqSpinBox->value ()
-          || f + m_wideGraph->nStartFreq () + m_wideGraph->fSpan () <=
-          previous_frequency + ui->TxFreqSpinBox->value ()) {
-//        qDebug () << "start f:" << m_wideGraph->nStartFreq () << "span:" << m_wideGraph->fSpan () << "DF:" << ui->TxFreqSpinBox->value ();
-        // disable auto Tx if "blind" QSY outside of waterfall
-        ui->stopTxButton->click (); // halt any transmission
-        auto_tx_mode (false);       // disable auto Tx
-//        m_send_RR73 = false;        // force user to reassess on new band
-      }
-    }
-    m_lastBand.clear ();
-    m_bandEdited = false;
-    if (m_config.spot_to_psk_reporter ())
-      {
-        // Upload any queued spots before changing band
-        m_psk_Reporter.sendReport();
-      }
-    if (!m_transmitting) monitor (true);
-    if ("FreqCal" == m_mode)
-      {
-        m_frequency_list_fcal_iter = m_config.frequencies ()->find (f);
-      }
-    setXIT (ui->TxFreqSpinBox->value ());
-    m_specOp=m_config.special_op_id();
-    if (m_specOp==SpecOp::FOX) FoxReset("BandChange");  // when changing bands, don't preserve the Fox queues
-    m_lastloggedcall.clear();  //ft8md
-    if (m_mode=="MSK144" && !(programStart or m_operatingFrequency.rx () == 0)) m_msk144basefreq = m_operatingFrequency.rx ();  // MSK144 QSY
-  }
-
-  // Erase the decodedTextBrowsers only if the band really changed
-  static QString band_save;
-  if (m_config.bands()->find(f) == band_save) return; // band didn't change
-  band_save = m_config.bands()->find(f);
-  m_band_changed = true;
-  if (m_astroWidget && !programStart) {
-    m_astroWidget->setSkedFreq(0.000001*f);
-    m_skedFreq=0.000001*f;
-  }
-  if (m_mode=="MSK144" && !programStart) { // restore MSK144 TRperiods by band
-    QTimer::singleShot (750, this, [=] {
-      if (m_currentBand=="2m" && m_msk144_tr2!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr2);
-      else if ((m_currentBand=="6m" or m_currentBand=="4m") && m_msk144_tr6!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr6);
-      else ui->sbTR->setValue (m_msk144_tr);
-    });
-  }
-
-/*
-  //ft8md
-  qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000; 
-  int nsec=ms/1000;
-  double TRperiod=60.0; // TR period is the only reliable way in this point of code at the mode change 
-  if(m_mode=="FT8") TRperiod=15.0;
-  else if(m_mode=="FT4") TRperiod=7.5;
-  int nseqmod = fmod(double(nsec),TRperiod);
-  m_nsecBandChanged=nseqmod;
-  dec_data.params.nsecbandchanged=m_nsecBandChanged;
-  //ft8md end
-*/
-
-  if (m_config.erase_BandActivity () && !not_erase) {
-    ui->decodedTextBrowser->erase ();   // Mod for WD5DHK
-    ui->decodedTextBrowser2->erase ();
-  }
-  if (m_mode=="Echo" && m_monitoring) ui->monitorButton->click();
 }
 
 void MainWindow::enable_DXCC_entity (bool on)
@@ -13122,7 +12012,7 @@ void MainWindow::end_tuning ()
     }
   // we're turning off so remember our Tune pwr setting and reset to Tx pwr
   if (!footswitch_tune && (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory())) {
-    auto const& curBand = ui->bandComboBox->currentText();
+    auto const curBand = operatingBandName ();
     m_pwrBandTuneMemory[curBand] = ui->outAttenuation->value(); // remember our Tune pwr
     m_PwrBandSetOK = false;
     ui->outAttenuation->setValue(m_pwrBandTxMemory[curBand].toInt()); // set to Tx pwr
@@ -13265,6 +12155,7 @@ void MainWindow::rigOpen ()
 
 void MainWindow::setXIT(int n, Frequency base)
 {
+  if (m_modeSetupActive) return;
   if (m_config.radio_mode_yielded ()) return;
   auto const kind = RigFrequencyChangePolicy::ChangeKind::TxPathCorrection;
   if (!rigFrequencyChangeDecision (kind).allowed) return;
@@ -13312,14 +12203,15 @@ void MainWindow::setXIT(int n, Frequency base)
         update_tx_nominal = true;
       }
 
+  auto const before = m_operatingFrequency.snapshot ();
   if (!m_operatingFrequency.requestTxPlan ({requested_tx_nominal, requested_xit},
         [this] (RigFrequency::Request const& request) {
           return m_config.request_frequency (request, RigFrequencyChangePolicy::ChangeKind::TxPathCorrection);
         }, update_tx_nominal, update_tx_nominal)) return;
-  if (update_tx_nominal && m_astroWidget)
-    {
-      m_astroWidget->nominal_frequency (m_operatingFrequency.rx (), m_operatingFrequency.tx ());
-    }
+  auto const after = m_operatingFrequency.snapshot ();
+  if (before.rx != after.rx || before.tx != after.tx
+      || before.correctedRx != after.correctedRx || before.correctedTx != after.correctedTx)
+    synchronizeOperatingBandState (FrequencyChangeIntent::NominalRequest);
 
   //Now set the audio Tx freq
   if (m_tci_audio) Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
@@ -13361,35 +12253,6 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
         }
     }
   }
-}
-
-void MainWindow::applyOperatingFrequencyTransition (OperatingFrequency::Transition const& transition)
-{
-  if (transition.before.rx != transition.after.rx)
-    {
-      if (m_mode == "JTTY") updateJttyReceiveContext();
-      if (m_mode == "JT65") m_jt65ClearAveragesPending = true;
-      cancelPendingFt8Decode ("dial frequency changed");
-      setBestSPArmed (false);
-      genCQMsg ();
-    }
-  if (m_lastDialFreq != transition.after.rx && transition.after.rx
-      && (m_mode != "MSK144"
-          || !(ui->cbCQTx->isEnabled () && ui->cbCQTx->isVisible () && ui->cbCQTx->isChecked ())))
-    {
-      if (m_ActiveStationsWidget)
-        {
-          m_recentCall.clear ();
-          if (m_mode != "Q65") m_ActiveStationsWidget->erase ();
-        }
-      m_lastDialFreq = transition.after.rx;
-      m_secBandChanged = QDateTime::currentMSecsSinceEpoch () / 1000;
-      statusChanged ();
-      m_wideGraph->setDialFreq (transition.after.rx / 1.e6);
-    }
-  if (m_astroWidget)
-    m_astroWidget->nominal_frequency (transition.after.rx, transition.after.tx);
-  displayDialFrequency ();
 }
 
 void MainWindow::updateRigMeters (Transceiver::TransceiverState const& s)
@@ -13486,7 +12349,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
     }, m_config.is_transceiver_online ());
   m_splitMode = s.split ();
-  applyOperatingFrequencyTransition (transition);
+  synchronizeOperatingBandState ();
   if (transition.monitor)
     {
       applyMonitorEffects (*transition.monitor, transition.restorationAccepted);
@@ -13513,6 +12376,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   ui->readFreq->setText (s.split () ? "S" : "");
   updateRigMeters (s);
   if (high_swr) showHighSWRWarning (s.swr ());
+  resumeModeRetune ();
 }
 
 void MainWindow::handle_transceiver_closing (bool failed)
@@ -13930,7 +12794,7 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
   if (ui->outAttenuation->hasFocus() && !m_block_pwr_tooltip) {
     QToolTip::showText (QCursor::pos (), tt_str, ui->outAttenuation);
   }
-  QString curBand = ui->bandComboBox->currentText();
+  auto const curBand = operatingBandName ();
   if (m_PwrBandSetOK && !tuneDrive && m_config.pwrBandTxMemory ()) {
     m_pwrBandTxMemory[curBand] = a; // remember our Tx pwr
   }
@@ -13973,7 +12837,7 @@ bool MainWindow::shortList(QString callsign) const
   return b;
 }
 
-void MainWindow::pskSetLocal ()
+void MainWindow::pskSetLocal (QString const& rx_band)
 {
   if (!m_config.spot_to_psk_reporter ()) return;
 
@@ -13981,7 +12845,7 @@ void MainWindow::pskSetLocal ()
   auto stations = m_config.stations ();
   auto matches = stations->match (stations->index (0, StationList::band_column)
                                   , Qt::DisplayRole
-                                  , ui->bandComboBox->currentText ()
+                                  , rx_band
                                   , 1
                                   , Qt::MatchExactly);
   QString antenna_description;
@@ -14108,7 +12972,7 @@ void MainWindow::on_sbTR_valueChanged(int value)
           }
        }
     m_fastGraph->setTRPeriod (value);
-    if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
+    if (!m_modeSetupActive && m_tci_audio && !operatingBand ().isEmpty ())
       Q_EMIT m_config.transceiver_period(m_TRperiod);
     if (!m_tci_audio) {
       m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
@@ -14120,15 +12984,16 @@ void MainWindow::on_sbTR_valueChanged(int value)
   //  if(m_transmitting) on_stopTxButton_clicked();      //### Is this needed or desirable? ###
   if (m_mode=="FST4") chk_FST4_freq_range();
   on_sbSubmode_valueChanged(ui->sbSubmode->value());
+  if (!m_modeSetupActive) synchronizeOperatingBandState (FrequencyChangeIntent::Observation);
   statusUpdate ();
   check_button_color();
   if (!programStart) QTimer::singleShot (1000, this, [=] {
     if (m_mode=="Q65") m_settings->setValue ("TRPeriod_Q65", ui->sbTR->value ());
     if (m_mode=="MSK144") {
-      if (m_currentBand=="2m") {
+      if (nominalRxBand ()=="2m") {
         m_msk144_tr2=ui->sbTR->value ();
         m_settings->setValue ("TRPeriod_MSK144_2m", ui->sbTR->value ());
-      } else if (m_currentBand=="6m" or m_currentBand=="4m") {
+      } else if (nominalRxBand ()=="6m" or nominalRxBand ()=="4m") {
         m_msk144_tr6=ui->sbTR->value ();
         m_settings->setValue ("TRPeriod_MSK144_6m", ui->sbTR->value ());
       } else {
@@ -14359,7 +13224,7 @@ void MainWindow::locationChange (QString const& location)
     if (m_config.my_grid () != grid) {
       m_config.set_location (grid);
       genStdMsgs (m_rpt, false);
-      pskSetLocal ();
+      pskSetLocal (nominalRxBand ());
       statusUpdate ();
     }
   } else {
@@ -14808,7 +13673,7 @@ void MainWindow::astroUpdate ()
   if (m_astroWidget) {
     // no Doppler correction while CTRL pressed allows manual tuning
     if (Qt::ControlModifier & QApplication::queryKeyboardModifiers ()) return;
-    if (m_tci && (ui->bandComboBox->currentText()=="OOB")) {
+    if (m_tci && (operatingBand ().isEmpty ())) {
       qDebug() << "TCI Mode and OOB so rig-frequency correction is skipped\n";
       return;
     }
@@ -14939,23 +13804,26 @@ bool MainWindow::dispatchNominalFrequency (RigFrequency::Request const& request,
 bool MainWindow::requestNominalFrequencyChange (Frequency frequency,
                                                 FrequencyRequestOrigin origin)
 {
-  auto const previous = m_operatingFrequency.rx();
+  if (!tryRequestNominalFrequencyChange (frequency, origin, m_monitoring)) return false;
+  m_pendingModeRetune.cancel ();
+  synchronizeOperatingBandState (FrequencyChangeIntent::NominalRequest);
+  return true;
+}
+
+bool MainWindow::tryRequestNominalFrequencyChange (Frequency frequency,
+                                                   FrequencyRequestOrigin origin, bool monitoring)
+{
   if (!nominalFrequencyChangeAllowed (origin)) return false;
   if (origin == FrequencyRequestOrigin::User && m_config.radio_mode_yielded ()
       && !m_config.prepare_radio_mode ()) return false;
-  auto const dispatch = (m_monitoring || m_transmitting) && m_config.transceiver_online ();
+  auto const dispatch = (monitoring || m_transmitting) && m_config.transceiver_online ();
   m_operatingFrequency.setConnectionGeneration (m_config.frequency_generation (), dispatch);
   if (!m_operatingFrequency.requestNominal (frequency,
-        [this, origin] (RigFrequency::Request const& request) {
-          return dispatchNominalFrequency (request, origin, m_monitoring);
+        [this, origin, monitoring] (RigFrequency::Request const& request) {
+          return dispatchNominalFrequency (request, origin, monitoring);
         }, dispatch)) return false;
 
-  if (m_mode == "JTTY" && previous != m_operatingFrequency.rx()) updateJttyReceiveContext();
   genCQMsg ();
-  if (m_astroWidget)
-    {
-      m_astroWidget->nominal_frequency (m_operatingFrequency.rx (), m_operatingFrequency.tx ());
-    }
   return true;
 }
 
@@ -15436,14 +14304,10 @@ void MainWindow::displayQ65ActiveStations()
   refreshQmapActiveStations(qmapcom.nQDecoderDone==2 ? m_qmapDisplayTime : QDateTime::currentDateTimeUtc());
 }
 
-// Band for the Q65 Active Stations worked checks: the current band, or the
-// band of the Rx dial frequency before one has been set; empty when neither
-// is a known band (out of band).
+// Use the nominal RX band for Q65 Active Stations worked checks.
 QString MainWindow::activeStationsBand() const
 {
-  auto band = !m_currentBand.isEmpty () ? m_currentBand
-    : m_config.bands ()->find (m_operatingFrequency.rx ());
-  return band == Bands::oob () ? QString {} : band;
+  return nominalRxBand ();
 }
 
 // Q65 "QSOs:" = different stations worked on this band (ADIF log and history
@@ -15836,7 +14700,7 @@ void MainWindow::houndCallers()
       //Don't list a hound already in the queue
       if(!ui->houndQueueTextBrowser->toPlainText().contains(paddedHoundCall)) {
         if(ui->cbWorkDupes->isChecked()) {
-           if(m_loggedByFox[houndCall].contains(m_lastBand)
+           if(m_loggedByFox[houndCall].contains(processedOperatingBand ())
               and !decoded.contains(paddedHoundCall)) continue;        // don't display old messages again of stations already logged
         }
         if(m_foxQSOinProgress.contains(houndCall) || m_foxQSO.contains(houndCall))
@@ -16002,7 +14866,7 @@ bool MainWindow::foxTxSequencer()
     }
 
     auto logCompletedQSO = [this] (QString const& houndCall) {
-      auto alreadyLogged = m_loggedByFox[houndCall].contains(m_lastBand + " ");
+      auto alreadyLogged = m_loggedByFox[houndCall].contains(processedOperatingBand () + " ");
       auto const& qso = m_foxQSO[houndCall];
       if (!alreadyLogged) {
         auto QSO_time = QDateTime::currentDateTimeUtc();
@@ -16012,20 +14876,20 @@ bool MainWindow::foxTxSequencer()
         m_rptRcvd = qso.rcvd;
         if (!m_foxLogWindow) on_fox_log_action_triggered();
         if (m_logBook.fox_log()->add_QSO(QSO_time, m_hisCall, m_hisGrid,
-                                         m_rptSent, m_rptRcvd, m_lastBand)) {
+                                         m_rptSent, m_rptRcvd, processedOperatingBand ())) {
           writeFoxQSO(QString {" Log:  %1 %2 %3 %4 %5"}.arg(m_hisCall).arg(m_hisGrid)
-                      .arg(m_rptSent).arg(m_rptRcvd).arg(m_lastBand));
+                      .arg(m_rptSent).arg(m_rptRcvd).arg(processedOperatingBand ()));
           on_logQSOButton_clicked();
           QTimer::singleShot(13000, [=] {
             m_foxQSOinProgress.removeOne(houndCall);
             updateFoxQSOsInProgressDisplay();
           });
         }
-        m_loggedByFox[houndCall] += (m_lastBand + " ");
+        m_loggedByFox[houndCall] += (processedOperatingBand () + " ");
       } else {
         writeFoxQSO(QString {" Dup:  %1 %2 %3 %4 %5"}.arg(houndCall)
                     .arg(qso.grid).arg(qso.sent)
-                    .arg(qso.rcvd).arg(m_lastBand));
+                    .arg(qso.rcvd).arg(processedOperatingBand ()));
       }
     };
 
@@ -16272,7 +15136,7 @@ list2Done:
     }
 
     if(hc1!="") {
-      auto already_logged = m_loggedByFox[hc1].contains(m_lastBand + " ");   // already logged this call on this band?
+      auto already_logged = m_loggedByFox[hc1].contains(processedOperatingBand () + " ");   // already logged this call on this band?
 
       if (!already_logged) { // Log this QSO!
         auto QSO_time = QDateTime::currentDateTimeUtc ();
@@ -16281,23 +15145,23 @@ list2Done:
         m_rptSent=m_foxQSO[hc1].sent;
         m_rptRcvd=m_foxQSO[hc1].rcvd;
         if (!m_foxLogWindow) on_fox_log_action_triggered ();
-        if (m_logBook.fox_log ()->add_QSO (QSO_time, m_hisCall, m_hisGrid, m_rptSent, m_rptRcvd, m_lastBand))
+        if (m_logBook.fox_log ()->add_QSO (QSO_time, m_hisCall, m_hisGrid, m_rptSent, m_rptRcvd, processedOperatingBand ()))
           {
             writeFoxQSO (QString {" Log:  %1 %2 %3 %4 %5"}.arg (m_hisCall).arg (m_hisGrid)
-                         .arg (m_rptSent).arg (m_rptRcvd).arg (m_lastBand));
+                         .arg (m_rptSent).arg (m_rptRcvd).arg (processedOperatingBand ()));
             on_logQSOButton_clicked ();
             QTimer::singleShot (13000, this, [=] {
                 m_foxQSOinProgress.removeOne(hc1); //Remove from In Progress window
                 updateFoxQSOsInProgressDisplay();  //Update InProgress display after Tx is complete
             });
           }
-          m_loggedByFox[hc1] += (m_lastBand + " ");
+          m_loggedByFox[hc1] += (processedOperatingBand () + " ");
         }
       else
         {
           // note that this is a duplicate
           writeFoxQSO(QString{" Dup:  %1 %2 %3 %4 %5"}.arg(m_hisCall).arg(m_hisGrid)
-                              .arg(m_rptSent).arg(m_rptRcvd).arg(m_lastBand));
+                              .arg(m_rptSent).arg(m_rptRcvd).arg(processedOperatingBand ()));
         }
     }
 
@@ -16753,22 +15617,9 @@ void MainWindow::chkFT4()
 }
 
 
-void MainWindow::set_mode (QString const& mode)
+void MainWindow::set_mode (QString const& mode, ModeEntry::RetunePolicy policy)
 {
-    m_autoRespondPeriodState.disarm();
-    if ("FT4" == mode) on_actionFT4_triggered ();
-    else if ("FST4" == mode) on_actionFST4_triggered ();
-    else if ("FST4W" == mode) on_actionFST4W_triggered ();
-    else if ("FT8" == mode) on_actionFT8_triggered ();
-    else if ("JT4" == mode) on_actionJT4_triggered ();
-    else if ("JT9" == mode) on_actionJT9_triggered ();
-    else if ("JT65" == mode) on_actionJT65_triggered ();
-    else if ("Q65" == mode) on_actionQ65_triggered ();
-    else if ("FreqCal" == mode) on_actionFreqCal_triggered ();
-    else if ("JTTY" == mode) on_actionJTTY_triggered ();
-    else if ("MSK144" == mode) on_actionMSK144_triggered ();
-    else if ("WSPR" == mode) on_actionWSPR_triggered ();
-    else if ("Echo" == mode) on_actionEcho_triggered ();
+  requestModeChange ({mode, policy});
 }
 
 void MainWindow::configActiveStations()
@@ -16789,10 +15640,25 @@ void MainWindow::remote_configure (QString const& mode, quint32 frequency_tolera
                                    , QString const& submode, bool fast_mode, quint32 tr_period, quint32 rx_df
                                    , QString const& dx_call, QString const& dx_grid, bool generate_messages)
 {
-  if (mode.size ())
+  auto apply = [this, frequency_tolerance, submode, fast_mode, tr_period, rx_df,
+                dx_call, dx_grid, generate_messages] {
+    applyRemoteConfiguration (frequency_tolerance, submode, fast_mode, tr_period,
+                              rx_df, dx_call, dx_grid, generate_messages);
+  };
+  if (m_modeEntries.active () || (!mode.isEmpty () && mode != m_mode))
     {
-      if (mode != m_mode) set_mode (mode);
+      auto const target = mode.isEmpty () ? m_mode : mode;
+      auto const policy = mode.isEmpty () ? ModeEntry::RetunePolicy::Preserve : ModeEntry::RetunePolicy::Working;
+      requestModeChange ({target, policy}, std::move (apply));
+      return;
     }
+  apply ();
+}
+
+void MainWindow::applyRemoteConfiguration (quint32 frequency_tolerance
+                                   , QString const& submode, bool fast_mode, quint32 tr_period, quint32 rx_df
+                                   , QString const& dx_call, QString const& dx_grid, bool generate_messages)
+{
   auto is_FST4W = "FST4W" == m_mode;
   if (frequency_tolerance != quint32_max && (ui->sbFtol->isVisible () || is_FST4W))
     {
@@ -16813,7 +15679,14 @@ void MainWindow::remote_configure (QString const& mode, quint32 frequency_tolera
     }
   if (ui->cbFast9->isVisible () && ui->cbFast9->isChecked () != fast_mode)
     {
-      ui->cbFast9->click ();
+      if (m_modeSetupActive && m_mode == "JT9")
+        {
+          ui->cbFast9->setChecked (fast_mode);
+          m_bFast9 = fast_mode;
+          QScopedValueRollback<bool> const preserve_parameters {blocked, true};
+          setupJT9 ();
+        }
+      else ui->cbFast9->click ();
     }
   if (tr_period != quint32_max && ui->sbTR->isVisible ())
     {
@@ -17123,7 +15996,7 @@ void MainWindow::check_button_color()
     auto const enableTxWarning = enable_tx_warning (waitContext);
     auto expiredContext = [this] (std::optional<WaitRetryContext> const& attempt) {
       return attempt && (attempt->call != Radio::base_callsign(m_hisCall)
-        || attempt->mode != m_mode || attempt->band != m_currentBand || attempt->period != m_TRperiod);
+        || attempt->mode != m_mode || attempt->band != nominalRxBand () || attempt->period != m_TRperiod);
     };
     if (expiredContext(m_waitReplyAttempt)) cancelWaitRetry(true);
     if (expiredContext(m_waitCallAttempt)
@@ -18025,7 +16898,7 @@ DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
     ? m_activeJt9Decode.context.sequenceStart : m_dateTimeSeqStart;
   auto stale = [this] (std::optional<WaitRetryContext> const& attempt) {
     return attempt && (attempt->call != Radio::base_callsign(m_hisCall)
-      || attempt->mode != m_mode || attempt->band != m_currentBand || attempt->period != m_TRperiod);
+      || attempt->mode != m_mode || attempt->band != nominalRxBand () || attempt->period != m_TRperiod);
   };
   if (stale(m_waitReplyAttempt)) cancelWaitRetry(true);
   if (stale(m_waitCallAttempt)) cancelWaitRetry(false);
@@ -18153,7 +17026,7 @@ DecodeOutputPlan::KeywordFilterDecision MainWindow::decodeFilterDecision (
     bool ituZoneWorked;
     auto const& lookedUp = m_logBook.countries()->lookup(deCall);
     m_logBook.match(deCall, m_mode, deGrid, lookedUp, callWorked, countryWorked,
-                    gridWorked, continentWorked, cqZoneWorked, ituZoneWorked, m_currentBand);
+                    gridWorked, continentWorked, cqZoneWorked, ituZoneWorked, nominalRxBand ());
     return callWorked;
   };
   keywordDecision.filtered = DecodeOutputPlan::decideVisibilityFilter(decodedtext, visibilityContext).filtered;
@@ -18226,7 +17099,7 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
       if (ui->actionHighlightB4->isChecked()) {
           auto const ownClassification = classification ? DecodeClassification {}
-            : classifyDecode (decodedtext, m_mode, m_currentBand, m_logBook);
+            : classifyDecode (decodedtext, m_mode, nominalRxBand (), m_logBook);
           auto const& facts = classification ? *classification : ownClassification;
           if (facts.workedOnBand && facts.workedOnBand->call)
             decodePane->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
