@@ -5581,6 +5581,10 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(m_mode=="FST4") dec_data.params.nmode=240;
   if(m_mode=="FST4W") dec_data.params.nmode=241;
   dec_data.params.ntxmode=dec_data.params.nmode;   // Is this used any more?
+  // The JT9 decoder reads its own spectra; bit 0x100 of ndepth asks it to
+  // window them as symspec does for the "Low sidelobes" setting.
+  dec_data.params.ndepth &= ~0x100;
+  if(dec_data.params.nmode==9 && m_config.lowSidelobes()) dec_data.params.ndepth |= 0x100;
   dec_data.params.ntrperiod=m_TRperiod;
   dec_data.params.nsubmode=m_nSubMode;
   dec_data.params.minw=0;

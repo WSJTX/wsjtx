@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 typedef void *decoder_engine_handle;
-enum { DECODER_ENGINE_ABI = 8, DECODER_MODE_JT4 = 4, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
+enum { DECODER_ENGINE_ABI = 9, DECODER_MODE_JT4 = 4, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
        DECODER_MODE_JT9 = 9, DECODER_MODE_JT65 = 65, DECODER_MODE_Q65 = 66,
        DECODER_MODE_FST4 = 240, DECODER_MODE_FST4W = 241 };
 enum { DECODER_SUPPORT_FT8 = 1, DECODER_SUPPORT_FT4 = 2, DECODER_SUPPORT_JT9 = 4,
@@ -123,7 +123,8 @@ typedef struct {
 } decoder_jt4_average_entry;
 
 /* Slow JT9A-H use one-minute periods; submode 0..7 selects A..H.
-   Decoding spectra are prepared internally, independently of display settings. */
+   Decoding spectra are prepared internally. low_sidelobes (0 or 1) applies the
+   Nuttall window the GUI uses for its Low sidelobes setting. */
 typedef struct {
   int32_t utc;
   int32_t receive_frequency_hz;
@@ -132,6 +133,7 @@ typedef struct {
   int32_t tolerance_hz;
   int32_t depth;
   int32_t submode;
+  int32_t low_sidelobes;
 } decoder_jt9_options;
 
 /* JT65A-C use one-minute periods; submode 0..2 selects A..C.

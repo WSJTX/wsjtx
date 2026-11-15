@@ -60,6 +60,7 @@ contains
        request%jt9%tolerance_hz=tolerance
        request%jt9%depth=iand(args%ndepth,7)
        request%jt9%submode=args%nsubmode
+       request%jt9%low_sidelobes=merge(1,0,args%low_sidelobes)
     case(65)
        request%jt65%utc=utc
        request%jt65%qso_progress=args%nQSOProg

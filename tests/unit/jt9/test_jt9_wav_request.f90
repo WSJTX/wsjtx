@@ -41,7 +41,7 @@ contains
     ! and four bytes at the end of the request.
     call check_size(c_sizeof(request%ft8),236_c_size_t,'ft8')
     call check_size(c_sizeof(request%ft4),56_c_size_t,'ft4')
-    call check_size(c_sizeof(request%jt9),28_c_size_t,'jt9')
+    call check_size(c_sizeof(request%jt9),32_c_size_t,'jt9')
     call check_size(c_sizeof(request%jt65),104_c_size_t,'jt65')
     call check_size(c_sizeof(request%q65),104_c_size_t,'q65')
     call check_size(c_sizeof(request%fst4),80_c_size_t,'fst4')
@@ -80,6 +80,7 @@ contains
       options%ntol=75
       options%have_ntol=.true.
       options%nexp_decode=800
+      options%low_sidelobes=.true.
     else if(variant==2) then
       select case(mode)
       case(4)
@@ -182,6 +183,7 @@ contains
       call check(actual%jt9%tolerance_hz == expected%jt9%tolerance_hz, 'jt9%tolerance_hz')
       call check(actual%jt9%depth == expected%jt9%depth, 'jt9%depth')
       call check(actual%jt9%submode == expected%jt9%submode, 'jt9%submode')
+      call check(actual%jt9%low_sidelobes == expected%jt9%low_sidelobes, 'jt9%low_sidelobes')
     case (65)
       call check(actual%jt65%utc == expected%jt65%utc, 'jt65%utc')
       call check(actual%jt65%qso_progress == expected%jt65%qso_progress, 'jt65%qso_progress')
