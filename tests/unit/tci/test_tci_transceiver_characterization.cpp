@@ -1325,6 +1325,73 @@ private slots:
     QCOMPARE (attempts_after_wait, attempts_after_failure);
   }
 
+  void stale_split_report_does_not_complete_preparation_data ()
+  {
+    QTest::addColumn<bool> ("matching_reply");
+    QTest::newRow ("matching-reply-follows") << true;
+    QTest::newRow ("matching-reply-missing") << false;
+  }
+
+  void stale_split_report_does_not_complete_preparation ()
+  {
+    QFETCH (bool, matching_reply);
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    struct Reports
+    {
+      bool stale_delivered {false};
+      bool matching_delivered {false};
+      bool ptt_seen {false};
+      bool premature_ptt {false};
+    };
+    auto reports = std::make_shared<Reports> ();
+    harness.set_command_handler (
+      [&harness, reports, matching_reply] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb == "split_enable" && args == QStringList {"0", "true"})
+          {
+            reports->stale_delivered = QMetaObject::invokeMethod (
+              &harness.rig (), "onMessageReceived", Qt::DirectConnection,
+              Q_ARG (QString, QStringLiteral ("split_enable:0,false;")));
+            if (matching_reply)
+              QTimer::singleShot (0, &harness.rig (), [rig = &harness.rig (), reports] {
+                reports->matching_delivered = QMetaObject::invokeMethod (
+                  rig, "onMessageReceived", Qt::DirectConnection,
+                  Q_ARG (QString, QStringLiteral ("split_enable:0,true;")));
+              });
+            return true;
+          }
+        if (verb == "trx" && args == QStringList {"0", "true"})
+          {
+            reports->ptt_seen = true;
+            reports->premature_ptt |= !reports->matching_delivered;
+          }
+        return false;
+      });
+    auto requested = state_from (harness);
+    requested.tx_frequency (14076000);
+    requested.split (true);
+    requested.ptt (true);
+    harness.set_now (requested, 30);
+    QVERIFY (reports->stale_delivered);
+    QVERIFY (!reports->premature_ptt);
+    if (matching_reply)
+      {
+        QCOMPARE (harness.failure_count (), 0);
+        QVERIFY (reports->matching_delivered);
+        QVERIFY (reports->ptt_seen);
+        QVERIFY (harness.state ().split ());
+        QVERIFY (harness.state ().ptt ());
+        QCOMPARE (harness.state ().tx_frequency (), Frequency {14076000});
+      }
+    else
+      {
+        QVERIFY (harness.failure_count () > 0);
+        QVERIFY (!reports->ptt_seen);
+      }
+  }
+
   void split_and_tx_vfo_settle_before_ptt ()
   {
     RigHarness harness;

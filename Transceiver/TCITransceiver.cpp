@@ -565,12 +565,12 @@ void TCITransceiver::do_stop ()
   }
   if (tci_Ready && inConnected && _power_) {
     requested_other_frequency_ = "";
+    requested_split_ = false;
     busy_split_ = true;
     const QString cmd = CmdSplitEnable + SmDP + "false" + SmTZ;
     sendTextMessage(cmd);
     mysleep5(500);
     busy_split_ = false;
-    requested_split_ = false;
     rig_split();
     if (!started_rx2_ && rx2_) {
       rx2_enable (false);
@@ -813,7 +813,9 @@ void TCITransceiver::onMessageReceived(const QString &str)
           if (args.at(1) == "false") split_ = false;
           else if (args.at(1) == "true") split_ = true;
           if (!tci_Ready) {started_split_ = split_;}
-          else if (busy_split_) tci_done5();
+          else if (busy_split_) {
+            if (requested_split_ == split_) tci_done5();
+          }
           else if (requested_split_ != split_ && !tci_timer5_->isActive()) {
               CAT_TRACE("tci_timer5 started in onMessageReceived-Cmd_SplitEnable");
             tci_timer5_->start(210);
