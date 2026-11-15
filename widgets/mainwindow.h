@@ -86,6 +86,9 @@ namespace DecoderIpc {class Session;}
 #include "AutoRespondPeriod.hpp"
 #include "HoundTransmissionPolicy.hpp"
 #include "JttyLiveEntry.hpp"
+#include "JttyMacroSets.hpp"
+#include "JttyTransmitEcho.hpp"
+#include "JttyTransmitHistory.hpp"
 #include "JttyTransmitQueue.hpp"
 #include "QsoProgress.hpp"
 #include "DecodeOperatingContext.hpp"
@@ -131,6 +134,7 @@ class QButtonGroup;
 class QProcessEnvironment;
 class QPaintEvent;
 class QSharedMemory;
+class JttyReceiveLine;
 class QSplashScreen;
 class QSettings;
 class QLineEdit;
@@ -327,6 +331,7 @@ public:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(TxEvidence::TxOutputError const& error);
   void showStatusMessage(const QString& statusMsg);
+  void showStatusWarning(const QString& statusMsg);
   // JTTY text submission is asynchronous. The returned request id is completed
   // by accepted/rejected signals; accepted means queued for backend transmit,
   // not finished on RF. Graceful external OFF commands should stop submitting
@@ -687,7 +692,6 @@ private slots:
   void on_cbTx6_toggled(bool b);
   void on_cbMenus_toggled(bool b);
   void on_cbAutoSeq_toggled(bool b);
-  void on_cbIncludeTime_toggled(bool b);
   void on_cbLowerCase_toggled(bool);
   void networkError (QString const&);
   void on_ClrAvgButton_clicked();
@@ -764,6 +768,15 @@ private slots:
   void on_pbF6_clicked();
   void on_pbF7_clicked();
   void on_pbF8_clicked();
+  void on_pbSF1_clicked();
+  void on_pbSF2_clicked();
+  void on_pbSF3_clicked();
+  void on_pbSF4_clicked();
+  void on_pbSF5_clicked();
+  void on_pbSF6_clicked();
+  void on_pbSF7_clicked();
+  void on_pbSF8_clicked();
+  void on_pbEditJttyMacros_clicked();
 #ifdef WIN32
   void logText(const QString &text);
 #endif
@@ -914,8 +927,14 @@ private:
   void abortSuperFoxTxStart();
   void displayFoxTxMsgs();
   void jtty_tx(QString message);
-  void commitJttyLiveEntry();
-  void startJttyLiveStream();
+  void setJttyPttEnabled(bool on, bool finalOver = false);
+  void updateJttyPttStateLabel();
+  void maybeCommitJttyLiveEntry();
+  void maybeTopUpJttyFiller();
+  bool jttyPendingIsOnlyFiller() const;
+  qint64 jttyQueuedSamples() const;
+  void commitJttyLiveEntry();     // deprecated alias, Ctrl+K
+  void startJttyLiveStream();     // deprecated alias, Alt+J
   void autoAdvanceJttyLiveEntry();
   void idleFlushJttyLiveEntry();
   bool commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, bool isFinal);
@@ -957,13 +976,22 @@ private:
                               int const tones[], int toneCount);
   void feedJttyTransmitQueue();
   void updateJttyTransmitDisplay(qint64 servedSamples);
+  void endJttyTxEcho();
+  void recallJttyTransmission(int step);
+  void clearJttySentText();
+  void zoomJttyFont(int step);
+  QFont jttyDisplayFont() const;
   void updateJttySendButton();
   void onJttyBackendProgress(TxAudioQueueProgress progress);
   qint64 jttyTxCommittedSamples() const;
-  void completeJttyTxEnqueue(qint64 requestId, QString const& message,
+  void completeJttyTxEnqueue(qint64 requestId,
                              TxAudioQueueProgress progress, bool newSession,
                              bool useTciAudio);
-  void handleJttyContestSerial(QString const& message);
+  void logJttyQso();
+  void jttyEnterSendsMessage();
+  void appendJttyReceivedExchange(QString const& word);
+  void updateJttySentExchange();
+  void updateJttyQsoFieldsVisibility();
   void abort_jtty_tx();
   void interruptJttyTx();
   void rejectPendingJttyMessages(JttyTxRejectReason reason);
@@ -977,8 +1005,13 @@ private:
   void handleJttyEnqueueTimeout();
   void handleJttyTxWatchdog();
   void startJttyTxWatchdog(int durationMs);
-  bool jtty_key_struck(QKeyEvent * e);
+  bool jtty_key_struck(QKeyEvent * e, QObject * receiver);
+  void appendJttyTxBoxText(QString const& text);
+  void backspaceJttyTxBox();
+  void focusJttyDxCall();
+  void installJttyWideGraphKeyFilter();
   bool sendJttyFunctionKey(int index);
+  void refreshJttyMacroControls();
   struct JttyReceiveState;
   std::shared_ptr<JttyReceiveState> m_jttyReceive;
   void initializeJttyReceive();
@@ -1002,7 +1035,7 @@ private:
   bool m_discardJttyWavLoad = false;
   void drainJttyReceive();
   void jtty_again();
-  QString jtty_msg_expand(QString msg);
+  QString jtty_msg_expand(QString msg, int serialNumber = -1);
   int jttySnrForSelectedWord(QString const& word, bool leftPane) const;
   QString specOpLabel() const;
   void initializeFFT(int nsps);
@@ -1451,7 +1484,8 @@ private:
   QString m_hisCall;
   QString m_hisGrid;
   int m_jttyHisCallSnr = -10;  // SNR of the decode selected as DX call, for %R; cleared when the DX call changes
-  int m_jttyMessageStyle = 0;  // Jtty::MessageStyle: 0=Contest, 1=Ft8 (see JttyMessages.hpp)
+  Jtty::MacroLibrary m_jttyMacros;
+  Jtty::EnterStep m_jttyEnterStep {Jtty::EnterStep::Idle};
   QString m_appDir;
   QString m_cqStr;
   QString m_palette;
@@ -1473,6 +1507,8 @@ private:
   QString m_fm0;
   QString m_fm1;
   QString m_xSent;               //Contest exchange sent
+  QMetaObject::Connection m_statusWarningConnection;
+  QString m_statusBarStyleBeforeWarning;
   QString m_xRcvd;               //Contest exchange received
   QString m_currentBandPeriod;
   QString m_nextCall;
@@ -1607,7 +1643,15 @@ private:
   Jtty::TransmitQueue m_jttyTransmitQueue;
   TxAudioQueueProgress m_jttyQueueProgress;
   bool m_feedingJttyTransmitQueue {false};
-  qint64 m_jttyDisplayedEndSample {0};
+  // The over being echoed into the QSO Frequency pane, frame by frame.
+  Jtty::TransmitEcho m_jttyTxEcho;
+  std::shared_ptr<JttyReceiveLine> m_jttyTxEchoLine;
+  QDateTime m_jttyTxEchoStart;
+  Jtty::TransmitHistory m_jttyTxHistory;
+  bool m_jttyRecalling {false};
+  int m_jttyFontZoom {0};   // points added to the Decoded Text Font in JTTY
+  // Most recently started segment was filler; drives the Diddle/Tx label.
+  bool m_jttyDiddling {false};
   QString m_jttyQueueNotice;
   bool m_jttyLiveEntryArmed {false};
   bool m_guardingJttyLiveEntryLock {false};
@@ -1618,7 +1662,13 @@ private:
   QVector<PendingLiveEntryCommit> m_jttyLiveEntryPending;
   // Frames from commits that have fully drained since the box was last cleared; the frame-count label adds this to still-pending progress.
   int m_jttyLiveEntryFramesSent {0};
-  // Fires a batch flush of whatever's safely committable after a short typing pause, so auto-advance doesn't wait indefinitely for kJttyAutoAdvanceBatchWords to pile up on a short message.
+  // Unbroken diddle frames since text last went out; bounds an over the
+  // operator has walked away from.
+  int m_jttyDiddleFrames {0};
+  // Requests whose audio had started when a halt cancelled them. Their text
+  // stays committed: it was heard, so reopening it would send it twice.
+  QSet<qint64> m_jttyRequestsOnAir;
+  // Releases a trailing unterminated word once typing pauses.
   QTimer m_jttyAutoAdvanceIdleTimer;
   qint64 m_jttyTxRequestId;
   qint64 m_jttyEnqueueId;

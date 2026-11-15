@@ -14,6 +14,7 @@
 #include <QSettings>
 #include <QtMath>
 #include "MessageBox.hpp"
+#include "JttyMacroEditor.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "commons.h"
 #include "echograph.h"
@@ -1181,4 +1182,52 @@ void MainWindow::on_pbF7_clicked()
 void MainWindow::on_pbF8_clicked()
 {
   sendJttyFunctionKey(8);
+}
+
+void MainWindow::on_pbSF1_clicked()
+{
+  sendJttyFunctionKey(9);
+}
+
+void MainWindow::on_pbSF2_clicked()
+{
+  sendJttyFunctionKey(10);
+}
+
+void MainWindow::on_pbSF3_clicked()
+{
+  sendJttyFunctionKey(11);
+}
+
+void MainWindow::on_pbSF4_clicked()
+{
+  sendJttyFunctionKey(12);
+}
+
+void MainWindow::on_pbSF5_clicked()
+{
+  sendJttyFunctionKey(13);
+}
+
+void MainWindow::on_pbSF6_clicked()
+{
+  sendJttyFunctionKey(14);
+}
+
+void MainWindow::on_pbSF7_clicked()
+{
+  sendJttyFunctionKey(15);
+}
+
+void MainWindow::on_pbSF8_clicked()
+{
+  sendJttyFunctionKey(16);
+}
+
+void MainWindow::on_pbEditJttyMacros_clicked()
+{
+  JttyMacroEditor editor {m_jttyMacros, this};
+  if (editor.exec () != QDialog::Accepted) return;
+  m_jttyMacros = editor.library ();
+  refreshJttyMacroControls ();
 }

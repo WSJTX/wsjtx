@@ -806,6 +806,7 @@ void MainWindow::setupJTTY()
   m_wideGraph->showNormal();
   setDecodeHeadings("", "");
   updateJttyDecodeHeadings();
+  updateJttyPttStateLabel();
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
   applyModeUiState({ModeUiControl::TxFirst, ModeUiControl::TxFrequency,
                     ModeUiControl::RxFrequency, ModeUiControl::FrequencyTolerance,

@@ -705,7 +705,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   ui->setupUi(this);
   ui->pbBestSP->setStatusTip (ui->pbBestSP->accessibleDescription ());
   updateJttySendButton ();
-  ui->Tx_Message->setToolTip (tr ("Ctrl+K sends now (one-shot). Alt+J starts a live session that keeps sending as you type, until Alt+K signs off. Ctrl+Shift+K clears the box. Ctrl+H inserts a chat opener."));
+  ui->Tx_Message->setToolTip (tr ("Ctrl+K sends now (one-shot). Alt+J starts a live session that keeps sending as you type, until Alt+K signs off. Ctrl+Shift+K clears the box. Ctrl+H inserts a chat opener. Ctrl+Up and Ctrl+Down recall earlier overs. Ctrl+= and Ctrl+- change the JTTY font size; Ctrl+0 restores it."));
   ui->Tx_Message->installEventFilter (this);
 #ifdef Q_OS_MAC
   // Qt maps the Command key to ControlModifier on macOS, so the shortcut is Cmd+right-click there
@@ -719,15 +719,15 @@ MainWindow::MainWindow(QDir const& temp_directory,
   ui->comboBoxJttyStyle->setEditable (true);
   ui->comboBoxJttyStyle->lineEdit ()->setReadOnly (true);
   ui->comboBoxJttyStyle->lineEdit ()->setAlignment (Qt::AlignCenter);
-  for (int i = 0; i < ui->comboBoxJttyStyle->count (); ++i) {
-    ui->comboBoxJttyStyle->setItemData (i, Qt::AlignCenter, Qt::TextAlignmentRole);
-  }
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,
            &MainWindow::guardJttyLiveEntryLock);
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,
            &MainWindow::autoAdvanceJttyLiveEntry);
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,
            &MainWindow::updateJttyLiveEntryFrameLabel);
+  connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this, [this] {
+    if (!m_jttyRecalling) m_jttyTxHistory.endRecall ();
+  });
   m_jttyAutoAdvanceIdleTimer.setSingleShot (true);
   connect (&m_jttyAutoAdvanceIdleTimer, &QTimer::timeout, this,
            &MainWindow::idleFlushJttyLiveEntry);
@@ -750,7 +750,10 @@ MainWindow::MainWindow(QDir const& temp_directory,
     for (int i = 0; i < m_jttyLiveEntryPending.size (); ++i) {
       if (m_jttyLiveEntryPending[i].requestId != requestId) continue;
       auto const entry = m_jttyLiveEntryPending[i];
+      bool const heardOnAir = m_jttyRequestsOnAir.contains (requestId);
       m_jttyLiveEntryPending.remove (i);
+      // Audio already played: leave it committed, or the next over repeats it.
+      if (heardOnAir) break;
       // Only the most recently committed span can be cleanly reopened for editing.
       if (entry.end == m_jttyLiveEntryCommitted) {
         m_guardingJttyLiveEntryLock = true;
@@ -784,6 +787,14 @@ MainWindow::MainWindow(QDir const& temp_directory,
   add_child_to_event_filter (this);
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
+  ui->jttyCallEntry->setValidator (new CallsignValidator {this});
+  ui->jttyNextCallEntry->setValidator (new CallsignValidator {this});
+  connect (ui->jttyCallEntry, &QLineEdit::textEdited, ui->dxCallEntry, &QLineEdit::setText);
+  connect (ui->jttyReceivedEntry, &QLineEdit::textChanged, this, [this] (QString const& text) {
+    m_xRcvd = text.simplified ().toUpper ();
+  });
+  connect (ui->sbSerialNumber_2, QOverload<int>::of (&QSpinBox::valueChanged),
+           this, &MainWindow::updateJttySentExchange);
   ui->leEchoMessage->setValidator (new CallsignValidator {this, false});
   ui->sbTR->values ({5, 10, 15, 30, 60, 120, 300, 900, 1800});
   ui->sbTR_FST4W->values ({120, 300, 900, 1800});
@@ -986,6 +997,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect(m_wideGraph.data (), SIGNAL(setXIT2(int)),this,SLOT(setXIT(int)));
   connect(m_wideGraph.data(), &WideGraph::jttyDecodeAgainAtSample,
           this, &MainWindow::jttyDecodeAgainAtSample);
+  installJttyWideGraphKeyFilter ();
   m_wideGraph->setReferenceSpectrumAvailable(
         QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")));
 
@@ -1236,8 +1248,8 @@ MainWindow::MainWindow(QDir const& temp_directory,
   connect (&m_config, &Configuration::text_font_changed, [this] (QFont const& font) {
       set_application_font (font);
     });
-  connect (&m_config, &Configuration::decoded_text_font_changed, [this] (QFont const& font) {
-      setDecodedTextFont (font);
+  connect (&m_config, &Configuration::decoded_text_font_changed, [this] (QFont const&) {
+      setDecodedTextFont (jttyDisplayFont ());
     });
 
   setWindowTitle (branded_program_title ());
@@ -1900,7 +1912,7 @@ void MainWindow::handle_leavingSettings ()
 void MainWindow::initialize_fonts ()
 {
   set_application_font (m_config.text_font ());
-  setDecodedTextFont (m_config.decoded_text_font ());
+  setDecodedTextFont (jttyDisplayFont ());
 }
 
 void MainWindow::splash_done ()
@@ -3426,6 +3438,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   auto psk_on = m_config.spot_to_psk_reporter ();
   if (QDialog::Accepted == m_config.exec ()) {
     cancelPendingFt8Decode ("settings changed");
+    updateJttySentExchange ();  // the contest exchange may have changed
     applyFootswitchSettings ();
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
@@ -3635,6 +3648,7 @@ void MainWindow::monitor (bool state)
     }
   }
   m_monitoring = state;
+  updateJttyPttStateLabel ();
   if (!state) cancelPendingFt8Decode ("monitoring stopped");
   if (leavingDiskData) updateDecodeControls ();
   check_button_color();
@@ -3679,7 +3693,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     QMainWindow::keyPressEvent (e);
   }
   if(m_mode=="JTTY") {
-    bool handled = jtty_key_struck(e);
+    bool handled = jtty_key_struck(e, this);
     if(handled) return;
   }
   int n;
@@ -4260,6 +4274,7 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
           }
 
         auto const key_event = static_cast<QKeyEvent *> (event);
+        if (jtty_key_struck (key_event, object)) return true;
         if (object == ui->Tx_Message && !key_event->isAutoRepeat ()
             && key_event->key () == Qt::Key_K
             && key_event->modifiers () == (Qt::ControlModifier | Qt::ShiftModifier))
@@ -9373,6 +9388,16 @@ void MainWindow::handleDecodeSelection(
   QString const& line, Qt::KeyboardModifiers modifiers,
   DecodedMessageReaction::SelectionOrigin selection_origin, QString const& clicked_token)
 {
+  // Shift+double-click adds to the received exchange and Ctrl+double-click
+  // sets the next call; the QSO in progress is unchanged.
+  if (m_mode == "JTTY" && (modifiers & Qt::ShiftModifier)) {
+    appendJttyReceivedExchange (Jtty::trimJttyChatPunctuation (clicked_token));
+    return;
+  }
+  if (m_mode == "JTTY" && (modifiers & Qt::ControlModifier)) {
+    ui->jttyNextCallEntry->setText (Jtty::trimJttyChatPunctuation (clicked_token).toUpper ());
+    return;
+  }
   setBestSPArmed (false);
   m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
@@ -10729,7 +10754,13 @@ void MainWindow::on_dxCallEntry_textChanged (QString const& call)
   }
   set_dateTimeQSO (-1);  // reset the QSO start time when DXCall changes
   m_hisCall = call;
-  if (m_mode=="JTTY") m_jttyHisCallSnr = -10;  // stale SNR belonged to the previous DX call
+  if (ui->jttyCallEntry->text () != call) ui->jttyCallEntry->setText (call);
+  if (m_mode=="JTTY") {
+    m_jttyHisCallSnr = -10;  // stale SNR belonged to the previous DX call
+    m_jttyEnterStep = Jtty::EnterStep::Idle;
+    ui->jttyReceivedEntry->clear ();
+    updateJttySentExchange ();
+  }
   if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget->getDxBase(QString(Radio::base_callsign(call)));
   if (!blocked) ui->dxGridEntry->clear();  // conditional because not always useful with highlightDXCall/DXGrid feature
   if (ui->DX_Call_Button->isChecked() && !(m_mode=="FT8" && SpecOp::HOUND==m_specOp)) ui->DX_Call_Button->click ();
@@ -11470,7 +11501,9 @@ void MainWindow::WSPR_config(bool b)
   bool const jtty = m_mode == "JTTY";
   progressBar.setVisible(!jtty);
   ui->cbLowerCase->setVisible(jtty);
-  ui->cbIncludeTime->setVisible(jtty);
+  updateJttyQsoFieldsVisibility();
+  if (jtty) updateJttySentExchange();
+  if (ui->Tx_Message->font () != jttyDisplayFont ()) setDecodedTextFont (jttyDisplayFont ());
   ui->autoButton->setEnabled(!jtty);
   ui->autoButton->setVisible(!jtty);
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version

@@ -80,6 +80,40 @@ private slots:
       QStringLiteral ("ONE TWO THREE "), false, 1);
     QCOMPARE (plan.text, QStringLiteral ("ONE TWO "));
   }
+
+  // Queue-low commits use holdback 0, but must not split a half-typed word.
+  void zeroHoldbackReleasesCompleteWordsButNotAPartialOne ()
+  {
+    auto const plan = Jtty::planIncrementalCommit (
+      QStringLiteral ("CQ CQ DE K1A"), false, 0);
+    QCOMPARE (plan.text, QStringLiteral ("CQ CQ DE "));
+    QCOMPARE (plan.length, 9);
+  }
+
+  void zeroHoldbackOnAPartialWordAloneCommitsNothing ()
+  {
+    // Nothing complete yet: the trailing word waits for the idle flush.
+    auto const plan = Jtty::planIncrementalCommit (
+      QStringLiteral ("K1A"), false, 0);
+    QVERIFY (plan.text.isEmpty ());
+    QCOMPARE (plan.length, 0);
+  }
+
+  void commitTriggersOnlyOnceTheBacklogFallsBelowAFrame ()
+  {
+    QVERIFY (!Jtty::shouldCommitForQueueDepth (Jtty::samplesPerFrame * 3));
+    // Exactly one frame still queued: that frame is playing, so hold.
+    QVERIFY (!Jtty::shouldCommitForQueueDepth (Jtty::samplesPerFrame));
+    QVERIFY (Jtty::shouldCommitForQueueDepth (Jtty::samplesPerFrame - 1));
+    QVERIFY (Jtty::shouldCommitForQueueDepth (0));
+  }
+
+  void frameLengthMatchesTheEncoderAndIsAboutTwoSeconds ()
+  {
+    // Guards the constant against drifting from the encoder's frame size.
+    QCOMPARE (Jtty::samplesPerFrame, 59LL * 1536);
+    QCOMPARE (Jtty::samplesPerFrame / 48000.0, 1.888);
+  }
 };
 
 QTEST_GUILESS_MAIN (TestJttyLiveEntry)

@@ -40,6 +40,27 @@ void MainWindow::showStatusMessage(const QString& statusMsg)
   statusBar()->showMessage(statusMsg, 5000);
 }
 
+// Like showStatusMessage, but with the whole bar red until the message
+// expires or is replaced, for refusals an operator would otherwise miss.
+void MainWindow::showStatusWarning(const QString& statusMsg)
+{
+  auto * const bar = statusBar ();
+  if (m_statusWarningConnection) {
+    disconnect (m_statusWarningConnection);
+  } else {
+    m_statusBarStyleBeforeWarning = bar->styleSheet ();
+  }
+  bar->setStyleSheet (m_statusBarStyleBeforeWarning
+                      + QStringLiteral ("QStatusBar{background-color: #ff6666; color: #000000;}"));
+  bar->showMessage (statusMsg, 8000);
+  // Connected after showMessage, so only a later change restores the style.
+  m_statusWarningConnection = connect (bar, &QStatusBar::messageChanged, this, [this, bar] {
+    disconnect (m_statusWarningConnection);
+    m_statusWarningConnection = {};
+    bar->setStyleSheet (m_statusBarStyleBeforeWarning);
+  });
+}
+
 bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::ExitStatus status)
 {
   return subProcessFailed (process->program (), process->arguments (), exit_code, status,

@@ -1,6 +1,7 @@
 #ifndef JTTY_TRANSMIT_QUEUE_HPP_
 #define JTTY_TRANSMIT_QUEUE_HPP_
 
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -128,6 +129,22 @@ namespace Jtty
         }
       }
       return count;
+    }
+
+    // Requests with at least one segment already playing or played. Their text
+    // was heard, so a cancellation must not reopen it for editing.
+    QSet<qint64> requestsOnAir (qint64 servedSamples) const
+    {
+      QSet<qint64> ids;
+      for (auto const& request : requests_) {
+        for (auto const& segment : request.segments) {
+          if (!segment.endSample
+              || segment.endSample - segment.sampleCount () >= servedSamples) continue;
+          ids.insert (request.id);
+          break;
+        }
+      }
+      return ids;
     }
 
     QString pendingText (qint64 servedSamples) const

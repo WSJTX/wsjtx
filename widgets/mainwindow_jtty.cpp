@@ -2,14 +2,21 @@
 #include "ui_mainwindow.h"
 #include "widegraph.h"
 #include "commons.h"
+#include "JttyKeyRouter.hpp"
 #include "JttyMessages.hpp"
 #include "JttyN1mm.hpp"
 #include "JttyReceiveLine.hpp"
 #include "JttyTransmitText.hpp"
 #include "Logger.hpp"
 #include "models/DecodeHighlightingModel.hpp"
+#include <QApplication>
 #include <QByteArray>
 #include <QDateTime>
+#include <QKeyEvent>
+#include <QPushButton>
+#include <QSignalBlocker>
+#include <functional>
+#include <QScopedValueRollback>
 #include <QSettings>
 #include <QTextCharFormat>
 #include <QTextCursor>
@@ -49,11 +56,18 @@ namespace
   }
 }
 
-// Backstop cap: batches at least this many words per auto-advance burst even if the operator never pauses (the idle timer below normally fires first).
-constexpr int kJttyAutoAdvanceBatchWords = 5;
+constexpr qint64 kJttySamplesPerFrame = Jtty::samplesPerFrame;
 
-// A typing pause this long, with anything safely committable pending, flushes it rather than waiting for kJttyAutoAdvanceBatchWords to fill up.
+// Lead time for queueing the next diddle; covers the enqueue round trip.
+constexpr qint64 kJttyFillerLeadSamples = kJttySamplesPerFrame / 2;
+
+// Pause after which a trailing unterminated word is released.
 constexpr int kJttyAutoAdvanceIdleMs = 1500;
+
+// Unbroken diddle frames tolerated before PTT drops on its own, about 60 s.
+// Each diddle re-arms the enqueue watchdog, so nothing else would end an over
+// the operator has walked away from until the Runaway Tx watchdog, minutes on.
+constexpr int kJttyMaxDiddleFrames = 32;
 
 #ifdef WIN32
 static QString append_separator(QString message) {
@@ -71,18 +85,9 @@ static QString append_separator(QString message) {
 
 void MainWindow::updateJttyDecodeHeadings()
 {
-  QString const prefix = ui->cbIncludeTime->isChecked()
-    ? QStringLiteral("  UTC  Freq  dB  ") : QStringLiteral("Freq  dB  ");
+  QString const prefix = QStringLiteral("  UTC  Freq  dB  ");
   ui->lh_decodes_headings_label->setText(prefix + tr ("Message"));
   ui->rh_decodes_headings_label->setText(prefix + tr ("Message"));
-}
-
-void MainWindow::on_cbIncludeTime_toggled(bool)
-{
-  if (m_mode == "JTTY") {
-    updateJttyDecodeHeadings();
-    refreshJttyReceiveLines();
-  }
 }
 
 void MainWindow::jtty_tx(QString message)
@@ -101,58 +106,142 @@ qint64 MainWindow::submitJttyText(QString message)
   return requestId;
 }
 
-// Ctrl+K / Send button: one-shot send -- force-flushes, marks final (EOM), and disarms; typing more afterward needs another explicit Alt+J or Ctrl+K, nothing auto-advances.
-void MainWindow::commitJttyLiveEntry()
+// The one PTT control. Off stops gracefully; Esc aborts.
+// finalOver: this call both opens and closes the over, so the text committed
+// here carries EOM. Nothing is left for a following PTT-off to mark final.
+void MainWindow::setJttyPttEnabled(bool on, bool finalOver)
 {
-  if (m_mode != "JTTY") return;
-  if (!ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted).trimmed ().isEmpty ()) {
-    if (!m_config.prepare_radio_mode ()) return;
+  if (m_mode != "JTTY" || on == m_jttyLiveEntryArmed) return;
+
+  if (on) {
+    if (!m_config.prepare_radio_mode ()) {
+      updateRadioModeStatus ();
+      return;
+    }
     setXIT (ui->TxFreqSpinBox->value ());
+    m_jttyLiveEntryArmed = true;
+    m_jttyDiddling = false;   // stale from the previous session's last filler
+    m_jttyDiddleFrames = 0;
+    // Nothing committable (empty box or half-typed word): key with diddle.
+    if (!commitJttyLiveEntryPlan (/*forceFlush=*/false, /*holdbackWords=*/0,
+                                  /*isFinal=*/finalOver)) {
+      sendJttyFillerPadding ();
+    }
+  } else {
+    // Disarm first so finishJttyDrain stops topping up with filler.
+    m_jttyLiveEntryArmed = false;
+    m_jttyAutoAdvanceIdleTimer.stop ();
+    commitJttyLiveEntryPlan (/*forceFlush=*/true, /*holdbackWords=*/0,
+                             /*isFinal=*/true);
+    // Only filler left: nothing to be graceful about, so stop now.
+    if (jttyPendingIsOnlyFiller ()) abort_jtty_tx ();
   }
-  m_jttyAutoAdvanceIdleTimer.stop ();
-  commitJttyLiveEntryPlan (/*forceFlush=*/true, Jtty::maxCompactAtomWords, /*isFinal=*/true);
-  m_jttyLiveEntryArmed = false;
+  updateJttySendButton ();
 }
 
-// Alt+J: force-flushes like Ctrl+K but never marks final, and arms auto-advance/idle-flush; stays open (continuously filler-padded by finishJttyDrain) until Alt+K signs off or Halt Tx/Esc cancels it.
-void MainWindow::startJttyLiveStream()
+// Commits the next slice once the backlog falls below one frame.
+void MainWindow::maybeCommitJttyLiveEntry()
 {
-  if (m_mode != "JTTY" || !m_config.prepare_radio_mode ()) return;
-  setXIT (ui->TxFreqSpinBox->value ());
-  m_jttyLiveEntryArmed = true;
-  m_jttyAutoAdvanceIdleTimer.stop ();
-  commitJttyLiveEntryPlan (/*forceFlush=*/true, Jtty::maxCompactAtomWords, /*isFinal=*/false);
+  if (m_mode != "JTTY" || !m_jttyLiveEntryArmed || m_guardingJttyLiveEntryLock) return;
+  if (ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted)
+      .trimmed ().isEmpty ()) return;
+  if (!Jtty::shouldCommitForQueueDepth (jttyQueuedSamples ())) return;
+  commitJttyLiveEntryPlan (/*forceFlush=*/false, /*holdbackWords=*/0, /*isFinal=*/false);
 }
 
-// Once armed, batches several words per commit rather than firing per word (each commit is its own transmission, and one-word bursts showed up as one decode line per word); fires on kJttyAutoAdvanceBatchWords piling up, or a pause via idleFlushJttyLiveEntry.
+// Filler owns no live-entry span, so cancelling it can't unlock committed text.
+bool MainWindow::jttyPendingIsOnlyFiller() const
+{
+  // Text that has played but not yet completed still owns a span; aborting now
+  // would reject it and un-commit text that was actually sent.
+  if (!m_jttyLiveEntryPending.isEmpty ()) return false;
+  for (auto const& request : m_jttyTransmitQueue.requests ()) {
+    for (auto const& segment : request.segments) {
+      if (segment.endSample
+          && segment.endSample <= m_jttyQueueProgress.served_samples) continue;
+      if (!Jtty::isJttyFillerText (segment.text)) return false;
+    }
+  }
+  return true;
+}
+
+// Queues the next diddle before the current one drains; waiting for the drain
+// callback leaves the backend dry for the enqueue round trip, gapping the tone.
+void MainWindow::maybeTopUpJttyFiller()
+{
+  if (m_mode != "JTTY" || !m_jttyLiveEntryArmed) return;
+  if (!m_jttyTxLifecycle.active ()) return;
+  // More than the playing segment left: text or an earlier top-up is waiting.
+  if (m_jttyTransmitQueue.remainingSegments (
+        m_jttyQueueProgress.served_samples) > 1) return;
+  if (jttyQueuedSamples () > kJttyFillerLeadSamples) return;
+  if (m_jttyDiddleFrames >= kJttyMaxDiddleFrames) {
+    showStatusMessage (tr ("PTT dropped: JTTY was sending diddle with nothing "
+                           "to transmit. Press F9 to go back on the air."));
+    setJttyPttEnabled (false);
+    return;
+  }
+  sendJttyFillerPadding ();
+}
+
+// Backlog still to play; prefers the queue's own figure on the local backend.
+qint64 MainWindow::jttyQueuedSamples() const
+{
+  if (m_jttyTxLifecycle.active ()
+      && m_jttyTxLifecycle.backend () == JttyTxLifecycle::Backend::Local
+      && m_jttyTxQueue) {
+    return m_jttyTxQueue->progress ().queued_samples;
+  }
+  return m_jttyQueueProgress.queued_samples;
+}
+
+// Commit now if the queue is low; else restart the trailing-word pause timer.
 void MainWindow::autoAdvanceJttyLiveEntry()
 {
   if (m_mode != "JTTY" || !m_jttyLiveEntryArmed || m_guardingJttyLiveEntryLock) return;
   QString const uncommitted = ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted);
-  int const completeWords = Jtty::completeWordCount (uncommitted);
-  if (completeWords - Jtty::maxCompactAtomWords >= kJttyAutoAdvanceBatchWords) {
+  if (uncommitted.trimmed ().isEmpty ()) {
     m_jttyAutoAdvanceIdleTimer.stop ();
-    commitJttyLiveEntryPlan (/*forceFlush=*/false, Jtty::maxCompactAtomWords, /*isFinal=*/false);
     return;
   }
-  // Arms on any uncommitted content, complete word or not -- idleFlushJttyLiveEntry releases even a trailing not-yet-space-terminated word once the pause happens.
-  if (!uncommitted.trimmed ().isEmpty ()) {
-    m_jttyAutoAdvanceIdleTimer.start (kJttyAutoAdvanceIdleMs);
-  } else {
-    m_jttyAutoAdvanceIdleTimer.stop ();
-  }
+  maybeCommitJttyLiveEntry ();
+  m_jttyAutoAdvanceIdleTimer.start (kJttyAutoAdvanceIdleMs);
 }
 
-// Force-flushes everything typed, including a trailing word with no trailing space yet, but isFinal=false unlike Ctrl+K, so the message stays open; a detected pause means no keystroke is coming to extend an atom or a partial word, so the usual holdback/complete-word protections no longer apply. Doesn't queue filler itself -- finishJttyDrain keeps the session continuously padded for as long as it's armed.
+// A pause means no keystroke is coming to finish the trailing word.
 void MainWindow::idleFlushJttyLiveEntry()
 {
   if (m_mode != "JTTY" || !m_jttyLiveEntryArmed || m_guardingJttyLiveEntryLock) return;
-  commitJttyLiveEntryPlan (/*forceFlush=*/true, Jtty::maxCompactAtomWords, /*isFinal=*/false);
+  commitJttyLiveEntryPlan (/*forceFlush=*/true, /*holdbackWords=*/0, /*isFinal=*/false);
+}
+
+// Deprecated alias (Ctrl+K / Send button); the graceful stop is now F9.
+void MainWindow::commitJttyLiveEntry()
+{
+  if (m_mode != "JTTY") return;
+  if (!m_jttyLiveEntryArmed) {
+    // Nothing streaming: send the box once, as this shortcut always did.
+    if (!ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted).trimmed ().isEmpty ()) {
+      if (!m_config.prepare_radio_mode ()) return;
+      setXIT (ui->TxFreqSpinBox->value ());
+    }
+    m_jttyAutoAdvanceIdleTimer.stop ();
+    commitJttyLiveEntryPlan (/*forceFlush=*/true, /*holdbackWords=*/0, /*isFinal=*/true);
+    return;
+  }
+  setJttyPttEnabled (false);
+}
+
+// Deprecated alias (Alt+J); PTT on is now F9.
+void MainWindow::startJttyLiveStream()
+{
+  setJttyPttEnabled (true);
 }
 
 void MainWindow::sendJttyFillerPadding()
 {
   qint64 const requestId = ++m_jttyTxRequestId;
+  ++m_jttyDiddleFrames;
   execute_jtty_tx (requestId, Jtty::jttyFillerText, /*isFinal=*/false);
 }
 
@@ -172,6 +261,7 @@ bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, boo
   replace.setPosition (m_jttyLiveEntryCommitted + plan.length, QTextCursor::KeepAnchor);
   replace.insertText (expanded);
   qint64 const requestId = ++m_jttyTxRequestId;
+  m_jttyDiddleFrames = 0;   // real text: the unbroken diddle run ends here
   m_jttyLiveEntryPending.append ({requestId, m_jttyLiveEntryCommitted,
                                   m_jttyLiveEntryCommitted + expanded.size ()});
   m_jttyLiveEntryCommitted += expanded.size ();
@@ -195,7 +285,7 @@ bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, boo
   return true;
 }
 
-// Ctrl+Shift+K: clears the whole box, including locked/sent text, cancelling anything of it still queued/in flight.
+// Esc (and the Ctrl+Shift+K alias): clears the whole box, cancelling Tx.
 void MainWindow::clearJttyLiveEntry()
 {
   if (m_mode != "JTTY") return;
@@ -207,6 +297,7 @@ void MainWindow::clearJttyLiveEntry()
   m_jttyLiveEntryCommitted = 0;
   m_jttyLiveEntryFramesSent = 0;
   m_jttyLiveEntryArmed = false;
+  m_jttyDiddling = false;
   m_jttyLiveEntryLockedText.clear ();
   m_guardingJttyLiveEntryLock = true;
   ui->Tx_Message->clear ();
@@ -234,21 +325,19 @@ void MainWindow::insertJttyChatOpener()
   insertJttyLiveEntryText (QStringLiteral ("%H %M "));
 }
 
-// Alt+K: sign-off ("DE <myCall> K "), then finalizes (marks EOM) and disarms, so finishJttyDrain stops topping up with filler and PTT drops once this finishes playing.
+// Deprecated alias (Alt+K): appends the sign-off, then stops gracefully.
 void MainWindow::insertJttyChatSignoff()
 {
-  if (!m_config.prepare_radio_mode ()) return;
+  if (m_mode != "JTTY" || !m_config.prepare_radio_mode ()) return;
   setXIT (ui->TxFreqSpinBox->value ());
   insertJttyLiveEntryText (QStringLiteral ("DE %M K "));
-  m_jttyAutoAdvanceIdleTimer.stop ();
-  commitJttyLiveEntryPlan (/*forceFlush=*/true, Jtty::maxCompactAtomWords, /*isFinal=*/true);
-  m_jttyLiveEntryArmed = false;
+  commitJttyLiveEntry ();
 }
 
 // Fraction (0..1) of a pending commit that should show as sent, stepping one JTTY frame at a time using pack_jtty's own frame_starts boundaries (segment.frameCharStarts) rather than an even split, which put the boundary mid-atom; falls back to an even split if a segment's boundaries weren't captured. Each frame is a fixed 59*1536 samples (genjtty_frames, lib/jtty/genjtty.f90). Returns 0 for a requestId not yet enqueued (not started, never "finished").
 double MainWindow::jttyRequestSentFraction(qint64 requestId) const
 {
-  qint64 const samplesPerFrame = 59LL * 1536;
+  qint64 const samplesPerFrame = kJttySamplesPerFrame;
   for (auto const& request : m_jttyTransmitQueue.requests ()) {
     if (request.id != requestId) continue;
     int totalChars = 0;
@@ -282,7 +371,7 @@ double MainWindow::jttyRequestSentFraction(qint64 requestId) const
 // Same elapsed-sample accounting as jttyRequestSentFraction, as a frame count for the label rather than a char fraction for the highlight.
 int MainWindow::jttyRequestFramesDone(qint64 requestId) const
 {
-  qint64 const samplesPerFrame = 59LL * 1536;
+  qint64 const samplesPerFrame = kJttySamplesPerFrame;
   for (auto const& request : m_jttyTransmitQueue.requests ()) {
     if (request.id != requestId) continue;
     int doneFrames = 0;
@@ -537,7 +626,7 @@ void MainWindow::execute_jtty_tones(qint64 requestId, QString const& message,
     }
     m_jttyQueueProgress = {};
     m_jttyQueueProgress.epoch = epoch;
-    m_jttyDisplayedEndSample = 0;
+    endJttyTxEcho ();
   }
 
   QByteArray bytes(reinterpret_cast<char const *> (samples.constData ()),
@@ -571,7 +660,7 @@ qint64 MainWindow::jttyTxCommittedSamples() const
   return m_jttyTxLifecycle.committedTotal ();
 }
 
-void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
+void MainWindow::completeJttyTxEnqueue(qint64 requestId,
                                        TxAudioQueueProgress progress,
                                        bool newSession, bool useTciAudio)
 {
@@ -602,7 +691,6 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   updateJttyTransmitDisplay (progress.served_samples);
   updateJttySendButton ();
   if (firstSegment) {
-    handleJttyContestSerial (message);
     Q_EMIT jttyTextAccepted (requestId);
   }
 
@@ -643,6 +731,9 @@ void MainWindow::onJttyBackendProgress(TxAudioQueueProgress progress)
       || progress.total_samples != m_jttyTxLifecycle.committedTotal ()) return;
   m_jttyQueueProgress = progress;
   updateJttyTransmitDisplay (progress.served_samples);
+  // Release the next slice first, so text goes out instead of diddle.
+  maybeCommitJttyLiveEntry ();
+  maybeTopUpJttyFiller ();
   feedJttyTransmitQueue ();
   updateJttySendButton ();
   if (m_mode == "JTTY" && !m_jttyLiveEntryPending.isEmpty ()) {
@@ -655,36 +746,122 @@ void MainWindow::onJttyBackendProgress(TxAudioQueueProgress progress)
 
 void MainWindow::updateJttyTransmitDisplay(qint64 servedSamples)
 {
+  // The label follows what is playing; the echo, what has been sent.
   for (auto const& request : m_jttyTransmitQueue.requests ()) {
     for (auto const& segment : request.segments) {
-      if (!segment.endSample || segment.endSample <= m_jttyDisplayedEndSample
-          || segment.endSample - segment.sampleCount () >= servedSamples) continue;
-      m_jttyDisplayedEndSample = segment.endSample;
-      if (Jtty::isJttyFillerText (segment.text)) continue;   // idle-padding; never shown
-      m_currentMessage = segment.text;
-      write_all ("Tx", segment.text);
-      auto const resolved = DecodeHighlightingModel::resolve_colors (
-        m_config.decode_highlighting ().items (),
-        {DecodeHighlightingModel::Highlight::Tx}, QColor (Qt::yellow),
-        QColor (Qt::black));
-      JttyReceiveLine::Presentation const presentation {
-        0, request.id, QDateTime::currentDateTimeUtc (), 0.0,
-        segment.frequency, segment.text, -10, true,
-        resolved.background_, resolved.foreground_};
-      JttyReceiveLine::Options const options {
-        ui->cbLowerCase->isChecked (), ui->cbIncludeTime->isChecked ()};
-      JttyReceiveLine txLine;
-      auto const cursor = txLine.render (*ui->decodedTextBrowser2->document (),
-        presentation, options, ui->decodedTextBrowser2->contentFont ());
-      if (!cursor.isNull ()) {
-        ui->decodedTextBrowser2->setTextCursor (cursor);
-        ui->decodedTextBrowser2->ensureCursorVisible ();
+      if (segment.endSample && segment.endSample > servedSamples
+          && segment.endSample - segment.sampleCount () < servedSamples) {
+        m_jttyDiddling = Jtty::isJttyFillerText (segment.text);
       }
-#ifdef WIN32
-      if (m_mmttyif) m_mmttyif->echo_message_to_n1mm (append_separator (segment.text));
-#endif
     }
   }
+
+  // Echoed a frame at a time, as the far end decodes it, into one growing
+  // line per over; echoing ahead of the audio would show text Esc never sent.
+  auto const update = m_jttyTxEcho.update (
+    m_jttyTransmitQueue.requests (), servedSamples,
+    [] (QString const& text) { return Jtty::isJttyFillerText (text); });
+  for (auto const& text : update.completedSegments) {
+    m_currentMessage = text;
+#ifdef WIN32
+    if (m_mmttyif) m_mmttyif->echo_message_to_n1mm (append_separator (text));
+#endif
+  }
+  if (!update.grew || m_jttyTxEcho.isEmpty ()) return;
+  if (!m_jttyTxEchoLine) {
+    m_jttyTxEchoLine = std::make_shared<JttyReceiveLine> ();
+    m_jttyTxEchoStart = QDateTime::currentDateTimeUtc ();
+  }
+  auto const resolved = DecodeHighlightingModel::resolve_colors (
+    m_config.decode_highlighting ().items (),
+    {DecodeHighlightingModel::Highlight::Tx}, QColor (Qt::yellow),
+    QColor (Qt::black));
+  JttyReceiveLine::Presentation const presentation {
+    0, m_jttyTxEcho.firstRequestId (), m_jttyTxEchoStart, 0.0,
+    m_jttyTxEcho.frequency (), m_jttyTxEcho.text (), -10, true,
+    resolved.background_, resolved.foreground_};
+  JttyReceiveLine::Options const options {ui->cbLowerCase->isChecked ()};
+  auto const cursor = m_jttyTxEchoLine->render (*ui->decodedTextBrowser2->document (),
+    presentation, options, ui->decodedTextBrowser2->contentFont ());
+  if (!cursor.isNull ()) {
+    ui->decodedTextBrowser2->setTextCursor (cursor);
+    ui->decodedTextBrowser2->ensureCursorVisible ();
+  }
+}
+
+// Ctrl+Up / Ctrl+Down: replace the unsent part of the Tx box with an earlier
+// over, ready to edit or send again.
+void MainWindow::recallJttyTransmission(int step)
+{
+  int const unsentFrom = m_jttyLiveEntryCommitted;
+  QString const draft = ui->Tx_Message->toPlainText ().mid (unsentFrom);
+  QString text;
+  if (!m_jttyTxHistory.recall (step, draft, &text)) return;
+  QScopedValueRollback<bool> recalling {m_jttyRecalling, true};
+  QTextCursor cursor = ui->Tx_Message->textCursor ();
+  cursor.setPosition (unsentFrom);
+  cursor.movePosition (QTextCursor::End, QTextCursor::KeepAnchor);
+  cursor.insertText (text, QTextCharFormat {});
+  ui->Tx_Message->setTextCursor (cursor);
+  ui->Tx_Message->ensureCursorVisible ();
+}
+
+// PTT has dropped: the over is echoed in the QSO Frequency pane and Ctrl+Up
+// recalls it, so its text leaves the Tx box. Unsent type-ahead stays.
+void MainWindow::clearJttySentText()
+{
+  if (m_mode != "JTTY") return;
+  int const cut = m_jttyLiveEntryPending.isEmpty ()
+    ? m_jttyLiveEntryCommitted : m_jttyLiveEntryPending.constFirst ().start;
+  if (cut <= 0) return;
+  m_guardingJttyLiveEntryLock = true;
+  QTextCursor cursor (ui->Tx_Message->document ());
+  cursor.setPosition (cut, QTextCursor::KeepAnchor);
+  cursor.removeSelectedText ();
+  for (auto& pending : m_jttyLiveEntryPending) {
+    pending.start -= cut;
+    pending.end -= cut;
+  }
+  m_jttyLiveEntryCommitted -= cut;
+  if (m_jttyLiveEntryPending.isEmpty ()) m_jttyLiveEntryFramesSent = 0;
+  applyJttyLiveEntryFormatting ();
+  // The lock guard reverts bad edits with undo(), so the removal mustn't be undoable.
+  ui->Tx_Message->document ()->clearUndoRedoStacks ();
+  m_guardingJttyLiveEntryLock = false;
+  updateJttyLiveEntryFrameLabel ();
+}
+
+QFont MainWindow::jttyDisplayFont() const
+{
+  QFont font = m_config.decoded_text_font ();
+  if (m_mode == "JTTY" && m_jttyFontZoom && font.pointSize () > 0) {
+    font.setPointSize (qMax (6, font.pointSize () + m_jttyFontZoom));
+  }
+  return font;
+}
+
+// Ctrl+= / Ctrl+- / Ctrl+0: JTTY's own offset from the Decoded Text Font size.
+void MainWindow::zoomJttyFont(int step)
+{
+  int const base = m_config.decoded_text_font ().pointSize ();
+  if (base <= 0) return;
+  int const zoom = step ? qBound (6 - base, m_jttyFontZoom + step, 40 - base) : 0;
+  if (zoom != m_jttyFontZoom) {
+    m_jttyFontZoom = zoom;
+    setDecodedTextFont (jttyDisplayFont ());
+  }
+  showStatusMessage (tr ("JTTY font size %1 pt").arg (base + zoom));
+}
+
+// PTT has dropped: the over is complete, and ALL.TXT gets it as one line.
+void MainWindow::endJttyTxEcho()
+{
+  if (!m_jttyTxEcho.isEmpty ()) {
+    write_all ("Tx", m_jttyTxEcho.text ());
+    m_jttyTxHistory.add (m_jttyTxEcho.text ());
+  }
+  m_jttyTxEcho.reset ();
+  m_jttyTxEchoLine.reset ();
 }
 
 void MainWindow::updateJttySendButton()
@@ -692,7 +869,7 @@ void MainWindow::updateJttySendButton()
   int const left = m_jttyTransmitQueue.remainingSegments (
     m_jttyQueueProgress.served_samples);
   QString text = tr ("Send message");
-  QString tooltip = tr ("Ctrl+K sends now (one-shot); Alt+J starts a live session until Alt+K signs off. Ctrl+Shift+K clears the box. Halt Tx or Esc cancels pending text.");
+  QString tooltip = tr ("F9 turns PTT on and off: on, the message is sent as you type and diddle fills any gap; off finishes what is queued, then drops PTT. Esc stops immediately and clears the box.");
   if (!m_jttyTransmitQueue.empty ()) {
     text = left ? tr ("Send (%1 left)").arg (left) : tr ("Send (finishing)");
     tooltip += "\n\n" + tr ("Pending text:") + "\n"
@@ -704,17 +881,89 @@ void MainWindow::updateJttySendButton()
     ui->pbSendMessage->setToolTip (tooltip);
     ui->pbSendMessage->setAccessibleDescription (tooltip);
   }
+  updateJttyPttStateLabel ();
   updateModeControlLock ();
 }
 
-void MainWindow::handleJttyContestSerial(QString const& message)
+void MainWindow::updateJttyPttStateLabel()
 {
-  if(message.left(3).compare("TU ", Qt::CaseInsensitive) == 0) {
-    logQSOTimer.start(0);
-    int nr = ui->sbSerialNumber_2->value();
-    m_xSent = QString::number(nr);
-    ui->sbSerialNumber_2->setValue(nr+1);
+  if (m_mode != "JTTY") {
+    ui->labelJttyPttState->clear ();
+    ui->labelJttyPttState->setStyleSheet (QString {});
+    return;
   }
+
+  // Large and colour-coded, readable at a glance from across the shack.
+  auto const style = [] (char const * background) {
+    return QStringLiteral ("QLabel{background-color: %1; color: black; font-weight: bold;"
+                           " font-size: 14pt; border-radius: 4px; padding: 2px 8px}")
+      .arg (QLatin1String {background});
+  };
+  QString text;
+  QString sheet;
+  if (m_jttyLiveEntryArmed) {
+    text = m_jttyDiddling ? tr ("Diddle") : tr ("Tx");
+    sheet = style (m_jttyDiddling ? "#ffb266" : "#ff6666");
+  } else if (m_jttyTxLifecycle.active ()) {
+    // PTT is off (or a one-shot send) and queued text is still going out.
+    text = tr ("Tx → Rx");
+    sheet = style ("#ff9999");
+  } else if (m_monitoring) {
+    text = tr ("Rx");
+    sheet = style ("#99dd99");
+  }
+  if (ui->labelJttyPttState->text () != text) {
+    ui->labelJttyPttState->setText (text);
+    ui->labelJttyPttState->setStyleSheet (sheet);
+  }
+}
+
+// %L: log the QSO with the exchange just sent, then bump the serial number.
+void MainWindow::logJttyQso()
+{
+  // The log reads the report from the first word, except for Field Day,
+  // whose exchange has none.
+  bool const report =
+    jttyExchangeProfile (m_config) != Jtty::NativeExchangeProfile::FieldDay;
+  auto const logged = [report] (QString const& text) {
+    QString const exchange = text.simplified ().toUpper ();
+    if (!report || exchange.isEmpty () || exchange.startsWith (QStringLiteral ("599 "))) {
+      return exchange;
+    }
+    return QStringLiteral ("599 ") + exchange;
+  };
+  m_xSent = logged (ui->jttySentEntry->text ());
+  m_xRcvd = logged (ui->jttyReceivedEntry->text ());
+  scheduleLogQso (false);
+  ui->sbSerialNumber_2->setValue (ui->sbSerialNumber_2->value () + 1);
+}
+
+void MainWindow::jttyEnterSendsMessage()
+{
+  auto const role = m_jttyMacros.current ().enterRole;
+  // Text the operator typed is what Enter sends, in every set. Appending the
+  // sequence's next macro to it put words on the air nobody asked for, and a
+  // TU macro's %L logged the QSO as a side effect of sending a sentence.
+  bool const typed = !ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted)
+    .trimmed ().isEmpty ();
+  if (role == Jtty::EnterRole::Off || typed) {
+    commitJttyLiveEntry ();  // as Send message: send the box, or end the over
+    return;
+  }
+  bool const haveDxCall = !m_hisCall.trimmed ().isEmpty ();
+  int const key = Jtty::enterSendsKey (role, m_jttyEnterStep, haveDxCall);
+  if (!key) {
+    showStatusWarning (haveDxCall ? tr ("QSO already logged. Enter a new DX Call.")
+                                  : tr ("Enter a DX Call first."));
+    return;
+  }
+  // After Enter in a QSO field, typing should go to the Tx box again.
+  auto * const focus = QApplication::focusWidget ();
+  if (focus == ui->dxCallEntry || focus == ui->jttyCallEntry || focus == ui->jttySentEntry
+      || focus == ui->jttyReceivedEntry) {
+    ui->Tx_Message->setFocus ();
+  }
+  sendJttyFunctionKey (key);
 }
 
 void MainWindow::abort_jtty_tx()
@@ -732,13 +981,14 @@ void MainWindow::abort_jtty_tx()
 
 void MainWindow::interruptJttyTx()
 {
+  // Cleared before the early return: PTT can be on with nothing committed.
+  m_jttyLiveEntryArmed = false;
+  m_jttyAutoAdvanceIdleTimer.stop ();
+
   auto const stop = m_jttyTxLifecycle.stopContext ();
   if (!stop) {
     return;
   }
-  // Halt Tx/Esc is a decisive stop -- don't let a still-armed session silently resurrect a new transmission later; resuming needs another explicit Alt+J or Ctrl+K.
-  m_jttyLiveEntryArmed = false;
-  m_jttyAutoAdvanceIdleTimer.stop ();
 
   if (stop->backend == JttyTxLifecycle::Backend::Local) {
     auto const progress = m_jttyTxQueue->progress ();
@@ -749,6 +999,13 @@ void MainWindow::interruptJttyTx()
     captureJttyTxEvidenceTotals (-1, stop->progress.total_samples,
                                  QStringLiteral ("TCI JTTY committed total captured before abort"));
   }
+  auto const served = stop->backend == JttyTxLifecycle::Backend::Local
+    ? m_jttyTxQueue->progress ().served_samples
+    : m_jttyQueueProgress.served_samples;
+  updateJttyTransmitDisplay (served);
+  // Noted while the queue still holds its segments; cancel() empties it below.
+  m_jttyRequestsOnAir = m_jttyTransmitQueue.requestsOnAir (served);
+  endJttyTxEcho ();
   rejectPendingJttyMessages(JttyTxRejectReason::Aborted);
   auto const cancelled = m_jttyTransmitQueue.cancel ();
   for (auto requestId : cancelled) {
@@ -761,6 +1018,7 @@ void MainWindow::interruptJttyTx()
       Q_EMIT jttyTextRejected (requestId, JttyTxRejectReason::Aborted);
     }
   }
+  m_jttyRequestsOnAir.clear ();
   m_jttyQueueNotice = tr ("JTTY transmission cancelled; some text may already have transmitted.");
   updateJttySendButton ();
   m_jttyTxLifecycle.failAll ();
@@ -804,10 +1062,18 @@ void MainWindow::finishJttyDrain(JttyTxLifecycle::Drain const& drain)
   }
   // Still armed: top up with more filler instead of dropping PTT, keeping the same transmission going rather than ending it and re-keying whenever real content does arrive.
   if (m_mode == "JTTY" && m_jttyLiveEntryArmed) {
-    sendJttyFillerPadding ();
+    // Typed text beats diddle when the queue is empty.
+    maybeCommitJttyLiveEntry ();
+    if (!m_jttyTransmitQueue.empty ()) {
+      feedJttyTransmitQueue ();
+    } else {
+      sendJttyFillerPadding ();
+    }
     updateJttySendButton ();
     return;
   }
+  endJttyTxEcho ();
+  clearJttySentText ();
   stopTx();
   m_jttyQueueNotice = tr ("JTTY transmission complete.");
   updateJttySendButton ();
@@ -833,7 +1099,7 @@ void MainWindow::onJttyBackendEnqueueAccepted(qint64 enqueueId, qint64 sampleCou
       LOG_WARN("JTTY transmit backend accepted unexpected PCM sample count");
     }
     bool const startsSession = pending.newSession || previousTotal <= 0;
-    completeJttyTxEnqueue(pending.requestId, pending.message, progress,
+    completeJttyTxEnqueue(pending.requestId, progress,
                           startsSession,
                           m_jttyTxLifecycle.backend () == JttyTxLifecycle::Backend::Tci);
     if (resolved.drain) finishJttyDrain (*resolved.drain);
@@ -969,65 +1235,209 @@ void MainWindow::jttyDecodeAgainAtSample(quint64 reception, qint64 sample)
   startJttyReview(reception, sample, true);
 }
 
-bool MainWindow::jtty_key_struck(QKeyEvent * e)
+// Called for every key press in the main window and the Wide Graph, before
+// the focused widget sees it. Returns true when the key has been consumed.
+bool MainWindow::jtty_key_struck(QKeyEvent * e, QObject * receiver)
 {
-  if(e->key() == Qt::Key_Escape) {
-    abort_jtty_tx();
+  if (m_mode != "JTTY") return false;
+  // Child dialogs (Log QSO, message boxes) also pass through MainWindow's
+  // filter. Judge by the receiver: focus and active window can both be null.
+  auto * const target = qobject_cast<QWidget *> (receiver);
+  auto * const window = target ? target->window () : nullptr;
+  if (window != this && window != m_wideGraph.data ()) return false;
+  auto * const focusWidget = QApplication::focusWidget ();
+  auto const focus = Jtty::classifyKeyFocus (
+    focusWidget ? focusWidget : target, ui->Tx_Message, {ui->dxCallEntry, ui->jttyCallEntry, ui->jttySentEntry, ui->jttyReceivedEntry});
+  // A set without a QSO sequence (Chat) sends the Tx box, so Enter in DX Call
+  // keeps its usual meaning there.
+  bool const enterSends = ui->cbJttyEnterSends->isChecked ()
+    && (m_jttyMacros.current ().enterRole != Jtty::EnterRole::Off
+        || focus != Jtty::KeyFocus::QsoField);
+  auto const route = Jtty::routeKey (e->key (), e->modifiers (), e->text (), focus, enterSends);
+  using Action = Jtty::KeyRoute::Action;
+  bool const repeat = e->isAutoRepeat ();
+  switch (route.action) {
+  case Action::None:
+    return false;
+  case Action::AppendToTxBox:
+    appendJttyTxBoxText (route.text);
+    return true;
+  case Action::BackspaceTxBox:
+    backspaceJttyTxBox ();
+    return true;
+  case Action::Abort:
+    // Hard abort: stop mid-frame and clear the box, unlike F9's graceful stop.
+    if (!repeat) clearJttyLiveEntry ();
+    return true;
+  case Action::TogglePtt:
+    if (!repeat) setJttyPttEnabled (!m_jttyLiveEntryArmed);
+    return true;
+  case Action::FocusDxCall:
+    if (!repeat) focusJttyDxCall ();
+    return true;
+  case Action::FunctionKey:
+    if (!repeat) sendJttyFunctionKey (route.functionKey);
+    return true;
+  case Action::StepTxFrequency:
+    ui->TxFreqSpinBox_2->setValue (ui->TxFreqSpinBox_2->value () + route.txStepHz);
+    return true;
+  case Action::EnterSendsMessage:
+    if (!repeat) jttyEnterSendsMessage ();
+    return true;
+  case Action::RecallHistory:
+    recallJttyTransmission (route.recallStep);
+    return true;
+  case Action::ZoomFont:
+    zoomJttyFont (route.zoomStep);
     return true;
   }
-  int const functionKey=e->key()-Qt::Key_F1+1;
-  if(functionKey < 1 || functionKey > 8) return false;
-  return sendJttyFunctionKey(functionKey);
+  return false;
+}
+
+void MainWindow::appendJttyTxBoxText(QString const& text)
+{
+  QTextCursor cursor = ui->Tx_Message->textCursor ();
+  cursor.movePosition (QTextCursor::End);
+  cursor.insertText (text, QTextCharFormat {});
+  ui->Tx_Message->setTextCursor (cursor);
+  ui->Tx_Message->ensureCursorVisible ();
+}
+
+// Only unsent text can be deleted; the committed prefix is locked.
+void MainWindow::backspaceJttyTxBox()
+{
+  if (ui->Tx_Message->document ()->characterCount () - 1 <= m_jttyLiveEntryCommitted) return;
+  QTextCursor cursor = ui->Tx_Message->textCursor ();
+  cursor.movePosition (QTextCursor::End);
+  cursor.deletePreviousChar ();
+  ui->Tx_Message->setTextCursor (cursor);
+}
+
+void MainWindow::focusJttyDxCall()
+{
+  activateWindow ();
+  raise ();
+  auto * const field = ui->jttyQsoFieldsWidget->isVisible () ? ui->jttyCallEntry : ui->dxCallEntry;
+  field->setFocus (Qt::ShortcutFocusReason);
+  field->selectAll ();
+}
+
+// What %E sends. JTTY sends no report; logJttyQso() adds 599 for the log.
+void MainWindow::updateJttySentExchange()
+{
+  if (m_mode != "JTTY") return;
+  ui->jttySentEntry->setText (jtty_msg_expand (QStringLiteral ("%E")));
+}
+
+// Call, Sent and Received are for contest QSOs: shown for Run and S&P sets.
+void MainWindow::updateJttyQsoFieldsVisibility()
+{
+  ui->jttyQsoFieldsWidget->setVisible (
+    m_mode == "JTTY" && m_jttyMacros.current ().enterRole != Jtty::EnterRole::Off);
+}
+
+void MainWindow::appendJttyReceivedExchange(QString const& word)
+{
+  if (word.isEmpty ()) return;
+  QString const text = ui->jttyReceivedEntry->text ().simplified ();
+  ui->jttyReceivedEntry->setText (text.isEmpty () ? word.toUpper ()
+                                                  : text + QStringLiteral (" ") + word.toUpper ());
+}
+
+namespace
+{
+  class JttyKeyForwarder final
+    : public QObject
+  {
+  public:
+    JttyKeyForwarder (std::function<bool (QKeyEvent *, QObject *)> handler, QObject * parent)
+      : QObject {parent}
+      , m_handler {std::move (handler)}
+    {
+    }
+
+  protected:
+    bool eventFilter (QObject * object, QEvent * event) override
+    {
+      if (event->type () == QEvent::KeyPress
+          && m_handler (static_cast<QKeyEvent *> (event), object)) return true;
+      return QObject::eventFilter (object, event);
+    }
+
+  private:
+    std::function<bool (QKeyEvent *, QObject *)> m_handler;
+  };
+}
+
+// The Wide Graph is a separate top-level window: operators click the
+// waterfall to tune, then keep typing, so its keys must reach the Tx box too.
+void MainWindow::installJttyWideGraphKeyFilter()
+{
+  auto * forwarder = new JttyKeyForwarder {
+    [this] (QKeyEvent * e, QObject * receiver) { return jtty_key_struck (e, receiver); },
+    m_wideGraph.data ()};
+  m_wideGraph->installEventFilter (forwarder);
+  for (auto * child : m_wideGraph->findChildren<QWidget *> ()) {
+    child->installEventFilter (forwarder);
+  }
 }
 
 bool MainWindow::sendJttyFunctionKey(int index)
 {
-  QString macro;
-  switch(index) {
-  case 1: macro=ui->msg1->text(); break;
-  case 2: macro=ui->msg2->text(); break;
-  case 3: macro=ui->msg3->text(); break;
-  case 4: macro=ui->msg4->text(); break;
-  case 5: macro=ui->msg5->text(); break;
-  case 6: macro=ui->msg6->text(); break;
-  case 7: macro=ui->msg7->text(); break;
-  case 8: macro=ui->msg8->text(); break;
-  default: return false;
-  }
-  if(macro.simplified().isEmpty()) return false;
-  if (!m_config.prepare_radio_mode ()) return true;
-  setXIT (ui->TxFreqSpinBox->value ());
-
-  auto const context = jttyNativeMacroContext(
-    m_config, m_hisCall, ui->sbSerialNumber_2->value(), m_jttyHisCallSnr);
-  auto const compiled=Jtty::compileNativeMacro(macro,context);
-  if(compiled.status == Jtty::NativeMacroStatus::LiteralFallback) {
-    jtty_tx(compiled.text);
+  if (index < 1 || index > Jtty::macroKeyCount) return false;
+  auto const control = Jtty::parseMacroControl (m_jttyMacros.macro (index).text);
+  if (control.text.isEmpty () && !control.pttOn && !control.pttOff) return false;
+  if ((control.text.contains (QStringLiteral ("%H"), Qt::CaseInsensitive) || control.logQso)
+      && m_hisCall.trimmed ().isEmpty ()) {
+    showStatusWarning (tr ("Enter a DX Call before sending this macro."));
     return true;
   }
-
-  qint64 const requestId=++m_jttyTxRequestId;
-  if(compiled.status == Jtty::NativeMacroStatus::InvalidRuntime) {
-    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1").arg(compiled.error));
-    Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
+  QString const nextCall = ui->jttyNextCallEntry->text ().trimmed ().toUpper ();
+  if (control.text.contains (QStringLiteral ("%Q")) && nextCall.isEmpty ()) {
+    showStatusWarning (tr ("Enter a Call next before sending this macro."));
     return true;
   }
+  bool const startsNextQso = control.startsNextQso ();
 
-  auto const encoded=Jtty::encodeNativeAtoms(compiled.atoms);
-  if(encoded.tones.isEmpty()) {
-    LOG_WARN(QStringLiteral("JTTY native macro rejected: %1").arg(encoded.error));
-    Q_EMIT jttyTextRejected(requestId,JttyTxRejectReason::EncodingFailed);
-    return true;
+  // Expanded now, so the operator sees exactly what will go out. The trailing
+  // space completes the last word, so the whole macro commits in one piece:
+  // split word by word it can cost up to 2.5 times as many frames.
+  QString macro = control.text;
+  macro.replace (QStringLiteral ("%Q"), nextCall);
+  QString const text = jtty_msg_expand (
+    macro, ui->sbSerialNumber_2->value () + (startsNextQso ? 1 : 0));
+  if (!text.isEmpty ()) {
+    QString const box = ui->Tx_Message->toPlainText ();
+    bool const needsSeparator = !box.isEmpty () && !box.at (box.size () - 1).isSpace ();
+    appendJttyTxBoxText ((needsSeparator ? QStringLiteral (" ") : QString {}) + text
+                         + QStringLiteral (" "));
   }
-  enqueueJttyToneSegment(requestId, compiled.text, encoded.tones.constData(),
-                         encoded.tones.size());
+  if (control.pttOn || control.pttOff) {
+    // A macro that ends the over has to key it too: pressed from receive, %]
+    // alone would otherwise queue text that nothing ever sends. The keying
+    // commit is final whenever the macro closes the over, so it carries EOM.
+    setJttyPttEnabled (true, control.pttOff);
+    // The radio refused the mode change, so nothing went out: no step, no log.
+    if (!m_jttyLiveEntryArmed) return true;
+    if (control.pttOff) setJttyPttEnabled (false);
+  }
+  m_jttyEnterStep = Jtty::stepAfterKey (m_jttyMacros.current ().enterRole, index, m_jttyEnterStep);
+  // Last: the Log QSO dialog may take focus, and logging may clear DX Call.
+  if (control.logQso) logJttyQso ();
+  if (startsNextQso) {
+    // Logged after its data was captured, so the old QSO keeps its call.
+    ui->dxCallEntry->setText (nextCall);
+    ui->jttyNextCallEntry->clear ();
+    if (control.text.contains (QStringLiteral ("%E"))) m_jttyEnterStep = Jtty::EnterStep::ExchangeSent;
+  }
   return true;
 }
 
-QString MainWindow::jtty_msg_expand(QString t)
+QString MainWindow::jtty_msg_expand(QString t, int serialNumber)
 {
   auto const context = jttyNativeMacroContext(
-    m_config, m_hisCall, ui->sbSerialNumber_2->value(), m_jttyHisCallSnr);
+    m_config, m_hisCall, serialNumber < 0 ? ui->sbSerialNumber_2->value() : serialNumber,
+    m_jttyHisCallSnr);
   return Jtty::expandLiteralMacro(t, context);
 }
 
@@ -1048,26 +1458,37 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
 
 void MainWindow::on_comboBoxJttyStyle_currentIndexChanged(int index)
 {
-  auto const previousStyle = static_cast<Jtty::MessageStyle>(m_jttyMessageStyle);
-  auto const newStyle = static_cast<Jtty::MessageStyle>(index);
-  QLineEdit* const msgFields[8] = {ui->msg1, ui->msg2, ui->msg3, ui->msg4,
-                                    ui->msg5, ui->msg6, ui->msg7, ui->msg8};
+  if (index < 0 || index == m_jttyMacros.currentIndex ()) return;
+  m_jttyMacros.setCurrentIndex (index);
+  refreshJttyMacroControls ();
+}
 
-  m_settings->beginGroup("MainWindow");
-  for (int i = 0; i < 8; ++i) {
-    // Save the outgoing style's currently displayed text before switching away,
-    // so in-session edits aren't lost.
-    m_settings->setValue(Jtty::messageStyleSettingsKey(previousStyle, i + 1),
-                          msgFields[i]->text());
+void MainWindow::refreshJttyMacroControls()
+{
+  {
+    QSignalBlocker const blocker {ui->comboBoxJttyStyle};
+    ui->comboBoxJttyStyle->clear ();
+    for (auto const& set : m_jttyMacros.sets ()) ui->comboBoxJttyStyle->addItem (set.name);
+    for (int i = 0; i < ui->comboBoxJttyStyle->count (); ++i) {
+      ui->comboBoxJttyStyle->setItemData (i, Qt::AlignCenter, Qt::TextAlignmentRole);
+    }
+    ui->comboBoxJttyStyle->setCurrentIndex (m_jttyMacros.currentIndex ());
   }
-  for (int i = 0; i < 8; ++i) {
-    int const functionKey = i + 1;
-    msgFields[i]->setText(m_settings->value(
-      Jtty::messageStyleSettingsKey(newStyle, functionKey),
-      Jtty::messageStyleDefaultTemplate(newStyle, functionKey)).toString());
+  QPushButton * const buttons[Jtty::macroKeyCount] {
+    ui->pbF1, ui->pbF2, ui->pbF3, ui->pbF4, ui->pbF5, ui->pbF6, ui->pbF7, ui->pbF8,
+    ui->pbSF1, ui->pbSF2, ui->pbSF3, ui->pbSF4, ui->pbSF5, ui->pbSF6, ui->pbSF7, ui->pbSF8};
+  for (int key = 1; key <= Jtty::macroKeyCount; ++key) {
+    auto const macro = m_jttyMacros.macro (key);
+    QString const name = Jtty::macroKeyName (key);
+    QString const shortName = key <= 8 ? name : QStringLiteral ("S-F%1").arg (key - 8);
+    auto * const button = buttons[key - 1];
+    button->setText (macro.label.isEmpty () ? shortName
+                                            : QStringLiteral ("%1: %2").arg (shortName, macro.label));
+    button->setToolTip (macro.text.isEmpty () ? tr ("%1: empty").arg (name)
+                                              : QStringLiteral ("%1: %2").arg (name, macro.text));
+    button->setEnabled (!macro.text.isEmpty ());
   }
-  m_settings->endGroup();
-  m_jttyMessageStyle = index;
+  updateJttyQsoFieldsVisibility ();
 }
 
 void MainWindow::switchToJttyAfterMmttyStartup()

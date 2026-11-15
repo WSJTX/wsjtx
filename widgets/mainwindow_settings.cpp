@@ -86,22 +86,20 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxNslots",m_Nslots0);
   m_settings->setValue("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->setValue("SerialNumberJTTY",ui->sbSerialNumber_2->value ());
-  m_settings->setValue("JTTY_MessageStyle", ui->comboBoxJttyStyle->currentIndex());
-  {
-    // Only the currently active style's displayed text needs saving here --
-    // the inactive style's templates were already saved at its last
-    // switch-away (see MainWindow::on_comboBoxJttyStyle_currentIndexChanged).
-    auto const style = static_cast<Jtty::MessageStyle>(ui->comboBoxJttyStyle->currentIndex());
-    QLineEdit* const msgFields[8] = {ui->msg1, ui->msg2, ui->msg3, ui->msg4,
-                                      ui->msg5, ui->msg6, ui->msg7, ui->msg8};
-    for (int i = 0; i < 8; ++i) {
-      m_settings->setValue(Jtty::messageStyleSettingsKey(style, i + 1), msgFields[i]->text());
+  m_settings->setValue ("JTTY_EnterSendsMessage", ui->cbJttyEnterSends->isChecked ());
+  m_settings->setValue ("JTTY_FontZoom", m_jttyFontZoom);
+  m_jttyMacros.save (*m_settings);
+  // Superseded by the macro sets above.
+  m_settings->remove ("JTTY_MessageStyle");
+  for (int i = 1; i <= 8; ++i) {
+    for (auto const& prefix : {"JTTY_msg", "JTTY_FT8_msg", "JTTY_Run_msg"}) {
+      m_settings->remove (QString {prefix} + QString::number (i));
     }
   }
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
   m_settings->setValue("JTTY_LowerCase",ui->cbLowerCase->isChecked());
-  m_settings->setValue("JTTY_IncludeTime",ui->cbIncludeTime->isChecked());
+  m_settings->remove ("JTTY_IncludeTime");
   m_settings->endGroup();
 
   // do this in the General group because we save the parameters from various places
@@ -292,7 +290,6 @@ void MainWindow::readSettings()
   ui->actionSWL_Mode->setChecked (SWL_mode);
   ui->cbMenus->setChecked (show_menus);
   ui->cbLowerCase->setChecked(m_settings->value("JTTY_LowerCase",false).toBool());
-  ui->cbIncludeTime->setChecked(m_settings->value("JTTY_IncludeTime",false).toBool());
   auto current_view_mode = SWL_mode ? 1 : show_menus ? 0 : 2;
   change_layout (current_view_mode);
   geometries (current_view_mode, the_geometries);
@@ -320,35 +317,10 @@ void MainWindow::readSettings()
   if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
   ui->sbSerialNumber_2->setValue (m_settings->value ("SerialNumberJTTY", 1).toInt ());
-  int const jttyStyleIndex = m_settings->value("JTTY_MessageStyle", 0).toInt();
-  {
-    // Restoring the index would otherwise fire on_comboBoxJttyStyle_currentIndexChanged,
-    // which saves/reloads msg1-8 itself -- redundant and premature here, and it would
-    // nest another "MainWindow" settings group inside this function's own.
-    QSignalBlocker const blocker {ui->comboBoxJttyStyle};
-    ui->comboBoxJttyStyle->setCurrentIndex(jttyStyleIndex);
-  }
-  m_jttyMessageStyle = jttyStyleIndex;
-  auto const jttyStyle = static_cast<Jtty::MessageStyle>(jttyStyleIndex);
-  auto const jttyTemplate = [this, jttyStyle] (int functionKey) {
-    QString const key = Jtty::messageStyleSettingsKey(jttyStyle, functionKey);
-    QString const saved = m_settings->value(
-      key, Jtty::messageStyleDefaultTemplate(jttyStyle, functionKey)).toString();
-    if (jttyStyle != Jtty::MessageStyle::Contest) return saved;
-    QString const migrated = Jtty::migratedNativeMacroTemplate(functionKey, saved);
-    if (m_settings->contains(key) && migrated != saved) {
-      m_settings->setValue(key, migrated);
-    }
-    return migrated;
-  };
-  ui->msg1->setText(jttyTemplate(1));
-  ui->msg2->setText(jttyTemplate(2));
-  ui->msg3->setText(jttyTemplate(3));
-  ui->msg4->setText(jttyTemplate(4));
-  ui->msg5->setText(jttyTemplate(5));
-  ui->msg6->setText(jttyTemplate(6));
-  ui->msg7->setText(jttyTemplate(7));
-  ui->msg8->setText(jttyTemplate(8));
+  m_jttyMacros.load (*m_settings);
+  ui->cbJttyEnterSends->setChecked (m_settings->value ("JTTY_EnterSendsMessage", true).toBool ());
+  m_jttyFontZoom = m_settings->value ("JTTY_FontZoom", 0).toInt ();
+  refreshJttyMacroControls ();
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;
   ui->cbWorkDupes->setChecked(m_settings->value("WorkDupes",false).toBool());
