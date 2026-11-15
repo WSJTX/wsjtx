@@ -507,6 +507,23 @@ private Q_SLOTS:
     QVERIFY (!calibrationDial (1500, 1500));
     QVERIFY (!calibrationDial (10000000, -1));
   }
+
+  void calibration_reference_inverts_calibration_dial ()
+  {
+    for (auto const audio : {0, 999, 1198, 1500})
+      {
+        auto const dial = calibrationDial (5000000, audio);
+        QVERIFY (dial);
+        auto const reference = calibrationReference (*dial, audio);
+        QVERIFY (reference);
+        QCOMPARE (*reference, Frequency {5000000});
+      }
+    QVERIFY (!calibrationReference (10000000, -1));
+    QVERIFY (!calibrationReference (std::numeric_limits<Frequency>::max (), 1));
+    auto const top = calibrationReference (std::numeric_limits<Frequency>::max () - 1, 1);
+    QVERIFY (top);
+    QCOMPARE (*top, std::numeric_limits<Frequency>::max ());
+  }
 };
 
 QTEST_APPLESS_MAIN (TestOperatingBand)

@@ -61,6 +61,13 @@ namespace OperatingBand
     return reference - static_cast<Frequency> (audioOffset);
   }
 
+  std::optional<Frequency> calibrationReference (Frequency dial, int audioOffset)
+  {
+    if (audioOffset < 0 || dial > std::numeric_limits<Frequency>::max () - static_cast<Frequency> (audioOffset))
+      return {};
+    return dial + static_cast<Frequency> (audioOffset);
+  }
+
   Plan Controller::transition (State const& state, Context const& context, Event event)
   {
     Plan plan;

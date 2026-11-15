@@ -1819,6 +1819,8 @@ private:
   bool m_frequencyRetryRequested = false;
   bool requestBandChange (Frequency, FrequencyRequestOrigin);
   bool workingFrequencyAt (int row, Frequency&) const;
+  Frequency listSelectionDial (Frequency entry) const;
+  FrequencyList_v2_101::const_iterator calibrationEntryForDial (Frequency dial) const;
   bool requestBandButtonFrequency (Frequency lookup_frequency, Frequency fallback_frequency,
                                    double msk144_tr_period = 0.);
   bool requestAlternateBandFrequency (Frequency);

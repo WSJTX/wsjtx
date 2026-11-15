@@ -11864,7 +11864,7 @@ void MainWindow::on_bandComboBox_activated (int index)
   Frequency frequency {m_operatingFrequency.rx ()};
   if (source_index.isValid ())
     {
-      frequency = frequencies->frequency_list ()[source_index.row ()].frequency_;
+      frequency = listSelectionDial (frequencies->frequency_list ()[source_index.row ()].frequency_);
     }
   requestBandChange (frequency, FrequencyRequestOrigin::User);
 //  m_specOp=m_config.special_op_id();
@@ -11922,7 +11922,7 @@ bool MainWindow::requestBandButtonFrequency (Frequency lookup_frequency,
       Frequency frequency;
       if (!workingFrequencyAt (row, frequency)) return false;
       ui->bandComboBox->setCurrentIndex (row);
-      if (!requestBandChange (frequency, FrequencyRequestOrigin::User)) return false;
+      if (!requestBandChange (listSelectionDial (frequency), FrequencyRequestOrigin::User)) return false;
     }
   else
     {

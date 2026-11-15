@@ -91,6 +91,7 @@ namespace OperatingBand
 
   Frequency displayedDial (OperatingFrequency::Snapshot const&, bool ptt, bool split);
   std::optional<Frequency> calibrationDial (Frequency reference, int audioOffset);
+  std::optional<Frequency> calibrationReference (Frequency dial, int audioOffset);
 
   class Controller
   {
