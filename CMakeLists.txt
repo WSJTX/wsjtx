@@ -1132,6 +1132,7 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_BUNDLE_DATA_FILES}
   )
 
+add_dependencies (wsjtx jt9 wsprd)
 wsjt_enable_qt_automoc (wsjtx)
 target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
