@@ -39,6 +39,7 @@ module jt9_params_init
      logical :: lft8subpass      = .true.
      logical :: lwidedxcsearch   = .true.
      logical :: have_ntol        = .false.   ! tracks whether -F was supplied
+     logical :: low_sidelobes    = .false.   ! JT9 spectra windowed, as WSJT-X's Low sidelobes
      logical :: nexp_decode_set  = .false.   ! tracks whether --exp-decode was supplied
   end type cli_args_t
 
@@ -123,6 +124,7 @@ contains
        params%ntxmode      = 65
     end if
     params%nmode           = mode
+    if (mode == 9 .and. args%low_sidelobes) params%ndepth = ior(params%ndepth, 256)
     params%minw            = 0
     params%nclearave       = .false.
     params%minsync         = 0

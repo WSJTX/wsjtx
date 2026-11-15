@@ -74,11 +74,9 @@ subroutine decoder_engine_test_jt9_reference(submode,windowed,samples,result) bi
      call symspec(shared,row*3456,6912,0,low_sidelobes,0,power,waterfall, &
           df,half_symbols,npts8,peak,0.0)
   enddo
-  if(windowed==0) then
-     call workspace%prepare_spectra(samples,181,spectra)
-     if(maxval(abs(spectra-shared%ss))>2.e-6*maxval(shared%ss)) &
-          error stop 'JT9 PCM spectrum differs from unwindowed legacy spectrum'
-  endif
+  call workspace%prepare_spectra(samples,181,spectra,logical(low_sidelobes))
+  if(maxval(abs(spectra-shared%ss))>2.e-6*maxval(shared%ss)) &
+       error stop 'JT9 PCM spectrum differs from the legacy symspec spectrum'
   call decoder%decode(observe_reference,shared%ss,shared%id2,1000,.true.,90000, &
        900,900,1100,20,181,.false.,3,9,submode,0)
   call decoder%reset()

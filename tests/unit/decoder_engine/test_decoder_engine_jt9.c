@@ -175,9 +175,9 @@ static void run_tests(void)
   create_fixture(&f);
 
   for (int submode = 0; submode <= 7; ++submode) {
+    float windowed[4] = {0};
     prepare(&f, submode);
     if (submode == 0 || submode == 7) {
-      float windowed[4];
       decoder_engine_test_jt9_reference(submode, 1, f.samples, windowed);
       decoder_engine_test_jt9_reference(submode, 0, f.samples, f.reference);
       f.compare_reference = 1;
@@ -185,6 +185,18 @@ static void run_tests(void)
     decode(&f, 1);
     f.compare_reference = 0;
     if (submode == 0 || submode == 7) {
+      /* The engine's own spectra follow the Low sidelobes request. */
+      float unwindowed[4];
+      memcpy(unwindowed, f.reference, sizeof unwindowed);
+      memcpy(f.reference, windowed, sizeof windowed);
+      f.request.jt9.low_sidelobes = 1;
+      ++f.request.analysis_id;
+      ++f.request.attempt_no;
+      f.compare_reference = 1;
+      decode(&f, 1);
+      f.compare_reference = 0;
+      f.request.jt9.low_sidelobes = 0;
+      memcpy(f.reference, unwindowed, sizeof unwindowed);
       f.request.phase = DECODER_PHASE_REPEAT;
       ++f.request.analysis_id;
       ++f.request.attempt_no;

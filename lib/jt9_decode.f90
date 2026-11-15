@@ -8,7 +8,7 @@ module jt9_decode
 
   type :: jt9_spectrum_workspace
      private
-     real(c_float), allocatable :: input(:)
+     real(c_float), allocatable :: input(:), window(:)
      complex(c_float_complex), allocatable :: output(:)
      type(c_ptr) :: plan=c_null_ptr
    contains
@@ -58,13 +58,14 @@ contains
   end subroutine initialize
 
   subroutine decode_pcm(this,callback,samples,sample_count,receive_frequency, &
-       search_low,search_high,tolerance,depth,submode,repeat)
+       search_low,search_high,tolerance,depth,submode,repeat,low_sidelobes)
     class(jt9_decoder), intent(inout) :: this
     procedure(jt9_decode_callback) :: callback
     ! The engine owns the full analysis buffer and pads beyond sample_count.
     integer(c_short), intent(in) :: samples(60*12000)
     integer, intent(in) :: sample_count,receive_frequency,search_low,search_high,tolerance,depth,submode
     logical, intent(in) :: repeat
+    logical, intent(in), optional :: low_sidelobes
     integer :: count,half_symbols
 
     count=max(0,min(sample_count,60*12000))
@@ -73,7 +74,7 @@ contains
     if(half_symbols.lt.2) return
     if(.not.any(samples(1:count).ne.0)) return
     if(.not.allocated(this%spectra)) allocate(this%spectra(184,6827))
-    call this%spectrum%prepare_spectra(samples,half_symbols,this%spectra)
+    call this%spectrum%prepare_spectra(samples,half_symbols,this%spectra,low_sidelobes)
     call this%decode(callback,this%spectra,samples,receive_frequency,.true.,count/8, &
          search_low,search_low,search_high,tolerance,half_symbols,repeat,depth,9,submode,0)
   end subroutine decode_pcm
@@ -82,7 +83,8 @@ contains
     use fftw_tsan, only: wsjt_tsan_acquire_fftw, wsjt_tsan_release_fftw
     class(jt9_spectrum_workspace), intent(inout) :: this
     if(c_associated(this%plan)) return
-    allocate(this%input(16384),this%output(0:8192))
+    allocate(this%input(16384),this%output(0:8192),this%window(16384))
+    call nuttal_window(this%window,16384)
     !$omp critical(fftw)
     call wsjt_tsan_acquire_fftw()
     this%plan=fftwf_plan_dft_r2c_1d(16384,this%input,this%output,FFTW_ESTIMATE)
@@ -90,11 +92,14 @@ contains
     !$omp end critical(fftw)
   end subroutine initialize_spectrum
 
-  subroutine prepare_spectra(this,samples,half_symbols,spectra)
+  ! low_sidelobes applies symspec's Nuttall window (the GUI's Low sidelobes
+  ! setting); absent means unwindowed.
+  subroutine prepare_spectra(this,samples,half_symbols,spectra,low_sidelobes)
     class(jt9_spectrum_workspace), intent(inout) :: this
     integer(c_short), intent(in) :: samples(:)
     integer, intent(in) :: half_symbols
     real, intent(out) :: spectra(184,6827)
+    logical, intent(in), optional :: low_sidelobes
     integer :: row,first,last,source_first
     real, parameter :: scale=(1.0/16384)**2
 
@@ -106,6 +111,9 @@ contains
        source_first=max(1,first)
        this%input=0.
        this%input(source_first-first+1:16384)=0.1*samples(source_first:last)
+       if(present(low_sidelobes)) then
+          if(low_sidelobes) this%input=this%window*this%input
+       endif
        call fftwf_execute_dft_r2c(this%plan,this%input,this%output)
        spectra(row,:)=scale*(real(this%output(0:6826))**2+aimag(this%output(0:6826))**2)
     enddo
@@ -120,7 +128,7 @@ contains
     call wsjt_tsan_release_fftw()
     !$omp end critical(fftw)
     this%plan=c_null_ptr
-    if(allocated(this%input)) deallocate(this%input,this%output)
+    if(allocated(this%input)) deallocate(this%input,this%output,this%window)
   end subroutine clear_spectrum
 
   subroutine finalize_spectrum(this)

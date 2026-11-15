@@ -116,6 +116,7 @@ module decoder_engine
      integer(c_int) :: tolerance_hz=0
      integer(c_int) :: depth=0
      integer(c_int) :: submode=0
+     integer(c_int) :: low_sidelobes=0
   end type
   type, bind(C) :: engine_jt65_options
      integer(c_int) :: utc=0,qso_progress=0,receive_frequency_hz=0,search_low_hz=0,search_high_hz=0
@@ -482,7 +483,7 @@ contains
     call timer('decjt9  ',0)
     call session%jt9%decode_pcm(jt9_decoded,session%audio,sample_count,options%receive_frequency_hz, &
          options%search_low_hz,options%search_high_hz,options%tolerance_hz,options%depth, &
-         options%submode,phase==3)
+         options%submode,phase==3,options%low_sidelobes/=0)
     call timer('decjt9  ',1)
     if(context%ios13==0) close(13)
 100 call set_decode_completion(session%completion,0,session%jt9%decoded,0)
@@ -578,6 +579,8 @@ contains
        problem=option_problem('depth','from 1 to 3')
     else if(options%submode<0.or.options%submode>7) then
        problem=option_problem('submode','from 0 to 7')
+    else if(options%low_sidelobes<0.or.options%low_sidelobes>1) then
+       problem=option_problem('flags','0 or 1')
     endif
   end function
 
@@ -1433,6 +1436,7 @@ contains
        request%jt9%tolerance_hz=params%ntol
        request%jt9%depth=iand(params%ndepth,7)
        request%jt9%submode=params%nsubmode
+       request%jt9%low_sidelobes=merge(1,0,iand(params%ndepth,256)/=0)
     else if(request%mode==engine_mode_jt65) then
        request%jt65%utc=params%nutc
        request%jt65%qso_progress=params%nQSOProgress
