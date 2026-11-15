@@ -2,9 +2,11 @@
 #include <stdexcept>
 
 #include <QtTest>
+#include <QThread>
 
 #include "Transceiver/TransceiverBase.hpp"
 #include "FrequencyAdapter.hpp"
+#include "RadioModePolicy.hpp"
 
 namespace
 {
@@ -178,6 +180,102 @@ private Q_SLOTS:
     QVERIFY (elapsed.elapsed () < 2200);
     QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).mode, Transceiver::CW);
     QCOMPARE (statuses.last ().at (1).toUInt (), 3u);
+  }
+
+  void mode_confirmation_waits_for_slow_command_completion_data ()
+  {
+    QTest::addColumn<bool> ("replace_frequency");
+    QTest::addColumn<bool> ("replace_mode");
+    QTest::addColumn<bool> ("slow_refresh");
+    QTest::newRow ("initial-frequency-command") << false << false << false;
+    QTest::newRow ("replacement-frequency") << true << false << false;
+    QTest::newRow ("replacement-mode") << false << true << false;
+    QTest::newRow ("initial-mode-refresh") << false << false << true;
+  }
+
+  void mode_confirmation_waits_for_slow_command_completion ()
+  {
+    using Kind = Transceiver::ModeStatusKind;
+    using Status = Transceiver::ModeStatus;
+    QFETCH (bool, replace_frequency);
+    QFETCH (bool, replace_mode);
+    QFETCH (bool, slow_refresh);
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    rig.mode_readable = true;
+    RadioModePolicy policy;
+    policy.configure (Transceiver::DIG_U);
+    connect (&rig, &Transceiver::mode_status, &rig,
+      [&] (Status const& status, unsigned sequence) {policy.observe (status, sequence);});
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    auto state = request (10, 7074000, 0);
+    state.mode (Transceiver::DIG_U);
+    unsigned sequence = 2;
+    if (replace_frequency || replace_mode)
+      {
+        rig.set (state, sequence++);
+        QCOMPARE (policy.state (), RadioModePolicy::State::Preparing);
+        state = request (20, replace_frequency ? 10136000 : 7074000, 0);
+        state.mode (replace_mode ? Transceiver::USB : Transceiver::DIG_U);
+        policy.configure (state.mode ());
+      }
+    int completed_operations = 0;
+    auto slow_operation = [&] {
+      // Block CAT's event loop so readback cannot run until the command returns.
+      QThread::msleep (1600);
+      ++completed_operations;
+    };
+    if (slow_refresh) rig.mode_refresh = slow_operation;
+    else rig.rx_operation = [&] (Transceiver::Frequency value) {
+      slow_operation ();
+      rig.observe_rx (value);
+    };
+
+    rig.set (state, sequence);
+    QCOMPARE (completed_operations, 1);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Preparing);
+    QCOMPARE (policy.state (), RadioModePolicy::State::Preparing);
+    QVERIFY (!policy.preparation_failed ());
+
+    rig.report_mode (state.mode ());
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Observed);
+    QCOMPARE (statuses.last ().at (1).toUInt (), sequence);
+    QVERIFY (policy.ready ());
+    QVERIFY (!policy.preparation_failed ());
+  }
+
+  void slow_repeated_mode_preparation_keeps_original_deadline ()
+  {
+    using Kind = Transceiver::ModeStatusKind;
+    using Status = Transceiver::ModeStatus;
+    Transceiver::logger_type logger;
+    FrequencyRig rig {&logger};
+    rig.start (1);
+    rig.mode_readable = true;
+    RadioModePolicy policy;
+    policy.configure (Transceiver::DIG_U);
+    connect (&rig, &Transceiver::mode_status, &rig,
+      [&] (Status const& status, unsigned sequence) {policy.observe (status, sequence);});
+    QSignalSpy statuses {&rig, &Transceiver::mode_status};
+    auto state = request (10, 7074000, 0);
+    state.mode (Transceiver::DIG_U);
+    rig.set (state, 2);
+    QCOMPARE (policy.state (), RadioModePolicy::State::Preparing);
+
+    bool refresh_completed = false;
+    rig.mode_refresh = [&] {
+      QThread::msleep (1600);
+      refresh_completed = true;
+    };
+    rig.set (state, 3);
+    QVERIFY (refresh_completed);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Unavailable);
+    QCOMPARE (statuses.last ().at (1).toUInt (), 3u);
+    QVERIFY (policy.yielded ());
+    QVERIFY (policy.preparation_failed ());
+    rig.report_mode (Transceiver::DIG_U);
+    QVERIFY (policy.yielded ());
   }
 
   void unknown_or_transmitting_mode_is_not_an_override ()
