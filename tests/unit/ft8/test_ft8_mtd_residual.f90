@@ -1,7 +1,7 @@
 program test_ft8_mtd_residual
   use iso_fortran_env, only : int64
   use ft8_mtd_residual
-  use ft8_mod1, only : cw,endcorr
+  use ft8_mod1, only : endcorr
   implicit none
 
   integer, parameter :: frame_samples=151680
@@ -170,10 +170,9 @@ contains
     allocate(source(mtd_residual_samples),expected(mtd_residual_samples), &
          actual(mtd_residual_samples))
     do i=1,mtd_residual_samples
-       source(i)=0.01*sin(real(i)/300.0)
+       source(i)=0.01*sin(6.2831853*1000.0*real(i)/12000.0+0.3)
     enddo
     tones=0
-    cw=cmplx(1.0,0.0)
     endcorr=1.0
     expected=source
     call subtractft8var(expected,tones,1000.0,0.5)
@@ -185,6 +184,8 @@ contains
     call mtd_finish(actual)
     if(outcome.ne.mtd_commit_current) error stop &
          'uncontended real subtraction did not use the current path'
+    if(maxval(abs(expected-source)).lt.1.0e-3) error stop &
+         'the real subtraction did not change the source'
     if(any(actual.ne.expected)) error stop &
          'prepared delta publication differs from serial subtraction'
   end subroutine test_real_subtractor_equivalence
