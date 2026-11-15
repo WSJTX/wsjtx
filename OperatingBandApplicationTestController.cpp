@@ -10,6 +10,7 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QDir>
+#include <QEvent>
 #include <QEventLoop>
 #include <QFile>
 #include <QKeyEvent>
@@ -55,6 +56,45 @@ namespace
     QKeyEvent release {QEvent::KeyRelease, code, Qt::NoModifier, text};
     QApplication::sendEvent (editor, &release);
   }
+
+  class HeldTimerExpiry final : public QObject
+  {
+  public:
+    explicit HeldTimerExpiry (QTimer& timer) : timer_ {timer}
+    {
+      timer_.stop ();
+      timer_.installEventFilter (this);
+    }
+
+    ~HeldTimerExpiry () override {timer_.removeEventFilter (this);}
+
+    bool intercepted () const {return intercepted_;}
+
+    bool hold ()
+    {
+      if (timer_.isActive ())
+        {
+          armed_ = true;
+          timer_.stop ();
+        }
+      return armed_;
+    }
+
+  protected:
+    bool eventFilter (QObject * watched, QEvent * event) override
+    {
+      if (watched != &timer_ || event->type () != QEvent::Timer
+          || static_cast<QTimerEvent *> (event)->timerId () != timer_.timerId ()) return false;
+      intercepted_ = true;
+      hold ();
+      return true;
+    }
+
+  private:
+    QTimer& timer_;
+    bool armed_ {false};
+    bool intercepted_ {false};
+  };
 }
 
 QString OperatingBandApplicationTestController::prepareSettings (QSettings * settings)
@@ -712,8 +752,12 @@ bool OperatingBandApplicationTestController::mskModeExit ()
         if (!setFrequency (144360000, true)) return false;
         window_->ui->sbTR->setValue (30);
         m_msk144_tr6 = 5;
+        HeldTimerExpiry restore {window_->m_bandMskTimer};
         if (!setFrequency (50280000, true)) return false;
-        if (!require (window_->m_mode == "MSK144" && window_->m_bandMskTimer.isActive (),
+        if (destination.mode == "FT8" && !pending
+            && !waitUntil ([&] {return restore.intercepted ();},
+                           "The held MSK144 restore did not reach its timer delivery checkpoint.")) return false;
+        if (!require (window_->m_mode == "MSK144" && restore.hold (),
                       "The MSK144 exit fixture did not arm its band-period restore callback.")) return false;
 
         QVector<RigFrequency::Request> held;
@@ -916,7 +960,20 @@ bool OperatingBandApplicationTestController::transitions ()
                 "PTT release did not restore the RX operating band.")) return false;
 
   window_->ui->actionMSK144->trigger ();
-  if (!setFrequency (50260000, true)) return false;
+  if (!setFrequency (144360000, true)) return false;
+  {
+    QScopedValueRollback<int> remembered_period {m_msk144_tr6, 5};
+    window_->ui->sbTR->setValue (30);
+    m_msk144_tr6 = 5;
+    window_->m_bandMskTimer.stop ();
+    bool expired = false;
+    QObject expiry;
+    connect (&window_->m_bandMskTimer, &QTimer::timeout, &expiry, [&] {expired = true;});
+    if (!setFrequency (50260000, true)) return false;
+    if (!waitUntil ([&] {
+      return expired && window_->ui->sbTR->value () == 5 && window_->m_TRperiod == 5;
+    }, "The registered MSK144 band-period callback did not restore its captured period.")) return false;
+  }
   auto const base = window_->m_msk144basefreq;
   auto const line = QString {"120000 -10  0.3 2300 &  CQ W1AW FN31"};
   window_->handleDecodeSelection (line, Qt::ControlModifier | Qt::AltModifier,
@@ -941,8 +998,9 @@ bool OperatingBandApplicationTestController::transitions ()
   }, "Cannot establish a second temporary MSK144 QSY.")) return false;
   {
     QScopedValueRollback<int> remembered_period {m_msk144_tr2, 15};
+    HeldTimerExpiry restore {window_->m_bandMskTimer};
     if (!setFrequency (144360000, true)) return false;
-    if (!require (window_->m_msk144basefreq == 144360000 && window_->m_bandMskTimer.isActive (),
+    if (!require (window_->m_msk144basefreq == 144360000 && restore.hold (),
                   "An explicit MSK144 band selection retained the obsolete temporary-QSY base.")) return false;
     window_->ui->sbTR->setValue (30);
     if (!require (QMetaObject::invokeMethod (&window_->m_bandMskTimer, "timeout", Qt::DirectConnection)

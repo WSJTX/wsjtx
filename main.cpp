@@ -696,11 +696,12 @@ int main(int argc, char *argv[])
         }
 
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
-      if (best_sp_test || wait_features_test || operating_band_test)
-        a.setApplicationName (a.applicationName () + (operating_band_test ? " - OperatingBand-"
+      if (best_sp_test || wait_features_test || operating_band_test || qso_completion_test)
+        a.setApplicationName (a.applicationName () + (qso_completion_test ? " - QsoCompletion-"
+                              : operating_band_test ? " - OperatingBand-"
                               : wait_features_test ? " - WaitFeatures-" : " - BestSP-")
                               + QUuid::createUuid ().toString (QUuid::WithoutBraces));
-      auto scripted_test_environment = best_sp_test || wait_features_test || operating_band_test
+      auto scripted_test_environment = best_sp_test || wait_features_test || operating_band_test || qso_completion_test
         ? std::make_unique<BestSPTestEnvironment> () : nullptr;
 #endif
       // now we have the application name we can open the logging and settings

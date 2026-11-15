@@ -1290,7 +1290,7 @@ if (WSJT_ENABLE_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSS
   endif ()
 endif ()
 
-if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS AND NOT WIN32)
+if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS)
   foreach (profile IN ITEMS automatic prompt disabled automatic-keep prompt-keep disabled-keep
       automatic-keep-call automatic-keep-grid)
     set (qso_test_root "${CMAKE_BINARY_DIR}/Testing/QsoCompletion/${profile}")

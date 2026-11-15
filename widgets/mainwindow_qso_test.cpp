@@ -21,6 +21,7 @@
 #include <limits>
 
 extern bool blocked;
+extern bool programStart;
 
 QString MainWindow::checkQsoCompletionTest ()
 {
@@ -38,7 +39,7 @@ QString MainWindow::checkQsoCompletionTest ()
     if (!m_logDlg->isHidden ()) m_logDlg->reject ();
     auto_tx_mode (false);
   });
-  auto waitUntil = [] (auto const& ready) {
+  auto waitUntil = [] (auto const& ready, int timeout = 5000) {
     if (ready ()) return true;
     QEventLoop loop;
     QTimer poll;
@@ -48,7 +49,7 @@ QString MainWindow::checkQsoCompletionTest ()
     connect (&poll, &QTimer::timeout, &loop, [&] {if (ready ()) loop.quit ();});
     connect (&watchdog, &QTimer::timeout, &loop, &QEventLoop::quit);
     poll.start ();
-    watchdog.start (5000);
+    watchdog.start (timeout);
     loop.exec ();
     return ready ();
   };
@@ -63,6 +64,24 @@ QString MainWindow::checkQsoCompletionTest ()
   auto expireRepeat = [&] {
     QMetaObject::invokeMethod (&m_repeatDeadline, "timeout", Qt::DirectConnection);
   };
+
+  if (!m_config.transceiver_online ()) return "Cannot open the QSO test's dummy radio.";
+  auto radioReady = [&] {
+    auto const state = m_operatingFrequency.snapshot ();
+    return !programStart && m_rigState.online () && state.rx
+      && !state.pendingRx && !state.pendingTx && !state.recoveryRequired
+      && !m_modeEntries.active () && !m_pendingModeRetune.pending ()
+      && !m_transmitting && !m_rigState.ptt () && !m_tune
+      && !tuneButtonTimer.isActive () && !ptt0Timer.isActive () && !ptt1Timer.isActive ();
+  };
+  if (!waitUntil (radioReady, 10000))
+    return "Startup radio and mode activity did not settle before the QSO test.";
+  if (!requestNominalFrequencyChange (14074000, FrequencyRequestOrigin::User)
+      || !waitUntil ([&] {
+        return radioReady () && m_operatingFrequency.rx () == 14074000
+          && nominalRxBand () == "20m"
+          && (!m_monitoring || m_rigState.frequency () == m_operatingFrequency.snapshot ().correctedRx);
+      })) return "The QSO test could not establish its initial 20m radio context.";
 
   QUdpSocket notifications;
   if (!notifications.bind (QHostAddress {QHostAddress::LocalHost}, 0))
@@ -93,8 +112,7 @@ QString MainWindow::checkQsoCompletionTest ()
     return file.open (QIODevice::ReadOnly) ? file.readAll ().toUpper ().count ("<EOR>") : 0;
   };
   auto const initialRecords = adifRecords ();
-  // The test's log persists between runs, so a call may already be worked
-  // before it is logged here; proof of logging is a new last record for it.
+  // Repeated contacts may already be worked; logging must append a new record.
   auto lastLoggedCall = [&] {
     QFile file {m_logBook.path ()};
     if (!file.open (QIODevice::ReadOnly)) return QString {};
@@ -156,14 +174,29 @@ QString MainWindow::checkQsoCompletionTest ()
     auto_tx_mode (true);
     return updateRepeatTransmission (m_currentMessage.split (' ', SkipEmptyParts));
   };
+  QString logFailure;
   auto logFirst = [&] {
+    auto const context = m_qsoCompletion;
+    logFailure.clear ();
+    if (!context) {
+      logFailure = " No QSO context was prepared.";
+      return false;
+    }
     if (!logging) return true;
     scheduleLogQso ();
     if (!settleLogs ()) return false;
+    if (context != m_qsoCompletion || !repeatContextIsCurrent (context)) {
+      logFailure = " Logging replaced or invalidated the prepared QSO." + describe (context);
+      return false;
+    }
     if (prompting) {
       if (!m_openLogQso) return false;
       m_logDlg->accept ();
       if (!settleLogs ()) return false;
+    }
+    if (context != m_qsoCompletion || !repeatContextIsCurrent (context)) {
+      logFailure = " Accepting the log replaced or invalidated the prepared QSO." + describe (context);
+      return false;
     }
     return true;
   };
@@ -183,7 +216,7 @@ QString MainWindow::checkQsoCompletionTest ()
       auto const deadline = m_repeatDeadline.timerId ();
       auto const interval = m_repeatDeadline.interval ();
       auto const before = accepted;
-      if (!logFirst ()) return "First RR73 logging did not settle.";
+      if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
       if (!m_auto || m_hisCall != "W1AW" || ui->dxGridEntry->text () != "FN31"
           || context != m_qsoCompletion || context->phase != QsoCompletion::Phase::AwaitingFinal73
           || context->logState != (logging ? QsoCompletion::LogState::Accepted : QsoCompletion::LogState::None)
@@ -223,7 +256,7 @@ QString MainWindow::checkQsoCompletionTest ()
     }
 
     if (!prepare (mode, "W1AW")) return mode + ": Stop setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const stoppedContext = m_qsoCompletion;
     on_stopTxButton_clicked ();
     if (m_auto || !fieldsMatch (logging))
@@ -231,7 +264,7 @@ QString MainWindow::checkQsoCompletionTest ()
         + describe (stoppedContext);
 
     if (!prepare (mode, "W1AW")) return mode + ": disabled-Enable-Tx setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const disabledContext = m_qsoCompletion;
     on_autoButton_clicked (false);
     if (m_auto || !fieldsMatch (logging))
@@ -239,7 +272,7 @@ QString MainWindow::checkQsoCompletionTest ()
         + describe (disabledContext);
 
     if (!prepare (mode, "W1AW")) return mode + ": fault-stop setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const faultContext = m_qsoCompletion;
     requestTxStop (TxEvidence::TxStopReason::Error);
     if (m_auto || m_hisCall != "W1AW" || faultContext->clearDxPending
@@ -247,7 +280,7 @@ QString MainWindow::checkQsoCompletionTest ()
       return mode + ": a fault stop applied a deferred clear or left a deadline active.";
 
     if (!prepare (mode, "W1AW")) return mode + ": delayed-auto-off setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const flagContext = m_qsoCompletion;
     DecodedMessageReaction::QsoReactionEffect autoOff;
     autoOff.kind = DecodedMessageReaction::QsoReactionEffect::Kind::ScheduleAutoFlagOff;
@@ -260,9 +293,11 @@ QString MainWindow::checkQsoCompletionTest ()
       return mode + ": delayed Auto Tx shutdown did not cancel the repeat cleanly.";
 
     if (!prepare (mode, "W1AW")) return mode + ": Tune setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
-    if (!waitUntil ([] {return !blocked;})) return mode + ": logged-contact UI block did not end.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const tuneContext = m_qsoCompletion;
+    if (!waitUntil ([] {return !blocked;})) return mode + ": logged-contact UI block did not end.";
+    if (tuneContext != m_qsoCompletion || !repeatContextIsCurrent (tuneContext))
+      return mode + ": waiting for the UI block changed the Tune setup contact." + describe (tuneContext);
     on_tuneButton_clicked (true);
     end_tuning ();
     if (!waitUntil ([&] {return !m_tune && !tuneButtonTimer.isActive ();}))
@@ -272,7 +307,7 @@ QString MainWindow::checkQsoCompletionTest ()
       return mode + ": tuning retained a repeat deadline or cleared its contact.";
 
     if (!prepare (mode, "W1AW")) return mode + ": timeout setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const timeoutContext = m_qsoCompletion;
     if (m_repeatDeadline.interval () != 300000)
       return mode + ": the repeat budget is not twenty TR periods.";
@@ -297,7 +332,7 @@ QString MainWindow::checkQsoCompletionTest ()
       return mode + ": late confirmation failed to complete the timed-out contact exactly once.";
 
     if (!prepare (mode, "W1AW")) return mode + ": Stop-after-timeout setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     expireRepeat ();
     on_stopTxButton_clicked ();
     if (m_auto || !fieldsMatch (logging))
@@ -325,7 +360,7 @@ QString MainWindow::checkQsoCompletionTest ()
     }
 
     if (!prepare (mode, "W1AW")) return mode + ": changed-message setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const oldContext = m_qsoCompletion;
     m_ntx = 6;
     m_currentMessage = "CQ K1ABC FN42";
@@ -338,13 +373,17 @@ QString MainWindow::checkQsoCompletionTest ()
 
     for (int change = 0; change != 4; ++change) {
       if (!prepare (mode, "W1AW")) return mode + ": stale-timeout setup failed.";
-      if (!logFirst ()) return "First RR73 logging did not settle.";
+      if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
       auto const stale = m_qsoCompletion;
       auto const previousFrequency = m_operatingFrequency.rx ();
       if (change == 0) ui->dxCallEntry->setText ("W2XYZ");
-      if (change == 1)
-        m_operatingFrequency.requestNominal (144174000,
-          [] (RigFrequency::Request const&) {return true;}, false);
+      if (change == 1) {
+        auto const changedFrequency = nominalRxBand () == "2m" ? Frequency {14074000} : Frequency {144174000};
+        if (!m_operatingFrequency.requestNominal (changedFrequency,
+              [] (RigFrequency::Request const&) {return true;}, false)
+            || nominalRxBand () == stale->band)
+          return mode + ": stale-timeout setup did not change the QSO band." + describe (stale);
+      }
       if (change == 2) m_TRperiod = 30.0;
       if (change == 3) m_mode = "FT8";
       expireRepeat ();
@@ -352,9 +391,10 @@ QString MainWindow::checkQsoCompletionTest ()
           || stale->clearDxPending)
         return mode + QString {": a stale deadline affected a changed QSO context (%1)."}.arg (change)
           + describe (stale);
-      if (change == 1)
-        m_operatingFrequency.requestNominal (previousFrequency,
-          [] (RigFrequency::Request const&) {return true;}, false);
+      if (change == 1
+          && !m_operatingFrequency.requestNominal (previousFrequency,
+            [] (RigFrequency::Request const&) {return true;}, false))
+        return mode + ": stale-timeout cleanup did not restore the preceding frequency.";
     }
   }
 
@@ -509,9 +549,11 @@ QString MainWindow::checkQsoCompletionTest ()
     if (!fieldsMatch (true)) return "Accepting after Stop did not honor the clear preferences.";
 
     if (!prepare ("MSK144", "W1AW")) return "Changed-selection logging setup failed.";
+    auto const changedSelection = m_qsoCompletion;
     scheduleLogQso ();
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
-    auto const changedSelection = m_qsoCompletion;
+    if (changedSelection != m_qsoCompletion || !repeatContextIsCurrent (changedSelection))
+      return "Logging changed the selection-test contact." + describe (changedSelection);
     ui->txrb6->setChecked (true);
     m_ntx = 6;
     ui->tx6->setText ("CQ K1ABC FN42");
@@ -537,7 +579,7 @@ QString MainWindow::checkQsoCompletionTest ()
       return "A late final reply resumed a canceled repeat after accepting its log.";
 
     if (!prepare ("MSK144", "W1AW")) return "Accepted-log rejection setup failed.";
-    if (!logFirst ()) return "First RR73 logging did not settle.";
+    if (!logFirst ()) return "First RR73 logging did not settle." + logFailure;
     auto const previouslyAccepted = m_qsoCompletion;
     scheduleLogQso (false);
     if (!settleLogs ()) return "Queued QSO logging did not settle.";
@@ -575,12 +617,14 @@ QString MainWindow::checkQsoCompletionTest ()
       for (bool leavePromptOpen : {false, true}) {
         for (bool acceptConfirmed : {false, true}) {
           if (!prepare (mode, "W1AW")) return mode + ": confirmation prompt setup failed.";
+          auto const context = m_qsoCompletion;
           ui->cbAutoSeq->setChecked (true);
           auto const start = m_dateTimeQSOOn;
           auto const before = accepted;
           scheduleLogQso ();
           if (!settleLogs ()) return "Queued QSO logging did not settle.";
-          auto const context = m_qsoCompletion;
+          if (context != m_qsoCompletion || !repeatContextIsCurrent (context))
+            return mode + ": opening the prompt changed its contact." + describe (context);
           if (!m_openLogQso) return mode + ": first RR73 prompt did not open.";
           dialogReport->setText ("-08");
           if (!leavePromptOpen) {
@@ -631,9 +675,11 @@ QString MainWindow::checkQsoCompletionTest ()
       }
 
       if (!prepare (mode, "W1AW")) return mode + ": delayed timeout acceptance setup failed.";
+      auto const timeoutContext = m_qsoCompletion;
       scheduleLogQso ();
       if (!settleLogs ()) return "Queued QSO logging did not settle.";
-      auto const timeoutContext = m_qsoCompletion;
+      if (timeoutContext != m_qsoCompletion || !repeatContextIsCurrent (timeoutContext))
+        return mode + ": opening the timeout prompt changed its contact." + describe (timeoutContext);
       expireRepeat ();
       m_logDlg->accept ();
       if (!settleLogs ()) return "Queued QSO logging did not settle.";
