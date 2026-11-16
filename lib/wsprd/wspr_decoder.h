@@ -36,6 +36,13 @@ struct wspr_timing {
 };
 typedef void (*wspr_residual_callback)(const float *, const float *, void *);
 void wspr_decoder_default_tuning(struct wspr_tuning *);
+/* wspr_decoder_run writes up to this many results. */
+enum { WSPR_DECODER_MAX_RESULTS = 50 };
+/* Runs fn(arg) and returns 0, or returns nonzero without running it. */
+typedef int (*wspr_plan_guard)(void (*fn)(void *), void *arg);
+/* wspr_decoder_create, with every FFTW plan the decoder makes or destroys run
+   through guard, for hosts whose other threads plan transforms. */
+int32_t wspr_decoder_create_guarded(wspr_decoder **, wspr_plan_guard);
 int32_t wspr_decoder_prepare_iq(wspr_decoder *, const float *, const float *, int32_t, int32_t);
 int32_t wspr_decoder_run(wspr_decoder *, const decoder_wspr_options *, const struct wspr_tuning *,
                          struct wspr_diagnostic *, int32_t *, struct wspr_timing *,

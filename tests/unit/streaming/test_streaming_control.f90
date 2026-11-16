@@ -3,7 +3,7 @@ program test_streaming_control
   use streaming_control, only: parse_control_frame, configure_fields,       &
        control_type_error, CTRL_UNKNOWN, CTRL_CONFIGURE, CTRL_HALT,         &
        CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, &
-       MODE_JTTY, encode_request, parse_encode_request, parse_render_request, &
+       MODE_JTTY, MODE_WSPR, encode_request, parse_encode_request, parse_render_request, &
        REF_SPECTRUM_OFF, REF_SPECTRUM_MEASURE, REF_SPECTRUM_APPLY
   implicit none
 
@@ -27,6 +27,11 @@ program test_streaming_control
   write(code, '(i0)') MODE_JTTY
   call expect_mode('{"t":"configure","mode":' // trim(code) // '}', .false., 0)
   call expect_tx_mode_unset('{"t":"configure","tx_mode":"JTTY"}')
+  ! WSPR too: by name, case aside, and not by its number.
+  call expect_mode('{"t":"configure","mode":"WSPR"}', .true., MODE_WSPR)
+  call expect_mode('{"t":"configure","mode":"wspr"}', .true., MODE_WSPR)
+  write(code, '(i0)') MODE_WSPR
+  call expect_mode('{"t":"configure","mode":' // trim(code) // '}', .false., 0)
 
   ! String values decode JSON escapes to UTF-8 (RFC 8259 section 7, RFC 3629).
   call expect_call('{"t":"configure","mycall":"K1\/ABC"}', 'K1/ABC')
@@ -200,6 +205,12 @@ program test_streaming_control
   call expect_fast('{"t":"configure","mode":"JT9"}', -1, '')
   call expect_fast('{"t":"configure","fast":1}', -1, 'fast')
   call expect_fast('{"t":"configure","fast":"true"}', -1, 'fast')
+  ! wspr_hash_clear is a boolean (-1: unset).
+  call expect_wspr_clear('{"t":"configure","wspr_hash_clear":true}', 1, '')
+  call expect_wspr_clear('{"t":"configure","mode":"WSPR","wspr_hash_clear":false}', 0, '')
+  call expect_wspr_clear('{"t":"configure","mode":"WSPR"}', -1, '')
+  call expect_wspr_clear('{"t":"configure","wspr_hash_clear":1}', -1, 'wspr_hash_clear')
+  call expect_wspr_clear('{"t":"configure","wspr_hash_clear":"true"}', -1, 'wspr_hash_clear')
 
   ! Conflicting depth keys are named by their wire keys.
   call expect_conflict('{"t":"configure","depth":3,"depth_level":2}', 'depth', 'depth alone')
@@ -541,6 +552,31 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_fast
+
+  ! wspr_hash_clear as parsed: 1 true, 0 false, -1 unset; or the type error.
+  subroutine expect_wspr_clear(frame, expected, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    integer,          intent(in) :: expected
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action, got
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    got = -1
+    if (cfg%wspr_hash_clear_set) got = merge(1, 0, cfg%wspr_hash_clear)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key .and. got .eq. -1
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and. got .eq. expected
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_wspr_clear
 
   ! aggressive as parsed, or the key a type error names.
   subroutine expect_aggressive(frame, set, value, bad_key)

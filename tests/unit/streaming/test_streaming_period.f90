@@ -4,6 +4,7 @@ program test_streaming_period
        period_take, period_full, period_ready, period_set_stop, gui_hsym_stop, &
        sample_due, trigger_fire_time, read_passes_busy_end, clock_start,     &
        fast_first_try, fast_last_try
+  use streaming_control, only: MODE_WSPR
   implicit none
 
   integer, parameter :: NMAX = 1800 * 12000
@@ -20,6 +21,7 @@ program test_streaming_period
   call busy_end()
   call clock_starts()
   call fast_tries()
+  call wspr_stop()
 
   if (nfail .eq. 0) then
      print '(a)', 'ALL STREAMING PERIOD CHECKS PASSED'
@@ -296,5 +298,19 @@ contains
          fast_first_try(5.d0, 60000, .true.) - 3456 .lt. 55800 .and.          &
          fast_first_try(5.d0, 60000, .true.) .ge. 55800)
   end subroutine fast_tries
+
+  ! WSPR decodes at the GUI's stop, 396 half-symbols (MainWindow::fixStop),
+  ! with or without "Decode after EME delay": live 1,368,576 of its 1,440,000
+  ! samples; from a file the whole period.
+  subroutine wspr_stop()
+    type(period_state) :: st
+    call ok('WSPR: stop 396', gui_hsym_stop(MODE_WSPR, 120.d0, .false., .false., 0) .eq. 396 .and. &
+         gui_hsym_stop(MODE_WSPR, 120.d0, .true., .false., 0) .eq. 396)
+    call period_begin(st, 120.d0, MODE_WSPR, NMAX, gui_hsym_stop(MODE_WSPR, 120.d0, .false., .false., 0))
+    call ok('WSPR live: period 1440000, decoder 1368576',                    &
+         st%nperiod .eq. 1440000 .and. st%npts .eq. 1368576)
+    call period_begin(st, 120.d0, MODE_WSPR, NMAX, 396, .true.)
+    call ok('WSPR file: decoder 1440000', st%npts .eq. 1440000)
+  end subroutine wspr_stop
 
 end program test_streaming_period

@@ -123,7 +123,7 @@ translations.
 
 ## Keep the codec's interface documented
 
-`doc/codec/` documents the stream interface of `wsjt-codec` and `wsprd -0` for the programs that run them: the command line, what they read on standard input, what they write on standard output, and their exit status.
+`doc/codec/` documents the stream interface of `wsjt-codec` for the programs that run it: the command line, what it reads on standard input, what it writes on standard output, and its exit status.
 
 - A change to that interface updates `doc/codec/` in the same pull request. `python3 .github/scripts/check-codec-reference.py` checks that every name the stream source reads or writes has its row, and CI runs it.
 - A change that breaks an existing client carries `!` before the colon of a `feat`, `fix` or `perf` commit subject, for example `feat(codec)!: …`, and the release notes list it with "(breaking)". Subjects with a scope, every one of them `release`, `ci`, `test` or `tests`, stay out of the notes.

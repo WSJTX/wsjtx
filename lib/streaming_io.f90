@@ -121,6 +121,18 @@
 ! block, live and from a file, on the stream's own thread, and a period short
 ! of it not at all (lib/streaming_echo.f90).
 !
+! WSPR ({"mode":"WSPR"}, case aside; no integer code selects it) takes a
+! trperiod of 120 s, its default, and decodes each period once on the decode
+! thread as the other period modes do: live at the GUI's stop, 396
+! half-symbols (1,368,576 samples), from a file at the period's end; its
+! decodes carry "pass":396. It keeps no period to decode again
+! (decode_again_unavailable), and a configure's wspr_hash_clear is applied
+! on the decode side in stream order (lib/streaming_wspr.f90). A configure
+! that would leave WSPR at another trperiod is declined with
+! configure_range_error (key trperiod), and a session the command line starts
+! in WSPR at another period sends that error instead of ready and exits with
+! status 2.
+!
 ! MSK144 decodes each 3584-sample block of a period as soon as it is read,
 ! as the GUI does (lib/decode_msk144.f90), and only in the period's first 30 s,
 ! the GUI's longest MSK144 period. The period's end, or a halt or the end of
@@ -199,7 +211,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
        CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, MODE_JTTY,   &
-       MODE_FREQCAL, MODE_ECHO, CTRL_REVIEW
+       MODE_FREQCAL, MODE_ECHO, CTRL_REVIEW, MODE_WSPR
   use streaming_apply, only: apply_configure_fields, engine_range_key
   use streaming_echo, only: echo_apply, echo_measure, echo_range_detail,    &
        ECHO_TRPERIOD, ECHO_STOP
@@ -250,6 +262,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   character(len=*), parameter :: FAST_PERIOD_RULE = 'trperiod must be 5, 10, 15 or 30 s in fast JT9'
   character(len=*), parameter :: FAST_SUBMODE_RULE = 'submode must be E to H in fast JT9'
   character(len=*), parameter :: FAST_MODE_RULE = 'fast applies to JT9'
+  character(len=*), parameter :: WSPR_PERIOD_RULE = 'trperiod must be 120 s in WSPR'
   ! 4-byte session magic "WSJT" (W=0x57 S=0x53 J=0x4A T=0x54)
   integer(int8), parameter :: MAGIC(4) = [                                 &
        int(z'57', int8), int(z'53', int8),                                 &
@@ -457,6 +470,11 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      call streaming_emit_error_range('trperiod', trim(streaming_emit_mode_name(mode)), &
           minute_rule(mode) // '; the command line set it')
      write(error_unit, '(a)') 'wsjt-codec: ' // minute_rule(mode) // '; the command line set it'
+     stop 2
+  end if
+  if (mode .eq. MODE_WSPR .and. TRperiod .ne. 120.d0) then
+     call streaming_emit_error_range('trperiod', 'WSPR', WSPR_PERIOD_RULE // '; the command line set it')
+     write(error_unit, '(a)') 'wsjt-codec: ' // WSPR_PERIOD_RULE // '; the command line set it'
      stop 2
   end if
   call decode_start()
@@ -680,6 +698,12 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  call route_end()
                  cycle
               end if
+              if (next_mode .eq. MODE_WSPR .and. next_TRperiod .ne. 120.d0) then
+                 call route_begin()
+                 call streaming_emit_error_range('trperiod', range_mode, WSPR_PERIOD_RULE)
+                 call route_end()
+                 cycle
+              end if
               if (next_fast .and. (next_params%nsubmode .lt. 4 .or.               &
                    next_params%nsubmode .gt. 7)) then
                  call route_begin()
@@ -833,14 +857,17 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               op%q65_clear = cfg%q65_callers_clear_set .and. cfg%q65_callers_clear
               op%q65_remove = cfg%q65_callers_remove(1:cfg%q65_callers_remove_count)
               op%fox_clear = cfg%fox_callers_clear_set .and. cfg%fox_callers_clear
+              ! And the WSPR hash table's clear.
+              op%wspr_clear = cfg%wspr_hash_clear_set .and. cfg%wspr_hash_clear
               op%events_set = cfg%busy_events_set
               op%events = cfg%busy_events
               call decode_submit(op)
               ! nagain_flag asks once for the last decoded period again;
-              ! MSK144, Echo, JTTY and FreqCal keep none.
+              ! MSK144, Echo, JTTY, FreqCal and WSPR keep none (the GUI's
+              ! Decode button does nothing in WSPR).
               if (cfg%nagain_flag_set .and. cfg%nagain_flag) then
                  if (mode .eq. 144 .or. mode .eq. MODE_JTTY .or. mode .eq. MODE_ECHO .or. &
-                      mode .eq. MODE_FREQCAL) then
+                      mode .eq. MODE_FREQCAL .or. mode .eq. MODE_WSPR) then
                     call streaming_emit_error_code('decode_again_unavailable', &
                          NO_DECODED_PERIOD)
                  else
@@ -1135,9 +1162,11 @@ contains
     shared_data%params%nzhsym = nhsym
     if (at_stop) shared_data%params%nzhsym = nstop
     if (mode .eq. 8 .and. nstop .gt. 0) shared_data%params%nzhsym = nstop
-    ! Non-FT8/FST4/Q65: cap at 181 to match WAV-path exit (ss array bound).
+    ! Non-FT8/FST4/Q65/WSPR: cap at 181 to match WAV-path exit (ss array
+    ! bound); WSPR's decodes carry its stop, 396.
     if (mode .ne. 8   .and. mode .ne. 240 .and. mode .ne. 241 .and.    &
-        mode .ne. 242 .and. mode .ne. 66  .and. shared_data%params%nzhsym .gt. 181) then
+        mode .ne. 242 .and. mode .ne. 66  .and. mode .ne. MODE_WSPR .and. &
+        shared_data%params%nzhsym .gt. 181) then
        shared_data%params%nzhsym = 181
     end if
     shared_data%params%kin    = 64800

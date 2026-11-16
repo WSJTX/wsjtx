@@ -23,6 +23,7 @@ program jt9
        plan_wav_read, plan_wav_passes
   use msk144_file, only: msk144_file_options, decode_msk144_file
   use fftw_wisdom, only: save_wisdom
+  use streaming_control, only: MODE_WSPR
 
   include 'jt9com.f90'
 
@@ -37,6 +38,20 @@ program jt9
        import :: c_int
        integer(c_int) :: stream_stdin_is_terminal
      end function stream_stdin_is_terminal
+     ! wsjt-codec's is in lib/codec_wspr_file.c; jt9's stub refuses (lib/jt9_wspr_stub.f90).
+     function wspr_file(infile, data_dir, dial_mhz, depth, decode_finished) &
+          bind(C, name='wsjt_codec_wspr_file')
+       import :: c_char, c_double, c_int
+       character(kind=c_char), intent(in) :: infile(*), data_dir(*)
+       real(c_double), value :: dial_mhz
+       integer(c_int), value :: depth, decode_finished
+       integer(c_int) :: wspr_file
+     end function wspr_file
+     function wspr_data_dir(data_dir) bind(C, name='wsjt_codec_wspr_data_dir')
+       import :: c_char, c_int
+       character(kind=c_char), intent(in) :: data_dir(*)
+       integer(c_int) :: wspr_data_dir
+     end function wspr_data_dir
   end interface
 
   type(cli_args_t) :: args
@@ -49,13 +64,13 @@ program jt9
   integer(c_short), allocatable :: wav_samples(:)
   integer(C_INT) iret
   type(wav_header) wav
-  real*8 TRperiod
+  real*8 TRperiod, wspr_dial
   integer :: validation_mode, wav_mode=0
   integer(c_int) :: engine_attempt_no, engine_valid_samples
   integer(c_int64_t) :: engine_input_id
 
   character c
-  character(len=500) optarg, infile
+  character(len=500) optarg, infile, trperiod_text
   character wisfile*256
   character(len=10) :: program_name
 
@@ -68,7 +83,7 @@ program jt9
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lwidedxcsearch = .true., low_sidelobes = .false.,                  &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
-  type (option) :: long_options(46) = [                                      &
+  type (option) :: long_options(48) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use native shared memory for sample data','NAME'), &
@@ -133,6 +148,9 @@ program jt9
     option ('fst4w-hash', .false., 'Y', 'FST4W mode, print hash22 values', ''), &
     option ('ft8', .false., '8', 'FT8 mode', ''),                            &
     option ('jt9', .false., '9', 'JT9 mode', ''),                            &
+    option ('wspr', .false., '2', 'WSPR mode; .wav and .c2 files are '//   &
+        'decoded and logged in the data path as wsprd does', ''),            &
+    option ('dial', .true., 'O', 'WSPR files'' dial frequency, default MHZ=0', 'MHZ'), &
     option ('quiet', .false., 'q', 'Quiet mode, no <DecodeFinished>', ''),   &
     option ('msk144', .false., 'k', 'MSK144 mode', ''),                      &
     option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=1',&
@@ -166,9 +184,11 @@ program jt9
   nsubmode = 0
   ntol = 20
   TRperiod=60.d0
+  trperiod_text=' '
+  wspr_dial=0.d0
 
   do
-     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:',   &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:2O:', &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -205,6 +225,7 @@ program jt9
            if (TRperiod <= 0.d0 .or. TRperiod > dble(NTMAX)) then
               call invalid_option('p', optarg(:arglen), 'must be between 0 and 1800 seconds')
            end if
+           trperiod_text = optarg(:arglen)
         case ('d')
            call require_integer('d', optarg(:arglen), ndepth)
         case ('f')
@@ -270,6 +291,11 @@ program jt9
         case ('9')
            if (mode.lt.9.or.mode.eq.65) mode = mode + 9
            wav_mode = 9
+        case ('2')
+           mode = MODE_WSPR
+           wav_mode = mode
+        case ('O')
+           call require_real('O', optarg(:arglen), wspr_dial)
         case ('T')
            tx9 = .true.
         case ('w')
@@ -332,6 +358,8 @@ program jt9
           cycle
        case ('shmem', 'ipc-lock')
           if (jt9_stream_available()) cycle
+       case ('wspr', 'dial')
+          if (.not. jt9_stream_available()) cycle
        end select
        call long_options(i) % print (6)
      end do
@@ -348,6 +376,17 @@ program jt9
      validation_mode = mode
      if (stream_mode .and. validation_mode == 0) validation_mode = 8
      call require_mode_submode(validation_mode)
+  end if
+
+  if (mode == MODE_WSPR) then
+     ! jt9's stub refuses here, before anything is written.
+     if (.not. jt9_stream_available()) iret = wspr_file(c_null_char, c_null_char, 0.d0, 0, 0)
+     ! With no file, a session starts in WSPR, as -8 starts one in FT8.
+     ! wsprd decodes a .wav as WSPR-2; a .c2 file names its own type.
+     if (trperiod_text /= ' ' .and. TRperiod /= 120.d0) then
+        call invalid_option('p', trperiod_text, 'must be 120 seconds for WSPR')
+     end if
+     TRperiod = 120.d0
   end if
 
   if (read_files) then
@@ -430,9 +469,26 @@ program jt9
 
   allocate(wav_samples(NMAX))
   nflatten=0
+  ! -a is checked as wsprd checks it, before timer.out opens there, so an
+  ! unusable one gets wsprd's message and status 1, as wsprd gives.
+  if (mode == MODE_WSPR) then
+     if (wspr_data_dir(trim(data_dir)//c_null_char) /= 0) stop 1
+  end if
   do iarg = offset + 1, offset + remain
      call get_command_argument (iarg, optarg, arglen)
      infile = optarg(:arglen)
+     if (mode == MODE_WSPR) then
+        ! wsprd reads the file itself; its lines go out through C's stdout.
+        if (iarg .eq. offset + 1) then
+           call init_timer (trim(data_dir)//'/timer.out')
+           call timer('jt9     ',0)
+        endif
+        call flush(6)
+        if (wspr_file(infile(:min(arglen, len(infile)))//c_null_char,                &
+             trim(data_dir)//c_null_char, wspr_dial, int(ndepth, c_int),           &
+             merge(0, 1, lquiet)) /= 0) stop 1
+        cycle
+     end if
      call wav%read (infile, wav_status, optarg)
      if (wav_status /= 0) then
         write(error_unit, '(A)') trim(program_name) // ': cannot read WAV file ' // trim(infile) // &

@@ -52,10 +52,10 @@ struct wspr_decoder {
     float residual_i[IQ_CAPACITY], residual_q[IQ_CAPACITY];
     float subtraction[6 * SUB_SAMPLES];
     float spectrum[512 * 359];
-    fftwf_complex *fftin, *fftout, *iqin, *iqout, *pcmout;
-    float *pcmin;
-    fftwf_plan spectrum_plan, inverse_plan, forward_plan;
-    int pcm_fft_size, npoints, waveform;
+    fftwf_complex *fftin, *fftout, *iqin, *iqout;
+    fftwf_plan spectrum_plan, inverse_plan;
+    wspr_plan_guard plan_guard;
+    int npoints, waveform;
     struct snode *stack;
     struct fano_node fano_nodes[82];
     unsigned int stack_buckets[1000];
@@ -490,12 +490,66 @@ static unsigned int count_hard_errors( unsigned char *symbols, unsigned char *ch
     return nerrors;
 }
 
+/* FFTW's planner is not thread-safe. A host whose other threads plan
+   transforms gives a guard that serializes them (wspr_decoder_create_guarded);
+   without one, plans are made and destroyed directly. */
+struct plan_call {
+    int kind;                 /* 0 complex, 1 real to complex, 2 destroy */
+    int n, sign;
+    float *real_in;
+    fftwf_complex *in, *out;
+    fftwf_plan plan;
+};
+
+static void plan_call_run(void *arg)
+{
+    struct plan_call *c = arg;
+    if (c->kind == 0) c->plan = fftwf_plan_dft_1d(c->n, c->in, c->out, c->sign, PATIENCE);
+    else if (c->kind == 1) c->plan = fftwf_plan_dft_r2c_1d(c->n, c->real_in, c->out, PATIENCE);
+    else {
+        fftwf_destroy_plan(c->plan);
+        c->plan = NULL;
+    }
+}
+
+static fftwf_plan plan_call(const wspr_decoder *ctx, struct plan_call *c)
+{
+    if (!ctx->plan_guard) plan_call_run(c);
+    else if (ctx->plan_guard(plan_call_run, c)) return c->kind == 2 ? c->plan : NULL;
+    return c->plan;
+}
+
+static fftwf_plan plan_dft_1d(const wspr_decoder *ctx, int n, fftwf_complex *in,
+                              fftwf_complex *out, int sign)
+{
+    struct plan_call c = {0, n, sign, NULL, in, out, NULL};
+    return plan_call(ctx, &c);
+}
+
+static fftwf_plan plan_r2c_1d(const wspr_decoder *ctx, int n, float *in, fftwf_complex *out)
+{
+    struct plan_call c = {1, n, 0, in, NULL, out, NULL};
+    return plan_call(ctx, &c);
+}
+
+static void destroy_plan(const wspr_decoder *ctx, fftwf_plan plan)
+{
+    struct plan_call c = {2, 0, 0, NULL, NULL, NULL, plan};
+    plan_call(ctx, &c);
+}
+
 int32_t wspr_decoder_create(wspr_decoder **out)
+{
+    return wspr_decoder_create_guarded(out, NULL);
+}
+
+int32_t wspr_decoder_create_guarded(wspr_decoder **out, wspr_plan_guard guard)
 {
     if (!out) return DECODER_INVALID;
     *out = NULL;
     wspr_decoder *ctx = calloc(1, sizeof *ctx);
     if (!ctx) return DECODER_INTERNAL_ERROR;
+    ctx->plan_guard = guard;
     ctx->fftin = fftwf_malloc(512 * sizeof *ctx->fftin);
     ctx->fftout = fftwf_malloc(512 * sizeof *ctx->fftout);
     ctx->iqin = fftwf_malloc(IQ_SAMPLES * sizeof *ctx->iqin);
@@ -504,8 +558,8 @@ int32_t wspr_decoder_create(wspr_decoder **out)
         wspr_decoder_destroy(ctx);
         return DECODER_INTERNAL_ERROR;
     }
-    ctx->spectrum_plan = fftwf_plan_dft_1d(512, ctx->fftin, ctx->fftout, FFTW_FORWARD, PATIENCE);
-    ctx->inverse_plan = fftwf_plan_dft_1d(IQ_SAMPLES, ctx->iqin, ctx->iqout, FFTW_BACKWARD, PATIENCE);
+    ctx->spectrum_plan = plan_dft_1d(ctx, 512, ctx->fftin, ctx->fftout, FFTW_FORWARD);
+    ctx->inverse_plan = plan_dft_1d(ctx, IQ_SAMPLES, ctx->iqin, ctx->iqout, FFTW_BACKWARD);
     if (!ctx->spectrum_plan || !ctx->inverse_plan) {
         wspr_decoder_destroy(ctx);
         return DECODER_INTERNAL_ERROR;
@@ -517,11 +571,8 @@ int32_t wspr_decoder_create(wspr_decoder **out)
 void wspr_decoder_destroy(wspr_decoder *ctx)
 {
     if (!ctx) return;
-    if (ctx->forward_plan) fftwf_destroy_plan(ctx->forward_plan);
-    if (ctx->inverse_plan) fftwf_destroy_plan(ctx->inverse_plan);
-    if (ctx->spectrum_plan) fftwf_destroy_plan(ctx->spectrum_plan);
-    fftwf_free(ctx->pcmin);
-    fftwf_free(ctx->pcmout);
+    if (ctx->inverse_plan) destroy_plan(ctx, ctx->inverse_plan);
+    if (ctx->spectrum_plan) destroy_plan(ctx, ctx->spectrum_plan);
     fftwf_free(ctx->iqin);
     fftwf_free(ctx->iqout);
     fftwf_free(ctx->fftin);
@@ -546,6 +597,7 @@ void wspr_decoder_reset(wspr_decoder *ctx)
 int32_t wspr_decoder_prepare_iq(wspr_decoder *ctx, const float *i, const float *q,
                                int32_t count, int32_t waveform)
 {
+    if (ctx) ctx->npoints = 0;  /* a failed prepare leaves no reception */
     if (!ctx || !i || !q || (waveform != 2 && waveform != 15) ||
         (count != 45000 && count != IQ_SAMPLES)) return DECODER_INVALID;
     memset(ctx->original_i, 0, sizeof ctx->original_i);
@@ -560,38 +612,35 @@ int32_t wspr_decoder_prepare_iq(wspr_decoder *ctx, const float *i, const float *
 int32_t wspr_decoder_prepare_pcm(wspr_decoder *ctx, const int16_t *pcm, int32_t count,
                                 int32_t rate, int32_t waveform)
 {
+    if (ctx) ctx->npoints = 0;  /* a failed prepare leaves no reception */
     if (!ctx || !pcm || rate != 12000 || (waveform != 2 && waveform != 15) ||
         count < 1 || count > 114 * 12000 * (waveform == 15 ? 8 : 1)) return DECODER_INVALID;
     const int scale = waveform == 15 ? 8 : 1;
     const int nfft = IQ_SAMPLES * 32 * scale;
-    if (ctx->pcm_fft_size != nfft) {
-        float *in = fftwf_malloc(nfft * sizeof *in);
-        fftwf_complex *out = fftwf_malloc((nfft / 2 + 1) * sizeof *out);
-        fftwf_plan plan = in && out ? fftwf_plan_dft_r2c_1d(nfft, in, out, PATIENCE) : NULL;
-        if (!plan) {
-            fftwf_free(in);
-            fftwf_free(out);
-            return DECODER_INTERNAL_ERROR;
-        }
-        if (ctx->forward_plan) fftwf_destroy_plan(ctx->forward_plan);
-        fftwf_free(ctx->pcmin);
-        fftwf_free(ctx->pcmout);
-        ctx->pcmin = in;
-        ctx->pcmout = out;
-        ctx->forward_plan = plan;
-        ctx->pcm_fft_size = nfft;
+    /* The 12 kHz transform's buffers and plan last this call only, as
+       readwavfile's did: WSPR-2's come to about 12 MB, WSPR-15's 94 MB. */
+    float *in = fftwf_malloc(nfft * sizeof *in);
+    fftwf_complex *out = fftwf_malloc((nfft / 2 + 1) * sizeof *out);
+    fftwf_plan plan = in && out ? plan_r2c_1d(ctx, nfft, in, out) : NULL;
+    if (!plan) {
+        fftwf_free(in);
+        fftwf_free(out);
+        return DECODER_INTERNAL_ERROR;
     }
-    for (int i = 0; i < count; ++i) ctx->pcmin[i] = pcm[i] / 32768.0;
-    memset(ctx->pcmin + count, 0, (nfft - count) * sizeof *ctx->pcmin);
-    fftwf_execute(ctx->forward_plan);
+    for (int i = 0; i < count; ++i) in[i] = pcm[i] / 32768.0;
+    memset(in + count, 0, (nfft - count) * sizeof *in);
+    fftwf_execute(plan);
     double df = 12000.0 / nfft;
     int i0 = (waveform == 15 ? 1612.5 : 1500.0) / df + 0.5;
     for (int i = 0; i < IQ_SAMPLES; ++i) {
         int j = i0 + i;
         if (i > IQ_SAMPLES / 2) j -= IQ_SAMPLES;
-        ctx->iqin[i][0] = ctx->pcmout[j][0];
-        ctx->iqin[i][1] = ctx->pcmout[j][1];
+        ctx->iqin[i][0] = out[j][0];
+        ctx->iqin[i][1] = out[j][1];
     }
+    destroy_plan(ctx, plan);
+    fftwf_free(in);
+    fftwf_free(out);
     fftwf_execute(ctx->inverse_plan);
     memset(ctx->original_i, 0, sizeof ctx->original_i);
     memset(ctx->original_q, 0, sizeof ctx->original_q);
@@ -611,7 +660,8 @@ void wspr_decoder_default_tuning(struct wspr_tuning *t)
 
 int32_t wspr_decoder_import_hash_line(wspr_decoder *ctx, const char *line)
 {
-    return ctx && line && wsprd_load_hash_line(line, ctx->hashtab, ctx->loctab);
+    return ctx && line && wsprd_load_hash_line(line, ctx->hashtab, ctx->loctab)
+        ? DECODER_OK : DECODER_INVALID;
 }
 
 int wspr_decoder_hash_entry(wspr_decoder *ctx, int slot, const char **call, const char **grid)
@@ -633,16 +683,22 @@ int32_t wspr_decoder_set_calls(wspr_decoder *ctx, const decoder_wspr_call *calls
 {
     if (!ctx || count < 0 || count > WSPRD_HASH_COUNT || (count && !calls)) return DECODER_INVALID;
     for (int i = 0; i < count; ++i) {
-        char call[13];
+        char call[13], grid[5];
         unpack_fixed(call, calls[i].call, 12);
-        if (!call[0] || strlen(call) > 10) return DECODER_INVALID;
-        for (size_t j = 0; call[j]; ++j)
-            if (!(call[j] >= 'A' && call[j] <= 'Z') && !(call[j] >= '0' && call[j] <= '9') && call[j] != '/')
-                return DECODER_INVALID;
-        for (int j = 0; j < 4; ++j)
-            if (calls[i].grid[j] != ' ' && calls[i].grid[j] != 0 &&
-                !(calls[i].grid[j] >= 'A' && calls[i].grid[j] <= 'Z') &&
-                !(calls[i].grid[j] >= '0' && calls[i].grid[j] <= '9')) return DECODER_INVALID;
+        unpack_fixed(grid, calls[i].grid, 4);
+        size_t n = strlen(call), g = strlen(grid);
+        if (!n || n > 10 || (g != 0 && g != 4)) return DECODER_INVALID;
+        /* Only padding after the call or grid: no embedded NUL or space. */
+        for (size_t j = 0; j < 12; ++j) {
+            char c = calls[i].call[j];
+            if (j < n ? !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '/'
+                      : c != ' ' && c != 0) return DECODER_INVALID;
+        }
+        for (size_t j = 0; j < 4; ++j) {
+            char c = calls[i].grid[j];
+            if (j < g ? (j < 2 ? !(c >= 'A' && c <= 'R') : !(c >= '0' && c <= '9'))
+                      : c != ' ' && c != 0) return DECODER_INVALID;
+        }
     }
     memset(ctx->hashtab, 0, sizeof ctx->hashtab);
     memset(ctx->loctab, 0, sizeof ctx->loctab);
@@ -689,7 +745,7 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
         ctx->stack = calloc(200000, sizeof *ctx->stack);
         if (!ctx->stack) return DECODER_INTERNAL_ERROR;
     }
-    memset(decodes, 0, 50 * sizeof *decodes);
+    memset(decodes, 0, WSPR_DECODER_MAX_RESULTS * sizeof *decodes);
     memcpy(ctx->residual_i, ctx->original_i, sizeof ctx->original_i);
     memcpy(ctx->residual_q, ctx->original_q, sizeof ctx->original_q);
     float *idat=ctx->residual_i, *qdat=ctx->residual_q;
@@ -1169,12 +1225,17 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
                 decoder_wspr_result interpreted;
                 noprint=wsprd_interpret(message,hashtab,loctab,call_loc_pow,callsign,&interpreted);
                 if( subtraction && !noprint ) {
-                    if( get_wspr_channel_symbols(call_loc_pow, hashtab, loctab, channel_symbols) ) {
-                        subtract_signal2(idat, qdat, npoints, f1, shift1, drift1, channel_symbols, ctx->subtraction);
-                        if(!osd_decode) nhardmin=count_hard_errors(symbols,channel_symbols);
-                    } else {
-                        break;
-                    }
+                    // With subtraction on, a decode whose printed text no WSPR
+                    // encoder makes, most likely a false decode, is neither
+                    // subtracted nor printed, as before; the candidates after
+                    // it still decode.
+                    if( !get_wspr_channel_symbols(call_loc_pow, hashtab, loctab, channel_symbols) ) continue;
+                    // Subtract the symbols of the bits decoded, not of the
+                    // printed text: an unresolved type 3 call prints as <...>,
+                    // whose hash is not the one sent.
+                    wspr_channel_symbols_from_data(decdata, channel_symbols);
+                    subtract_signal2(idat, qdat, npoints, f1, shift1, drift1, channel_symbols, ctx->subtraction);
+                    if(!osd_decode) nhardmin=count_hard_errors(symbols,channel_symbols);
                 }
 
                 // Remove dupes (same callsign and freq within 4 Hz)
@@ -1184,7 +1245,7 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
                        (fabs(f1-allfreqs[i]) <4.0)) dupe=1;
                 }
                 if( (verbose || !dupe) && !noprint &&
-                    uniques < 50 ) {
+                    uniques < WSPR_DECODER_MAX_RESULTS ) {
                     strcpy(allcalls[uniques],callsign);
                     allfreqs[uniques]=f1;
                     uniques++;
@@ -1255,7 +1316,7 @@ int32_t wspr_decoder_decode(wspr_decoder *ctx, const decoder_wspr_options *optio
     if (options->effort == 1) {tuning.quickmode=1; tuning.npasses=2;}
     if (options->effort >= 2) {tuning.maxcycles=500; tuning.ndepth=4;}
     if (options->effort == 3) tuning.more_candidates=1;
-    struct wspr_diagnostic results[50];
+    struct wspr_diagnostic results[WSPR_DECODER_MAX_RESULTS];
     int32_t status=wspr_decoder_run(ctx,options,&tuning,results,count,NULL,NULL,NULL);
     if (status == DECODER_OK && callback)
         for (int i=0;i<*count;i++) callback(&results[i].observation,user);

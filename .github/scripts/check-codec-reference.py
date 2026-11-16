@@ -7,18 +7,16 @@ Usage:
 
 Reads the names the stream source uses (control messages, configure and
 request keys, output lines and the fields of each, error codes, rejected
-reasons, pass_skipped reasons and stages, jtty_update states, and wsprd's
-control messages, keys, lines, fields and codes) from lib/streaming_*.f90
-and lib/wsprd/wsprd_stream.c, and the name tables of
-doc/codec/interface.md. Every name in the source needs a row, and every
-row a name in the source.
+reasons, pass_skipped reasons and stages, and jtty_update states) from
+lib/streaming_*.f90, and the name tables of doc/codec/interface.md. Every
+name in the source needs a row, and every row a name in the source.
 It also parses every json, jsonl and ndjson code block in doc/codec, and
 each line that starts with {" in its text and unlabelled blocks, and
 resolves every relative link and anchor there. It checks names, not types
 or ranges.
 
 Scope:
-- Literals joined by // in Fortran, or adjacent in C, are read as one.
+- Literals joined by // in Fortran are read as one.
 - Configure keys are the keys read outside the routines of
   streaming_control.f90 whose names contain "request"; request keys are
   those read inside them. Each has its own table.
@@ -37,14 +35,11 @@ Scope:
   or state written from outside a literal outside VALUE_WRITERS; a call of
   an error or rejection emitter that the stream files do not define; a key
   read outside streaming_control.f90; an output line or field name built by
-  concatenation or written with a blank at its colon; in wsprd, event_type
-  used other than in strcmp(event_type, "name"), and a json_ call that is
-  not one of C_KEY_HELPERS with json first and a literal key.
+  concatenation or written with a blank at its colon.
 - Still unread: names in Fortran literals in double quotes; a name passed
   as a literal to a procedure the check does not know, unless its name
-  has emit and error or reject in it; a key that wsprd reads without its
-  json_ helpers; names in any file but lib/streaming_*.f90 and
-  lib/wsprd/wsprd_stream.c.
+  has emit and error or reject in it; names in any file but
+  lib/streaming_*.f90.
 - A field belongs to the line its statement names, else to the line of a
   variable that statement builds or a later one uses, else to its routine's
   only line. A field that belongs to no line fails, but for the nested
@@ -78,7 +73,6 @@ DOCS = "doc/codec"
 REFERENCE = DOCS + "/interface.md"
 CONTROL_SOURCE = "lib/streaming_control.f90"
 STREAM_GLOB = re.compile(r"lib/streaming_[A-Za-z0-9_]+\.f90")
-WSPRD_SOURCE = "lib/wsprd/wsprd_stream.c"
 
 # Each name set, the heading of its table in interface.md, and a reader's label.
 SETS = [
@@ -88,10 +82,6 @@ SETS = [
     ("lines", "Output lines", "output line"),
     ("codes", "Error codes", "error code"),
     ("reasons", "Rejected reasons", "rejected reason"),
-    ("wsprd_control", "wsprd control messages", "wsprd control message"),
-    ("wsprd_keys", "wsprd keys", "wsprd key"),
-    ("wsprd_lines", "wsprd output lines", "wsprd output line"),
-    ("wsprd_codes", "wsprd error codes", "wsprd error code"),
     ("skip_reasons", "Pass skipped reasons", "pass_skipped reason"),
     ("skip_stages", "Pass skipped stages", "pass_skipped stage"),
     ("jtty_states", "JTTY update states", "jtty_update state"),
@@ -112,12 +102,6 @@ REASON_CALL = re.compile(r"\b(?:encode_emit_rejected|emit_rejected_)\s*\(\s*\w+\
 REASON_FUNCTION = re.compile(r"\bfunction\s+tx_reason_\b(.*?)\bend\s+function\b", re.S | re.I)
 REASON_ASSIGN = re.compile(r"\breason\s*=\s*'([a-z_0-9]+)'")
 
-# C patterns for wsprd, matched on code with comments removed.
-C_CONTROL_T = re.compile(r'strcmp\s*\(\s*event_type\s*,\s*"([a-z_0-9]+)"\s*\)')
-C_KEY = re.compile(r'json_(?:get_string|get_int|get_double|find_key)\s*\(\s*json\s*,\s*"([A-Za-z0-9_]+)"')
-C_LINE_T = re.compile(r'\\"t\\":\\"([a-z_0-9]+)\\"')
-C_CODE = re.compile(r'wsprd_stream_emit_error_code\s*\(\s*"([a-z_0-9]+)"')
-
 # Enumerated field values.
 SKIP_REASON = re.compile(r"\bskip_pass\s*\([^,]*,\s*\.(?:true|false)\.\s*,\s*'([a-z_0-9]+)'", re.I)
 SKIP_STAGE = re.compile(r"\bstage\s*=\s*merge\s*\(\s*'([a-z_0-9]+)\s*'\s*,\s*'([a-z_0-9]+)\s*'")
@@ -129,9 +113,8 @@ VALUE_LINES = {("rejected", "reason"): "reasons", ("pass_skipped", "reason"): "s
 
 # The fields of each output line: the tables under these headings, one
 # fourth-level heading (`line`) a line.
-FIELD_SETS = [("fields", "Output fields", "output line"), ("wsprd_fields", "wsprd output fields", "wsprd output line")]
+FIELD_SETS = [("fields", "Output fields", "output line")]
 FIELD = re.compile(r'"([A-Za-z0-9_]+)":')
-C_FIELD = re.compile(r'\\"([A-Za-z0-9_]+)\\":')
 ROUTINE_START = re.compile(r"^\s*(?:(?:pure|elemental|impure|recursive|module)\s+)*"
                            r"(?:(?:logical|integer|real|character|complex|type)\b[^=]*?\s+)?(?:subroutine|function)\s+(\w+)", re.I)
 ROUTINE_END = re.compile(r"^\s*end\s*(?:subroutine|function)\b", re.I)
@@ -154,12 +137,8 @@ VALUE_WRITERS = {
     "state": {"emit_updates_"},
 }
 PASSERS = {"reason": {"encode_emit_rejected", "skip_pass"}, "key": set(KEY_READERS)}
-# wsprd's JSON helpers: the four that read a key from the control frame, json, and the escape.
-C_KEY_HELPERS = {"json_get_string", "json_get_int", "json_get_double", "json_find_key"}
-C_OTHER_HELPERS = {"json_escape_into"}
 LITERAL = re.compile(r"^'((?:[^']|'')*)'$")
 MERGE_TWO = re.compile(r"^\s*(?:trim\s*\(\s*)?merge\s*\(\s*'([a-z_0-9]+)\s*'\s*,\s*'([a-z_0-9]+)\s*'")
-C_STRINGS = re.compile(r'"(?:[^"\\\n]|\\.)*"')
 ASSIGNED = re.compile(r"^\s*(?:if\s*\(.*\)\s*)?(\w+)\s*=[^=>]", re.I)
 STRINGS = re.compile(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"")
 IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
@@ -272,39 +251,6 @@ def fortran_code(text):
     return "\n".join(lines)
 
 
-def c_code(text):
-    """Return C text with comments removed (string and character literals kept, adjacent strings joined)."""
-    out, i, n = [], 0, len(text)
-    while i < n:
-        char = text[i]
-        if char in "\"'":
-            j = i + 1
-            while j < n and text[j] != char and text[j] != "\n":
-                j += 2 if text[j] == "\\" else 1
-            literal = text[i:j + 1]
-            k = len(out)
-            while k and out[k - 1].isspace():
-                k -= 1
-            previous = out[k - 1] if k else ""
-            if char == '"' and literal.endswith('"') and len(previous) > 1 and previous[0] == previous[-1] == '"':
-                out[k - 1] = previous[:-1] + literal[1:]
-                del out[k:]
-            else:
-                out.append(literal)
-            i = j + 1
-        elif text.startswith("/*", i):
-            end = text.find("*/", i + 2)
-            i = n if end < 0 else end + 2
-            out.append(" ")
-        elif text.startswith("//", i):
-            end = text.find("\n", i)
-            i = n if end < 0 else end
-        else:
-            out.append(char)
-            i += 1
-    return "".join(out)
-
-
 def source_names(source):
     """Return {set: set of names} read from the stream source."""
     names = {name: set() for name, _, _ in SETS}
@@ -338,11 +284,6 @@ def source_names(source):
         names["reasons"].update(REASON_CALL.findall(code))
         for body in REASON_FUNCTION.findall(code):
             names["reasons"].update(REASON_ASSIGN.findall(body))
-    wsprd = c_code(source.read(WSPRD_SOURCE))
-    names["wsprd_control"].update(C_CONTROL_T.findall(wsprd))
-    names["wsprd_keys"].update(C_KEY.findall(wsprd))
-    names["wsprd_lines"].update(C_LINE_T.findall(wsprd))
-    names["wsprd_codes"].update(C_CODE.findall(wsprd))
     for path in source.stream_files():
         code = fortran_code(source.read(path))
         names["skip_reasons"].update(SKIP_REASON.findall(code))
@@ -484,55 +425,6 @@ def fortran_guards(path, routine, dummies, statements, arrays=frozenset(), defin
     return problems
 
 
-def c_statements(text):
-    """Split C text, comments removed, at ; { and } outside string and character literals."""
-    statements, current, quote, escaped = [], [], None, False
-    for char in c_code(text):
-        if quote:
-            if char == quote and not escaped:
-                quote = None
-            escaped = not escaped and char == "\\"
-        elif char in "\"'":
-            quote, escaped = char, False
-        elif char in ";{}":
-            statements.append("".join(current))
-            current = []
-            continue
-        current.append(char)
-    statements.append("".join(current))
-    return [statement for statement in statements if statement.strip()]
-
-
-def c_guards(text):
-    """Problems for wsprd statements that name something in a form the patterns miss."""
-    problems = []
-    for statement in c_statements(text):
-        literals = [literal[1:-1] for literal in C_STRINGS.findall(statement)]
-        # Every use of event_type is its declaration, the read of "t" into it, or strcmp(event_type, "name").
-        rest = re.sub(r'\bchar\s+event_type\s*\[[^\]]*\]|json_get_string\s*\(\s*json\s*,\s*"t"\s*,\s*event_type\b|'
-                      r'strcmp\s*\(\s*event_type\s*,\s*"[a-z_0-9]+"\s*\)|sizeof\s+event_type\b', "", statement)
-        if re.search(r"\bevent_type\b", rest):
-            problems.append(unparsed(WSPRD_SOURCE, statement, "control-message form"))
-        for match in re.finditer(r"\b(json_\w+)\s*\(\s*([^,)]*)(?:,\s*([^,)]+))?", statement):
-            helper, first, key = match.group(1), match.group(2).strip(), (match.group(3) or "").strip()
-            if helper in C_OTHER_HELPERS or re.search(r"(?:\bstatic|\bint|\bvoid|\bchar|\bdouble|\bconst)[\s*]*$",
-                                                      statement[:match.start()]):
-                continue
-            # The json_* helpers pass their own key parameter on.
-            if helper not in C_KEY_HELPERS or first != "json" or (not key.startswith('"') and key != "key"):
-                problems.append(unparsed(WSPRD_SOURCE, statement, "key"))
-        for match in re.finditer(r"(\bvoid\s+)?\bwsprd_stream_emit_error_code\s*\(\s*([^,)]+)", statement):
-            if not match.group(1) and not match.group(2).strip().startswith('"'):
-                problems.append(unparsed(WSPRD_SOURCE, statement, "error code"))
-        if any(re.search(r'\\"\w+\\"\s+:|\\"(?:t|code)\\":\s+\\"', literal) for literal in literals):
-            problems.append(unparsed(WSPRD_SOURCE, statement, "field or value, with a blank at its colon"))
-        if any(re.search(r'\\"t\\":\\"(?![a-z_0-9]+\\")', literal) for literal in literals):
-            problems.append(unparsed(WSPRD_SOURCE, statement, "output line"))
-        if any(literal.count('\\":') > len(C_FIELD.findall(literal)) for literal in literals):
-            problems.append(unparsed(WSPRD_SOURCE, statement, "field"))
-    return problems
-
-
 def source_guards(source):
     problems = []
     arrays = {name.lower() for name in re.findall(r"(\w+)\s*\(\s*\d+\s*\)\s*=\s*\[\s*character",
@@ -541,7 +433,6 @@ def source_guards(source):
     defined = {name for _, name, _, _ in routines}
     for path, routine, dummies, statements in routines:
         problems.extend(fortran_guards(path, routine, dummies, statements, arrays, defined))
-    problems.extend(c_guards(source.read(WSPRD_SOURCE)))
     return list(dict.fromkeys(problems))
 
 
@@ -610,24 +501,10 @@ def fortran_fields(texts):
     return fields, unplaced
 
 
-def c_fields(text):
-    """Return ({line: fields}, fields whose line cannot be told) for wsprd's emitters."""
-    fields, unplaced = defaultdict(set), set()
-    for statement in c_statements(text):
-        names = {field for field in C_FIELD.findall(statement) if field not in ("v", "t")}
-        target = set(C_LINE_T.findall(statement))
-        for line in target:
-            fields[line] |= names
-        if names and not target:
-            unplaced |= {("wsprd", field) for field in names}
-    return fields, unplaced
-
-
 def source_fields(source):
     """Return {field set: ({line: fields}, unplaced fields)}."""
     return {
         "fields": fortran_fields([(path, source.read(path)) for path in source.stream_files()]),
-        "wsprd_fields": c_fields(source.read(WSPRD_SOURCE)),
     }
 
 

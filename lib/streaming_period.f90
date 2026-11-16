@@ -3,6 +3,7 @@
 ! the boundary carries its remainder into the next period.
 module streaming_period
   use, intrinsic :: iso_fortran_env, only: int64
+  use streaming_control, only: MODE_WSPR
   implicit none
   private
   public :: period_state, period_begin, period_room, period_take,          &
@@ -66,6 +67,8 @@ contains
   ! (MainWindow::fixStop, widgets/mainwindow.cpp), with "Decode after EME
   ! delay" and the multithreaded FT8 decoder start. 0 for MSK144, which the
   ! GUI decodes as audio arrives instead, and for JT65+JT9, which it lacks.
+  ! WSPR (MODE_WSPR, no jt9 number) at 396, 1,368,576 samples: wsprd reads
+  ! the first 1,368,000 (lib/streaming_wspr.f90).
   pure integer function gui_hsym_stop(mode, trperiod, eme_delay, multithreaded, decoder_start)
     integer, intent(in) :: mode, decoder_start
     real(8), intent(in) :: trperiod
@@ -106,6 +109,8 @@ contains
        gui_hsym_stop = merge(fst4_eme(i), fst4(i), eme_delay)
     case (74, 144)
        gui_hsym_stop = 0
+    case (MODE_WSPR)
+       gui_hsym_stop = 396
     end select
   end function gui_hsym_stop
 
