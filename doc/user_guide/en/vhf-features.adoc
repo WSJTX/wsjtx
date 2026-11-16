@@ -544,8 +544,10 @@ claimed score and the file as it will be saved.
 
 image::eme_cabrillo_dialog.png[align="center",width=60%,alt="EME Cabrillo dialog"]
 
-* *Contest days:* the first time, the days chosen in *Active Stations*
-  are suggested. After that the dialog keeps its own days, so preparing
+* *Contest days:* click the button beside it, which reads *choose...*
+  until days are chosen, to open the calendar; a click on a day adds or
+  removes it. The first time, the days chosen in *Active Stations* are
+  suggested. After that the dialog keeps its own days, so preparing
   the log never changes what *Active Stations* uses while you operate.
 * *Logs:* _WSJT-X_'s own ADIF log is used. *Add file...* adds another,
   for example the log of a second PC; several logs are merged and a QSO

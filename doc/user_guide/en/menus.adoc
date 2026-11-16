@@ -65,7 +65,10 @@ full 90 kHz bandwidth. Stations using a 30-second sub-mode of Q65 are
 highlighted in yellow. You can limit the displayed list by checking
 the *Wanted only* and/or *CQ only* boxes; *Wanted* means not worked on
 the current band, optionally only counting QSOs made *on days* you
-choose (UTC), such as the days of a contest. *QSOs* shows the number
+choose (UTC), such as the days of a contest. The button beside *on
+days* is greyed out until you check the box; it then reads *choose...*,
+and clicking it opens a calendar in which you click each day to add or
+remove it. *QSOs* shows the number
 of different stations worked on the current band, in any mode,
 according to the ADIF log and history sources (on the chosen days, if
 set), for example to follow your
