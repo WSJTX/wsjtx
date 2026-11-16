@@ -1444,7 +1444,7 @@ void Configuration::set_worked_before_status (QString const& status, QString con
   m_->worked_before_errors_ = errors;
   m_->ui_->worked_before_status_line_edit->setText (status);
   m_->ui_->worked_before_status_line_edit->setCursorPosition (0);
-  m_->ui_->worked_before_status_line_edit->setToolTip (errors.isEmpty () ? status : status + '\n' + errors);
+  m_->ui_->worked_before_status_line_edit->setToolTip (tr ("Open History sources for the full scan report and diagnostic details."));
   Q_EMIT worked_before_status_changed ();
 }
 bool Configuration::highlight_only_fields () const {return m_->highlight_only_fields_;}

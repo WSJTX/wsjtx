@@ -65,6 +65,15 @@ private Q_SLOTS:
   void jtty_round_trips_with_current_header ();
   void imports_records_across_layouts_and_length_errors_data ();
   void imports_records_across_layouts_and_length_errors ();
+  void suspect_length_recovery_tradeoffs_data ();
+  void suspect_length_recovery_tradeoffs ();
+  void recovers_damaged_records_data ();
+  void recovers_damaged_records ();
+  void recovery_reports_partial_contacts_and_continues ();
+  void unicode_recovery_prefers_bytes_across_read_chunks ();
+  void unicode_embedded_eor_retains_following_fields ();
+  void unused_field_endpoint_inside_used_value ();
+  void damaged_appends_publish_recovery_status ();
   void reports_incomplete_sources_data ();
   void reports_incomplete_sources ();
   void primary_rescan_recovers_records_and_preserves_live_qsos ();
@@ -226,7 +235,9 @@ void TestWorkedBeforeAdif::jtty_round_trips_with_current_header ()
 
 void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data ()
 {
+  QTest::addColumn<bool> ("incomplete");
   QTest::addColumn<QByteArray> ("adif");
+  auto add_row = [] (char const * name, bool incomplete = false) -> QTestData& {return QTest::newRow (name) << incomplete;};
   QTest::addColumn<QStringList> ("expected_calls");
 
   auto record = [] (QString const& call) {
@@ -235,47 +246,51 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
   };
   auto call = [] (QString const& value) {return value.toUtf8 ();};
 
-  QTest::newRow ("leading-whitespace")
+  add_row ("leading-whitespace")
     << QByteArray {" \r\n\t" + record ("K1ABC").toUtf8 ()} << QStringList {"K1ABC"};
-  QTest::newRow ("headerless-single-line-no-trailing-newline")
+  add_row ("headerless-single-line-no-trailing-newline")
     << call (record ("K1ABC")) << QStringList {"K1ABC"};
-  QTest::newRow ("multiline-record")
+  add_row ("multiline-record")
     << QByteArray {"<CALL:5>K1ABC\n\n<BAND:3>20M\n\n<MODE:3>FT8\n<GRIDSQUARE:4>FN42\n<EOR>"}
     << QStringList {"K1ABC"};
-  QTest::newRow ("multiple-records-on-one-line")
+  add_row ("multiple-records-on-one-line")
     << (record ("K1ABC") + record ("W1XYZ")).toUtf8 () << QStringList {"K1ABC", "W1XYZ"};
-  QTest::newRow ("optional-header")
+  add_row ("optional-header")
     << QByteArray {"ADIF Export\n<adif_ver:5>3.1.1\n<eoh>\n" + record ("K1ABC").toUtf8 ()}
     << QStringList {"K1ABC"};
-  QTest::newRow ("leading-whitespace-optional-header")
+  for (auto const& preamble : {"Exported by Foo <http://foo.example>", "Exported < by Foo", "Exported <http://foo.example> < by Foo"})
+    add_row (qPrintable (QString {"header-free-text-%1"}.arg (preamble)))
+      << (QByteArray {preamble} + "<EOH>" + record ("K1ABC").toUtf8 ())
+      << QStringList {"K1ABC"};
+  add_row ("leading-whitespace-optional-header")
     << QByteArray {" \n<adif_ver:5>3.1.1<eoh>\n" + record ("K1ABC").toUtf8 ()}
     << QStringList {"K1ABC"};
-  QTest::newRow ("eoh-text-inside-length-delimited-header-field")
+  add_row ("eoh-text-inside-length-delimited-header-field")
     << QByteArray {"ADIF Export\n<programid:5><EOH>\n<eoh>\n" + record ("K1ABC").toUtf8 ()}
     << QStringList {"K1ABC"};
-  QTest::newRow ("final-record-with-trailing-newline")
+  add_row ("final-record-with-trailing-newline")
     << (record ("K1ABC") + "\n\n" + record ("W1XYZ") + "\n").toUtf8 ()
     << QStringList {"K1ABC", "W1XYZ"};
-  QTest::newRow ("final-record-without-trailing-newline")
+  add_row ("final-record-without-trailing-newline")
     << (record ("K1ABC") + "\n\n" + record ("W1XYZ")).toUtf8 ()
     << QStringList {"K1ABC", "W1XYZ"};
-  QTest::newRow ("eor-text-inside-length-delimited-field")
+  add_row ("eor-text-inside-length-delimited-field")
     << QByteArray {"<CALL:5>K1ABC<COMMENT:8:M>a\r\n<EOR><BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>\n"}
     << QStringList {"K1ABC"};
 
   auto oversize_record = QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:9999>oops<EOR>\r\n"};
-  QTest::newRow ("oversize-length-first-record")
+  add_row ("oversize-length-first-record", true)
     << (oversize_record + record ("W1XYZ").toUtf8 ()) << QStringList {"K1ABC", "W1XYZ"};
-  QTest::newRow ("oversize-length-middle-record")
+  add_row ("oversize-length-middle-record", true)
     << (record ("N2AAA").toUtf8 () + oversize_record + record ("W1XYZ").toUtf8 ())
     << QStringList {"N2AAA", "K1ABC", "W1XYZ"};
 
   auto slightly_long_record = QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:30>oops<EOR>\r\n"
                                           "<CALL:5>W1XYZ<BAND:3>20M<MODE:3>FT8<EOR>\r\n"};
-  QTest::newRow ("slightly-long-length")
+  add_row ("slightly-long-length", true)
     << (slightly_long_record + record ("N2AAA").toUtf8 ()) << QStringList {"K1ABC", "W1XYZ", "N2AAA"};
 
-  QTest::newRow ("suspect-endpoint-at-tag-closing-bracket")
+  add_row ("suspect-endpoint-at-tag-closing-bracket", true)
     << (QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:8>oops<EOR>"} + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
 
@@ -284,14 +299,14 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
       auto text = QString {"<%1:999>"}.arg (field).toUtf8 ();
       auto adif = QByteArray {"<COMMENT:"} + QByteArray::number (text.size ()) + ":S>" + text
         + record ("K1ABC").toUtf8 ();
-      QTest::newRow (qPrintable (QString {"descriptor-inside-comment-%1"}.arg (field)))
+      add_row (qPrintable (QString {"descriptor-inside-comment-%1"}.arg (field)))
         << adif << QStringList {"K1ABC"};
     }
-  QTest::newRow ("fake-band-after-real-call")
+  add_row ("fake-band-after-real-call")
     << QByteArray {"<CALL:5>K1ABC<COMMENT:10><BAND:999><BAND:3>20M<MODE:3>FT8<EOR>"}
     << QStringList {"K1ABC"};
 
-  QTest::newRow ("character-counted-comment-containing-eor")
+  add_row ("character-counted-comment-containing-eor")
     << (QString {"<CALL:5>K1ABC<COMMENT:9>"} + QString (4, QChar {0x00e9})
         + "<EOR><BAND:3>20M<MODE:3>FT8<EOR>").toUtf8 ()
     << QStringList {"K1ABC"};
@@ -304,19 +319,33 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
           auto length = byte_counted ? value.toUtf8 ().size () : value.size ();
           auto row = QString {"unicode-comment-%1-%2-%3"}.arg (tag).arg (count)
             .arg (byte_counted ? "bytes" : "characters");
-          QTest::newRow (qPrintable (row))
+          add_row (qPrintable (row))
             << (QString {"<CALL:5>K1ABC<COMMENT:%1:S>%2<BAND:3>20M<MODE:3>FT8<EOR>"}
                 .arg (length).arg (value).toUtf8 () + record ("W1XYZ").toUtf8 ())
             << QStringList {"K1ABC", "W1XYZ"};
         }
 
+
+  add_row ("character-counted-comment-with-malformed-looking-tag")
+    << (QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:20>"}
+        + QString (10, QChar {0x00e9}) + "<BAND:bad><EOR>").toUtf8 ()
+    << QStringList {"K1ABC"};
+  for (int padding : {0, 64 * 1024 - 40, 64 * 1024 - 20})
+    add_row (qPrintable (QString {"character-counted-comment-suspect-byte-endpoint-%1"}.arg (padding)))
+      << (QByteArray (padding, ' ') + (QString {"<CALL:5>K1ABC<COMMENT:20>"}
+          + QString (4, QChar {0x00e9}) + "<EOR>abcdefghijk<BAND:3>20M<MODE:3>FT8<EOR>").toUtf8 ())
+      << QStringList {"K1ABC"};
+  add_row ("character-counted-header-with-embedded-eor")
+    << (QString {"ADIF Export<PROGRAMID:10>"} + QString (5, QChar {0x00e9})
+        + "<EOR><EOH>" + record ("K1ABC")).toUtf8 ()
+    << QStringList {"K1ABC"};
   auto unicode_header = QString (4, QChar {0x00e9}) + "<EOH>";
   for (bool byte_counted : {false, true})
     for (bool preamble : {false, true})
       {
         auto row = QString {"unicode-header-%1-%2"}.arg (byte_counted ? "bytes" : "characters")
           .arg (preamble ? "preamble" : "field-first");
-        QTest::newRow (qPrintable (row))
+        add_row (qPrintable (row))
           << ((preamble ? QByteArray {"ADIF Export"} : QByteArray {})
               + QString {"<PROGRAMID:%1>%2<EOH>"}
                 .arg (byte_counted ? unicode_header.toUtf8 ().size () : unicode_header.size ())
@@ -324,30 +353,30 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
           << QStringList {"K1ABC"};
       }
 
-  QTest::newRow ("unicode-malformed-length-crosses-tags-in-both-interpretations")
+  add_row ("unicode-malformed-length-crosses-tags-in-both-interpretations", true)
     << ((QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:14>"}
          + QString (4, QChar {0x00e9}) + "oops<EOR>").toUtf8 () + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
-  QTest::newRow ("maximum-length-recovers-without-overflow")
+  add_row ("maximum-length-recovers-without-overflow", true)
     << (QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:18446744073709551615>oops<EOR>"}
         + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
-  QTest::newRow ("unicode-malformed-length-beyond-eof")
+  add_row ("unicode-malformed-length-beyond-eof", true)
     << (QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:12>"}
         + QString (4, QChar {0x00e9}) + "<EOR>").toUtf8 ()
     << QStringList {"K1ABC"};
 
   auto unicode_comment = QString (5, QChar {0x00e9}) + "<BAND:999>";
-  QTest::newRow ("character-counted-comment-containing-descriptor")
+  add_row ("character-counted-comment-containing-descriptor")
     << (QString {"<COMMENT:%1>%2"}.arg (unicode_comment.size ()).arg (unicode_comment).toUtf8 ()
         + record ("K1ABC").toUtf8 ()) << QStringList {"K1ABC"};
   auto name = QString {"Jos"} + QChar {0x00e9};
   auto name_record = QString {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<NAME:%1>%2<EOR>"};
   auto utf8_bom = QByteArray::fromHex ("efbbbf");
-  QTest::newRow ("utf8-byte-counted-name")
+  add_row ("utf8-byte-counted-name")
     << (utf8_bom + name_record.arg (name.toUtf8 ().size ()).arg (name).toUtf8 () + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
-  QTest::newRow ("utf8-character-counted-name")
+  add_row ("utf8-character-counted-name")
     << (utf8_bom + name_record.arg (name.size ()).arg (name).toUtf8 () + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
 
@@ -361,25 +390,25 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
           if (newline) final_record += "\n";
           auto row = QString {"final-utf8-name-%1-%2-%3"}.arg (count)
             .arg (byte_counted ? "bytes" : "characters").arg (newline ? "newline" : "eof");
-          QTest::newRow (qPrintable (row))
+          add_row (qPrintable (row))
             << (record ("W1XYZ").toUtf8 () + final_record) << QStringList {"W1XYZ", "K1ABC"};
         }
   auto split_name = name_record.arg (10).arg (QString (5, QChar {0x00e9})).toUtf8 ();
   auto name_start = split_name.indexOf ("<NAME:10>") + QByteArray {"<NAME:10>"}.size ();
-  QTest::newRow ("utf8-name-crosses-read-chunk")
+  add_row ("utf8-name-crosses-read-chunk")
     << (QByteArray (64 * 1024 - name_start - 2, ' ') + split_name)
     << QStringList {"K1ABC"};
 
-  QTest::newRow ("embedded-eor-with-text-between-fields")
-    << QByteArray {"<CALL:5>K1ABC<COMMENT:5><EOR>padding<BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>"}
+  add_row ("embedded-eor-with-text-between-fields")
+    << QByteArray {"<CALL:5>K1ABC<COMMENT:5><EOR> padding<BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>"}
     << QStringList {"K1ABC"};
-  QTest::newRow ("valid-endpoint-inside-non-tag-text")
-    << QByteArray {"<CALL:5>K1ABC<COMMENT:9><EOR>abc<literal>padding<BAND:3>20M<MODE:3>FT8<EOR>"}
+  add_row ("literal-angle-text-between-fields")
+    << QByteArray {"<CALL:5>K1ABC<COMMENT:9>literal x<literal>padding<BAND:3>20M<MODE:3>FT8<EOR>"}
     << QStringList {"K1ABC"};
-  QTest::newRow ("embedded-eoh-with-text-between-fields")
+  add_row ("embedded-eoh-with-text-between-fields")
     << (QByteArray {"ADIF Export<PROGRAMID:5><EOH>padding<EOH>"} + record ("K1ABC").toUtf8 ())
     << QStringList {"K1ABC"};
-  QTest::newRow ("oversize-length-header-field")
+  add_row ("oversize-length-header-field", true)
     << (QByteArray {"ADIF Export<PROGRAMID:9999>oops<EOH>"} + record ("K1ABC").toUtf8 ())
     << QStringList {"K1ABC"};
 
@@ -389,7 +418,7 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
   auto embedded_eor = unicode_split_record.indexOf ("<EOR>");
   for (int offset : {-1, 0, 1, 4, 5, 6, 8, 9})
     {
-      QTest::newRow (qPrintable (QString {"character-counted-eor-crosses-chunk-%1"}.arg (offset)))
+      add_row (qPrintable (QString {"character-counted-eor-crosses-chunk-%1"}.arg (offset)))
         << (QByteArray (chunk_size - embedded_eor - offset, ' ') + unicode_split_record.toUtf8 ()
             + record ("W1XYZ").toUtf8 ())
         << QStringList {"K1ABC", "W1XYZ"};
@@ -400,17 +429,17 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors_data
   };
   auto typed_tag_record = slightly_long_record;
   typed_tag_record.replace ("<BAND:3>", "<BAND:3:S>");
-  QTest::newRow ("suspect-endpoint-in-split-field-tag")
+  add_row ("suspect-endpoint-in-split-field-tag", true)
     << split_endpoint_tag (typed_tag_record, 30) << QStringList {"K1ABC", "W1XYZ"};
   auto short_record = QByteArray {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<COMMENT:5>oops<eOr>"};
-  QTest::newRow ("suspect-endpoint-in-split-eor")
+  add_row ("suspect-endpoint-in-split-eor", true)
     << split_endpoint_tag (short_record + record ("W1XYZ").toUtf8 (), 5)
     << QStringList {"K1ABC", "W1XYZ"};
 
   auto long_value = QByteArray {"<EOR>"} + QByteArray (chunk_size + 17, 'x') + "<EOR>";
-  QTest::newRow ("valid-field-longer-than-chunk")
+  add_row ("valid-field-longer-than-chunk")
     << (QByteArray {"<CALL:5>K1ABC<COMMENT:"} + QByteArray::number (long_value.size ()) + ">" + long_value
-        + "padding<BAND:3>20M<MODE:3>FT8<EOR>" + record ("W1XYZ").toUtf8 ())
+        + " padding<BAND:3>20M<MODE:3>FT8<EOR>" + record ("W1XYZ").toUtf8 ())
     << QStringList {"K1ABC", "W1XYZ"};
 }
 
@@ -430,6 +459,7 @@ bool TestWorkedBeforeAdif::wait_for_load (WorkedBefore& worked_before, int& reco
 
 void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors ()
 {
+  QFETCH (bool, incomplete);
   QFETCH (QByteArray, adif);
   QFETCH (QStringList, expected_calls);
 
@@ -442,7 +472,12 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors ()
   WorkedBefore worked_before {configuration_.get ()};
   int record_count {0};
   QString error;
-  QVERIFY2 (wait_for_load (worked_before, record_count, error), qPrintable (error));
+  QSignalSpy finished {&worked_before, &WorkedBefore::finished_loading};
+  QVERIFY (finished.count () || finished.wait (5000));
+  QCOMPARE (finished.count (), 1);
+  record_count = finished.at (0).at (0).toInt ();
+  error = finished.at (0).at (2).toString ();
+  QCOMPARE (error.isEmpty (), !incomplete);
   QCOMPARE (record_count, expected_calls.size ());
 
   for (auto const& call : expected_calls)
@@ -450,6 +485,381 @@ void TestWorkedBeforeAdif::imports_records_across_layouts_and_length_errors ()
       QVERIFY2 (worked_before.call_worked (call, "FT8", "20M"), qPrintable (call));
     }
   QVERIFY (!worked_before.call_worked ("N0NOT", "FT8", "20M"));
+}
+
+
+void TestWorkedBeforeAdif::suspect_length_recovery_tradeoffs_data ()
+{
+  QTest::addColumn<QByteArray> ("adif");
+  QTest::addColumn<int> ("expected_contacts");
+
+  QTest::newRow ("embedded-eor-with-unseparated-padding")
+    << QByteArray {"<CALL:5>K1ABC<COMMENT:5><EOR>padding<BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>"}
+    << 2;
+  QTest::newRow ("declared-endpoint-inside-literal-text")
+    << QByteArray {"<CALL:5>K1ABC<COMMENT:9><EOR>abc<literal>padding<BAND:3>20M<MODE:3>FT8<EOR>"}
+    << 2;
+  auto long_value = QByteArray {"<EOR>"} + QByteArray (64 * 1024 + 17, 'x') + "<EOR>";
+  QTest::newRow ("long-field-with-unseparated-padding")
+    << (QByteArray {"<CALL:5>K1ABC<COMMENT:"} + QByteArray::number (long_value.size ()) + ">" + long_value
+        + "padding<BAND:3>20M<MODE:3>FT8<EOR><CALL:5>W1XYZ<BAND:3>20M<MODE:3>FT8<GRIDSQUARE:4>FN42<EOR>")
+    << 3;
+}
+
+void TestWorkedBeforeAdif::suspect_length_recovery_tradeoffs ()
+{
+  QFETCH (QByteArray, adif);
+  QFETCH (int, expected_contacts);
+  adif += "<CALL:5>N2AAA<BAND:3>40M<MODE:3>FT4<GRIDSQUARE:4>EM00<EOR>";
+  AD1CCty prefixes {configuration_.get ()};
+  prefixes.reload (configuration_.get ());
+  std::atomic_bool const stop {false};
+  auto result = loader ("fixture.adi", &prefixes, 0, stop, &adif);
+
+  // Suspect-length recovery can expose a payload's EOR even when its declared
+  // length is correct. Keep this compatibility cost explicit alongside recovery.
+  QCOMPARE (result.status, source_status::Warnings);
+  QVERIFY (!result.error.isEmpty ());
+  QVERIFY (!result.stopped);
+  QCOMPARE (result.unfinished_tails, quint64 {0});
+  QCOMPARE (result.imported_records, quint64 (expected_contacts));
+  QCOMPARE (int (result.worked.size ()), expected_contacts);
+  bool first_found {false};
+  bool following_found {false};
+  for (auto const& entry : result.worked)
+    {
+      if (entry.call_ == "K1ABC")
+        {
+          first_found = true;
+          QVERIFY (entry.band_.isEmpty ());
+          QVERIFY (entry.mode_.isEmpty ());
+          QVERIFY (entry.grid_.isEmpty ());
+        }
+      else if (entry.call_ == "N2AAA")
+        {
+          following_found = true;
+          QCOMPARE (entry.band_, QString {"40M"});
+          QCOMPARE (entry.mode_, QString {"FT4"});
+          QCOMPARE (entry.grid_, QString {"EM00"});
+        }
+      else
+        {
+          QCOMPARE (entry.call_, QString {"W1XYZ"});
+          QCOMPARE (entry.band_, QString {"20M"});
+          QCOMPARE (entry.mode_, QString {"FT8"});
+          QCOMPARE (entry.grid_, QString {"FN42"});
+        }
+    }
+  QVERIFY (first_found);
+  QVERIFY (following_found);
+}
+
+void TestWorkedBeforeAdif::recovers_damaged_records_data ()
+{
+  QTest::addColumn<QByteArray> ("damage");
+  QTest::addColumn<bool> ("supplemental");
+  QTest::addColumn<QStringList> ("values");
+  auto row = [] (char const * name, QByteArray const& damage, QStringList const& values) {
+    for (bool supplemental : {false, true})
+      QTest::newRow (qPrintable (QString {"%1-%2"}.arg (name).arg (supplemental ? "supplemental" : "primary")))
+        << damage << supplemental << values;
+  };
+  QByteArray const base {"<CALL:5>W1XYZ<BAND:3>40M<MODE:3>FT4<GRIDSQUARE:4>EM00<QSO_DATE:8>20261114<EOR>"};
+  QStringList const values {"W1XYZ", "40M", "FT4", "EM00", "20261114"};
+  QStringList const fields {"CALL", "BAND", "MODE", "GRIDSQUARE", "QSO_DATE"};
+  for (int i = 0; i < fields.size (); ++i)
+    {
+      auto descriptor = '<' + fields[i].toUtf8 () + ':' + QByteArray::number (values[i].size ());
+      auto damaged = base;
+      damaged.replace (descriptor + '>', '<' + fields[i].toUtf8 () + ":bad>");
+      auto expected = values;
+      expected[i].clear ();
+      row (qPrintable ("bad-length-" + fields[i]), damaged, expected);
+      damaged = base;
+      damaged.replace (descriptor + '>', descriptor + ":BAD>");
+      row (qPrintable ("bad-type-" + fields[i]), damaged, values);
+    }
+  row ("missing-closing-bracket", "<CALL:5>W1XYZ<GRIDSQUARE:4FN42<BAND:3>40M<MODE:3>FT4<EOR>", {"W1XYZ", "40M", "FT4", "", ""});
+  row ("missing-eor", "<CALL:5>W1XYZ<MODE:3>FT4<CALL:5>K3BAD<BAND:3>40M<GRIDSQUARE:4>EM00<QSO_DATE:8>20261114<EOR>", {"W1XYZ", "", "FT4", "", ""});
+  row ("unreadable-first-call", "<CALL:bad>K3BAD<CALL:5>W1XYZ<BAND:3>40M<MODE:3>FT4<EOR>", {"", "", "", "", ""});
+  row ("sparse-after-damage", "<CALL:bad>K3BAD<EOR><CALL:5>W1XYZ<FREQ:6>14.074<EOR>", {"W1XYZ", "", "", "", ""});
+  row ("later-readable-band", "<CALL:5>W1XYZ<BAND:bad>oops<BAND:3>40M<MODE:3>FT4<EOR>", {"W1XYZ", "40M", "FT4", "", ""});
+  row ("conflicting-band", "<CALL:5>W1XYZ<BAND:3>40M<BAND:3>20M<MODE:3>FT4<EOR>", {"W1XYZ", "40M", "FT4", "", ""});
+  row ("bad-submode", "<CALL:5>W1XYZ<MODE:4>MFSK<SUBMODE:bad>FT4<EOR>", {"W1XYZ", "", "", "", ""});
+  row ("readable-submode", "<CALL:5>W1XYZ<MODE:bad>oops<SUBMODE:3>FT4<EOR>", {"W1XYZ", "", "FT4", "", ""});
+  row ("unknown-fields", "<CALL:5>W1XYZ<APP_FOO:><note: text><http://foo.example><EOR>", {"W1XYZ", "", "", "", ""});
+  row ("opaque-comment-during-recovery", "<CALL:5>W1XYZ<BAND:bad>oops<COMMENT:45><EOR><CALL:5>K3BAD<BAND:3>40M<MODE:3>FT4<EOR><EOR>", {"W1XYZ", "", "", "", ""});
+  row ("too-long-band", "<CALL:5>W1XYZ<BAND:12>40M<MODE:3>FT4<EOR>", {"W1XYZ", "", "FT4", "", ""});
+  row ("too-short-band", "<CALL:5>W1XYZ<BAND:2>40M<MODE:3>FT4<EOR>", {"W1XYZ", "", "FT4", "", ""});
+  row ("too-short-call", "<CALL:3>W1XYZ<BAND:3>40M<MODE:3>FT4<EOR>", {"", "40M", "FT4", "", ""});
+  row ("suspect-comment-endpoint", "<CALL:5>W1XYZ<COMMENT:6><EOR>abc<MODE:3>FT4<EOR>", {"W1XYZ", "", "", "", ""});
+}
+
+void TestWorkedBeforeAdif::recovers_damaged_records ()
+{
+  QFETCH (QByteArray, damage);
+  QFETCH (bool, supplemental);
+  QFETCH (QStringList, values);
+  QByteArray before {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<EOR>\r\n"};
+  QByteArray after {"<MODE:3>FT8<BAND:3>20M<CALL:5>N2AAA<EOR>"};
+  auto const path = supplemental ? settings_dir_.filePath ("station.adi")
+    : configuration_->writeable_data_dir ().filePath ("wsjtx_log.adi");
+  for (bool first : {false, true})
+    {
+      auto contents = (first ? QByteArray {} : before) + damage + "\r\n" + after;
+      QFile file {path};
+      QVERIFY (file.open (QIODevice::WriteOnly | QIODevice::Truncate));
+      QCOMPARE (file.write (contents), static_cast<qint64> (contents.size ()));
+      file.close ();
+      WorkedBefore worked {supplemental ? supplemental_configuration_.get () : configuration_.get ()};
+      QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+      QVERIFY (finished.count () || finished.wait (5000));
+      QCOMPARE (finished.count (), 1);
+      bool const retained = !values[0].isEmpty ();
+      QCOMPARE (finished.at (0).at (0).toInt (), (first ? 1 : 2) + int (retained));
+      QCOMPARE (worked.call_worked ("K1ABC", "FT8", "20M"), !first);
+      QVERIFY (worked.call_worked ("N2AAA", "FT8", "20M"));
+      QCOMPARE (worked.call_worked ("W1XYZ", {}, {}), retained);
+      QCOMPARE (worked.call_worked ("W1XYZ", {}, "40M"), retained && !values[1].isEmpty ());
+      QCOMPARE (worked.call_worked ("W1XYZ", "FT4", {}), retained && !values[2].isEmpty ());
+      QCOMPARE (worked.grid_worked ("EM00", {}, {}), retained && !values[3].isEmpty ());
+      QCOMPARE (worked.country_worked ("Test Entity", "FT4", "40M", AD1CCty::EntityView::DXCC),
+                retained && values[1] == "40M" && values[2] == "FT4");
+      QCOMPARE (worked.call_worked_on_days ("W1XYZ", {}, {}, QSet<QDate> {QDate {2026, 11, 14}}), retained && !values[4].isEmpty ());
+      QVERIFY (!worked.call_worked ("K3BAD", {}, {}));
+      QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (path)));
+      QVERIFY (worked.load_errors ().contains ("Line"));
+      QVERIFY (worked.load_status ().contains ("loaded with warnings"));
+      QVERIFY (file.open (QIODevice::ReadOnly));
+      QCOMPARE (file.readAll (), contents);
+    }
+}
+
+void TestWorkedBeforeAdif::recovery_reports_partial_contacts_and_continues ()
+{
+  AD1CCty prefixes {configuration_.get ()};
+  prefixes.reload (configuration_.get ());
+  std::atomic_bool const stop {false};
+  QByteArray good {"<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<EOR>\r\n"};
+  QByteArray bad {"<CALL:5>W1XYZ<BAND:bad>40M<MODE:3>FT4<EOR>\r\n"};
+  QByteArray contents;
+  for (int i = 0; i != 2000; ++i) contents += good;
+  for (int i = 0; i != 25; ++i) contents += bad;
+  contents += good;
+  auto result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.imported_records, quint64 {2026});
+  QCOMPARE (result.partial_records, quint64 {25});
+  QCOMPARE (result.rejected_records, quint64 {0});
+  QCOMPARE (result.diagnostic_count, quint64 {25});
+  QCOMPARE (result.diagnostics.size (), 20);
+  QCOMPARE (result.diagnostics.first ().line, qint64 {2001});
+  QVERIFY (result.error.contains ("5 additional diagnostics omitted"));
+  QCOMPARE (result.status, source_status::Warnings);
+  QVERIFY (!result.stopped);
+  contents.clear ();
+  for (int i = 0; i != 30000; ++i) contents += bad;
+  contents += good;
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.imported_records, quint64 {30001});
+  QCOMPARE (result.partial_records, quint64 {30000});
+  QVERIFY (!result.stopped);
+  contents = good + "<CALL:bad>W1XYZ<EOR>" + QByteArray (1024 * 1024 + 1, ' ') + "<CALL:5>N2AAA<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.imported_records, quint64 {2});
+  QCOMPARE (result.rejected_records, quint64 {1});
+  contents = "<CALL:5>K1ABC<COMMENT:1048577>" + QByteArray (1024 * 1024 + 1, 'x') + "<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.status, source_status::Complete);
+  QCOMPARE (result.imported_records, quint64 {1});
+  contents = good + "<CALL:5>W1XYZ<COMMENT:%1 off>oops<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.imported_records, quint64 {2});
+  QVERIFY (result.error.contains ("<COMMENT:%1 off>"));
+  QVERIFY (!result.error.contains ("%5"));
+  contents = good + "<CALL:5>W1XYZ";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.status, source_status::Incomplete);
+  QCOMPARE (result.unfinished_tails, quint64 {1});
+  QVERIFY (!result.stopped);
+  QCOMPARE (result.imported_records, quint64 {1});
+  contents = "<call:5>K1ABC<band:3>20m<comment:40>short note<EOR>\n<call:5>W1XYZ<band:3>40m<mode:3>FT4<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.imported_records, quint64 {1});
+  QCOMPARE (result.status, source_status::Complete);
+  QCOMPARE (result.worked.begin ()->call_, QString {"K1ABC"});
+  contents = (QString {"<CALL:5>K1ABC<COMMENT:20>"} + QString (10, QChar {0x00e9})
+              + "<BAND:bad><GRIDSQUARE:bad>oops<EOR>").toUtf8 ();
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.imported_records, quint64 {1});
+  QCOMPARE (result.diagnostic_count, quint64 {1});
+  QCOMPARE (result.diagnostics.first ().field, QString {"GRIDSQUARE"});
+  contents = "<CALL:5>K1ABC<COMMENT:18446744073709551615>oops<EOR><CALL:5>W1XYZ<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.imported_records, quint64 {2});
+  QCOMPARE (result.status, source_status::Warnings);
+  contents = "<CALL:5>K1ABC<BAND:bad>oops<BAND:3>40M<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.partial_records, quint64 {0});
+  QCOMPARE (result.worked.begin ()->band_, QString {"40M"});
+  contents = "<CALL:999999>K3BAD<EOR><CALL:5>W1XYZ<BAND:999999>40M<MODE:3>FT4<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents, true);
+  QCOMPARE (result.status, source_status::Warnings);
+  QCOMPARE (result.imported_records, quint64 {1});
+  QCOMPARE (result.rejected_records, quint64 {1});
+  QCOMPARE (result.unfinished_tails, quint64 {0});
+  QCOMPARE (result.worked.begin ()->band_, QString {});
+  contents = "<CALL:0><EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.status, source_status::Warnings);
+  QCOMPARE (result.rejected_records, quint64 {1});
+  QCOMPARE (result.imported_records, quint64 {0});
+  for (auto const& preamble : {"Exported < by Foo", "Exported by <http://foo.example>"})
+    {
+      contents = QByteArray {preamble} + "<PROGRAMID:bad>oops<EOH><CALL:5>K1ABC<EOR>";
+      result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+      QCOMPARE (result.status, source_status::Warnings);
+      QCOMPARE (result.imported_records, quint64 {1});
+      QCOMPARE (result.diagnostic_count, quint64 {1});
+    }
+  contents = "<CALL:5>K1ABC<COMMENT:2>long prose<MODE:3:Z>FT8<BAND:3>20M<BAND:3>20M<EOR>";
+  result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+  QCOMPARE (result.status, source_status::Complete);
+  QCOMPARE (result.imported_records, quint64 {1});
+}
+
+void TestWorkedBeforeAdif::unused_field_endpoint_inside_used_value ()
+{
+  AD1CCty prefixes {configuration_.get ()};
+  prefixes.reload (configuration_.get ());
+  std::atomic_bool const stop {false};
+  for (int padding : {0, 64 * 1024 - 39, 64 * 1024 - 41})
+    {
+      QByteArray contents = QByteArray (padding, ' ')
+        + "<CALL:5>W1XYZ<COMMENT:15>short<BAND:3>40M<MODE:3>FT4<EOR>";
+      auto result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+      QCOMPARE (result.status, source_status::Warnings);
+      QCOMPARE (result.imported_records, quint64 {1});
+      QCOMPARE (result.diagnostic_count, quint64 {1});
+      QCOMPARE (result.diagnostics.first ().field, QString {"COMMENT"});
+      QCOMPARE (result.worked.begin ()->band_, QString {"40M"});
+      QCOMPARE (result.worked.begin ()->mode_, QString {"FT4"});
+      contents = QByteArray (padding, ' ') + (QString {"<CALL:5>W1XYZ<COMMENT:23>"}
+        + QString (4, QChar {0x00e9}) + "short<BAND:3>40M<MODE:3>FT4<EOR>").toUtf8 ();
+      result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+      QCOMPARE (result.status, source_status::Warnings);
+      QCOMPARE (result.worked.begin ()->band_, QString {"40M"});
+      for (bool characters : {false, true})
+        {
+          // The byte endpoint cuts the quoted BAND value; character counting
+          // consumes the entire legitimate comment and must take precedence.
+          auto payload = QString (4, QChar {0x00e9}) + "<BAND:3>40M xy";
+          auto text = QString {"<CALL:5>W1XYZ<COMMENT:%1>%2<MODE:3>FT4<EOR>"}
+            .arg (characters ? payload.size () : payload.toUtf8 ().size ()).arg (payload);
+          contents = QByteArray (padding, ' ') + text.toUtf8 ();
+          result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+          QCOMPARE (result.status, source_status::Complete);
+          QCOMPARE (result.imported_records, quint64 {1});
+          QVERIFY (result.worked.begin ()->band_.isEmpty ());
+        }
+    }
+  for (auto const& comment : {"<COMMENT:16>short<BAND:3>40M", "<COMMENT:15>short<NOTE:3>40M",
+                             "<COMMENT:16>short<BAND:3>40M prose"})
+    {
+      QByteArray contents = QByteArray {"<CALL:5>W1XYZ"} + comment + "<MODE:3>FT4<EOR>";
+      auto result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+      QCOMPARE (result.status, source_status::Complete);
+      QCOMPARE (result.imported_records, quint64 {1});
+      QVERIFY (result.worked.begin ()->band_.isEmpty ());
+    }
+}
+
+void TestWorkedBeforeAdif::unicode_embedded_eor_retains_following_fields ()
+{
+  AD1CCty prefixes {configuration_.get ()};
+  prefixes.reload (configuration_.get ());
+  std::atomic_bool const stop {false};
+  for (int length : {8, 9})
+    {
+      auto text = QString {"<CALL:4>W3SZ<NOTES:%1>"}.arg (length)
+        + QChar {0x00e9} + "x<EOR>y<MODE:3>FT8<EOR>"
+        + "<CALL:5>N2AAA<BAND:3>40M<MODE:3>FT4<EOR>";
+      for (int padding : {0, 64 * 1024 - text.indexOf ("<EOR>") - 3})
+        {
+          auto contents = (QString (padding, ' ') + text).toUtf8 ();
+          auto result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+          QCOMPARE (result.status, source_status::Complete);
+          QCOMPARE (result.imported_records, quint64 {2});
+          QCOMPARE (result.worked.size (), std::size_t {2});
+          for (auto const& entry : result.worked)
+            {
+              if (entry.call_ == "W3SZ")
+                QCOMPARE (entry.mode_, QString {"FT8"});
+              else
+                {
+                  QCOMPARE (entry.call_, QString {"N2AAA"});
+                  QCOMPARE (entry.band_, QString {"40M"});
+                  QCOMPARE (entry.mode_, QString {"FT4"});
+                }
+            }
+        }
+    }
+}
+
+void TestWorkedBeforeAdif::unicode_recovery_prefers_bytes_across_read_chunks ()
+{
+  AD1CCty prefixes {configuration_.get ()};
+  prefixes.reload (configuration_.get ());
+  std::atomic_bool const stop {false};
+  QString const candidate = QString {"<CALL:5>W1XYZ<BAND:3>20M<MODE:3>FT8<COMMENT:10>"}
+    + QString (5, QChar {0x00e9}) + "<EOR>";
+  QString const damage {"<CALL:bad>K3BAD<EOR>"};
+  for (int offset : {-1, 0, 1})
+    {
+      // Both interpretations are valid, but the character-counted value
+      // includes the byte-counted record's closing delimiter.
+      auto contents = (QString (64 * 1024 - damage.size () - candidate.size () + offset, ' ')
+                       + damage + candidate + "<EOR>").toUtf8 ();
+      auto result = loader ("fixture.adi", &prefixes, 0, stop, &contents);
+      QVERIFY (!result.stopped);
+      QCOMPARE (result.imported_records, quint64 {1});
+      QCOMPARE (result.rejected_records, quint64 {1});
+    }
+}
+
+void TestWorkedBeforeAdif::damaged_appends_publish_recovery_status ()
+{
+  QVERIFY (write_data_file ("wsjtx_log.adi", "<CALL:5>K1ABC<BAND:3>20M<MODE:3>FT8<EOR>\n"));
+  WorkedBefore worked {configuration_.get ()};
+  QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+  QVERIFY (finished.count () || finished.wait (5000));
+  worked.set_source_poll_interval (25);
+  QFile file {worked.path ()};
+  QVERIFY (file.open (QIODevice::WriteOnly | QIODevice::Append));
+  QByteArray appended {"<CALL:bad>W1XYZ<EOR>\n<CALL:5>N2AAA<BAND:3>20M<MODE:3>FT8<EOR>\n"};
+  QCOMPARE (file.write (appended), static_cast<qint64> (appended.size ()));
+  file.close ();
+  QTRY_COMPARE_WITH_TIMEOUT (finished.count (), 2, 5000);
+  QVERIFY (worked.call_worked ("K1ABC", "FT8", "20M"));
+  QVERIFY (worked.call_worked ("N2AAA", "FT8", "20M"));
+  QVERIFY (!worked.call_worked ("W1XYZ", {}, {}));
+  QVERIFY (worked.load_errors ().contains ("Line 2"));
+  QVERIFY (worked.load_errors ().contains ("Contact skipped"));
+  QVERIFY (worked.load_status ().contains ("loaded with warnings"));
+  worked.set_source_poll_interval (0);
+  QVERIFY (QThreadPool::globalInstance ()->waitForDone (5000));
+  QHash<QString, file_signature> known;
+  known.insert (worked.path (), signature_of (worked.path (), true));
+  QCOMPARE (check_sources ({worked.path ()}, known).what, poll_result::action::None);
+  QSignalSpy started {&worked, &WorkedBefore::loading_started};
+  QVERIFY (file.open (QIODevice::WriteOnly | QIODevice::Append));
+  file.write ("<CALL:5>K3NEW<BAND:3>40M<MODE:3>FT4<EOR>\n");
+  file.close ();
+  QCOMPARE (check_sources ({worked.path ()}, known).what, poll_result::action::Append);
+  worked.set_source_poll_interval (25);
+  QTRY_VERIFY_WITH_TIMEOUT (worked.call_worked ("K3NEW", "FT4", "40M"), 5000);
+  QCOMPARE (started.count (), 0);
+  QCOMPARE (finished.count (), 2);
+  QVERIFY (worked.load_errors ().contains ("Line 2"));
 }
 
 void TestWorkedBeforeAdif::reports_incomplete_sources_data ()
@@ -474,16 +884,16 @@ void TestWorkedBeforeAdif::reports_incomplete_sources_data ()
   row ("ignored-footer", "<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>\nExport complete\n", true, 1);
   row ("invalid-header", "not an ADIF export", false, 0);
   row ("invalid-field-length", "<call:bad>K1ABC<eor>", false, 0);
-  row ("invalid-field-type", "<call:5:BAD>K1ABC<eor>", false, 0);
-  row ("empty-field-type", "<call:5:>K1ABC<eor>", false, 0);
-  row ("extra-field-colon", "<call:5:S:S>K1ABC<eor>", false, 0);
+  row ("invalid-field-type", "<call:5:BAD>K1ABC<eor>", false, 1);
+  row ("empty-field-type", "<call:5:>K1ABC<eor>", false, 1);
+  row ("extra-field-colon", "<call:5:S:S>K1ABC<eor>", false, 1);
   row ("truncated-field", "<call:100>K1ABC<eor>", false, 0);
   row ("unterminated-record", "<call:5>K1ABC<band:3>20m<mode:3>FT8", false, 0);
   QByteArray complete {"<call:5>K1ABC<band:3>20m<mode:3>FT8<eor>"};
   row ("unterminated-record-after-valid-record", complete + "<call:5>W1XYZ<band:3>20m<mode:3>FT8", false, 1);
   row ("bad-field-after-valid-record", complete + "<call:bad>W1XYZ<eor>", false, 1);
-  row ("bad-band-after-valid-record", complete + "<call:5>W1XYZ<band:bad>20m<eor>", false, 1);
-  row ("bad-field-before-another-valid-record", complete + "<call:bad>W1XYZ<eor><call:5>N2AAA<band:3>20m<mode:3>FT8<eor>", false, 1);
+  row ("bad-band-after-valid-record", complete + "<call:5>W1XYZ<band:bad>20m<eor>", false, 2);
+  row ("bad-field-before-another-valid-record", complete + "<call:bad>W1XYZ<eor><call:5>N2AAA<band:3>20m<mode:3>FT8<eor>", false, 2);
 }
 
 void TestWorkedBeforeAdif::reports_incomplete_sources ()
@@ -503,14 +913,14 @@ void TestWorkedBeforeAdif::reports_incomplete_sources ()
   QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
   QVERIFY (finished.count () || finished.wait (5000));
   QCOMPARE (finished.count (), 1);
-  int expected = primary || accepted ? entries : 0;
+  int expected = entries;
   QCOMPARE (finished.at (0).at (0).toInt (), expected);
   QCOMPARE (worked.load_errors ().isEmpty (), accepted);
-  QCOMPARE (worked.call_worked ("K1ABC", "FT8", "20M"), expected > 0);
+  QCOMPARE (worked.call_worked ("K1ABC", {}, {}), expected > 0);
   if (!accepted)
     {
       QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (source)));
-      QVERIFY (worked.load_status ().contains (primary && entries ? "1 partially recovered" : "1 failed"));
+      QVERIFY (worked.load_status ().contains (contents.contains ("not an ADIF") || !contents.endsWith ("<eor>") ? "Incomplete history" : "loaded with warnings"));
     }
 }
 
@@ -539,7 +949,7 @@ void TestWorkedBeforeAdif::primary_rescan_recovers_records_and_preserves_live_qs
   QVERIFY (worked.call_worked ("K3NEW", "FT8", "20M"));
   QVERIFY (!worked.call_worked ("N2AAA", {}, {}));
   QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (primary)));
-  QVERIFY (worked.load_status ().contains ("1 partially recovered"));
+  QVERIFY (worked.load_status ().contains ("1 incomplete"));
 }
 
 void TestWorkedBeforeAdif::comment_cannot_supply_a_missing_band ()
@@ -821,6 +1231,7 @@ void TestWorkedBeforeAdif::cancels_worker_without_partial_results_data ()
   row ("unicode-fallback", "field_characters", 1,
        record.left (record.size () - 5) + "<COMMENT:12>" + QString (4, QChar {0x00e9}).toUtf8 () + "<EOR>");
   row ("between-records", "record", 2, record + record);
+  row ("recovery", "recovery", 1, record + "<CALL:bad>W1XYZ<EOR>" + record);
   QByteArray supplemental;
   for (int i = 0; i != 257; ++i)
     supplemental += QString {"<CALL:6>K%1<BAND:3>20M<MODE:3>FT8<EOR>"}.arg (10000 + i).toUtf8 ();
@@ -1301,13 +1712,26 @@ void TestWorkedBeforeAdif::a_half_written_record_is_picked_up_once_completed ()
     QVERIFY (log.open (QIODevice::WriteOnly | QIODevice::Append));
     QCOMPARE (log.write (bytes), static_cast<qint64> (bytes.size ()));
   };
-  // another program is partway through a record, cut just before a field
+  QHash<QString, file_signature> known;
+  known.insert (a.path (), signature_of (a.path (), true));
   append_raw ("<call:5>K1ABC <band:3>20m ");
-  QTest::qWait (400);
+  QCOMPARE (check_sources ({a.path ()}, known).what, poll_result::action::None);
   QVERIFY (!a.call_worked ("K1ABC", "FT8", "20M"));
   append_raw ("<mode:3>FT8 <gridsquare:4>FN42 <eor>\r\n");
   QTRY_VERIFY_WITH_TIMEOUT (a.call_worked ("K1ABC", "FT8", "20M"), 5000);
-  // the unfinished record was waited for, not reported as a broken log
+  ScopedHistoryCheckpoints checkpoints;
+  std::atomic_int completed {0};
+  history_checkpoint = [&] (char const * point, std::atomic_bool const&) {
+    if (QByteArray {point} == "file_complete") ++completed;
+  };
+  // An apparent terminator is still payload in an unfinished COMMENT.
+  append_raw ("<CALL:5>W1XYZ<COMMENT:20><EOR>");
+  QTRY_VERIFY_WITH_TIMEOUT (completed.load () > 0, 5000);
+  QVERIFY (!a.call_worked ("W1XYZ", {}, {}));
+  QCOMPARE (started.count (), 0);
+  QVERIFY (a.load_errors ().isEmpty ());
+  append_raw (QByteArray (15, 'x') + "<BAND:3>40M<MODE:3>FT4<EOR>");
+  QTRY_VERIFY_WITH_TIMEOUT (a.call_worked ("W1XYZ", "FT4", "40M"), 5000);
   QCOMPARE (started.count (), 0);
   QVERIFY (a.load_errors ().isEmpty ());
 }
@@ -1324,12 +1748,20 @@ void TestWorkedBeforeAdif::a_very_large_addition_is_loaded_by_a_full_reload ()
   a.set_source_poll_interval (50);
   QByteArray bulk;
   while (bulk.size () < 300 * 1024) bulk += shared_log_record ("K1ABC") + " <eor>\n";
+  bulk += "<CALL:5>W1XYZ";
   QFile log {a.path ()};
   QVERIFY (log.open (QIODevice::WriteOnly | QIODevice::Append));
   QCOMPARE (log.write (bulk), static_cast<qint64> (bulk.size ()));
   log.close ();
   QTRY_VERIFY_WITH_TIMEOUT (a.call_worked ("K1ABC", "FT8", "20M"), 10000);
   QVERIFY (started.count () >= 1);
+  QVERIFY (!a.call_worked ("W1XYZ", {}, {}));
+  QVERIFY (a.load_status ().contains ("Incomplete history"));
+  QVERIFY (log.open (QIODevice::WriteOnly | QIODevice::Append));
+  log.write ("<BAND:3>40M<MODE:3>FT4<EOR>");
+  log.close ();
+  QTRY_VERIFY_WITH_TIMEOUT (a.call_worked ("W1XYZ", "FT4", "40M"), 5000);
+  QVERIFY (a.load_errors ().isEmpty ());
 }
 
 void TestWorkedBeforeAdif::a_relative_log_path_is_made_absolute ()

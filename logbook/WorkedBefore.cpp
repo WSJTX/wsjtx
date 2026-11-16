@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <functional>
+#include <limits>
 #include <stdexcept>
 #include <boost/functional/hash.hpp>
 #include <boost/multi_index_container.hpp>
@@ -317,6 +318,12 @@ namespace
     if (stop.load (std::memory_order_relaxed)) throw LoadCancelled {};
   }
 
+  bool used_adif_field (QString const& name)
+  {
+    return name == "CALL" || name == "BAND" || name == "MODE" || name == "SUBMODE"
+      || name == "GRIDSQUARE" || name == "QSO_DATE";
+  }
+
   struct adif_field
   {
     QString name;
@@ -325,22 +332,32 @@ namespace
     bool valid_length {false};
     bool needs_more {false};
     bool recover_boundary {false};
+    bool valid_type {true};
+    bool non_ascii {false};
   };
 
+  // Consume a payload, request more input, or flag an untrusted boundary;
+  // valid_length separately identifies descriptors without a usable length.
   adif_field read_adif_field (QString const& input, int position, int closing, bool at_eof,
-                            std::atomic_bool const& stop, bool character_lengths = false)
+                            std::atomic_bool const& stop, bool character_lengths = false,
+                            quint64 length_limit = std::numeric_limits<quint64>::max ())
   {
     check_load_cancelled (stop, character_lengths ? "field_characters" : "field");
     auto descriptor = input.mid (position + 1, closing - position - 1);
     auto delimiter = descriptor.indexOf (QChar {':'});
     adif_field field {descriptor.left (delimiter).toUpper (), closing + 1, closing + 1};
     if (delimiter < 0) return field;
+    static QRegularExpression const field_name {QStringLiteral ("\\A[A-Z][A-Z0-9_]*\\z")};
+    if (!field_name.match (field.name).hasMatch ()) return field;
     auto type_delimiter = descriptor.indexOf (QChar {':'}, delimiter + 1);
     if (type_delimiter >= 0)
       {
-        if (descriptor.size () != type_delimiter + 2) return field;
-        auto type = descriptor[type_delimiter + 1].toUpper ();
-        if (type < QChar {'A'} || type > QChar {'Z'}) return field;
+        field.valid_type = descriptor.size () == type_delimiter + 2;
+        if (field.valid_type)
+          {
+            auto type = descriptor[type_delimiter + 1].toUpper ();
+            field.valid_type = type >= QChar {'A'} && type <= QChar {'Z'};
+          }
       }
     auto length_text = descriptor.mid (delimiter + 1,
       (type_delimiter < 0 ? descriptor.size () : type_delimiter) - delimiter - 1);
@@ -355,7 +372,22 @@ namespace
     auto length = digits ? length_text.toULongLong (&ok) : 0;
     if (!ok) return field;
     field.valid_length = true;
+    if (length > length_limit)
+      {
+        field.recover_boundary = true;
+        return field;
+      }
 
+    bool const used = used_adif_field (field.name);
+    if (used && character_lengths)
+      {
+        auto opening = input.indexOf ('<', field.data_start);
+        if (opening >= 0 && static_cast<quint64> (opening - field.data_start) < length)
+          {
+            field.recover_boundary = true;
+            return field;
+          }
+      }
     quint64 bytes {0};
     int end = field.data_start;
     characters = 0;
@@ -363,6 +395,12 @@ namespace
       {
         if (!(characters++ % 4096)) check_load_cancelled (stop, "field_data");
         auto character = input[end++].unicode ();
+        if (used && character == '<')
+          {
+            field.recover_boundary = true;
+            return field;
+          }
+        field.non_ascii = field.non_ascii || character > 127;
         if (QChar::isHighSurrogate (character))
           {
             if (end == input.size () && !at_eof)
@@ -412,6 +450,7 @@ namespace
                     // A byte endpoint inside a tag can be character-counted field data.
                     // Resolve it before exposing embedded delimiters to boundary recovery.
                     auto characters = read_adif_field (input, position, closing, at_eof, stop, true);
+                    characters.non_ascii = characters.non_ascii || field.non_ascii;
                     if (characters.needs_more || !characters.recover_boundary) return characters;
                   }
                 field.recover_boundary = true;
@@ -419,54 +458,70 @@ namespace
               }
           }
       }
+    if (end == input.size () && !at_eof)
+      {
+        field.needs_more = true;
+        return field;
+      }
+    auto payload = input.mid (field.data_start, end - field.data_start);
+    bool const middle_of_token = end < input.size () && input[end] != QChar {'<'} && !input[end].isSpace ();
+    bool cuts_used_value {false};
+    if (!used && middle_of_token && opening >= field.data_start)
+      {
+        auto closing = input.indexOf ('>', opening + 1);
+        auto name = input.mid (opening + 1, closing - opening - 1).section (':', 0, 0).toUpper ();
+        if (closing >= 0 && closing + 1 < end && used_adif_field (name))
+          {
+            auto embedded = read_adif_field (input, opening, closing, at_eof, stop, character_lengths, length_limit);
+            field.non_ascii = field.non_ascii || embedded.non_ascii;
+            if (embedded.needs_more)
+              {
+                field.needs_more = true;
+                return field;
+              }
+            cuts_used_value = embedded.valid_length && embedded.valid_type
+              && !embedded.recover_boundary && embedded.end > end;
+          }
+      }
+    if ((used && (payload.contains ('<') || middle_of_token))
+        || (!used && middle_of_token && (payload.contains ("<EOR>", Qt::CaseInsensitive) || cuts_used_value)))
+      {
+        if (!used && !character_lengths && static_cast<quint64> (end - field.data_start) < length)
+          {
+            auto characters = read_adif_field (input, position, closing, at_eof, stop, true);
+            characters.non_ascii = characters.non_ascii || field.non_ascii;
+            if (characters.needs_more || !characters.recover_boundary) return characters;
+          }
+        field.recover_boundary = true;
+        return field;
+      }
     field.end = end;
     return field;
   }
 
-  QString extractField (QString const& record, QString const& fieldName, std::atomic_bool const& stop,
-                        bool character_lengths = false)
+  bool adif_free_text (QString const& input, int position, int end)
   {
-    check_load_cancelled (stop, "extract_field");
-    int position {0};
-    while ((position = record.indexOf (QChar {'<'}, position)) >= 0)
-      {
-        check_load_cancelled (stop, "extract_field");
-        auto closing = record.indexOf (QChar {'>'}, position + 1);
-        if (closing < 0) break;
-        auto field = read_adif_field (record, position, closing, true, stop, character_lengths);
-        if (field.name.compare (fieldName, Qt::CaseInsensitive) == 0)
-          {
-            if (!field.valid_length || field.recover_boundary)
-              throw LoaderException (std::runtime_error {QCoreApplication::translate (
-                "WorkedBefore", "Invalid ADIF field length: %1").arg (fieldName).toLocal8Bit ()});
-            return record.mid (field.data_start, field.end - field.data_start);
-          }
-        position = field.recover_boundary ? field.data_start : field.end;
-      }
-    return {};
+    auto descriptor = input.mid (position + 1, end - position - 1);
+    static QRegularExpression const field {QStringLiteral ("\\A[A-Za-z][A-Za-z0-9_]*:")};
+    static QRegularExpression const url {QStringLiteral ("\\A[A-Za-z][A-Za-z0-9+.-]*://")};
+    return !field.match (descriptor).hasMatch () || url.match (descriptor).hasMatch ();
   }
 
-  // QSO_DATE of a record being logged; today (UTC) if it has none or it
-  // cannot be read.
-  QDate adif_record_date (QByteArray const& record)
+  struct adif_scan_cursor
   {
-    std::atomic_bool const no_stop {false};
-    QDate date;
-    try
-      {
-        date = QDate::fromString (extractField (QString::fromUtf8 (record), "QSO_DATE", no_stop), "yyyyMMdd");
-      }
-    catch (LoaderException const&)
-      {
-      }
-    return date.isValid () ? date : QDateTime::currentDateTimeUtc ().date ();
-  }
+    int position {0};
+    bool non_ascii {false};
+    quint64 length_limit {std::numeric_limits<quint64>::max ()};
+    bool include_header {false};
+    qint64 buffer_offset {0};
+  };
 
   int find_adif_tag (QString const& input, QString const& tag, int start, int& tag_end, bool at_eof,
-                    std::atomic_bool const& stop, bool character_lengths = false)
+                    std::atomic_bool const& stop, bool character_lengths = false,
+                    adif_scan_cursor * cursor = nullptr)
   {
     check_load_cancelled (stop, character_lengths ? "tag_characters" : "tag");
-    int position {start};
+    int position {cursor ? cursor->position : start};
     while ((position = input.indexOf (QChar {'<'}, position)) >= 0)
       {
         check_load_cancelled (stop, "tag");
@@ -477,31 +532,172 @@ namespace
             position = opening;
             continue;
           }
+        if (cursor) cursor->position = position;
         if (closing < 0) return -1;
-        auto field = read_adif_field (input, position, closing, at_eof, stop, character_lengths);
-        if (input.mid (position + 1, closing - position - 1).compare (tag, Qt::CaseInsensitive) == 0)
+        auto descriptor = input.mid (position + 1, closing - position - 1);
+        if (descriptor.compare (tag, Qt::CaseInsensitive) == 0
+            || (cursor && cursor->include_header && descriptor.compare ("EOH", Qt::CaseInsensitive) == 0))
           {
             tag_end = closing + 1;
             return position;
           }
+        auto length_limit = std::numeric_limits<quint64>::max ();
+        if (cursor)
+          {
+            // Decoded offsets undercount consumed UTF-8 bytes, giving a safe
+            // upper bound for either supported interpretation of field length.
+            auto consumed = static_cast<quint64> (cursor->buffer_offset) + closing + 1;
+            length_limit = cursor->length_limit - std::min (cursor->length_limit, consumed);
+          }
+        auto field = read_adif_field (input, position, closing, at_eof, stop, character_lengths, length_limit);
+        if (cursor) cursor->non_ascii = cursor->non_ascii || field.non_ascii;
         if (field.needs_more) return -1;
         position = field.recover_boundary ? field.data_start : field.end;
+        if (cursor) cursor->position = position;
       }
+    if (cursor) cursor->position = input.size ();
     return -1;
   }
 
-  enum class source_status {Complete, Incomplete, Failed};
+  struct adif_issue
+  {
+    int position;
+    QString field;
+    QString reason;
+    QString descriptor;
+  };
+
+  struct adif_record
+  {
+    QHash<QString, QString> fields;
+    QVector<adif_issue> issues;
+    quint64 warning_count {0};
+    bool partial {false};
+    bool contact {false};
+
+    QString mode () const
+    {
+      auto value = fields.value ("MODE").toUpper ();
+      return value.isEmpty () || value == "MFSK" ? fields.value ("SUBMODE").toUpper () : value;
+    }
+  };
+
+  adif_record inspect_adif_record (QString const& input, std::atomic_bool const& stop,
+                                   bool character_lengths = false, bool header = false)
+  {
+    adif_record record;
+    auto warn = [&] (int position, QString const& field, QString const& reason) {
+      check_load_cancelled (stop, "recovery");
+      ++record.warning_count;
+      if (record.issues.size () < 20)
+        record.issues.append ({position, field, reason,
+          input.mid (position, 160).section ('>', 0, 0).simplified () + '>'});
+    };
+    bool call_seen {false};
+    bool frozen {false};
+    QSet<QString> damaged_fields;
+    int position {0};
+    while ((position = input.indexOf (QChar {'<'}, position)) >= 0)
+      {
+        check_load_cancelled (stop, "record_field");
+        auto closing = input.indexOf (QChar {'>'}, position + 1);
+        auto opening = input.indexOf (QChar {'<'}, position + 1);
+        bool const unterminated = closing < 0 || (opening >= 0 && opening < closing);
+        auto descriptor_end = unterminated ? (opening < 0 ? input.size () : opening) : closing;
+        auto descriptor = input.mid (position + 1, descriptor_end - position - 1);
+        auto name = descriptor.section (':', 0, 0).toUpper ();
+        if (!unterminated && (name == "EOR" || (header && name == "EOH"))
+            && !descriptor.contains (':')) break;
+        bool const used = !header && used_adif_field (name);
+        record.contact = record.contact || used;
+        if (used && name == "CALL")
+          {
+            if (call_seen)
+              {
+                frozen = true;
+                record.partial = true;
+                warn (position, name, QCoreApplication::translate ("WorkedBefore", "Repeated CALL (possible missing <EOR>); later fields ignored"));
+              }
+            call_seen = true;
+          }
+        if (unterminated)
+          {
+            if (used || !adif_free_text (input, position, descriptor_end))
+              {
+                warn (position, name, QCoreApplication::translate ("WorkedBefore", "Unterminated ADIF descriptor"));
+                if (used && !frozen) damaged_fields.insert (name);
+              }
+            if (opening < 0) break;
+            position = opening;
+            continue;
+          }
+        auto field = read_adif_field (input, position, closing, true, stop, character_lengths);
+        if (!used && !field.valid_length && adif_free_text (input, position, closing))
+          {
+            position = closing + 1;
+            continue;
+          }
+        if (!field.valid_length || field.recover_boundary)
+          {
+            warn (position, name, QCoreApplication::translate ("WorkedBefore", "Unreadable ADIF field length; scanning resumes at the next descriptor"));
+            if (used && !frozen) damaged_fields.insert (name);
+          }
+        else
+          {
+            if (!field.valid_type)
+              warn (position, name, QCoreApplication::translate ("WorkedBefore", "Malformed datatype suffix; declared payload length retained"));
+            if (used && !frozen)
+              {
+                auto value = input.mid (field.data_start, field.end - field.data_start);
+                if (!record.fields.contains (name)) record.fields.insert (name, value);
+                else if (record.fields.value (name) != value)
+                  warn (position, name, QCoreApplication::translate ("WorkedBefore", "Conflicting duplicate field; first readable value retained"));
+              }
+          }
+        position = field.recover_boundary ? field.data_start : field.end;
+      }
+    for (auto const& name : damaged_fields)
+      if (!record.fields.contains (name)) record.partial = true;
+    return record;
+  }
+
+  QDate adif_record_date (QByteArray const& record)
+  {
+    std::atomic_bool const no_stop {false};
+    auto parsed = inspect_adif_record (QString::fromUtf8 (record), no_stop);
+    auto date = QDate::fromString (parsed.fields.value ("QSO_DATE"), "yyyyMMdd");
+    return date.isValid () ? date : QDateTime::currentDateTimeUtc ().date ();
+  }
+
+  enum class source_status {Complete, Warnings, Incomplete, Failed};
+
+  struct adif_diagnostic
+  {
+    qint64 line;
+    QString field;
+    QString reason;
+    QString descriptor;
+    QString outcome;
+    QString call;
+  };
 
   struct source_result
   {
     worked_before_database_type worked;
     QString error;
     source_status status {source_status::Complete};
+    quint64 imported_records {0};
+    quint64 partial_records {0};
+    quint64 rejected_records {0};
+    quint64 unfinished_tails {0};
+    quint64 diagnostic_count {0};
+    QVector<adif_diagnostic> diagnostics;
+    bool stopped {false};
   };
 
   source_result loader (QString const& path, AD1CCty const * prefixes,
                         PerformanceTrace::RunId run, std::atomic_bool const& stop,
-                        QByteArray const * data = nullptr)
+                        QByteArray const * data = nullptr, bool pending_append = false)
   {
     check_load_cancelled (stop, "file");
     PerformanceTrace::Phase parse {run, "logbook.parse"};
@@ -531,129 +727,144 @@ namespace
                 QTextStream in {device};
                 in.setCodec ("UTF-8");
                 QString buffer;
+                // A growing append can end inside a valid field payload.
+                auto length_limit = pending_append ? std::numeric_limits<quint64>::max () : static_cast<quint64> (device->size ());
+                qint64 buffer_line {1};
+                qint64 buffer_offset {0};
+                auto discard = [&] (int count) {
+                  buffer_line += buffer.left (count).count ('\n');
+                  buffer_offset += count;
+                  buffer.remove (0, count);
+                };
+                auto diagnose = [&] (int position, QString const& field, QString const& reason,
+                                     QString const& descriptor, QString const& outcome, QString const& call = QString {}) {
+                  ++result.diagnostic_count;
+                  if (result.diagnostics.size () < 20)
+                    result.diagnostics.append ({buffer_line + buffer.left (position).count ('\n'),
+                                                field, reason, descriptor, outcome, call});
+                };
                 constexpr int read_chunk_size {64 * 1024};
                 bool eof {false};
-                auto read_more = [&in, &buffer, &eof, &stop] ()
-                  {
-                    check_load_cancelled (stop, "read");
-                    auto chunk = in.read (read_chunk_size);
-                    check_load_cancelled (stop, "read_complete");
-                    buffer += chunk;
-                    eof = chunk.isEmpty ();
-                    return !eof;
-                  };
+                auto read_more = [&] {
+                  check_load_cancelled (stop, "read");
+                  auto chunk = in.read (read_chunk_size);
+                  check_load_cancelled (stop, "read_complete");
+                  length_limit = std::max (length_limit, static_cast<quint64> (device->size ()));
+                  buffer += chunk;
+                  eof = chunk.isEmpty ();
+                };
+                int first_character {0};
                 while (true)
                   {
-                    int first_character {0};
+                    first_character = 0;
                     while (first_character < buffer.size () && buffer[first_character].isSpace ())
                       {
                         if (!(first_character % 4096)) check_load_cancelled (stop, "whitespace");
                         ++first_character;
                       }
-                    if (first_character == buffer.size ())
-                      {
-                        buffer.clear ();
-                        if (!read_more ()) break;
-                        continue;
-                      }
-                    if (buffer[first_character] != QChar {'<'})
-                      {
-                        int header_end {0};
-                        while (find_adif_tag (buffer, "EOH", 0, header_end, eof, stop) < 0)
-                          {
-                            if (eof)
-                              {
-                                throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Invalid ADIF header").toLocal8Bit ()});
-                              }
-                            read_more ();
-                          }
-                        buffer.remove (0, header_end);
-                      }
-                    else
-                      {
-                        while (true)
-                          {
-                            int header_end {0};
-                            int record_end {0};
-                            auto header_position = find_adif_tag (buffer, "EOH", 0, header_end, eof, stop);
-                            auto record_position = find_adif_tag (buffer, "EOR", 0, record_end, eof, stop);
-                            if (header_position >= 0 && (record_position < 0 || header_position < record_position))
-                              {
-                                buffer.remove (0, header_end);
-                                break;
-                              }
-                            if (record_position >= 0 || eof) break;
-                            read_more ();
-                          }
-                      }
-                    break;
+                    if (first_character < buffer.size () || eof) break;
+                    discard (buffer.size ());
+                    read_more ();
                   }
-
-                auto append_record = [&] (QString const& record, bool character_lengths) {
-                    check_load_cancelled (stop, character_lengths ? "record_characters" : "record");
-                    auto call = extractField (record, "CALL", stop, character_lengths);
-                    if (call.isEmpty ()) return;
-                    auto const& entity = prefixes->lookup (call);
-                    auto mode = extractField (record, "MODE", stop, character_lengths).toUpper ();
-                    if (mode.isEmpty () || mode == "MFSK")
-                      mode = extractField (record, "SUBMODE", stop, character_lengths).toUpper ();
-                    insert_worked (worked, worked_entry {call.toUpper ()
-                                    , extractField (record, "GRIDSQUARE", stop, character_lengths).left (4).toUpper ()
-                                    , extractField (record, "BAND", stop, character_lengths).toUpper ()
-                                    , mode, entity
-                                    , QDate::fromString (extractField (record, "QSO_DATE", stop, character_lengths), "yyyyMMdd")});
-                  };
+                bool const header_required = first_character < buffer.size () && buffer[first_character] != QChar {'<'};
+                bool initial {true};
                 int buffer_start {0};
+                adif_scan_cursor cursor;
                 while (true)
                   {
+                    cursor.length_limit = length_limit;
+                    cursor.buffer_offset = buffer_offset;
+                    cursor.include_header = initial;
+                    auto tag = initial && header_required ? "EOH" : "EOR";
                     int record_end {0};
                     bool character_lengths {false};
-                    auto end_position = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, stop);
-                    if (end_position < 0 && eof)
+                    auto boundary = find_adif_tag (buffer, tag, buffer_start, record_end, eof && !pending_append, stop, false, &cursor);
+                    if (boundary < 0 && !eof)
                       {
-                        end_position = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, stop, true);
-                        character_lengths = true;
-                      }
-                    if (end_position >= 0)
-                      {
-                        auto record = buffer.mid (buffer_start, record_end - buffer_start);
-                        try
-                          {
-                            append_record (record, character_lengths);
-                          }
-                        catch (LoaderException const&)
-                          {
-                            if (character_lengths || record.toLatin1 () == record.toUtf8 ()) throw;
-                            auto fallback = find_adif_tag (buffer, "EOR", buffer_start, record_end, eof, stop, true);
-                            if (fallback < 0)
-                              {
-                                if (eof) throw;
-                                read_more ();
-                                continue;
-                              }
-                            append_record (buffer.mid (buffer_start, record_end - buffer_start), true);
-                          }
-                        buffer_start = record_end;
-                        if (buffer_start >= read_chunk_size)
-                          {
-                            buffer.remove (0, buffer_start);
-                            buffer_start = 0;
-                          }
-                      }
-                    else
-                      {
-                        if (buffer_start)
-                          {
-                            buffer.remove (0, buffer_start);
-                            buffer_start = 0;
-                          }
-                        if (eof) break;
                         read_more ();
+                        continue;
                       }
-                  }
-                if (buffer.contains (QRegularExpression {QStringLiteral ("<[A-Za-z][A-Za-z0-9_]*:")}))
-                  {
-                    throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Incomplete ADIF record (missing <EOR>)").toLocal8Bit ()});
+                    auto is_header = [&] (int end) {
+                      return initial && end >= 5 && buffer.mid (end - 5, 5).compare ("<EOH>", Qt::CaseInsensitive) == 0;
+                    };
+                    auto text = buffer.mid (buffer_start, boundary < 0 ? -1 : record_end - buffer_start);
+                    auto record = inspect_adif_record (text, stop, false, is_header (record_end));
+                    if (cursor.non_ascii && (boundary < 0 || record.warning_count))
+                      {
+                        int fallback_end {0};
+                        adif_scan_cursor fallback_cursor;
+                        fallback_cursor.position = buffer_start;
+                        fallback_cursor.include_header = initial;
+                        fallback_cursor.length_limit = length_limit;
+                        fallback_cursor.buffer_offset = buffer_offset;
+                        auto fallback = find_adif_tag (buffer, tag, buffer_start, fallback_end, eof && !pending_append, stop, true, &fallback_cursor);
+                        while (fallback < 0 && !eof)
+                          {
+                            read_more ();
+                            fallback_cursor.length_limit = length_limit;
+                            fallback = find_adif_tag (buffer, tag, buffer_start, fallback_end, eof && !pending_append, stop, true, &fallback_cursor);
+                          }
+                        if (fallback >= 0)
+                          {
+                            auto alternative = inspect_adif_record (buffer.mid (buffer_start, fallback_end - buffer_start), stop, true, is_header (fallback_end));
+                            if (boundary < 0 || alternative.warning_count < record.warning_count)
+                              {
+                                record = alternative;
+                                record_end = fallback_end;
+                                boundary = fallback;
+                                character_lengths = true;
+                              }
+                          }
+                      }
+                    if (boundary < 0)
+                      {
+                        if ((initial && header_required)
+                            || text.contains (QRegularExpression {QStringLiteral ("<[A-Za-z][A-Za-z0-9_]*(?::|$)")}))
+                          {
+                            ++result.unfinished_tails;
+                            result.status = source_status::Incomplete;
+                            diagnose (std::max (buffer_start, buffer.indexOf ('<', buffer_start)), {}, QCoreApplication::translate ("WorkedBefore", "Incomplete ADIF header or record"), {},
+                                      QCoreApplication::translate ("WorkedBefore", "Unfinished tail not imported; end of file reached"));
+                          }
+                        break;
+                      }
+                    bool const header = is_header (record_end);
+                    auto call = record.fields.value ("CALL");
+                    auto outcome = QCoreApplication::translate ("WorkedBefore", "Header read with warnings");
+                    if (!header)
+                      {
+                        check_load_cancelled (stop, character_lengths ? "record_characters" : "record");
+                        if (!call.trimmed ().isEmpty ())
+                          {
+                            insert_worked (worked, worked_entry {call.toUpper (), record.fields.value ("GRIDSQUARE").left (4).toUpper (),
+                              record.fields.value ("BAND").toUpper (), record.mode (), prefixes->lookup (call),
+                              QDate::fromString (record.fields.value ("QSO_DATE"), "yyyyMMdd")});
+                            ++result.imported_records;
+                            if (record.partial) ++result.partial_records;
+                            outcome = record.partial ? QCoreApplication::translate ("WorkedBefore", "Contact imported with unavailable fields")
+                              : QCoreApplication::translate ("WorkedBefore", "Contact imported");
+                          }
+                        else if (record.contact)
+                          {
+                            ++result.rejected_records;
+                            outcome = QCoreApplication::translate ("WorkedBefore", "Contact skipped: CALL is unavailable");
+                            if (!record.warning_count)
+                              diagnose (buffer.indexOf ('<', buffer_start), "CALL", QCoreApplication::translate ("WorkedBefore", "Missing or empty CALL"), {}, outcome);
+                          }
+                      }
+                    for (auto const& issue : record.issues)
+                      diagnose (buffer_start + issue.position, issue.field, issue.reason, issue.descriptor, outcome, call);
+                    result.diagnostic_count += record.warning_count - record.issues.size ();
+                    initial = false;
+                    buffer_start = record_end;
+                    cursor = {};
+                    cursor.position = buffer_start;
+                    if (buffer_start >= read_chunk_size)
+                      {
+                        discard (buffer_start);
+                        buffer_start = 0;
+                        cursor.position = 0;
+                      }
                   }
                 if ((!data && inputFile.error () != QFile::NoError) || in.status () == QTextStream::ReadCorruptData)
                   {
@@ -669,7 +880,28 @@ namespace
     catch (LoaderException const& e)
       {
         result.error = e.error ();
+        result.stopped = true;
         result.status = worked.empty () ? source_status::Failed : source_status::Incomplete;
+      }
+
+    if (result.diagnostic_count)
+      {
+        QStringList details;
+        details.append (QCoreApplication::translate ("WorkedBefore", "%1 records imported; %2 partially imported; %3 records skipped; %4 unfinished tails. %5")
+                        .arg (result.imported_records).arg (result.partial_records).arg (result.rejected_records).arg (result.unfinished_tails)
+                        .arg (result.stopped ? QCoreApplication::translate ("WorkedBefore", "Scan stopped early.")
+                                            : QCoreApplication::translate ("WorkedBefore", "Scan reached end of file.")));
+        for (auto const& diagnostic : result.diagnostics)
+          details.append (QCoreApplication::translate ("WorkedBefore", "Line %1: %2%3. %4 %5 %6")
+                          .arg (QString::number (diagnostic.line), diagnostic.reason,
+                                diagnostic.field.isEmpty () ? QString {} : ": " + diagnostic.field,
+                                diagnostic.descriptor, diagnostic.outcome, diagnostic.call.isEmpty () ? QString {} : "CALL: " + diagnostic.call));
+        if (result.diagnostic_count > static_cast<quint64> (result.diagnostics.size ()))
+          details.append (QCoreApplication::translate ("WorkedBefore", "%1 additional diagnostics omitted.")
+                          .arg (result.diagnostic_count - result.diagnostics.size ()));
+        if (!result.error.isEmpty ()) details.append (result.error);
+        result.error = details.join ('\n');
+        if (result.status == source_status::Complete) result.status = source_status::Warnings;
       }
     check_load_cancelled (stop, "file_complete");
     parse.finish (QString {"unique_entries=%1"}.arg (worked.size ()));
@@ -716,6 +948,9 @@ namespace
     int directory_failures {0};
     int files_read {0};
     int files_incomplete {0};
+    quint64 warnings {0};
+    quint64 partial_records {0};
+    quint64 rejected_records {0};
     int files_failed {0};
     int files_expected {0};
     bool primary_absent {false};
@@ -845,8 +1080,11 @@ namespace
                 continue;
               }
             auto source = loader (path, prefixes, run, stop);
-            bool recovered = path == primary && source.status == source_status::Incomplete;
-            if (source.status == source_status::Complete || recovered)
+            bool recovered = source.status == source_status::Incomplete;
+            result.warnings += source.diagnostic_count;
+            result.partial_records += source.partial_records;
+            result.rejected_records += source.rejected_records;
+            if (source.status != source_status::Failed)
               {
                 if (result.worked.empty ()) result.worked.swap (source.worked);
                 else
@@ -1069,7 +1307,8 @@ WorkedBefore::WorkedBefore (Configuration const * configuration)
           if (result.primary != m_->path_ || known == m_->watched_.end () || !(*known == result.known)) return;
           try
             {
-              auto parsed = loader (m_->path_, &m_->prefixes_, m_->loader_run_, m_->stop_requested_, &result.appended);
+              auto parsed = loader (m_->path_, &m_->prefixes_, m_->loader_run_, m_->stop_requested_, &result.appended, true);
+              if (parsed.unfinished_tails) return;
               if (parsed.status != source_status::Complete)
                 {
                   reload ();
@@ -1122,9 +1361,14 @@ void WorkedBefore::handle_loader_finished ()
     {
       m_->load_status_ = tr ("History loaded: %1 unique worked-before entries; %2 files loaded.").arg (n).arg (result.files_read);
     }
+  else if (result.files_read && !result.files_incomplete && !result.files_failed && !result.directory_failures)
+    {
+      m_->load_status_ = tr ("History loaded with warnings: %1 warnings; %2 contacts skipped; %3 partially imported; %4 unique worked-before entries.")
+        .arg (result.warnings).arg (result.rejected_records).arg (result.partial_records).arg (n);
+    }
   else if (result.files_read || result.files_incomplete)
     {
-      m_->load_status_ = tr ("Incomplete history: %1 unique worked-before entries; %2 of %3 files loaded completely; %4 partially recovered; %5 failed.")
+      m_->load_status_ = tr ("Incomplete history: %1 unique worked-before entries; %2 of %3 files loaded completely; %4 incomplete; %5 failed.")
         .arg (n).arg (result.files_read).arg (result.files_expected).arg (result.files_incomplete).arg (result.files_failed);
     }
   else

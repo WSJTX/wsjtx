@@ -1398,7 +1398,8 @@ private slots:
     auto const good = exports + "/good.adi";
     auto const bad = exports + "/broken.adif";
     QVERIFY (writeHistoryFile (good, "<call:5>K1ABC<eor>"));
-    QVERIFY (writeHistoryFile (bad, "<call:5>K2BAD<eor><call:99>truncated"));
+    QByteArray const damaged {"<call:5>K2BAD<eor><call:99>truncated"};
+    QVERIFY (writeHistoryFile (bad, damaged));
     dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}};
     WorkedBefore worked {configuration_.get ()};
     QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
@@ -1410,13 +1411,16 @@ private slots:
     dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}, {exports, false}, {missing, true}};
     worked.reload ();
     QTRY_COMPARE (finished.count (), 2);
-    QCOMPARE (finished.at (1).at (0).toInt (), 1);
+    QCOMPARE (finished.at (1).at (0).toInt (), 2);
     QVERIFY (worked.call_worked ("K1ABC", {}, {}));
-    QVERIFY (!worked.call_worked ("K2BAD", {}, {}));
+    QVERIFY (worked.call_worked ("K2BAD", {}, {}));
+    QVERIFY (!worked.call_worked ("TRUNCATED", {}, {}));
+    QCOMPARE (historyFileContents (bad), damaged);
     QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (bad)));
     QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (missing)));
     QVERIFY (!worked.load_errors ().contains (QDir::toNativeSeparators (empty)));
     QVERIFY2 (worked.load_status ().contains ("1 of 2 files loaded"), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_status ().contains ("1 incomplete; 0 failed."));
     QVERIFY (worked.load_status ().contains ("Directory discovery failures: 1"));
     QCOMPARE (configuration_->supplemental_history_folders ().size (), 3);
 
@@ -1426,7 +1430,10 @@ private slots:
     worked.reload ();
     QTRY_COMPARE (finished.count (), 3);
     QVERIFY (worked.load_errors ().isEmpty ());
+    QCOMPARE (finished.at (2).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
     QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+    QVERIFY (!worked.call_worked ("K2BAD", {}, {}));
   }
 
   void folderHistoryReportsUnreadableDirectories ()
@@ -2022,6 +2029,30 @@ private slots:
           }
         QCOMPARE (sources->item (0)->data (Qt::UserRole).toString (), source);
         QVERIFY (status->toPlainText ().contains (source));
+      }));
+  }
+
+  void historyDiagnosticsStayInScrollableReport ()
+  {
+    auto status = dialog ().ui_->worked_before_status_line_edit;
+    QString const hint {"Open History sources for the full scan report and diagnostic details."};
+    configuration_->set_worked_before_status ("History loaded.", {});
+    QCOMPARE (status->text (), QString {"History loaded."});
+    QCOMPARE (status->toolTip (), hint);
+
+    QString const summary {"History loaded with warnings: 200 warnings."};
+    QStringList details;
+    for (int line = 1; line <= 200; ++line)
+      details.append (QString {"history.adi: Line %1: Unreadable ADIF field length."}.arg (line));
+    auto const errors = details.join ('\n');
+    QVERIFY (inspectHistoryDialog ([&] (QDialog& nested) {
+        auto report = nested.findChild<QTextEdit *> ();
+        QVERIFY (report);
+        configuration_->set_worked_before_status (summary, errors);
+        QCOMPARE (status->text (), summary);
+        QCOMPARE (status->toolTip (), hint);
+        QVERIFY (report->isReadOnly ());
+        QCOMPARE (report->toPlainText (), summary + "\n\n" + errors);
       }));
   }
 
