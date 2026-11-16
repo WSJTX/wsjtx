@@ -759,6 +759,9 @@ set (wsprsim_CSRCS
 
 set (wspr_decoder_CSRCS
   lib/wsprd/wspr_decoder.c
+  lib/wsprd/wspr_coherent.c
+  lib/wsprd/wspr_noncoherent.c
+  lib/wsprd/wspr_demodulation.c
   lib/wsprd/wsprsim_utils.c
   lib/wsprd/wsprd_utils.c
   lib/wsprd/fano.c

@@ -33,6 +33,8 @@
 #include <time.h>
 #include <fftw3.h>
 #include "wspr_decoder.h"
+#include "wspr_coherent.h"
+#include "wspr_demodulation.h"
 #include "wsprd_utils.h"
 #include "wsprsim_utils.h"
 #include "fano.h"
@@ -56,6 +58,7 @@ struct wspr_decoder {
     fftwf_plan spectrum_plan, inverse_plan;
     wspr_plan_guard plan_guard;
     int npoints, waveform;
+    struct wspr_coherent_plan coherent_plan;
     struct snode *stack;
     struct fano_node fano_nodes[82];
     unsigned int stack_buckets[1000];
@@ -91,7 +94,7 @@ static void sync_and_demodulate(float *id, float *qd, long np,
 
     int i, j, k, lag;
     float i0[162],q0[162],i1[162],q1[162],i2[162],q2[162],i3[162],q3[162];
-    float p0,p1,p2,p3,cmet,totp,syncmax,fac;
+    float p0,p1,p2,p3,cmet,syncmax,fac;
     float c0[256],s0[256],c1[256],s1[256],c2[256],s2[256],c3[256],s3[256];
     float dphi0, cdphi0, sdphi0, dphi1, cdphi1, sdphi1, dphi2, cdphi2, sdphi2,
     dphi3, cdphi3, sdphi3;
@@ -104,48 +107,54 @@ static void sync_and_demodulate(float *id, float *qd, long np,
     if( mode == 2 ) {lagmin=*shift1;lagmax=*shift1;ifmin=0;ifmax=0;f0=*f1;}
 
     twopidt=2*pi*dt;
+    const int lag_count = (lagmax - lagmin) / lagstep + 1;
+    float lag_sync[lag_count], lag_power[lag_count];
     for(ifreq=ifmin; ifreq<=ifmax; ifreq++) {
         f0=*f1+ifreq*fstep;
-        for(lag=lagmin; lag<=lagmax; lag=lag+lagstep) {
-            ss=0.0;
-            totp=0.0;
-            for (i=0; i<162; i++) {
-                fp = f0 + (*drift1/2.0)*((float)i-81.0)/81.0;
-                if( i==0 || (fp != fplast) ) {  // only calculate sin/cos if necessary
-                    dphi0=twopidt*(fp-df15);
-                    cdphi0=cos(dphi0);
-                    sdphi0=sin(dphi0);
+        for (int l = 0; l < lag_count; ++l) {
+            lag_sync[l] = 0.0f;
+            lag_power[l] = 0.0f;
+        }
+        /* Oscillator tables depend on the symbol and frequency, so share them across lags. */
+        for (i=0; i<162; i++) {
+            fp = f0 + (*drift1/2.0)*((float)i-81.0)/81.0;
+            if( i==0 || (fp != fplast) ) {  // only calculate sin/cos if necessary
+                dphi0=twopidt*(fp-df15);
+                cdphi0=cos(dphi0);
+                sdphi0=sin(dphi0);
 
-                    dphi1=twopidt*(fp-df05);
-                    cdphi1=cos(dphi1);
-                    sdphi1=sin(dphi1);
+                dphi1=twopidt*(fp-df05);
+                cdphi1=cos(dphi1);
+                sdphi1=sin(dphi1);
 
-                    dphi2=twopidt*(fp+df05);
-                    cdphi2=cos(dphi2);
-                    sdphi2=sin(dphi2);
+                dphi2=twopidt*(fp+df05);
+                cdphi2=cos(dphi2);
+                sdphi2=sin(dphi2);
 
-                    dphi3=twopidt*(fp+df15);
-                    cdphi3=cos(dphi3);
-                    sdphi3=sin(dphi3);
+                dphi3=twopidt*(fp+df15);
+                cdphi3=cos(dphi3);
+                sdphi3=sin(dphi3);
 
-                    c0[0]=1; s0[0]=0;
-                    c1[0]=1; s1[0]=0;
-                    c2[0]=1; s2[0]=0;
-                    c3[0]=1; s3[0]=0;
+                c0[0]=1; s0[0]=0;
+                c1[0]=1; s1[0]=0;
+                c2[0]=1; s2[0]=0;
+                c3[0]=1; s3[0]=0;
 
-                    for (j=1; j<256; j++) {
-                        c0[j]=c0[j-1]*cdphi0 - s0[j-1]*sdphi0;
-                        s0[j]=c0[j-1]*sdphi0 + s0[j-1]*cdphi0;
-                        c1[j]=c1[j-1]*cdphi1 - s1[j-1]*sdphi1;
-                        s1[j]=c1[j-1]*sdphi1 + s1[j-1]*cdphi1;
-                        c2[j]=c2[j-1]*cdphi2 - s2[j-1]*sdphi2;
-                        s2[j]=c2[j-1]*sdphi2 + s2[j-1]*cdphi2;
-                        c3[j]=c3[j-1]*cdphi3 - s3[j-1]*sdphi3;
-                        s3[j]=c3[j-1]*sdphi3 + s3[j-1]*cdphi3;
-                    }
-                    fplast = fp;
+                for (j=1; j<256; j++) {
+                    c0[j]=c0[j-1]*cdphi0 - s0[j-1]*sdphi0;
+                    s0[j]=c0[j-1]*sdphi0 + s0[j-1]*cdphi0;
+                    c1[j]=c1[j-1]*cdphi1 - s1[j-1]*sdphi1;
+                    s1[j]=c1[j-1]*sdphi1 + s1[j-1]*cdphi1;
+                    c2[j]=c2[j-1]*cdphi2 - s2[j-1]*sdphi2;
+                    s2[j]=c2[j-1]*sdphi2 + s2[j-1]*cdphi2;
+                    c3[j]=c3[j-1]*cdphi3 - s3[j-1]*sdphi3;
+                    s3[j]=c3[j-1]*sdphi3 + s3[j-1]*cdphi3;
                 }
+                fplast = fp;
+            }
 
+            for (int l = 0; l < lag_count; ++l) {
+                lag = lagmin + l * lagstep;
                 i0[i]=0.0; q0[i]=0.0;
                 i1[i]=0.0; q1[i]=0.0;
                 i2[i]=0.0; q2[i]=0.0;
@@ -174,9 +183,9 @@ static void sync_and_demodulate(float *id, float *qd, long np,
                 p2=sqrt(p2);
                 p3=sqrt(p3);
 
-                totp=totp+p0+p1+p2+p3;
+                lag_power[l]=lag_power[l]+p0+p1+p2+p3;
                 cmet=(p1+p3)-(p0+p2);
-                ss = (pr3[i] == 1) ? ss+cmet : ss-cmet;
+                lag_sync[l] = (pr3[i] == 1) ? lag_sync[l]+cmet : lag_sync[l]-cmet;
                 if( mode == 2) {                 //Compute soft symbols
                     if(pr3[i]==1) {
                         fsymb[i]=p3-p1;
@@ -185,13 +194,15 @@ static void sync_and_demodulate(float *id, float *qd, long np,
                     }
                 }
             }
-            ss=ss/totp;
+        }
+        for (int l = 0; l < lag_count; ++l) {
+            ss=lag_sync[l]/lag_power[l];
             if( ss > syncmax ) {          //Save best parameters
                 syncmax=ss;
-                best_shift=lag;
+                best_shift=lagmin + l * lagstep;
                 fbest=f0;
             }
-        } // lag loop
+        }
     } //freq loop
 
     if( mode <=1 ) {                       //Send best params back to caller
@@ -215,149 +226,6 @@ static void sync_and_demodulate(float *id, float *qd, long np,
             symbols[i]=fsymb[i] + 128;
         }
         return;
-    }
-    return;
-}
-
-static void noncoherent_sequence_detection(float *id, float *qd, long np,
-                                    unsigned char *symbols, float *f1,  int *shift1,
-                                    float *drift1, int symfac, int *nblocksize, int *bitmetric)
-{
-    /************************************************************************
-     *  Noncoherent sequence detection for wspr.                            *
-     *  Allowed block lengths are nblock=1,2,3,6, or 9 symbols.             *
-     *  Longer block lengths require longer channel coherence time.         *
-     *  The whole block is estimated at once.                               *
-     *  nblock=1 corresponds to noncoherent detection of individual symbols *
-     *     like the original wsprd symbol demodulator.                      *
-     ************************************************************************/
-    float fplast=-10000.0;
-    static float dt=1.0/375.0, df=375.0/256.0;
-    static float pi=3.14159265358979323846;
-    float twopidt, df15=df*1.5, df05=df*0.5;
-
-    int i, j, k, lag, itone, ib, b, nblock, nseq, imask;
-    float xi[512],xq[512];
-    float is[4][162],qs[4][162],cf[4][162],sf[4][162],cm,sm,cmp,smp;
-    float p[512],fac,xm1,xm0;
-    float c0[257],s0[257],c1[257],s1[257],c2[257],s2[257],c3[257],s3[257];
-    float dphi0, cdphi0, sdphi0, dphi1, cdphi1, sdphi1, dphi2, cdphi2, sdphi2,
-    dphi3, cdphi3, sdphi3;
-    float f0, fp, fsum=0.0, f2sum=0.0, fsymb[162];
-
-    twopidt=2*pi*dt;
-    f0=*f1;
-    lag=*shift1;
-    nblock=*nblocksize;
-    nseq=1<<nblock;
-    int bitbybit=*bitmetric;
-
-    for (i=0; i<162; i++) {
-        fp = f0 + (*drift1/2.0)*((float)i-81.0)/81.0;
-        if( i==0 || (fp != fplast) ) {  // only calculate sin/cos if necessary
-            dphi0=twopidt*(fp-df15);
-            cdphi0=cos(dphi0);
-            sdphi0=sin(dphi0);
-
-            dphi1=twopidt*(fp-df05);
-            cdphi1=cos(dphi1);
-            sdphi1=sin(dphi1);
-
-            dphi2=twopidt*(fp+df05);
-            cdphi2=cos(dphi2);
-            sdphi2=sin(dphi2);
-
-            dphi3=twopidt*(fp+df15);
-            cdphi3=cos(dphi3);
-            sdphi3=sin(dphi3);
-
-            c0[0]=1; s0[0]=0;
-            c1[0]=1; s1[0]=0;
-            c2[0]=1; s2[0]=0;
-            c3[0]=1; s3[0]=0;
-
-            for (j=1; j<257; j++) {
-                c0[j]=c0[j-1]*cdphi0 - s0[j-1]*sdphi0;
-                s0[j]=c0[j-1]*sdphi0 + s0[j-1]*cdphi0;
-                c1[j]=c1[j-1]*cdphi1 - s1[j-1]*sdphi1;
-                s1[j]=c1[j-1]*sdphi1 + s1[j-1]*cdphi1;
-                c2[j]=c2[j-1]*cdphi2 - s2[j-1]*sdphi2;
-                s2[j]=c2[j-1]*sdphi2 + s2[j-1]*cdphi2;
-                c3[j]=c3[j-1]*cdphi3 - s3[j-1]*sdphi3;
-                s3[j]=c3[j-1]*sdphi3 + s3[j-1]*cdphi3;
-            }
-
-            fplast = fp;
-        }
-
-        cf[0][i]=c0[256]; sf[0][i]=s0[256];
-        cf[1][i]=c1[256]; sf[1][i]=s1[256];
-        cf[2][i]=c2[256]; sf[2][i]=s2[256];
-        cf[3][i]=c3[256]; sf[3][i]=s3[256];
-
-        is[0][i]=0.0; qs[0][i]=0.0;
-        is[1][i]=0.0; qs[1][i]=0.0;
-        is[2][i]=0.0; qs[2][i]=0.0;
-        is[3][i]=0.0; qs[3][i]=0.0;
-
-        for (j=0; j<256; j++) {
-            k=lag+i*256+j;
-            if( (k>0) && (k<np) ) {
-                is[0][i]=is[0][i] + id[k]*c0[j] + qd[k]*s0[j];
-                qs[0][i]=qs[0][i] - id[k]*s0[j] + qd[k]*c0[j];
-                is[1][i]=is[1][i] + id[k]*c1[j] + qd[k]*s1[j];
-                qs[1][i]=qs[1][i] - id[k]*s1[j] + qd[k]*c1[j];
-                is[2][i]=is[2][i] + id[k]*c2[j] + qd[k]*s2[j];
-                qs[2][i]=qs[2][i] - id[k]*s2[j] + qd[k]*c2[j];
-                is[3][i]=is[3][i] + id[k]*c3[j] + qd[k]*s3[j];
-                qs[3][i]=qs[3][i] - id[k]*s3[j] + qd[k]*c3[j];
-            }
-        }
-    }
-
-    for (i=0; i<162; i=i+nblock) {
-        for (j=0;j<nseq;j++) {
-            xi[j]=0.0; xq[j]=0.0;
-            cm=1; sm=0;
-            for (ib=0; ib<nblock; ib++) {
-                b=(j&(1<<(nblock-1-ib)))>>(nblock-1-ib);
-                itone=pr3[i+ib]+2*b;
-                xi[j]=xi[j]+is[itone][i+ib]*cm + qs[itone][i+ib]*sm;
-                xq[j]=xq[j]+qs[itone][i+ib]*cm - is[itone][i+ib]*sm;
-                cmp=cf[itone][i+ib]*cm - sf[itone][i+ib]*sm;
-                smp=sf[itone][i+ib]*cm + cf[itone][i+ib]*sm;
-                cm=cmp; sm=smp;
-            }
-            p[j]=xi[j]*xi[j]+xq[j]*xq[j];
-            p[j]=sqrt(p[j]);
-        }
-        for (ib=0; ib<nblock; ib++) {
-            imask=1<<(nblock-1-ib);
-            xm1=0.0; xm0=0.0;
-            for (j=0; j<nseq; j++) {
-                if((j & imask)!=0) {
-                    if(p[j] > xm1) xm1=p[j];
-                }
-                if((j & imask)==0) {
-                    if(p[j]>xm0) xm0=p[j];
-                }
-            }
-            fsymb[i+ib]=xm1-xm0;
-            if( bitbybit == 1 ) {
-                fsymb[i+ib]=fsymb[i+ib]/(xm1 > xm0 ? xm1 : xm0);
-            }
-        }
-    }
-    for (i=0; i<162; i++) {              //Normalize the soft symbols
-        fsum=fsum+fsymb[i]/162.0;
-        f2sum=f2sum+fsymb[i]*fsymb[i]/162.0;
-    }
-    fac=sqrt(f2sum-fsum*fsum);
-    for (i=0; i<162; i++) {
-        fsymb[i]=symfac*fsymb[i]/fac;
-        if( fsymb[i] > 127) fsymb[i]=127.0;
-        if( fsymb[i] < -128 ) fsymb[i]=-128.0;
-        symbols[i]=fsymb[i] + 128;
     }
     return;
 }
@@ -571,6 +439,7 @@ int32_t wspr_decoder_create_guarded(wspr_decoder **out, wspr_plan_guard guard)
 void wspr_decoder_destroy(wspr_decoder *ctx)
 {
     if (!ctx) return;
+    wspr_coherent_destroy(&ctx->coherent_plan);
     if (ctx->inverse_plan) destroy_plan(ctx, ctx->inverse_plan);
     if (ctx->spectrum_plan) destroy_plan(ctx, ctx->spectrum_plan);
     fftwf_free(ctx->iqin);
@@ -745,6 +614,8 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
         ctx->stack = calloc(200000, sizeof *ctx->stack);
         if (!ctx->stack) return DECODER_INTERNAL_ERROR;
     }
+    if (tuning->npasses > 2 && !ctx->coherent_plan.fft &&
+        wspr_coherent_init(&ctx->coherent_plan) != 0) return DECODER_INTERNAL_ERROR;
     memset(decodes, 0, WSPR_DECODER_MAX_RESULTS * sizeof *decodes);
     memcpy(ctx->residual_i, ctx->original_i, sizeof ctx->original_i);
     memcpy(ctx->residual_q, ctx->original_q, sizeof ctx->original_q);
@@ -755,7 +626,7 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
     char callsign[13]={0},grid[5]={0},call_loc_pow[23]={0};
     float allfreqs[100]={0};
     char allcalls[100][13]={{0}};
-    int i,j,k,ipass,nblocksize,nhardmin=0,ihash,maxdrift;
+    int i,j,k,ipass,trial_count,nhardmin=0,ihash,maxdrift;
     int shift1,lagmin,lagmax,lagstep,ifmin,ifmax,not_decoded;
     unsigned int nbits=81,stacksize=200000,npoints=ctx->npoints,cycles=0,maxnp,metric=0;
     struct snode *stack=tuning->stackdecoder ? ctx->stack : NULL;
@@ -793,12 +664,12 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
     for (ipass=0; ipass<npasses; ipass++) {
         if(ipass==1 && ndecodes_pass == 0 && npasses>2) ipass=2;
         if(ipass < 2) {
-            nblocksize=1;
+            trial_count=1;
             maxdrift=4;
             minsync2=0.12;
         }
         else {
-            nblocksize=4;  // try 3 blocksizes plus bitbybit normalization
+            trial_count=WSPR_DEMODULATION_TRIAL_COUNT;
             maxdrift=0;    // no drift for smaller frequency estimator variance
             minsync2=0.10;
         }
@@ -1094,9 +965,15 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
 
         int idt, ii, jittered_shift;
         float y,sq,rms;
-        int ib, blocksize, bitmetric;
+        const struct wspr_demodulation_trial *trial = NULL;
         int n1,n2,n3,nadd,nu,ntype;
         int osd_decode;
+        struct wspr_demodulation_input demodulation_input = {
+            idat, qdat, npoints, pr3, &ctx->coherent_plan, symfac
+        };
+        struct wspr_demodulation_workspace workspace;
+        size_t offsets = quickmode ? 1 : 128 / iifac + 1;
+        wspr_demodulation_init(&workspace, &demodulation_input, offsets, trial_count);
         for (j=0; j<nwat; j++) {
             memset(symbols,0,sizeof(char)*nbits*2);
             memset(callsign,0,sizeof(char)*13);
@@ -1108,10 +985,9 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
             not_decoded=1;
             osd_decode=0;
 
-            ib=1;
-            while( ib <= nblocksize && not_decoded ) {
-                if (ib < 4) { blocksize=ib; bitmetric=0; }
-                if (ib == 4) { blocksize=1; bitmetric=1; }
+            wspr_demodulation_begin_candidate(&workspace, f1, drift1);
+            for (int trial_index = 0; trial_index < trial_count && not_decoded; ++trial_index) {
+                trial = wspr_demodulation_trial(trial_index);
 
                 idt=0; ii=0;
                 while ( not_decoded && idt<=(128/iifac)) {
@@ -1123,8 +999,8 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
 
                     // Get soft-decision symbols
                     t0 = clock();
-                    noncoherent_sequence_detection(idat, qdat, npoints, symbols, &f1,
-                                                   &jittered_shift, &drift1, symfac, &blocksize, &bitmetric);
+                    wspr_demodulation_soft_metrics(&workspace, trial, idt,
+                                                     jittered_shift, symbols);
                     tsync2 += (float)(clock()-t0)/CLOCKS_PER_SEC;
 
                     sq=0.0;
@@ -1203,8 +1079,8 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
                     idt++;
                     if( quickmode ) break;
                 }
-                ib++;
             }
+            wspr_demodulation_end_candidate(&workspace);
 
             if( !not_decoded ) {
                 ndecodes_pass++;
@@ -1277,7 +1153,7 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
                     r->drift = drift1;
                     decodes[uniques-1].cycles=cycles;
                     decodes[uniques-1].jitter=ii;
-                    decodes[uniques-1].blocksize=blocksize+3*bitmetric;
+                    decodes[uniques-1].blocksize=wspr_demodulation_legacy_code(trial);
                     decodes[uniques-1].metric=metric;
                     decodes[uniques-1].nhardmin=nhardmin;
                     decodes[uniques-1].ipass=ipass;
@@ -1286,6 +1162,7 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
             }
         }
 
+        wspr_demodulation_destroy(&workspace);
         if (ipass == 0 && residual_callback) residual_callback(idat, qdat, residual_user);
     }
 

@@ -43,3 +43,26 @@ add_test (NAME test_wsprd_decode_decoder_api COMMAND test_wsprd_decode decoder_a
 list (APPEND wsprd_decode_tests test_wsprd_decode_unresolved_type3 test_wsprd_decode_type2_grid
   test_wsprd_decode_unencodable_text test_wsprd_decode_osd_distance test_wsprd_decode_decoder_api)
 set_tests_properties (${wsprd_decode_tests} PROPERTIES LABELS "decoder;wsprd" TIMEOUT 120)
+
+foreach (component coherent noncoherent)
+  add_executable (test_wspr_${component}
+    test_wspr_${component}.c
+    ${CMAKE_SOURCE_DIR}/lib/wsprd/wspr_${component}.c)
+  target_include_directories (test_wspr_${component} PRIVATE
+    ${CMAKE_SOURCE_DIR} ${FFTW3_INCLUDE_DIRS})
+  target_link_libraries (test_wspr_${component} PRIVATE ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+  set_target_properties (test_wspr_${component} PROPERTIES AUTOMOC OFF)
+  add_test (NAME test_wspr_${component} COMMAND test_wspr_${component})
+  set_tests_properties (test_wspr_${component} PROPERTIES LABELS "decoder;wspr" TIMEOUT 60)
+endforeach ()
+
+add_executable (test_wspr_demodulation
+  test_wspr_demodulation.c
+  ${CMAKE_SOURCE_DIR}/lib/wsprd/wspr_coherent.c
+  ${CMAKE_SOURCE_DIR}/lib/wsprd/wspr_noncoherent.c)
+target_include_directories (test_wspr_demodulation PRIVATE
+  ${CMAKE_SOURCE_DIR} ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (test_wspr_demodulation PRIVATE ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+set_target_properties (test_wspr_demodulation PROPERTIES AUTOMOC OFF)
+add_test (NAME test_wspr_demodulation COMMAND test_wspr_demodulation)
+set_tests_properties (test_wspr_demodulation PROPERTIES LABELS "decoder;wspr" TIMEOUT 60)
