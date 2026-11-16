@@ -552,7 +552,7 @@ void TransceiverBase::begin_mode_command (TransceiverState const& s, unsigned se
     }
   mode_settling_ = true;
   mode_timer_->stop ();
-  mode_settling_clock_.invalidate ();
+  mode_settling_started_.reset ();
 }
 
 void TransceiverBase::finish_mode_command (unsigned sequence_number)
@@ -568,13 +568,13 @@ void TransceiverBase::finish_mode_command (unsigned sequence_number)
     }
   else
     {
-      if (!mode_settling_clock_.isValid ())
+      if (!mode_settling_started_)
         {
           // CAT writes can block the same thread that must poll for confirmation.
-          mode_settling_clock_.start ();
+          mode_settling_started_ = mode_now_ ();
           mode_timer_->start (polls_to_stabilize * 500);
         }
-      if (mode_settling_clock_.elapsed () >= polls_to_stabilize * 500)
+      if (mode_now_ () - *mode_settling_started_ >= polls_to_stabilize * 500)
         settle_mode ();
       else
         publish_mode_observation ();

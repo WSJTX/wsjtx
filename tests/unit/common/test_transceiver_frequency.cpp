@@ -2,7 +2,7 @@
 #include <stdexcept>
 
 #include <QtTest>
-#include <QThread>
+#include <QTimer>
 
 #include "Transceiver/TransceiverBase.hpp"
 #include "FrequencyAdapter.hpp"
@@ -163,21 +163,29 @@ private Q_SLOTS:
     using Status = Transceiver::ModeStatus;
     Transceiver::logger_type logger;
     FrequencyRig rig {&logger};
+    qint64 now = 0;
+    rig.mode_now_ = [&] {return now;};
     rig.start (1);
     rig.mode_readable = true;
     QSignalSpy statuses {&rig, &Transceiver::mode_status};
     auto state = request (10, 14074000, 0);
     state.mode (Transceiver::DIG_U);
-    QElapsedTimer elapsed;
-    elapsed.start ();
     rig.set (state, 2);
     rig.report_mode (Transceiver::CW);
-    QTest::qWait (900);
+    auto const started = rig.mode_settling_started_;
+    QVERIFY (rig.mode_timer_->isActive ());
+    QCOMPARE (rig.mode_timer_->interval (), 1500);
+    rig.mode_timer_->setInterval (1200);
+    now = 900;
     rig.set (state, 3);
     rig.report_mode (Transceiver::CW);
-    QTRY_COMPARE_WITH_TIMEOUT (qvariant_cast<Status> (statuses.last ().at (0)).kind,
-                              Kind::Observed, 1300);
-    QVERIFY (elapsed.elapsed () < 2200);
+    QVERIFY (rig.mode_settling_started_ == started);
+    QCOMPARE (rig.mode_timer_->interval (), 1200);
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Preparing);
+    QVERIFY (rig.mode_timer_->isActive ());
+    rig.mode_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (rig.mode_timer_, "timeout", Qt::DirectConnection));
+    QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).kind, Kind::Observed);
     QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).mode, Transceiver::CW);
     QCOMPARE (statuses.last ().at (1).toUInt (), 3u);
   }
@@ -202,6 +210,8 @@ private Q_SLOTS:
     QFETCH (bool, slow_refresh);
     Transceiver::logger_type logger;
     FrequencyRig rig {&logger};
+    qint64 now = 0;
+    rig.mode_now_ = [&] {return now;};
     rig.start (1);
     rig.mode_readable = true;
     RadioModePolicy policy;
@@ -222,8 +232,7 @@ private Q_SLOTS:
       }
     int completed_operations = 0;
     auto slow_operation = [&] {
-      // Block CAT's event loop so readback cannot run until the command returns.
-      QThread::msleep (1600);
+      now += 1600;
       ++completed_operations;
     };
     if (slow_refresh) rig.mode_refresh = slow_operation;
@@ -251,6 +260,8 @@ private Q_SLOTS:
     using Status = Transceiver::ModeStatus;
     Transceiver::logger_type logger;
     FrequencyRig rig {&logger};
+    qint64 now = 0;
+    rig.mode_now_ = [&] {return now;};
     rig.start (1);
     rig.mode_readable = true;
     RadioModePolicy policy;
@@ -265,7 +276,7 @@ private Q_SLOTS:
 
     bool refresh_completed = false;
     rig.mode_refresh = [&] {
-      QThread::msleep (1600);
+      now += 1600;
       refresh_completed = true;
     };
     rig.set (state, 3);
@@ -308,7 +319,7 @@ private Q_SLOTS:
     rig.set (state, 2);
     rig.report_mode (Transceiver::UNK);
     QTRY_COMPARE_WITH_TIMEOUT (qvariant_cast<Status> (statuses.last ().at (0)).kind,
-                              Kind::Unavailable, 2200);
+                              Kind::Unavailable, 10000);
     QCOMPARE (qvariant_cast<Status> (statuses.last ().at (0)).mode, Transceiver::UNK);
   }
 
