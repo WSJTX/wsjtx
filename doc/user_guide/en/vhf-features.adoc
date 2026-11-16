@@ -562,5 +562,5 @@ image::eme_cabrillo_dialog.png[align="center",width=60%,alt="EME Cabrillo dialog
   contest weekends. QSOs that seem to be on the other group's weekend
   are pointed out, and a box lets you leave them out.
 
-Save the file and upload it at
-contests.arrl.org/arrlemescoresubmission.php.
+Save the file and upload it to ARRL as you normally would for your
+contest entry.
