@@ -1044,8 +1044,8 @@ add_executable (wsjt-codec ${wsjt_codec_FSRCS} ${wsjt_codec_VERSION_RESOURCES})
 target_compile_definitions (wsjt-codec PRIVATE JT9_PROGRAM_NAME=\"wsjt-codec\")
 # wsjt-codec shares jt9's Fortran module directory (fortran_modules_omp) so it
 # can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). Of its
-# own sources only streaming_decode.f90 is a module, a name no library module
-# has, so sharing the dir is collision-free.
+# own sources only streaming_decode.f90 and streaming_jtty_review.f90 are
+# modules, names no library module has, so sharing the dir is collision-free.
 if (WSJT_BUILD_FORTRAN_OPENMP)
   wsjt_link_fortran_openmp (wsjt-codec)
   if (WIN32)

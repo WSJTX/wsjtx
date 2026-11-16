@@ -220,6 +220,8 @@ Mode modeOf (QString const& name)
 
 QJsonObject const Msk144Settings {{"mode", "MSK144"}, {"trperiod", 15}, {"rxfreq", 1500}, {"ntol", 50},
                                   {"depth", 3}, {"utc", "12:08:00"}};
+QJsonObject const FastJt9Settings {{"mode", "JT9"}, {"fast", true}, {"submode", "E"}, {"trperiod", 15},
+                                   {"rxfreq", 700}, {"ntol", 50}, {"utc", "12:08:00"}};
 QJsonObject const JttySettings {{"mode", "JTTY"}, {"rxfreq", 1500}, {"ntol", 50}, {"nfa", 200}, {"nfb", 2800}};
 
 // A configure's next label: utc moved on by whole periods.
@@ -1667,8 +1669,9 @@ private slots:
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
   }
 
-  // MSK144's fast_spectrum rows equal hspec_'s outputs per call, as fastSink
-  // draws them.
+  // MSK144's and fast JT9's fast_spectrum rows equal hspec_'s outputs per
+  // call, as fastSink draws them: per 3584-sample block in MSK144 and per
+  // 3456 in fast JT9, which has no spectrum rows. Any audio draws the graph.
   void fastRowsMatchTheGui_data ()
   {
     QTest::addColumn<QString> ("recording");
@@ -1676,11 +1679,17 @@ private slots:
     QTest::addColumn<bool> ("live");
     QTest::addColumn<int> ("trperiod");
     QTest::addColumn<int> ("copies");   // of the recording, back to back
-    QTest::newRow ("120500") << QString {"181211_120500"} << QString {"12:05:00"} << false << 15 << 1;
-    QTest::newRow ("120800") << QString {"181211_120800"} << QString {"12:08:00"} << false << 15 << 1;
-    QTest::newRow ("120800 live") << QString {"181211_120800"} << QString {"12:08:00"} << true << 15 << 1;
-    QTest::newRow ("120500 TR 30") << QString {"181211_120500"} << QString {"12:05:00"} << false << 30 << 2;
-    QTest::newRow ("120800 TR 5") << QString {"181211_120800"} << QString {"12:08:00"} << true << 5 << 1;
+    QTest::addColumn<bool> ("fastJt9");
+    QTest::newRow ("120500") << QString {"181211_120500"} << QString {"12:05:00"} << false << 15 << 1 << false;
+    QTest::newRow ("120800") << QString {"181211_120800"} << QString {"12:08:00"} << false << 15 << 1 << false;
+    QTest::newRow ("120800 live") << QString {"181211_120800"} << QString {"12:08:00"} << true << 15 << 1 << false;
+    QTest::newRow ("120500 TR 30") << QString {"181211_120500"} << QString {"12:05:00"} << false << 30 << 2 << false;
+    QTest::newRow ("120800 TR 5") << QString {"181211_120800"} << QString {"12:08:00"} << true << 5 << 1 << false;
+    QTest::newRow ("fast JT9") << QString {"181211_120800"} << QString {"12:08:00"} << false << 15 << 1 << true;
+    QTest::newRow ("fast JT9 live") << QString {"181211_120800"} << QString {"12:08:00"} << true << 15 << 1 << true;
+    QTest::newRow ("fast JT9 TR 30") << QString {"181211_120500"} << QString {"12:05:00"} << false << 30 << 2 << true;
+    QTest::newRow ("fast JT9 TR 10") << QString {"181211_120800"} << QString {"12:08:00"} << true << 10 << 1 << true;
+    QTest::newRow ("fast JT9 TR 5") << QString {"181211_120800"} << QString {"12:08:00"} << true << 5 << 1 << true;
   }
 
   void fastRowsMatchTheGui ()
@@ -1690,14 +1699,16 @@ private slots:
     QFETCH (bool, live);
     QFETCH (int, trperiod);
     QFETCH (int, copies);
+    QFETCH (bool, fastJt9);
     auto one = period (wavPcm (inSamples ("MSK144/" + recording + ".wav")), Ft8PeriodSamples);
     QVERIFY2 (!one.isEmpty (), "no recording");
     QByteArray pcm;
     for (int i = 0; i < copies; ++i) pcm += one;
     auto const periodSamples = trperiod * SampleRate;
     auto const periods = int (pcm.size () / 2) / periodSamples;
-    auto const settings = with (Msk144Settings, {{"trperiod", trperiod}, {"utc", utc}, {"live_audio", live},
-                                                 {"spectrum", true}});
+    auto const settings = with (fastJt9 ? FastJt9Settings : Msk144Settings,
+                                {{"trperiod", trperiod}, {"utc", utc}, {"live_audio", live}, {"spectrum", true}});
+    auto const block = fastJt9 ? HsymSamples : BlockSamples;
     QByteArray input = sessionHeader () + configure (settings);
     QStringList script;
     auto const start = QTime::fromString (utc, "HH:mm:ss");
@@ -1705,7 +1716,8 @@ private slots:
       {
         if (p > 0) input += configure ({{"utc", start.addSecs (p * trperiod).toString ("HH:mm:ss")}});
         input += audio (samples (pcm, p * periodSamples, (p + 1) * periodSamples));
-        script << QString {"msk144 %1 %2 %3"}.arg (p * periodSamples).arg (periodSamples).arg (trperiod);
+        script << QString {"%1 %2 %3 %4"}.arg (fastJt9 ? "fastjt9" : "msk144").arg (p * periodSamples)
+          .arg (periodSamples).arg (trperiod);
       }
     auto const codec = runInput (input + halt ());
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
@@ -1716,7 +1728,7 @@ private slots:
     auto const model = runModel (modelDir (QTest::currentDataTag ()), pcm.left (2 * periods * periodSamples), script);
     QVERIFY2 (model.ok, qPrintable (model.failure));
     // Every block of a period of at most 30 s adds columns.
-    QCOMPARE (countKind (model.rows, "fast"), periods * liveRows (periodSamples, BlockSamples));
+    QCOMPARE (countKind (model.rows, "fast"), periods * liveRows (periodSamples, block));
     auto const difference = compareKeptRows (codec->lines, model.rows, live);
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
   }
@@ -1902,34 +1914,40 @@ private slots:
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
   }
 
-  // MSK144 with spectrum turned on within a period: the codec runs hspec_
-  // over the period's earlier blocks without rows, so each block whose last
-  // sample comes with spectrum on has the GUI's row, its first column past 0
-  // (lib/streaming_emit.f90's schema).
+  // MSK144 and fast JT9 with spectrum turned on within a period: the codec
+  // runs hspec_ over the period's earlier blocks without rows, so each block
+  // whose last sample comes with spectrum on has the GUI's row, its first
+  // column past 0 (lib/streaming_emit.f90's schema).
   void fastRowsWhenTurnedOnMidPeriod_data ()
   {
     QTest::addColumn<QList<int>> ("toggles");   // session samples where spectrum turns on, off, on
-    QTest::newRow ("on after block 20") << QList<int> {20 * BlockSamples};
+    QTest::addColumn<bool> ("fastJt9");
+    QTest::newRow ("on after block 20") << QList<int> {20 * BlockSamples} << false;
     QTest::newRow ("on in block 13, off after block 30, on after block 40")
-      << QList<int> {12 * BlockSamples + 1000, 30 * BlockSamples, 40 * BlockSamples};
+      << QList<int> {12 * BlockSamples + 1000, 30 * BlockSamples, 40 * BlockSamples} << false;
     QTest::newRow ("on for period 1, off at period 2, on after its block 20")
-      << QList<int> {0, Ft8PeriodSamples, Ft8PeriodSamples + 20 * BlockSamples};
+      << QList<int> {0, Ft8PeriodSamples, Ft8PeriodSamples + 20 * BlockSamples} << false;
+    QTest::newRow ("fast JT9 on in block 13, off after block 30, on after block 40")
+      << QList<int> {12 * HsymSamples + 1000, 30 * HsymSamples, 40 * HsymSamples} << true;
   }
 
   void fastRowsWhenTurnedOnMidPeriod ()
   {
     QFETCH (QList<int>, toggles);
+    QFETCH (bool, fastJt9);
     auto const one = period (wavPcm (inSamples ("MSK144/181211_120800.wav")), Ft8PeriodSamples);
     QVERIFY2 (!one.isEmpty (), "no recording");
     auto const two = one + one;
-    auto const codec = runInput (sessionHeader () + configure (with (Msk144Settings, {{"live_audio", true}}))
+    auto const codec = runInput (sessionHeader () + configure (with (fastJt9 ? FastJt9Settings : Msk144Settings,
+                                                                     {{"live_audio", true}}))
                                  + toggled (two, toggles, {}, {{Ft8PeriodSamples, {{"utc", "12:08:15"}}}}) + halt ());
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
+    auto const kind = fastJt9 ? "fastjt9" : "msk144";
     auto const model = runModel (modelDir (QTest::currentDataTag ()), two,
-                                 {QString {"msk144 0 %1 15"}.arg (Ft8PeriodSamples),
-                                  QString {"msk144 %1 %1 15"}.arg (Ft8PeriodSamples)});
+                                 {QString {"%1 0 %2 15"}.arg (kind).arg (Ft8PeriodSamples),
+                                  QString {"%1 %2 %2 15"}.arg (kind).arg (Ft8PeriodSamples)});
     QVERIFY2 (model.ok, qPrintable (model.failure));
     auto const periods = byPeriod (model.rows);
     QCOMPARE (periods.size (), 2);
@@ -2176,6 +2194,7 @@ private slots:
     QTest::newRow ("ft4") << QString {"ft4"} << QStringList {"apply", "apply"};
     QTest::newRow ("ft4 apply off apply") << QString {"ft4"} << QStringList {"apply", "off", "apply"};
     QTest::newRow ("msk144") << QString {"msk144"} << QStringList {"apply"};
+    QTest::newRow ("fast JT9") << QString {"fastjt9"} << QStringList {"apply"};
     QTest::newRow ("jtty") << QString {"jtty"} << QStringList {"apply"};
   }
 
@@ -2204,13 +2223,14 @@ private slots:
         script << "reference " + references.first () << QString {"jtty 0 %1 1 0"}.arg (pcm.size () / 2);
         sent = pcm;
       }
-    else if ("msk144" == kind)
+    else if ("msk144" == kind || "fastjt9" == kind)
       {
         auto const pcm = period (wavPcm (inSamples ("MSK144/181211_120800.wav")), Ft8PeriodSamples);
         QVERIFY2 (!pcm.isEmpty (), "no recording");
-        input += configure (with (Msk144Settings, {{"live_audio", true}, {"spectrum", true},
-                                                   {"ref_spectrum", references.first ()}})) + audio (pcm);
-        script << "reference " + references.first () << QString {"msk144 0 %1 15"}.arg (Ft8PeriodSamples);
+        input += configure (with ("msk144" == kind ? Msk144Settings : FastJt9Settings,
+                                  {{"live_audio", true}, {"spectrum", true}, {"ref_spectrum", references.first ()}}))
+          + audio (pcm);
+        script << "reference " + references.first () << QString {"%1 0 %2 15"}.arg (kind).arg (Ft8PeriodSamples);
         sent = pcm;
       }
     else

@@ -17,6 +17,7 @@
 //   equalized <file>             each period's samples after equalization are appended here
 //   period live|file <first> <count>        samples [first, first+count) as one period
 //   msk144 <first> <count> <trperiod>       one MSK144 period of live audio
+//   fastjt9 <first> <count> <trperiod>      one fast JT9 period of live audio
 //   jtty <first> <count> <reception> <origin> [rows_from]
 //                                one live JTTY reception; origin numbers its first sample, and
 //                                its rows take the samples from rows_from on (default 0)
@@ -128,7 +129,14 @@ public:
             int first, count, trperiod;
             words >> first >> count >> trperiod;
             check (first, count);
-            msk144 (first, count, trperiod);
+            fast (first, count, trperiod, Msk144Block);
+          }
+        else if ("fastjt9" == keyword)
+          {
+            int first, count, trperiod;
+            words >> first >> count >> trperiod;
+            check (first, count);
+            fast (first, count, trperiod, Hsym);
           }
         else if ("jtty" == keyword || "jttyspectrum" == keyword)
           {
@@ -322,20 +330,21 @@ private:
     std::cout << "end\n";
   }
 
-  // MainWindow::fastSink's hspec_ call per MSK144 block, after dataSink's equalization.
-  void msk144 (int first, int count, int trperiod)
+  // MainWindow::fastSink's hspec_ call per block, MSK144's 3584 samples or
+  // fast JT9's 3456, after dataSink's equalization.
+  void fast (int first, int count, int trperiod, int block)
   {
     std::fill_n (data_->d2, count, short {0});
     std::copy_n (audio_.data () + first, count, data_->d2);
-    for (int k = Msk144Block; k <= count; k += Msk144Block)
+    for (int k = block; k <= count; k += block)
       {
         equalize (k);
         int nutc0 = 0;
         int nTRpDepth = trperiod + 1000 * 3;
         int rxfreq = 1500;
         int ftol = 50;
-        // The codec's flag; fastSink passes true while monitoring, which leaves
-        // hspec_'s k0 at k - 3584 after a decoding call.
+        // The codec's flag; in MSK144 fastSink passes true while monitoring,
+        // which leaves hspec_'s k0 at k - 3584 after a decoding call.
         bool bmsk144 = false;
         bool train = false;
         double const pcoeffs[5] {};

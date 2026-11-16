@@ -8,6 +8,7 @@ module streaming_period
   public :: period_state, period_begin, period_room, period_take,          &
        period_full, period_ready, period_set_stop, gui_hsym_stop
   public :: sample_due, trigger_fire_time, read_passes_busy_end, clock_start
+  public :: fast_first_try, fast_last_try
 
   ! The GUI's half-symbol: its detector hands symspec this many samples a call.
   integer, parameter, public :: HSYM_SAMPLES = 3456
@@ -107,6 +108,34 @@ contains
        gui_hsym_stop = 0
     end select
   end function gui_hsym_stop
+
+  ! Fast JT9's first decode try in a period of nperiod samples at trperiod
+  ! seconds, as a block end (MainWindow::fastSink, at each 3456-sample block):
+  ! live, the first block end with less than 0.35 s of the period left by the
+  ! GUI's clock, k >= (trperiod - 0.35) * 12000; from a file, the first at or
+  ! past the period's samples less 3584 (its kin - 7 * 512).
+  pure integer function fast_first_try(trperiod, nperiod, live)
+    real(8), intent(in) :: trperiod
+    integer, intent(in) :: nperiod
+    logical, intent(in) :: live
+    integer :: point
+    if (live) then
+       point = nint((trperiod - 0.35d0) * PERIOD_NFSAMPLE)
+    else
+       point = nperiod - 3584
+    end if
+    fast_first_try = (max(point, 1) + HSYM_SAMPLES - 1) / HSYM_SAMPLES * HSYM_SAMPLES
+  end function fast_first_try
+
+  ! Its last try: live, the period's last whole block end, as the GUI
+  ! retries on each block while its decoder is busy; from a file, where the
+  ! decoder is never busy, the first.
+  pure integer function fast_last_try(nperiod, live, first)
+    integer, intent(in) :: nperiod, first
+    logical, intent(in) :: live
+    fast_last_try = first
+    if (live) fast_last_try = max(first, nperiod / HSYM_SAMPLES * HSYM_SAMPLES)
+  end function fast_last_try
 
   ! Of navail samples on offer, how many the period takes — never past its
   ! end, so what is left of a straddling frame is the next period's.

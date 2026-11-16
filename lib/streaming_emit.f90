@@ -39,7 +39,13 @@
 !                       Q65: "q" (the qN code), "avg" (periods averaged) and
 !                       "copied" (jt9's #: the spare 78th bit, the sender
 !                       copied our last message).
-!                       FST4, FST4W, Q65: "period", the TR period in seconds.
+!                       JT4, JT9 (fast JT9 too), JT65 and Q65, and
+!                       JT65+JT9's JT65 lines: "submode", the letter the
+!                       decode pass decoded with (configure's submode as it
+!                       stood); JT65+JT9's JT9 decoder reads none.
+!                       FST4, FST4W, Q65, fast JT9, MSK144: "period", the TR
+!                       period in seconds (MSK144: trperiod's whole seconds,
+!                       as the GUI passes it to hspec).
 !                       FST4, FST4W: "spread" (Hz) when the decoder measured it.
 !                       SuperFox: "superfox":true and "text_width", and none of
 !                       the above.
@@ -51,9 +57,9 @@
 !                     Then "pass", the half-symbol stop of the decode pass that
 !                     produced it (41, 46 or 47 for an early FT8 pass), on every
 !                     decode but MSK144's.
-!                     An MSK144 decode adds "training":true after "message"
-!                     when configure's train is still true after its window,
-!                     where the GUI marks the decode ^.
+!                     An MSK144 decode adds "period" after "message", then
+!                     "training":true when configure's train is still true
+!                     after its window, where the GUI marks the decode ^.
 !   decode_finished   {"v":1,"t":"decode_finished","period_end":"HHMMSS",
 !                      "synced":0,"decoded":14,"average":0}
 !                     The counts of jt9's <DecodeFinished> for the pass that
@@ -128,11 +134,25 @@
 !                     decode_finished, which a period whose final is skipped
 !                     still sends: one per period, and one more per decode
 !                     again (none for a period a mode or period change
-!                     discards or a discontinuity drops short of its stop, or
-!                     a SuperFox even-sequence period whose stop is below 50).
+!                     discards or a discontinuity drops short of its stop, in
+!                     fast JT9 the try that decodes it, its last at most, or
+!                     a SuperFox even-sequence period whose stop is below 50,
+!                     or a FreqCal period, lib/streaming_freqcal.f90).
 !                     An MSK144 period a change discards keeps the decodes it
 !                     has already sent. Periods' events can
 !                     interleave; group them by period_end.
+!   echo              {"v":1,"t":"echo","time":"HHMMSS","level":L,"snr":S,
+!                      "db_err":E,"dfreq":F,"quality":Q,"width":W,"nsum":N,
+!                      "call":"K1ABC ","df":D,"bins":4096,"blue":"...",
+!                      "red":"..."}
+!                     An Echo period's measurement (lib/streaming_echo.f90
+!                     states it): avecho's outputs, echocom's nsum, the call
+!                     decode_echo recovered (six characters, blanks kept)
+!                     and the Echo graph's blue and red spectra, float32 in
+!                     base64; from a file, after "call", the in-band
+!                     parameters read back: doppler_total, doppler, rit,
+!                     echo_freq, spread and echo_spacing. Then the period's
+!                     decode_finished, all counts 0.
 !   msk144_trained    {"v":1,"t":"msk144_trained","call":"W9XYZ",
 !                      "file":"./W9XYZ_261019_120512.pcoeff",
 !                      "phase_eq":[1.2345678901234567E-001,...]}
@@ -154,6 +174,32 @@
 !                     training, after the decode event, if any, of the window
 !                     that completed it, before more input is read; train is
 !                     false from then on.
+!
+!   Side outputs (lib/streaming_side.f90): each carries what one of the
+!   side files the decoders write holds, after the attempt that wrote it,
+!   with the attempt's period label as "time" and its "pass" as a decode's.
+!   fox_callers       {"v":1,"t":"fox_callers","time":"HHMMSS","callers":
+!                      [{"call":"W9XYZ","grid":"EN37","snr":-12,"freq":1500,
+!                      "distance":1814,"age":0}],"pass":50}
+!                     After each FT8 attempt in Fox mode: the callers the
+!                     attempt writes to houndcallers.txt, in its order (age in
+!                     30-s units, 4 at most; distance 9999 without a grid).
+!   averages          {"v":1,"t":"averages","time":"HHMMSS","mode":"JT65",
+!                      "entries":[{"used":false,"time":"000100","sync":3.9,
+!                      "dt":2.49,"freq":1300,"polarity":1}],"pass":176}
+!                     After each JT4 and JT65 attempt: avemsg.txt's entries.
+!   q65_sync          {"v":1,"t":"q65_sync","time":"HHMMSS","dt":0.23,
+!                      "averaged_min":0.0,"averaged_max":1.2,"df":1.66666663,
+!                      "first_bin":120,"averaged":"<base64>","current":
+!                      "<base64>","pass":196}
+!                     Where a Q65 attempt writes red.dat: its values, the
+!                     curves as base64 float32 little-endian, bin i's
+!                     frequency i*df from first_bin.
+!   q65_callers       {"v":1,"t":"q65_callers","time":"HHMMSS","callers":
+!                      [{"call":"W9XYZ","grid":"EN37","last_seen":1763158000,
+!                      "freq":1500}],"pass":96}
+!                     Where a Q65 contest attempt saves tsil.3q: the records
+!                     it leaves, whether or not the save succeeds.
 !
 !   error (memory)    {"v":1,"t":"error","code":"out_of_memory",
 !                      "detail":"no memory to buffer the input"}
@@ -196,7 +242,7 @@
 !                     on the thread that reads its input, and busy turns false
 !                     between back-to-back passes too.
 !                     MSK144, which decodes each block as it is read, sends
-!                     none.
+!                     none, nor does FreqCal (lib/streaming_freqcal.f90).
 !   pass_progress     {"v":1,"t":"pass_progress","mode":"FT8",
 !                      "period_end":"HHMMSS","nzhsym":41}
 !                     During a pass, from the decoders' own progress points,
@@ -249,8 +295,9 @@
 !                       signal meter.
 !   low_sidelobes       boolean, true at the start: the GUI's "Low sidelobes" (a
 !                       Nuttall window on each spectrum row's FFT and on the
-!                       symbol spectra the JT9 decoders read; fast_spectrum has
-!                       no window, as the GUI's Fast Graph has none).
+!                       symbol spectra slow JT9 and JT65+JT9 decode from;
+!                       fast_spectrum and fast JT9 have no window, as in the
+!                       GUI).
 !   ref_spectrum        "off" (the start), "measure" or "apply": the GUI's
 !                       reference-spectrum equalization on live audio
 !                       (live_audio), ahead of every decoder and every row
@@ -468,6 +515,10 @@ module streaming_emit
   real(8), save :: finished_at_ = -huge(1.d0)
   ! The half-symbol stop of the stream host's decode pass (0: none yet).
   integer, save :: pass_ = 0
+  ! The submode its decodes carry, 0 for A (< 0: none), and whether its JT9
+  ! decodes carry it (not in JT65+JT9, whose JT9 decoder reads none).
+  integer, save :: submode_ = -1
+  logical, save :: submode_jt9_ = .true.
   ! The stream host's stdout writer lock, held around every line; null: one
   ! thread writes.
   abstract interface
@@ -512,6 +563,10 @@ module streaming_emit
   public :: streaming_emit_ready
   public :: streaming_emit_decode
   public :: streaming_emit_set_pass
+  public :: streaming_emit_set_submode
+  public :: streaming_emit_pass
+  public :: streaming_emit_time
+  public :: streaming_emit_real
   public :: streaming_emit_replay_line
   public :: streaming_emit_decode_finished
   public :: streaming_emit_period_finished
@@ -554,6 +609,7 @@ module streaming_emit
   public :: streaming_emit_ref_spectrum_error
   public :: streaming_emit_prepared_audio
   public :: streaming_emit_jtty_prepared_audio
+  public :: streaming_emit_echo
 
   ! Values as their little-endian bytes in base64 (RFC 4648 section 4).
   interface streaming_emit_base64
@@ -581,10 +637,10 @@ contains
   subroutine streaming_emit_ready()
     if (.not. enabled_) return
     ! Full jt9-internal mode support (FT8/FT4/JT9/JT65/JT65+JT9/JT4/FST4/
-    ! FST4W/Q65/MSK144) and JTTY. Modes outside this set (e.g., wsprd C2
-    ! streaming, map65 I/Q) may extend this list later.
+    ! FST4W/Q65/MSK144), Echo, JTTY and FreqCal. Modes outside this set (e.g.,
+    ! wsprd C2 streaming, map65 I/Q) may extend this list later.
     call put_('{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W",' // &
-       '"Q65","MSK144","JTTY"],' // &
+       '"Q65","MSK144","ECHO","JTTY","FREQCAL"],' // &
        '"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144",' // &
        '"ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}')
   end subroutine streaming_emit_ready
@@ -630,8 +686,10 @@ contains
     call streaming_emit_json_escape(msg, msg_escaped, msg_len)
     call format_real_(dt, dt_str)
     marks = ''
+    ! MSK144's period goes ahead of its training mark, which ends the line.
+    if (present(training) .and. present(period)) marks = ',"period":' // int_text_(period)
     if (present(training)) then
-       if (training) marks = ',"training":true'
+       if (training) marks = marks // ',"training":true'
     end if
     if (present(superfox)) then
        if (superfox) marks = marks // ',"superfox":true'
@@ -643,7 +701,10 @@ contains
     if (present(q)) marks = marks // ',"q":' // int_text_(q)
     if (present(avg)) marks = marks // ',"avg":' // int_text_(avg)
     if (present(copied)) marks = marks // ',"copied":' // trim(merge('true ', 'false', copied))
-    if (present(period)) marks = marks // ',"period":' // int_text_(period)
+    if (.not. present(training) .and. submode_ .ge. 0 .and. submode_ .le. 25 .and. &
+         (submode_jt9_ .or. trim(mode_str) .ne. 'JT9'))                          &
+         marks = marks // ',"submode":"' // achar(iachar('A') + submode_) // '"'
+    if (present(period) .and. .not. present(training)) marks = marks // ',"period":' // int_text_(period)
     if (present(spread)) marks = marks // ',"spread":' // real_text_(spread)
     if (.not. present(training)) then
        if (pass_ .gt. 0) marks = marks // ',"pass":' // int_text_(pass_)
@@ -665,6 +726,39 @@ contains
     integer, intent(in) :: nzhsym
     pass_ = nzhsym
   end subroutine streaming_emit_set_pass
+
+  ! The submode the stream host's next decode pass decodes with, 0 for A, in
+  ! the modes whose decodes carry it (< 0: none); jt9 false: its JT9 decodes
+  ! carry none.
+  subroutine streaming_emit_set_submode(submode, jt9)
+    integer, intent(in) :: submode
+    logical, intent(in) :: jt9
+    submode_ = submode
+    submode_jt9_ = jt9
+  end subroutine streaming_emit_set_submode
+
+  ! The half-symbol stop of the stream host's decode pass, which a decode's
+  ! "pass" carries (0: none yet), for the side lines (lib/streaming_side.f90).
+  integer function streaming_emit_pass()
+    streaming_emit_pass = pass_
+  end function streaming_emit_pass
+
+  ! A period label as a decode's time, six digits.
+  function streaming_emit_time(nutc, utc_is_hhmmss) result(text)
+    integer,           intent(in) :: nutc
+    logical, optional, intent(in) :: utc_is_hhmmss
+    character(len=6) :: text
+    character(len=8) :: time_str
+    call format_utc_(nutc, time_str, utc_is_hhmmss)
+    text = time_str(1:6)
+  end function streaming_emit_time
+
+  ! A single-precision value as a decode's dt: 9 significant digits.
+  function streaming_emit_real(x) result(text)
+    real, intent(in) :: x
+    character(len=:), allocatable :: text
+    text = real_text_(x)
+  end function streaming_emit_real
 
   ! A line of rx_messages.txt, which the FT8 decoder returns as its decodes
   ! (lib/ft8_engine_kernel.f90): read as jt9's FT8 line, a decode event, else
@@ -894,6 +988,43 @@ contains
          int64_text_(first_sample + size(samples)) // ',"data":"' //                       &
          streaming_emit_base64(samples) // '"}', .false.)
   end subroutine streaming_emit_jtty_prepared_audio
+
+  ! An Echo period's measurement (lib/streaming_echo.f90), labelled nutc in
+  ! form: avecho's level, snr, db_err, dfreq, quality and width, echocom's
+  ! nsum, the call decode_echo recovered (all its characters, trailing blanks
+  ! too) and the blue and red
+  ! spectra, 4096 bins df Hz apart; from a file, after the call, the in-band
+  ! parameters read back, in in_band: doppler_total, doppler, rit and
+  ! echo_spacing (integers), echo_freq and spread.
+  subroutine streaming_emit_echo(nutc, form, level, snr, db_err, dfreq, quality, width, nsum, &
+       call, df, blue, red, in_band, freq, spread)
+    integer,          intent(in) :: nutc, quality, nsum
+    type(time_form),  intent(in) :: form
+    real,             intent(in) :: level, snr, db_err, dfreq, width, df, blue(:), red(:)
+    character(len=*), intent(in) :: call
+    integer, optional, intent(in) :: in_band(4)
+    real,    optional, intent(in) :: freq, spread
+    character(len=8)  :: time_str
+    character(len=64) :: escaped
+    character(len=:), allocatable :: file_fields
+    integer :: n
+    if (.not. enabled_) return
+    call format_utc_(nutc, time_str, form=form)
+    call streaming_emit_json_escape(call, escaped, n)
+    file_fields = ''
+    if (present(in_band) .and. present(freq) .and. present(spread))              &
+         file_fields = ',"doppler_total":' // int_text_(in_band(1)) // ',"doppler":' //  &
+         int_text_(in_band(2)) // ',"rit":' // int_text_(in_band(3)) // ',"echo_freq":' // &
+         real_text_(freq) // ',"spread":' // real_text_(spread) // ',"echo_spacing":' // &
+         int_text_(in_band(4))
+    call put_('{"v":1,"t":"echo","time":"' // trim(time_str) // '","level":' // real_text_(level) // &
+         ',"snr":' // real_text_(snr) // ',"db_err":' // real_text_(db_err) // ',"dfreq":' //    &
+         real_text_(dfreq) // ',"quality":' // int_text_(quality) // ',"width":' //              &
+         real_text_(width) // ',"nsum":' // int_text_(nsum) // ',"call":"' // escaped(1:n) //   &
+         repeat(' ', len(call) - len_trim(call)) // '"' // file_fields // ',"df":' // real_text_(df) //  &
+         ',"bins":' // int_text_(size(blue)) // &
+         ',"blue":"' // streaming_emit_base64(blue) // '","red":"' // streaming_emit_base64(red) // '"}')
+  end subroutine streaming_emit_echo
 
   function pass_fields_(mode, label, nzhsym) result(fields)
     integer,          intent(in) :: mode, nzhsym
@@ -1145,9 +1276,11 @@ contains
 
   ! The protocol's name for a mode number, or the number.
   function streaming_emit_mode_name(mode) result(name)
+    use streaming_control, only: MODE_FREQCAL, MODE_ECHO
     integer, intent(in) :: mode
     character(len=12)   :: name
     select case (mode)
+    case (MODE_FREQCAL); name = 'FREQCAL'
     case (4);       name = 'JT4'
     case (5);       name = 'FT4'
     case (8);       name = 'FT8'
@@ -1158,6 +1291,7 @@ contains
     case (144);     name = 'MSK144'
     case (240);     name = 'FST4'
     case (241, 242); name = 'FST4W'
+    case (MODE_ECHO); name = 'ECHO'
     case default
        write(name, '(i0)') mode
     end select

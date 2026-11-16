@@ -15,10 +15,10 @@ module decoder_engine
   use q65_callers, only: Q65_MAX_CALLERS
   use types, only: q3list
   use jt4_decode, only: jt4_options,jt4_call,jt4_average_entry
-  use jt4_host_support, only: convert_jt4_host_options,load_jt4_calls,write_jt4_averages, &
+  use jt4_host_support, only: convert_jt4_host_options,load_jt4_calls,write_jt4_averages,emit_jt4_averages, &
        prepare_jt4_host,write_jt4_diagnostic
   use jt65_decode, only: jt65_options,jt65_average_entry
-  use jt65_host_support, only: load_jt65_calls,write_jt65_averages
+  use jt65_host_support, only: load_jt65_calls,write_jt65_averages,emit_jt65_averages
   use decode_completion_module, only: decode_completion_result,set_decode_completion,write_decode_progress
   use prog_args, only: temp_dir
   use timer_module, only: timer
@@ -653,6 +653,7 @@ contains
        call write_jt4_averages(session%jt4,14)
        close(14)
     endif
+    if(context%render_legacy) call emit_jt4_averages(session%jt4,options%utc)
     if(context%ios13==0) close(13)
     call set_decode_completion(session%completion,0,session%jt4%decoded,0)
     call write_decode_progress(progress)
@@ -814,6 +815,7 @@ contains
        call write_jt65_averages(session%jt65,14)
        close(14)
     endif
+    if(context%render_legacy) call emit_jt65_averages(session%jt65,options%utc)
     if(context%ios13==0) close(13)
     call set_decode_completion(session%completion,0,session%jt65%decoded,0)
     call write_decode_progress(progress)
@@ -1720,7 +1722,7 @@ contains
     status=decode_attempt(host_handle,request,audio,c_null_funptr,c_null_ptr,outcome,.true.,progress)
     if(status==ok) then
        if(request%mode==engine_mode_q65.and.request%q65%contest==1) &
-            call save_q65_history(session%q65,history_status)
+            call save_q65_history(session%q65,history_status,request%q65%utc)
        completion=session%completion
     else
        call report_host_rejection(status,request,'decode')
