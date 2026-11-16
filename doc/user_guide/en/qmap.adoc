@@ -45,7 +45,8 @@ those days then count. For a contest held over two weekends, choose
 the contest days of both weekends: stations you worked on this band
 before the contest, or between the weekends, are then wanted again,
 without starting a new log. This feature is a convenience for tracking EME
-initials or contest QSOs. An
+initials or contest QSOs; see <<EME_CABRILLO,ARRL EME contest log>>
+for making the contest log. An
 asterisk +*+ marks a station whose most recent transmission contains
 `CQ`, `RR73`, or `73`, so the sender is presumably ready to start
 another QSO. Use the *Wanted only* and *CQ only* checkboxes and *Max

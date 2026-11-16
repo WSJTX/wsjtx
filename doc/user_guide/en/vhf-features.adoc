@@ -532,3 +532,35 @@ image::shift2.png[align="center",alt="Split Settings"]
 
 TIP: To avoid the dial frequency indicator turning red, you may want
 to add both transmit and receive frequencies to the Frequencies Table.
+
+[[EME_CABRILLO]]
+=== ARRL EME contest log
+
+*File | Export ARRL EME Cabrillo log ...* makes the Cabrillo log for an
+ARRL EME contest entry from your ADIF log. It takes the QSOs made on the
+contest days you choose and writes both stations' 4-character grid
+squares on every QSO line, as the rules require. The dialog shows the
+claimed score and the file as it will be saved.
+
+image::eme_cabrillo_dialog.png[align="center",width=60%,alt="EME Cabrillo dialog"]
+
+* *Contest days:* the first time, the days chosen in *Active Stations*
+  are suggested. After that the dialog keeps its own days, so preparing
+  the log never changes what *Active Stations* uses while you operate.
+* *Logs:* _WSJT-X_'s own ADIF log is used. *Add file...* adds another,
+  for example the log of a second PC; several logs are merged and a QSO
+  found in two of them counts once. The logs are only read.
+* *Bands* and *Modes:* untick any band you are not entering, and any
+  mode whose QSOs were not EME (the ADIF log holds everything you
+  worked on those days).
+* *Missing grids:* QSOs logged without a grid are listed so that you
+  can type the grids in. A grid known from another QSO with the same
+  station is filled in for you to check. What you type is remembered.
+* A station counts once per band from each grid it works from; repeats
+  are left out.
+* The 50-1296 MHz bands and the bands from 2.3 GHz up have their own
+  contest weekends. QSOs that seem to be on the other group's weekend
+  are pointed out, and a box lets you leave them out.
+
+Save the file and upload it at
+contests.arrl.org/arrlemescoresubmission.php.
