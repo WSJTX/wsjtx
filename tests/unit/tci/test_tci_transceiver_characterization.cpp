@@ -457,7 +457,32 @@ namespace
 
     bool pull (quint32 frames = 4096, quint32 channels = 2)
     {
-      if (frames * channels > TciStream::MaxFloatSamples) return false;
+      ++pulls_;
+      diagnostics_.clear ();
+      auto const previous = packets;
+      auto const failure_cursor = harness_.failure_count ();
+      auto const scalar_count = quint64 (frames) * channels;
+      bool accepted {false};
+      QElapsedTimer elapsed;
+      elapsed.start ();
+      auto const fail = [&] (QString const& stage) {
+        auto const * response = packets > previous ? TciStream::header (packet) : nullptr;
+        auto const framing = response
+          ? QString {"type=%1 rate=%2 format=%3 codec=%4 channels=%5 length=%6 bytes=%7"}
+              .arg (response->type).arg (response->sampleRate).arg (response->format)
+              .arg (response->codec).arg (response->channels).arg (response->length).arg (packet.size ())
+          : QString {"no response header; bytes=%1"}.arg (packets > previous ? packet.size () : 0);
+        diagnostics_ = QString {"%1: pull=%2 frames=%3 channels=%4 sendAccepted=%5 elapsedMs=%6 "
+                                "responses=%7 active=%8 writtenFrames=%9 servedFrames=%10 "
+                                "totalFrames=%11 playoutState=%12 playoutElapsedUs=%13\n%14\n%15"}
+          .arg (stage).arg (pulls_).arg (frames).arg (channels).arg (accepted).arg (elapsed.elapsed ())
+          .arg (packets - previous).arg (active).arg (playout.successfully_written_frames)
+          .arg (playout.source_served_frames).arg (playout.source_total_frames)
+          .arg (int (playout.state)).arg (playout.elapsed_usecs).arg (framing, harness_.diagnostics ());
+        return false;
+      };
+      if ((channels != 1u && channels != 2u) || scalar_count > TciStream::MaxFloatSamples)
+        return fail (QStringLiteral ("invalid audio request"));
       QByteArray chrono (int (TciStream::HeaderSize), '\0');
       auto * header = TciStream::header (&chrono);
       header->sampleRate = 48000;
@@ -465,15 +490,29 @@ namespace
       header->type = TciStream::TxChrono;
       header->length = frames * channels;
       header->channels = channels;
-      auto const previous = packets;
-      if (!harness_.server ().send_binary (chrono)
-          || !harness_.server ().wait_for ([&] {return packets > previous;}, 1000)) return false;
+      accepted = harness_.server ().send_binary (chrono);
+      if (!accepted) return fail (QStringLiteral ("request send rejected"));
+      if (!harness_.server ().wait_for ([&] {
+            return packets > previous || harness_.failure_count () > failure_cursor
+              || !harness_.server ().client_connected ();
+          }, 10000)) return fail (QStringLiteral ("response watchdog expired"));
+      if (harness_.failure_count () != failure_cursor)
+        return fail (QStringLiteral ("transceiver failed while awaiting response"));
+      if (!harness_.server ().client_connected ())
+        return fail (QStringLiteral ("connection lost while awaiting response"));
+      if (packets != previous + 1) return fail (QStringLiteral ("unexpected response count"));
       auto const * response = TciStream::header (packet);
-      return packets == previous + 1 && response
-        && response->type == TciStream::TxAudioStream
-        && response->channels == channels && response->length == frames * channels
-        && packet.size () == int (TciStream::HeaderSize + frames * channels * sizeof (float));
+      if (!response) return fail (QStringLiteral ("short response header"));
+      if (response->type != TciStream::TxAudioStream || response->receiver != header->receiver
+          || response->sampleRate != header->sampleRate || response->format != TciStream::Float32Format
+          || response->codec != TciStream::UncompressedCodec
+          || response->channels != channels || response->length != scalar_count
+          || packet.size () != int (TciStream::HeaderSize + scalar_count * sizeof (float)))
+        return fail (QStringLiteral ("invalid response framing"));
+      return true;
     }
+
+    QString diagnostics () const {return diagnostics_;}
 
     float sample (int frame, int channel = 0) const
     {
@@ -492,6 +531,8 @@ namespace
   private:
     RigHarness& harness_;
     unsigned sequence_ {100};
+    int pulls_ {0};
+    QString diagnostics_;
 
   public:
     State requested;
@@ -552,7 +593,7 @@ private slots:
     QVERIFY (audio.active);
     QCOMPARE (audio.commitment.committed_end_sample, qint64 (-1));
     QVERIFY (!audio.commitment.target_known);
-    QVERIFY (audio.pull ());
+    QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QVERIFY2 (audio.rms (256) > 0.6, "Tune must produce audio even late in a 120-second cycle");
     QVERIFY (audio.rms (0, 32) < 0.03);
     QVERIFY (audio.active);
@@ -570,7 +611,7 @@ private slots:
     while (frames < 9999 * 384 + 48000)
       {
         now += 1000;
-        QVERIFY (audio.pull ());
+        QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
         frames += 4096;
         QVERIFY (audio.rms (256) > 0.69);
         QVERIFY (audio.rms (256) < 0.72);
@@ -614,7 +655,7 @@ private slots:
     itone[0] = 2;
     std::fill_n (foxcom_.wave, 4096, 0.0f);
     audio.start (request);
-    QVERIFY (audio.pull (1024, channels));
+    QVERIFY2 (audio.pull (1024, channels), qPrintable (audio.diagnostics ()));
     QVERIFY (audio.rms (0, 32) < 0.03);
     double constexpr two_pi = 6.2831853071795864769;
     double const frequency = request.frequency_hz
@@ -628,7 +669,7 @@ private slots:
     audio.requested.trfrequency (1800);
     audio.requested.txvolume (9);
     audio.apply ();
-    QVERIFY (audio.pull (1024, channels));
+    QVERIFY2 (audio.pull (1024, channels), qPrintable (audio.diagnostics ()));
     for (int i = 0; i < 1024; ++i)
       {
         auto const phase = two_pi * (frequency * 1024 + (frequency + 300) * (i + 1)) / 48000;
@@ -661,7 +702,7 @@ private slots:
     for (int i = 0; i < 8; ++i)
       {
         now += 1000;
-        QVERIFY (audio.pull ());
+        QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
         QVERIFY (audio.rms (256) > 0.6);
         QVERIFY (QMetaObject::invokeMethod (&harness.rig (), "poll_jtty_drain", Qt::DirectConnection));
         QCOMPARE (audio.playout.source_total_frames, qint64 (-1));
@@ -673,17 +714,17 @@ private slots:
     QVERIFY (!audio.active);
     QCOMPARE (audio.playout.state, TxEvidence::TxBackendState::Idle);
     QCOMPARE (audio.playout.source_total_frames, qint64 (-1));
-    QVERIFY (audio.pull ());
+    QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QCOMPARE (audio.rms (), 0.0);
     audio.requested.tx_audio (false);
     audio.apply ();
     audio.start (tune_request ());
-    QVERIFY (audio.pull ());
+    QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QVERIFY (audio.rms (256) > 0.6);
     audio.requested.tx_audio (false);
     audio.apply ();
     QVERIFY (!audio.active);
-    QVERIFY (audio.pull ());
+    QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QCOMPARE (audio.rms (), 0.0);
     audio.stop ();
 
@@ -691,13 +732,13 @@ private slots:
     request.tuning = false;
     audio.start (request);
     now += 1000;
-    QVERIFY (audio.pull ());
+    QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     for (int i = 0; i < pcm.size (); ++i)
       QVERIFY (std::abs (audio.sample (i) - 0.999 * pcm[i] / 32767) < 0.00004);
     QCOMPARE (audio.rms (pcm.size ()), 0.0);
     QCOMPARE (audio.playout.source_served_frames, qint64 (pcm.size ()));
     QCOMPARE (audio.playout.source_total_frames, qint64 (pcm.size ()));
-    for (int i = 0; i < 6; ++i) QVERIFY (audio.pull ());
+    for (int i = 0; i < 6; ++i) QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QVERIFY (QMetaObject::invokeMethod (&harness.rig (), "poll_jtty_drain", Qt::DirectConnection));
     QCOMPARE (drain_count, 1);
     QVERIFY (progress_count > 0);
@@ -787,7 +828,7 @@ private slots:
     qint64 position {0};
     while (position < silent + endpoint - offset + 8192)
       {
-        QVERIFY (audio.pull ());
+        QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
         for (int i = 0; i < 4096; ++i)
           {
             qint64 const source = position + i - silent + offset;
@@ -819,13 +860,13 @@ private slots:
     request.synchronize = false;
     audio.start (request, 15);
     QCOMPARE (audio.commitment.committed_end_sample, qint64 (120000));
-    for (int i = 0; i < 29; ++i) QVERIFY (audio.pull ());
+    for (int i = 0; i < 29; ++i) QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QVERIFY (audio.rms () > 0.69);
-    QVERIFY (audio.pull ());
+    QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QVERIFY (audio.rms (0, 256) > 0.69);
     QVERIFY (audio.rms (960, 256) < 0.01);
     QCOMPARE (audio.rms (1217), 0.0);
-    QVERIFY (audio.pull ());
+    QVERIFY2 (audio.pull (), qPrintable (audio.diagnostics ()));
     QCOMPARE (audio.rms (), 0.0);
   }
 
@@ -844,14 +885,14 @@ private slots:
     request.cw_id = {1, 1};
     audio.start (request);
     QCOMPARE (audio.commitment.committed_end_sample, qint64 (-1));
-    QVERIFY (audio.pull (48));
+    QVERIFY2 (audio.pull (48), qPrintable (audio.diagnostics ()));
     QCOMPARE (audio.rms (), 0.0);
-    QVERIFY (audio.pull (1537));
+    QVERIFY2 (audio.pull (1537), qPrintable (audio.diagnostics ()));
     QVERIFY (audio.rms (256) > 0.6);
-    QVERIFY (audio.pull (4096));
+    QVERIFY2 (audio.pull (4096), qPrintable (audio.diagnostics ()));
     QVERIFY (audio.rms (2048) > 0.6);
     QVERIFY (audio.active);
-    QVERIFY (audio.pull (2048));
+    QVERIFY2 (audio.pull (2048), qPrintable (audio.diagnostics ()));
     QVERIFY (!audio.active);
     QCOMPARE (audio.playout.state, TxEvidence::TxBackendState::Idle);
     QCOMPARE (audio.rms (1023), 0.0);
