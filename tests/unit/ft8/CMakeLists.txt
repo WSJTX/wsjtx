@@ -69,7 +69,14 @@ set_tests_properties (test_osd174_91_fast_ties PROPERTIES TIMEOUT 120)
 add_executable (test_osd174_91var_pairs
   test_osd174_91var_pairs.f90)
 wsjt_link_common_fortran (test_osd174_91var_pairs)
-add_test (NAME test_osd174_91var_pairs COMMAND test_osd174_91var_pairs)
+# About 10 times slower under ASan, so sanitizer builds run 500 cases, which
+# still include ten each of ndeep 1, 2, 4 and 5. The ties run fits as it is.
+set (osd_pairs_cases 3000)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (osd_pairs_cases 500)
+endif ()
+add_test (NAME test_osd174_91var_pairs
+  COMMAND test_osd174_91var_pairs ${osd_pairs_cases})
 add_test (NAME test_osd174_91var_pairs_ties COMMAND test_osd174_91var_pairs 1500 ties)
 set_tests_properties (test_osd174_91var_pairs test_osd174_91var_pairs_ties PROPERTIES TIMEOUT 120)
 
