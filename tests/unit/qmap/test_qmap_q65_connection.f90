@@ -110,6 +110,7 @@ program test_qmap_q65_connection
        'QMAP publishes decoded message')
   if(period==30) call require(result(1)(1:6)=='010030', 'second-half decode uses the :30 time')
   call fini_timer()
+  deallocate(seed)
   print '(a,i0,a)', 'QMAP generated Q65 ',period,'-second connection passed.'
 
 contains

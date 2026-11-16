@@ -57,6 +57,7 @@ program test_jtty_continuous_decode
   call compare_events(reference,nreference,interleaved,ninterleaved,real(high_origin,c_double)/rate)
 
   print *, 'test_jtty_continuous_decode: all checks passed'
+  deallocate(pcm,partial)
 
 contains
 

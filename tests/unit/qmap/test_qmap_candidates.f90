@@ -89,6 +89,7 @@ program test_qmap_candidates
   call search_selected(second_bin,found,ncand)
   call require(ncand==0,'selected search excludes a distant frequency bin')
 
+  deallocate(ss,savg)
   print '(a)', 'QMAP candidate contracts passed'
 
 contains

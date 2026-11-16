@@ -32,6 +32,7 @@ program test_map65_jt65_handoff
   call test_mode(dd, 1, -1, 'JT65A OOO MAP65 handoff')
   dd(1:2,:) = mode_b_wave
   call test_mode(dd, 2, 1, 'JT65B xpol MAP65 handoff', .true.)
+  deallocate(dd, mode_b_wave)
   print '(a)', 'MAP65 JT65 handoff tests passed'
 
 contains

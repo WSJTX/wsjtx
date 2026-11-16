@@ -124,5 +124,6 @@ program testEchoCall
      nclearave=0
   enddo
 
-999 if(nerrors.gt.0) stop 1
+999 if(allocated(fname)) deallocate(fname)
+  if(nerrors.gt.0) stop 1
 end program testEchoCall

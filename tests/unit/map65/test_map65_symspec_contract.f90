@@ -84,6 +84,7 @@ program test_map65_symspec_contract
        'poisoned Y cannot affect X power')
   call require(abs(savg(1,bins(1)+1) / ss(1,1,bins(1)+1) - 1.0_real32) < 0.001_real32, &
        'single-polarization savg reset')
+  deallocate(waterfall)
   print '(a,i0)', 'MAP65 symspec contract passed at ', rate
 
 contains

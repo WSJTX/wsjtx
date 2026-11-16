@@ -153,7 +153,7 @@ program test_decoder_engine_fst4_host
         call verify_hash_output('fst4-hash-output.txt',mode)
      enddo
   enddo
-  deallocate(samples,before)
+  deallocate(samples,before,saved_parameters)
 contains
   subroutine check_patience_mapping()
     use fst4_decode, only: fst4_decoder,fst4_options

@@ -136,6 +136,7 @@ program test_map65_decode_history
   call require(last_q65_nkhz == 125, 'q65b sees the kHz of the new center frequency')
   call require(last_ref_nfa == 23 .and. last_ref_nfb == 83, &
                'the sync reference span follows the new center frequency')
+  deallocate(samples)
   print '(a)', 'MAP65 decode history tests passed.'
 
 contains
