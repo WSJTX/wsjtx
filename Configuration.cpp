@@ -1581,7 +1581,8 @@ bool Configuration::rig_cannot_tune (Frequency frequency) const
   projection.intercept = m_->calibration_.intercept;
   projection.slope_ppm = m_->calibration_.slope_ppm;
   projection.calibrated = !m_->frequency_calibration_disabled_;
-  return RigFrequency::tunable (m_->rig_tuning_ranges_, projection.encode (frequency)) == false;
+  // tunable() is empty when no ranges are known, and then the tune is allowed.
+  return !RigFrequency::tunable (m_->rig_tuning_ranges_, projection.encode (frequency)).value_or (true);
 }
 
 quint64 Configuration::frequency_generation () const
