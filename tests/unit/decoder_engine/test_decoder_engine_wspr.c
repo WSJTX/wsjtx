@@ -19,7 +19,7 @@ static int sample_count(int variant)
 }
 
 static int16_t *make_signal_at_level(const char *text, int variant, double frequency, double start,
-                                   double drift, double amplitude, int noise_scale)
+                                   double drift, double amplitude, int noise_scale, int fading)
 {
   const int count = sample_count(variant);
   const int scale = variant == 15 ? 8 : 1;
@@ -45,8 +45,16 @@ static int16_t *make_signal_at_level(const char *text, int variant, double frequ
         (frequency + drift * 0.5 * (symbol - 81.0) / 81.0
          + (tones[symbol] - 1.5) * 12000.0 / (8192 * scale)) / 12000.0;
       for (int j = 0; j < 8192 * scale; ++j, ++index) {
-        if (index >= 0 && index < count)
-          samples[index] += (int16_t)lround(amplitude * sin(phase));
+        if (index >= 0 && index < count) {
+          double envelope = 1.0, channel_phase = 0.0;
+          if (fading) {
+            const double t = (symbol * 8192.0 * scale + j) / 12000.0;
+            const double twopi = 8.0 * atan(1.0);
+            envelope += 0.5 * cos(twopi * 0.023 * t);
+            channel_phase = 1.5 * sin(twopi * 0.035 * t);
+          }
+          samples[index] += (int16_t)lround(amplitude * envelope * sin(phase + channel_phase));
+        }
         phase += step;
       }
     }
@@ -58,7 +66,7 @@ static int16_t *make_signal_at_level(const char *text, int variant, double frequ
 
 static int16_t *make_signal(const char *text, int variant, double frequency, double start, double drift)
 {
-  return make_signal_at_level(text, variant, frequency, start, drift, 1800.0, 1);
+  return make_signal_at_level(text, variant, frequency, start, drift, 1800.0, 1, 0);
 }
 
 static void write_le(FILE *file, uint32_t value, int bytes)
@@ -417,37 +425,29 @@ static void check_lifecycle(void)
   free((void *)f.audio.samples);
 }
 
-static void check_coherent_recovery(void)
+static void check_fading_recovery(void)
 {
-  const struct {
-    int variant;
-    double frequency, amplitude;
-  } cases[] = {{DECODER_WSPR_2, 1520, 56}, {DECODER_WSPR_15, 1615, 18.5}};
-  for (size_t i = 0; i < sizeof cases / sizeof *cases; ++i) {
-    decoder_engine_options options = {DECODER_ENGINE_ABI};
-    fixture f = {0};
-    f.request = request_for(1, cases[i].variant);
-    f.request.wspr.effort = DECODER_WSPR_DEEP;
-    /* Phase-stable signals below the four noncoherent trials' recovery threshold. */
-    f.audio = (decoder_audio_view){
-      make_signal_at_level("K1ABC FN42 33", cases[i].variant, cases[i].frequency,
-                           1.2, 0, cases[i].amplitude, 32),
-      sample_count(cases[i].variant), 12000};
-    CHECK(decoder_engine_create(&options, &f.engine) == DECODER_OK);
-    decode(&f);
-    const decoder_observation *record = find(&f, "K1ABC FN42 33");
-    CHECK(f.count == 1);
-    CHECK(record->wspr.message_type == DECODER_WSPR_STANDARD);
-    CHECK(record->wspr.power_dbm == 33);
-    check_text(record->wspr.call, 12, "K1ABC");
-    check_text(record->wspr.locator, 6, "FN42");
-    const int scale = cases[i].variant == DECODER_WSPR_15 ? 8 : 1;
-    CHECK(fabs(record->frequency_hz - cases[i].frequency) < 0.15 / scale);
-    CHECK(fabs(record->wspr.waveform_start_seconds - 1.2) < 0.1 * scale);
-    CHECK(fabs(record->wspr.drift_hz) < 0.6 / scale);
-    CHECK(decoder_engine_destroy(f.engine) == DECODER_OK);
-    free((void *)f.audio.samples);
-  }
+  decoder_engine_options options = {DECODER_ENGINE_ABI};
+  fixture f = {0};
+  f.request = request_for(1, DECODER_WSPR_2);
+  f.request.wspr.effort = DECODER_WSPR_DEEP;
+  /* Smooth amplitude and phase fading below the short-block recovery threshold. */
+  f.audio = (decoder_audio_view){
+    make_signal_at_level("K1ABC FN42 33", DECODER_WSPR_2, 1520, 1.2, 0, 62, 32, 1),
+    sample_count(DECODER_WSPR_2), 12000};
+  CHECK(decoder_engine_create(&options, &f.engine) == DECODER_OK);
+  decode(&f);
+  const decoder_observation *record = find(&f, "K1ABC FN42 33");
+  CHECK(f.count == 1);
+  CHECK(record->wspr.message_type == DECODER_WSPR_STANDARD);
+  CHECK(record->wspr.power_dbm == 33);
+  check_text(record->wspr.call, 12, "K1ABC");
+  check_text(record->wspr.locator, 6, "FN42");
+  CHECK(fabs(record->frequency_hz - 1520) < 0.2);
+  CHECK(fabs(record->wspr.waveform_start_seconds - 1.2) < 0.2);
+  CHECK(fabs(record->wspr.drift_hz) < 0.6);
+  CHECK(decoder_engine_destroy(f.engine) == DECODER_OK);
+  free((void *)f.audio.samples);
 }
 
 static void decode_wav(int argc, char **argv)
@@ -500,6 +500,6 @@ int main(int argc, char **argv)
   }
   CHECK(argc == 1);
   check_lifecycle();
-  check_coherent_recovery();
+  check_fading_recovery();
   return EXIT_SUCCESS;
 }

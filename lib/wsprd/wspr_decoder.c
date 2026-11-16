@@ -33,7 +33,6 @@
 #include <time.h>
 #include <fftw3.h>
 #include "wspr_decoder.h"
-#include "wspr_coherent.h"
 #include "wspr_demodulation.h"
 #include "wsprd_utils.h"
 #include "wsprsim_utils.h"
@@ -58,7 +57,6 @@ struct wspr_decoder {
     fftwf_plan spectrum_plan, inverse_plan;
     wspr_plan_guard plan_guard;
     int npoints, waveform;
-    struct wspr_coherent_plan coherent_plan;
     struct snode *stack;
     struct fano_node fano_nodes[82];
     unsigned int stack_buckets[1000];
@@ -439,7 +437,6 @@ int32_t wspr_decoder_create_guarded(wspr_decoder **out, wspr_plan_guard guard)
 void wspr_decoder_destroy(wspr_decoder *ctx)
 {
     if (!ctx) return;
-    wspr_coherent_destroy(&ctx->coherent_plan);
     if (ctx->inverse_plan) destroy_plan(ctx, ctx->inverse_plan);
     if (ctx->spectrum_plan) destroy_plan(ctx, ctx->spectrum_plan);
     fftwf_free(ctx->iqin);
@@ -614,8 +611,6 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
         ctx->stack = calloc(200000, sizeof *ctx->stack);
         if (!ctx->stack) return DECODER_INTERNAL_ERROR;
     }
-    if (tuning->npasses > 2 && !ctx->coherent_plan.fft &&
-        wspr_coherent_init(&ctx->coherent_plan) != 0) return DECODER_INTERNAL_ERROR;
     memset(decodes, 0, WSPR_DECODER_MAX_RESULTS * sizeof *decodes);
     memcpy(ctx->residual_i, ctx->original_i, sizeof ctx->original_i);
     memcpy(ctx->residual_q, ctx->original_q, sizeof ctx->original_q);
@@ -669,7 +664,8 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
             minsync2=0.12;
         }
         else {
-            trial_count=WSPR_DEMODULATION_TRIAL_COUNT;
+            /* Seven symbols span 4.8 seconds in WSPR-2, but 38.2 seconds in WSPR-15. */
+            trial_count=wspr_type == 15 ? 4 : WSPR_DEMODULATION_TRIAL_COUNT;
             maxdrift=0;    // no drift for smaller frequency estimator variance
             minsync2=0.10;
         }
@@ -969,7 +965,7 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
         int n1,n2,n3,nadd,nu,ntype;
         int osd_decode;
         struct wspr_demodulation_input demodulation_input = {
-            idat, qdat, npoints, pr3, &ctx->coherent_plan, symfac
+            idat, qdat, npoints, pr3, symfac
         };
         struct wspr_demodulation_workspace workspace;
         size_t offsets = quickmode ? 1 : 128 / iifac + 1;

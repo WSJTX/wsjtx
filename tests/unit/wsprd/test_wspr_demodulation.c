@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lib/wsprd/wspr_coherent.h"
 #include "lib/wsprd/wspr_noncoherent.h"
 #include "lib/wsprd/wspr_demodulation.h"
 
@@ -13,7 +12,6 @@ static int failures;
 static int deny_allocations;
 static size_t allocation_attempts;
 static size_t noncoherent_preparations;
-static size_t coherent_preparations;
 
 static void *workspace_malloc(size_t bytes)
 {
@@ -31,24 +29,10 @@ static void counted_noncoherent_prepare(const float *real, const float *imag,
                                     start_sample, drift_hz, tones);
 }
 
-static void counted_coherent_prepare(const struct wspr_coherent_plan *plan,
-                                      const float *real, const float *imag,
-                                      long sample_count, float frequency_hz,
-                                      int start_sample, float drift_hz,
-                                      const unsigned char sync[162],
-                                      struct wspr_phase_corrected_tones *tones)
-{
-    ++coherent_preparations;
-    wspr_coherent_prepare_tones(plan, real, imag, sample_count, frequency_hz,
-                                 start_sample, drift_hz, sync, tones);
-}
-
 /* Interpose only the workspace's allocation and preparation calls. */
 #define malloc workspace_malloc
 #define wspr_noncoherent_prepare_tones counted_noncoherent_prepare
-#define wspr_coherent_prepare_tones counted_coherent_prepare
 #include "lib/wsprd/wspr_demodulation.c"
-#undef wspr_coherent_prepare_tones
 #undef wspr_noncoherent_prepare_tones
 #undef malloc
 
@@ -86,22 +70,16 @@ static void direct_metrics(const struct wspr_demodulation_input *input,
                             float frequency_hz, int start_sample, float drift_hz,
                             unsigned char soft_metrics[162])
 {
-    if (trial->kind == WSPR_DEMODULATION_NONCOHERENT) {
-        struct wspr_noncoherent_tones tones;
-        wspr_noncoherent_prepare_tones(input->real, input->imag, input->sample_count,
-                                        frequency_hz, start_sample, drift_hz, &tones);
+    struct wspr_noncoherent_tones tones;
+    wspr_noncoherent_prepare_tones(input->real, input->imag, input->sample_count,
+                                    frequency_hz, start_sample, drift_hz, &tones);
+    if (trial->kind == WSPR_DEMODULATION_FADING)
+        wspr_fading_soft_metrics(&tones, input->sync, input->metric_scale, soft_metrics);
+    else
         wspr_noncoherent_soft_metrics(&tones, input->sync, input->metric_scale,
                                        trial->block_symbols,
                                        trial->metric == WSPR_NORMALIZED_MAGNITUDE_DIFFERENCE,
                                        soft_metrics);
-    } else {
-        struct wspr_phase_corrected_tones tones;
-        wspr_coherent_prepare_tones(input->coherent_plan, input->real, input->imag,
-                                     input->sample_count, frequency_hz, start_sample,
-                                     drift_hz, input->sync, &tones);
-        wspr_coherent_soft_metrics(&tones, input->sync, input->metric_scale,
-                                    soft_metrics);
-    }
 }
 
 static void compare_candidate(struct wspr_demodulation_workspace *workspace,
@@ -110,7 +88,6 @@ static void compare_candidate(struct wspr_demodulation_workspace *workspace,
 {
     unsigned char actual[162], expected[162];
     size_t before_noncoherent = noncoherent_preparations;
-    size_t before_coherent = coherent_preparations;
     wspr_demodulation_begin_candidate(workspace, frequency_hz, drift_hz);
     for (size_t trial_index = 0; trial_index < trial_count; ++trial_index) {
         const struct wspr_demodulation_trial *trial = wspr_demodulation_trial(trial_index);
@@ -124,15 +101,12 @@ static void compare_candidate(struct wspr_demodulation_workspace *workspace,
         }
     }
     expect(noncoherent_preparations - before_noncoherent ==
-           (deny_allocations ? 2 * (trial_count < 4 ? trial_count : 4) : 2),
+           (deny_allocations ? 2 * trial_count : 2),
            "noncoherent preparation is shared only while storage is available");
-    expect(coherent_preparations - before_coherent ==
-           (trial_count <= 4 ? 0 : 2),
-           "the coherent trial prepares each timing once");
     wspr_demodulation_end_candidate(workspace);
 }
 
-static void test_workspace(const struct wspr_coherent_plan *plan, int fail_allocations,
+static void test_workspace(int fail_allocations,
                             size_t trial_count)
 {
     float *real = malloc(45000 * sizeof *real);
@@ -140,7 +114,7 @@ static void test_workspace(const struct wspr_coherent_plan *plan, int fail_alloc
     unsigned char sync[162];
     if (!real || !imag) exit(2);
     make_input(real, imag, sync);
-    struct wspr_demodulation_input input = {real, imag, 45000, sync, plan, 50};
+    struct wspr_demodulation_input input = {real, imag, 45000, sync, 50};
     struct wspr_demodulation_workspace workspace;
     deny_allocations = fail_allocations;
     allocation_attempts = 0;
@@ -163,12 +137,9 @@ static void test_workspace(const struct wspr_coherent_plan *plan, int fail_alloc
 
 int main(void)
 {
-    struct wspr_coherent_plan plan = {0};
-    if (wspr_coherent_init(&plan)) return 2;
-    test_workspace(&plan, 0, 4);
-    test_workspace(&plan, 0, 5);
-    test_workspace(&plan, 1, 4);
-    test_workspace(&plan, 1, 5);
-    wspr_coherent_destroy(&plan);
+    test_workspace(0, 4);
+    test_workspace(0, 5);
+    test_workspace(1, 4);
+    test_workspace(1, 5);
     return failures != 0;
 }

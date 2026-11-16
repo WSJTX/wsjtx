@@ -5,12 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct wspr_coherent_plan;
 struct wspr_noncoherent_tones;
 
 enum wspr_demodulation_kind {
     WSPR_DEMODULATION_NONCOHERENT,
-    WSPR_DEMODULATION_COHERENT
+    WSPR_DEMODULATION_FADING
 };
 
 enum wspr_noncoherent_metric {
@@ -31,7 +30,6 @@ struct wspr_demodulation_input {
     const float *imag;
     long sample_count;
     const unsigned char *sync;
-    const struct wspr_coherent_plan *coherent_plan;
     int metric_scale;
 };
 
@@ -47,7 +45,7 @@ struct wspr_demodulation_workspace {
 const struct wspr_demodulation_trial *wspr_demodulation_trial(size_t index);
 int wspr_demodulation_legacy_code(const struct wspr_demodulation_trial *trial);
 
-/* Borrow input and plan storage; allocation failures retain uncached demodulation. */
+/* Borrow input storage; allocation failures retain uncached demodulation. */
 void wspr_demodulation_init(struct wspr_demodulation_workspace *workspace,
                             const struct wspr_demodulation_input *input,
                             size_t timing_count, size_t trial_count);

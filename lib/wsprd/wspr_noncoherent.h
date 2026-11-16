@@ -21,4 +21,9 @@ void wspr_noncoherent_soft_metrics(const struct wspr_noncoherent_tones *tones,
                                    int block_symbols, int normalized_metric,
                                    unsigned char soft_metrics[162]);
 
+/* Seven-symbol overlapping likelihoods model locally correlated fading. */
+void wspr_fading_soft_metrics(const struct wspr_noncoherent_tones *tones,
+                             const unsigned char sync[162], int metric_scale,
+                             unsigned char soft_metrics[162]);
+
 #endif

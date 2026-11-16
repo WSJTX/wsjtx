@@ -93,58 +93,175 @@ void wspr_noncoherent_prepare_tones(const float *samples_real, const float *samp
     memcpy(tones->phase_imag, sf, sizeof sf);
 }
 
-void wspr_noncoherent_soft_metrics(const struct wspr_noncoherent_tones *tones,
-                              const unsigned char sync[162], int metric_scale,
-                              int block_symbols, int normalized_metric, unsigned char soft_metrics[162])
+static void sequence_powers(const struct wspr_noncoherent_tones *tones,
+                            const unsigned char sync[162], int first, int count,
+                            float *power)
 {
-    int i, j, ib, b, itone, imask, nseq=1<<block_symbols;
-    float xi[512],xq[512],p[512];
-    float cm,sm,cmp,smp,fac,xm1,xm0;
-    float fsum=0.0, f2sum=0.0, fsymb[162];
+    for (int sequence = 0; sequence < (1 << count); ++sequence) {
+        float real = 0, imag = 0, phase_real = 1, phase_imag = 0;
+        for (int bit = 0; bit < count; ++bit) {
+            int symbol = first + bit;
+            int tone = sync[symbol] + 2 * ((sequence >> (count - 1 - bit)) & 1);
+            real = real + tones->real[tone][symbol] * phase_real + tones->imag[tone][symbol] * phase_imag;
+            imag = imag + tones->imag[tone][symbol] * phase_real - tones->real[tone][symbol] * phase_imag;
+            float next_real = tones->phase_real[tone][symbol] * phase_real
+                            - tones->phase_imag[tone][symbol] * phase_imag;
+            float next_imag = tones->phase_imag[tone][symbol] * phase_real
+                            + tones->phase_real[tone][symbol] * phase_imag;
+            phase_real = next_real;
+            phase_imag = next_imag;
+        }
+        power[sequence] = real * real + imag * imag;
+    }
+}
 
-    for (i=0; i<162; i=i+block_symbols) {
-        for (j=0;j<nseq;j++) {
-            xi[j]=0.0; xq[j]=0.0;
-            cm=1; sm=0;
-            for (ib=0; ib<block_symbols; ib++) {
-                b=(j&(1<<(block_symbols-1-ib)))>>(block_symbols-1-ib);
-                itone=sync[i+ib]+2*b;
-                xi[j]=xi[j]+tones->real[itone][i+ib]*cm + tones->imag[itone][i+ib]*sm;
-                xq[j]=xq[j]+tones->imag[itone][i+ib]*cm - tones->real[itone][i+ib]*sm;
-                cmp=tones->phase_real[itone][i+ib]*cm - tones->phase_imag[itone][i+ib]*sm;
-                smp=tones->phase_imag[itone][i+ib]*cm + tones->phase_real[itone][i+ib]*sm;
-                cm=cmp; sm=smp;
+static void scale_metrics(float metrics[162], int metric_scale, unsigned char soft_metrics[162])
+{
+    float mean = 0, second_moment = 0;
+    for (int i = 0; i < 162; ++i) {
+        mean += metrics[i] / 162.0;
+        second_moment += metrics[i] * metrics[i] / 162.0;
+    }
+    float variance = second_moment - mean * mean;
+    if (!(variance > 0) || !isfinite(variance)) {
+        memset(soft_metrics, 128, 162);
+        return;
+    }
+    float scale = sqrt(variance);
+    for (int i = 0; i < 162; ++i) {
+        float value = metric_scale * metrics[i] / scale;
+        if (value > 127) value = 127;
+        if (value < -128) value = -128;
+        soft_metrics[i] = value + 128;
+    }
+}
+
+void wspr_noncoherent_soft_metrics(const struct wspr_noncoherent_tones *tones,
+                                 const unsigned char sync[162], int metric_scale,
+                                 int block_symbols, int normalized_metric,
+                                 unsigned char soft_metrics[162])
+{
+    float power[512], metrics[162];
+    int sequences = 1 << block_symbols;
+    for (int first = 0; first < 162; first += block_symbols) {
+        sequence_powers(tones, sync, first, block_symbols, power);
+        for (int sequence = 0; sequence < sequences; ++sequence)
+            power[sequence] = sqrt(power[sequence]);
+        for (int bit = 0; bit < block_symbols; ++bit) {
+            int mask = 1 << (block_symbols - 1 - bit);
+            float maximum[2] = {0, 0};
+            for (int sequence = 0; sequence < sequences; ++sequence) {
+                int value = (sequence & mask) != 0;
+                if (power[sequence] > maximum[value]) maximum[value] = power[sequence];
             }
-            p[j]=xi[j]*xi[j]+xq[j]*xq[j];
-            p[j]=sqrt(p[j]);
+            metrics[first + bit] = maximum[1] - maximum[0];
+            if (normalized_metric) {
+                float largest = maximum[1] > maximum[0] ? maximum[1] : maximum[0];
+                metrics[first + bit] = largest > 0 ? metrics[first + bit] / largest : 0;
+            }
         }
-        for (ib=0; ib<block_symbols; ib++) {
-            imask=1<<(block_symbols-1-ib);
-            xm1=0.0; xm0=0.0;
-            for (j=0; j<nseq; j++) {
-                if((j & imask)!=0) {
-                    if(p[j] > xm1) xm1=p[j];
-                }
-                if((j & imask)==0) {
-                    if(p[j]>xm0) xm0=p[j];
-                }
+    }
+    scale_metrics(metrics, metric_scale, soft_metrics);
+}
+
+void wspr_fading_soft_metrics(const struct wspr_noncoherent_tones *tones,
+                             const unsigned char sync[162], int metric_scale,
+                             unsigned char soft_metrics[162])
+{
+    enum { window = 7, sequences = 1 << window };
+    /* K = I - (I + 1.5 R)^-1 for Gaussian channel correlation R at 256/375 s.
+       A 0.2 Hz 2-sigma spread allows for quiet fading and residual frequency error. */
+    static const double kernel[window][window] = {
+        {0.40975263571,0.270246790252,0.111340858874,0.00453218200744,-0.0294107380489,-0.0178243133924,0.00209882624111},
+        {0.270246790252,0.286026674379,0.2192056138,0.109161203789,0.0180141055206,-0.0208539042457,-0.0178243133924},
+        {0.111340858874,0.2192056138,0.265562236183,0.21923883576,0.114572212792,0.0180141055206,-0.0294107380489},
+        {0.00453218200744,0.109161203789,0.21923883576,0.266992908965,0.21923883576,0.109161203789,0.00453218200744},
+        {-0.0294107380489,0.0180141055206,0.114572212792,0.21923883576,0.265562236183,0.2192056138,0.111340858874},
+        {-0.0178243133924,-0.0208539042457,0.0180141055206,0.109161203789,0.2192056138,0.286026674379,0.270246790252},
+        {0.00209882624111,-0.0178243133924,-0.0294107380489,0.00453218200744,0.111340858874,0.270246790252,0.40975263571}
+    };
+    double noise = 0;
+    for (int symbol = 0; symbol < 162; ++symbol) {
+        for (int tone = 1 - sync[symbol]; tone < 4; tone += 2)
+            noise += tones->real[tone][symbol] * tones->real[tone][symbol]
+                   + tones->imag[tone][symbol] * tones->imag[tone][symbol];
+    }
+    noise /= 324;
+    if (!(noise > 0) || !isfinite(noise)) {
+        memset(soft_metrics, 128, 162);
+        return;
+    }
+
+    float metrics[162];
+    for (int symbol = 0; symbol < 162; ++symbol) {
+        int first = symbol - window / 2;
+        if (first < 0) first = 0;
+        if (first > 162 - window) first = 162 - window;
+        int mask = 1 << (window - 1 - (symbol - first));
+        double tone_real[window][2], tone_imag[window][2];
+        double phase_real = 1, phase_imag = 0;
+        for (int offset = 0; offset < window; ++offset) {
+            for (int bit = 0; bit < 2; ++bit) {
+                int tone = sync[first + offset] + 2 * bit;
+                tone_real[offset][bit] = tones->real[tone][first + offset] * phase_real
+                                       + tones->imag[tone][first + offset] * phase_imag;
+                tone_imag[offset][bit] = tones->imag[tone][first + offset] * phase_real
+                                       - tones->real[tone][first + offset] * phase_imag;
             }
-            fsymb[i+ib]=xm1-xm0;
-            if( normalized_metric == 1 ) {
-                fsymb[i+ib]=fsymb[i+ib]/(xm1 > xm0 ? xm1 : xm0);
+            /* Integer tone spacing makes boundary phase independent of the data bit. */
+            double next_real = phase_real * tones->phase_real[0][first + offset]
+                             - phase_imag * tones->phase_imag[0][first + offset];
+            phase_imag = phase_imag * tones->phase_real[0][first + offset]
+                       + phase_real * tones->phase_imag[0][first + offset];
+            phase_real = next_real;
+        }
+
+        double real[window], imag[window], projected_real[window] = {0}, projected_imag[window] = {0};
+        for (int i = 0; i < window; ++i) {
+            real[i] = tone_real[i][0];
+            imag[i] = tone_imag[i][0];
+        }
+        for (int i = 0; i < window; ++i) {
+            for (int j = 0; j < window; ++j) {
+                projected_real[i] += kernel[i][j] * real[j];
+                projected_imag[i] += kernel[i][j] * imag[j];
             }
         }
+        double power = 0;
+        for (int i = 0; i < window; ++i)
+            power += real[i] * projected_real[i] + imag[i] * projected_imag[i];
+
+        double score[sequences], maximum[2] = {-INFINITY, -INFINITY};
+        int previous = 0;
+        for (int index = 0; index < sequences; ++index) {
+            int sequence = index ^ (index >> 1);
+            if (index) {
+                /* Gray order changes one tone, so updating Kz costs only one column. */
+                int changed = sequence ^ previous, bit = 0;
+                while (!(changed & (1 << bit))) ++bit;
+                int offset = window - 1 - bit, value = (sequence >> bit) & 1;
+                double delta_real = tone_real[offset][value] - real[offset];
+                double delta_imag = tone_imag[offset][value] - imag[offset];
+                power += 2 * (delta_real * projected_real[offset] + delta_imag * projected_imag[offset])
+                       + kernel[offset][offset] * (delta_real * delta_real + delta_imag * delta_imag);
+                for (int i = 0; i < window; ++i) {
+                    projected_real[i] += kernel[i][offset] * delta_real;
+                    projected_imag[i] += kernel[i][offset] * delta_imag;
+                }
+                real[offset] = tone_real[offset][value];
+                imag[offset] = tone_imag[offset][value];
+            }
+            score[sequence] = power / noise;
+            int value = (sequence & mask) != 0;
+            if (score[sequence] > maximum[value]) maximum[value] = score[sequence];
+            previous = sequence;
+        }
+        double probability[2] = {0, 0};
+        for (int sequence = 0; sequence < sequences; ++sequence) {
+            int value = (sequence & mask) != 0;
+            probability[value] += exp(score[sequence] - maximum[value]);
+        }
+        metrics[symbol] = maximum[1] - maximum[0] + log(probability[1]) - log(probability[0]);
     }
-    for (i=0; i<162; i++) {
-        fsum=fsum+fsymb[i]/162.0;
-        f2sum=f2sum+fsymb[i]*fsymb[i]/162.0;
-    }
-    fac=sqrt(f2sum-fsum*fsum);
-    for (i=0; i<162; i++) {
-        fsymb[i]=metric_scale*fsymb[i]/fac;
-        if( fsymb[i] > 127) fsymb[i]=127.0;
-        if( fsymb[i] < -128 ) fsymb[i]=-128.0;
-        soft_metrics[i]=fsymb[i] + 128;
-    }
-    return;
+    scale_metrics(metrics, metric_scale, soft_metrics);
 }
