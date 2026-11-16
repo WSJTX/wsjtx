@@ -2,6 +2,7 @@
 #define TX_INHIBIT_TRANSCEIVER_HPP__
 
 #include <memory>
+#include <functional>
 
 #include <QElapsedTimer>
 #include <QHash>
@@ -42,6 +43,8 @@ public:
                                quint32 expiries, quint32 invalid);
 
 private:
+  friend class TestTxInhibitTransceiver;
+
   struct Hold
   {
     qint64 expires_at;
@@ -57,6 +60,7 @@ private:
   std::unique_ptr<Transceiver> wrapped_;
   QTimer * expiry_timer_;
   QElapsedTimer monotonic_clock_;
+  std::function<qint64 ()> lease_now_ {[this] {return monotonic_clock_.elapsed ();}};
   QHash<QString, Hold> holds_;
   TransceiverState requested_;
   TransceiverState last_effective_;

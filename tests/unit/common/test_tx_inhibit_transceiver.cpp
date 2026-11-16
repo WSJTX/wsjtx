@@ -2,6 +2,7 @@
 
 #include <QtTest>
 #include <QThread>
+#include <QTimer>
 
 #include "Transceiver/TransceiverBase.hpp"
 #include "Transceiver/TransceiverFactory.hpp"
@@ -232,6 +233,8 @@ private:
   {
     auto * fake = new FakeInhibitTransceiver;
     TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    qint64 now = 0;
+    transceiver.lease_now_ = [&] {return now;};
     QSignalSpy status {&transceiver, &TxInhibitTransceiver::statusChanged};
     transceiver.start (20);
 
@@ -244,13 +247,11 @@ private:
     QTRY_VERIFY (!fake->last_state.ptt ());
 
     transceiver.tx_inhibit_command (QStringLiteral ("OTHER"), 0, QStringLiteral ("OTHER"));
-    QTest::qWait (30);
     QVERIFY (!fake->last_state.ptt ());
 
     transceiver.tx_inhibit_command (QStringLiteral ("OTHER"), 600, QStringLiteral ("OWNER"));
     QTRY_COMPARE (status.last ().at (3).toUInt (), 2u);
     transceiver.tx_inhibit_command (QStringLiteral ("OWNER"), 0, QStringLiteral ("OWNER"));
-    QTest::qWait (30);
     QVERIFY (!fake->last_state.ptt ());
 
     transceiver.tx_inhibit_command (QStringLiteral ("OTHER"), 0, QStringLiteral ("OTHER"));
@@ -261,6 +262,8 @@ private:
   {
     auto * fake = new FakeInhibitTransceiver;
     TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    qint64 now = 0;
+    transceiver.lease_now_ = [&] {return now;};
     QSignalSpy status {&transceiver, &TxInhibitTransceiver::statusChanged};
     transceiver.start (22);
 
@@ -282,20 +285,53 @@ private:
 
     transceiver.tx_inhibit_command (QStringLiteral ("OVERFLOW"), 0, QStringLiteral ("OVERFLOW"));
 
-    QTRY_COMPARE_WITH_TIMEOUT (status.last ().at (2).toString (),
-                               QStringLiteral ("HOLDER_0"), 1800);
+    now = 1200;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QCOMPARE (status.last ().at (2).toString (), QStringLiteral ("HOLDER_0"));
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    QCOMPARE (transceiver.expiry_timer_->interval (), 600);
 
     transceiver.tx_inhibit_command (QStringLiteral ("HOLDER_0"), 0, QStringLiteral ("HOLDER_0"));
     QTRY_VERIFY (status.last ().at (2).toString ().isEmpty ());
     QVERIFY (status.last ().at (1).toBool ());
     QVERIFY (!fake->last_state.ptt ());
-    QTRY_VERIFY_WITH_TIMEOUT (fake->last_state.ptt (), 1200);
+    now = 1799;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    QCOMPARE (transceiver.expiry_timer_->interval (), 1);
+    QVERIFY (!fake->last_state.ptt ());
+    now = 1800;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QVERIFY (!transceiver.expiry_timer_->isActive ());
+    QVERIFY (fake->last_state.ptt ());
+  }
+
+  Q_SLOT void leaseTimerRestoresCurrentPttIntent ()
+  {
+    auto * fake = new FakeInhibitTransceiver;
+    TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    transceiver.start (30);
+    Transceiver::TransceiverState requested;
+    requested.online (true);
+    requested.ptt (true);
+    transceiver.set (requested, 31);
+    transceiver.tx_inhibit_command (QStringLiteral ("W2SZ"), 100, QStringLiteral ("W2SZ"));
+    QVERIFY (!fake->last_state.ptt ());
+    QTRY_VERIFY_WITH_TIMEOUT (fake->last_state.ptt (), 10000);
   }
 
   Q_SLOT void leaseExpiresAndClearedIntentDoesNotRekey ()
   {
     auto * fake = new FakeInhibitTransceiver;
     TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    qint64 now = 0;
+    transceiver.lease_now_ = [&] {return now;};
     QSignalSpy status {&transceiver, &TxInhibitTransceiver::statusChanged};
     transceiver.start (30);
 
@@ -306,7 +342,19 @@ private:
 
     transceiver.tx_inhibit_command (QStringLiteral ("W2SZ"), 100, QStringLiteral ("W2SZ"));
     QTRY_VERIFY (!fake->last_state.ptt ());
-    QTRY_VERIFY_WITH_TIMEOUT (fake->last_state.ptt (), 300);
+    now = 99;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    QCOMPARE (transceiver.expiry_timer_->interval (), 1);
+    QVERIFY (!fake->last_state.ptt ());
+    now = 100;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QVERIFY (!transceiver.expiry_timer_->isActive ());
+    QVERIFY (fake->last_state.ptt ());
     QCOMPARE (status.last ().at (5).toUInt (), 1u);
 
     transceiver.tx_inhibit_command (QStringLiteral ("W2SZ"), 600, QStringLiteral ("W2SZ"));
@@ -314,7 +362,9 @@ private:
     requested.ptt (false);
     transceiver.set (requested, 32);
     transceiver.tx_inhibit_command (QStringLiteral ("W2SZ"), 0, QStringLiteral ("W2SZ"));
-    QTest::qWait (30);
+    now = 700;
+    QVERIFY (!transceiver.expiry_timer_->isActive ());
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
     QVERIFY (!fake->last_state.ptt ());
   }
 
@@ -322,6 +372,8 @@ private:
   {
     auto * fake = new FakeInhibitTransceiver;
     TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    qint64 now = 0;
+    transceiver.lease_now_ = [&] {return now;};
     QSignalSpy status {&transceiver, &TxInhibitTransceiver::statusChanged};
     transceiver.start (35);
 
@@ -332,11 +384,29 @@ private:
 
     transceiver.tx_inhibit_command (QStringLiteral ("W2SZ"), 800, QStringLiteral ("W2SZ"));
     QTRY_VERIFY (!fake->last_state.ptt ());
-    QTest::qWait (450);
+    now = 450;
     transceiver.tx_inhibit_command (QStringLiteral ("W2SZ"), 800, QStringLiteral ("W2SZ"));
-    QTest::qWait (450);
+    now = 800;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    QCOMPARE (transceiver.expiry_timer_->interval (), 450);
     QVERIFY (!fake->last_state.ptt ());
-    QTRY_VERIFY_WITH_TIMEOUT (fake->last_state.ptt (), 600);
+    QCOMPARE (status.last ().at (5).toUInt (), 0u);
+    now = 1249;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    QCOMPARE (transceiver.expiry_timer_->interval (), 1);
+    QVERIFY (!fake->last_state.ptt ());
+    now = 1250;
+    QVERIFY (transceiver.expiry_timer_->isActive ());
+    transceiver.expiry_timer_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
+    QVERIFY (!transceiver.expiry_timer_->isActive ());
+    QVERIFY (fake->last_state.ptt ());
     QCOMPARE (status.last ().at (3).toUInt (), 2u);
     QCOMPARE (status.last ().at (5).toUInt (), 1u);
   }
@@ -345,6 +415,8 @@ private:
   {
     auto * fake = new FakeInhibitTransceiver;
     TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    qint64 now = 0;
+    transceiver.lease_now_ = [&] {return now;};
     QSignalSpy status {&transceiver, &TxInhibitTransceiver::statusChanged};
     transceiver.start (37);
 
@@ -361,7 +433,9 @@ private:
     QVERIFY (fake->stopped);
     QVERIFY (!status.last ().at (0).toBool ());
     QVERIFY (!status.last ().at (1).toBool ());
-    QTest::qWait (200);
+    now = 100;
+    QVERIFY (!transceiver.expiry_timer_->isActive ());
+    QVERIFY (QMetaObject::invokeMethod (transceiver.expiry_timer_, "timeout", Qt::DirectConnection));
     QCOMPARE (fake->set_calls, set_calls);
     QVERIFY (!fake->last_state.ptt ());
   }
