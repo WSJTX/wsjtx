@@ -2169,6 +2169,8 @@ void MainWindow::configureModeControlsLayout()
   panelLayout->addLayout (ui->submode_gridLayout);
   panelLayout->addStretch (1);
   ui->gridLayout_3->addWidget (panel, 0, 0, 1, 2);
+  delete ui->verticalLayout_14;
+  delete ui->verticalLayout_13;
 
   ui->gridLayout_3->removeItem (ui->horizontalLayout_5);
   ui->horizontalLayout_5->removeWidget (ui->respondComboBox);
