@@ -1759,11 +1759,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   if(m_mode=="MSK144") {
     if (m_tci_audio) {
       QTimer::singleShot (5000, this, [=] {
-        if (!operatingBand ().isEmpty ()) {
-          Q_EMIT m_config.transceiver_trfrequency(1000.0);
-        } else {
-          rigFailure("TCI audio cannot be started as frequency is OOB");
-        }
+        Q_EMIT m_config.transceiver_trfrequency(1000.0);
       });
     } else {
       Q_EMIT transmitFrequency (1000.0);
@@ -1771,11 +1767,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   } else {
     if (m_tci_audio) {
       QTimer::singleShot (5000, this, [=] {
-        if (!operatingBand ().isEmpty ()) {
-          Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
-        } else {
-          rigFailure("TCI audio cannot be started as frequency is OOB");
-        }
+        Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
       });
     } else {
       Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ());
@@ -3494,21 +3486,13 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
         && !m_monitoring && !m_transmitting && g_iptt!=1) {
       if(m_mode=="MSK144") {
         if (m_tci_audio) {
-          if (!operatingBand ().isEmpty ()) {
-            Q_EMIT m_config.transceiver_trfrequency(1000.0);
-          } else {
-            rigFailure("TCI audio cannot be started as frequency is OOB");
-          }
+          Q_EMIT m_config.transceiver_trfrequency(1000.0);
         } else {
           Q_EMIT transmitFrequency (1000.0);
         }
       } else {
         if (m_tci_audio) {
-          if (!operatingBand ().isEmpty ()) {
-            Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
-          } else {
-            rigFailure("TCI audio cannot be started as frequency is OOB");
-          }
+          Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
         } else {
           Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value() - m_operatingFrequency.audioOffset ());
         }
@@ -3614,17 +3598,13 @@ void MainWindow::monitor (bool state)
          if(t_rxdelay > 2.3 && t_rxdelay < 2.8 && m_tEcho > t_rxdelay) ms=int(1000*(m_tEcho-t_rxdelay));
       }
       if (m_tci_audio) {
-        if (!operatingBand ().isEmpty ()) {
-          if(ms>=10) {
-            QTimer::singleShot (ms, this, [this] {
-              if (m_monitoring && m_tci_audio)
-                Q_EMIT m_config.transceiver_audio (true);
-            });
-          } else {
-            Q_EMIT m_config.transceiver_audio(true);
-          }
+        if(ms>=10) {
+          QTimer::singleShot (ms, this, [this] {
+            if (m_monitoring && m_tci_audio)
+              Q_EMIT m_config.transceiver_audio (true);
+          });
         } else {
-          rigFailure("TCI audio cannot be started as frequency is OOB");
+          Q_EMIT m_config.transceiver_audio(true);
         }
       } else {
         if(ms>=10) {
@@ -3638,11 +3618,7 @@ void MainWindow::monitor (bool state)
     }
   } else {
     if (m_tci_audio) {
-      if (!operatingBand ().isEmpty ()) {
-        Q_EMIT m_config.transceiver_audio(false);
-      } else {
-        rigFailure("TCI audio cannot be stopped as frequency is OOB");
-      }
+      Q_EMIT m_config.transceiver_audio(false);
     } else {
       Q_EMIT suspendAudioInputStream ();
     }
@@ -12981,7 +12957,7 @@ void MainWindow::on_sbTR_valueChanged(int value)
           }
        }
     m_fastGraph->setTRPeriod (value);
-    if (!m_modeSetupActive && m_tci_audio && !operatingBand ().isEmpty ())
+    if (!m_modeSetupActive && m_tci_audio)
       Q_EMIT m_config.transceiver_period(m_TRperiod);
     if (!m_tci_audio) {
       m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe

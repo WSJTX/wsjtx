@@ -276,7 +276,7 @@ void MainWindow::completeModeFrequencyChange (ModeEntry::Operation const& operat
     }
   context.acceptedRetune = accepted;
   context.selectionEffects = policy.selectionEffects;
-  if (m_tci_audio && !operatingBand ().isEmpty ()) Q_EMIT m_config.transceiver_period (context.period);
+  if (m_tci_audio) Q_EMIT m_config.transceiver_period (context.period);
   OperatingBand::State const state {m_operatingFrequency.snapshot (), displayedDialFrequency (), nominalRxBand (), operatingBand ()};
   auto const plan = m_operatingBandController.transition (state, context, OperatingBand::Event::ModeConfigured);
   applyOperatingBandPlan (plan, state, context);
