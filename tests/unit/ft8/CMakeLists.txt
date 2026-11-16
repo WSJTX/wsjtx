@@ -66,19 +66,28 @@ endforeach ()
 add_test (NAME test_osd174_91_fast_ties COMMAND test_osd174_91_fast 10000 91 ties)
 set_tests_properties (test_osd174_91_fast_ties PROPERTIES TIMEOUT 120)
 
-add_executable (test_osd174_91var_pairs
-  test_osd174_91var_pairs.f90)
-wsjt_link_common_fortran (test_osd174_91var_pairs)
-# About 10 times slower under ASan, so sanitizer builds run 500 cases, which
-# still include ten each of ndeep 1, 2, 4 and 5. The ties run fits as it is.
-set (osd_pairs_cases 3000)
-if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
-  set (osd_pairs_cases 500)
+# Not run under TSan: this test calls the decoder from one thread and checks
+# that two pair tables give identical output, so there is no concurrency for
+# TSan to examine. There it takes about 340 s (main) and 400 s (ties), about 6
+# times ASan. ASan+UBSan is about 10 times slower than a plain build, so it
+# runs 500 cases, which still include ten each of ndeep 1, 2, 4 and 5, with a
+# longer timeout. The ties run keeps its count.
+if (NOT WSJT_ENABLE_TSAN)
+  add_executable (test_osd174_91var_pairs
+    test_osd174_91var_pairs.f90)
+  wsjt_link_common_fortran (test_osd174_91var_pairs)
+  set (osd_pairs_cases 3000)
+  set (osd_pairs_timeout 120)
+  if (WSJT_ENABLE_ASAN_UBSAN)
+    set (osd_pairs_cases 500)
+    set (osd_pairs_timeout 300)
+  endif ()
+  add_test (NAME test_osd174_91var_pairs
+    COMMAND test_osd174_91var_pairs ${osd_pairs_cases})
+  add_test (NAME test_osd174_91var_pairs_ties COMMAND test_osd174_91var_pairs 1500 ties)
+  set_tests_properties (test_osd174_91var_pairs test_osd174_91var_pairs_ties
+    PROPERTIES TIMEOUT ${osd_pairs_timeout})
 endif ()
-add_test (NAME test_osd174_91var_pairs
-  COMMAND test_osd174_91var_pairs ${osd_pairs_cases})
-add_test (NAME test_osd174_91var_pairs_ties COMMAND test_osd174_91var_pairs 1500 ties)
-set_tests_properties (test_osd174_91var_pairs test_osd174_91var_pairs_ties PROPERTIES TIMEOUT 120)
 
 if (TARGET wsjt_fort_omp)
   add_executable (test_ft8_sync_fft_concurrent
