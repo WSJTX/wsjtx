@@ -1392,6 +1392,222 @@ private slots:
       }
   }
 
+  void split_report_before_preparation_waits_for_confirmation_data ()
+  {
+    QTest::addColumn<bool> ("reenter");
+    QTest::newRow ("stale-before-wait") << false;
+    QTest::newRow ("request-during-settling") << true;
+  }
+
+  void split_report_before_preparation_waits_for_confirmation ()
+  {
+    QFETCH (bool, reenter);
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    struct Reports
+    {
+      bool preliminary_wait_seen {false};
+      bool stale_delivered {false};
+      bool matching_delivered {false};
+      bool premature_ptt {false};
+      bool ptt_seen {false};
+      bool reentered {false};
+    };
+    auto reports = std::make_shared<Reports> ();
+    harness.set_command_handler (
+      [&rig, reports] (QString const& verb, QStringList const& args, int)
+      {
+        if (verb == "split_enable" && args == QStringList {"0", "true"})
+          {
+            QTimer::singleShot (0, &rig, [&rig, reports] {
+              reports->matching_delivered = QMetaObject::invokeMethod (
+                &rig, "onMessageReceived", Qt::DirectConnection,
+                Q_ARG (QString, QStringLiteral ("split_enable:0,true;")));
+            });
+            return true;
+          }
+        if (verb == "trx" && args == QStringList {"0", "true"})
+          {
+            reports->ptt_seen = true;
+            reports->premature_ptt |= !reports->matching_delivered;
+          }
+        return false;
+      });
+    rig.band_change = true;
+    rig.tci_timer2_->stop ();
+    auto requested = state_from (harness);
+    requested.tx_frequency (14076000);
+    requested.split (true);
+    requested.ptt (true);
+    requested.frequency_request ({91, 901, RigFrequency::Path::Tx, 14076000});
+    auto repeated = requested;
+    repeated.ptt (false);
+    repeated.frequency_request ({91, 902, RigFrequency::Path::Tx, 14076000});
+    QSignalSpy results {&rig, &Transceiver::frequency_result};
+    QTimer::singleShot (0, &rig, [&rig, &harness, reports, reenter, repeated] {
+      reports->preliminary_wait_seen = rig.requested_split_ && !rig.busy_split_
+        && rig.tci_timer2_->isActive ();
+      if (!reports->preliminary_wait_seen) return;
+      if (reenter)
+        QTimer::singleShot (0, &rig, [&harness, reports, repeated] {
+          reports->reentered = true;
+          harness.set_now (repeated, 31);
+        });
+      reports->stale_delivered = QMetaObject::invokeMethod (
+        &rig, "onMessageReceived", Qt::DirectConnection,
+        Q_ARG (QString, QStringLiteral ("split_enable:0,false;")));
+      rig.tci_timer2_->stop ();
+      QMetaObject::invokeMethod (rig.tci_timer2_, "timeout", Qt::DirectConnection);
+    });
+    harness.set_now (requested, 30);
+    QVERIFY (reports->preliminary_wait_seen);
+    QVERIFY (reports->stale_delivered);
+    QCOMPARE (harness.failure_count (), 0);
+    QCOMPARE (reports->reentered, reenter);
+    if (reenter)
+      {
+        bool deferred {false};
+        for (auto const& arguments : results)
+          {
+            auto const result = qvariant_cast<RigFrequency::Result> (arguments.at (0));
+            if (result.request.id == 902 && result.outcome == RigFrequency::Outcome::Deferred)
+              deferred = true;
+          }
+        QVERIFY (deferred);
+        repeated.ptt (true);
+        harness.set_now (repeated, 32);
+        QCOMPARE (harness.failure_count (), 0);
+      }
+    QVERIFY (reports->matching_delivered);
+    QVERIFY (reports->ptt_seen);
+    QVERIFY (!reports->premature_ptt);
+    QVERIFY (harness.state ().split ());
+    QVERIFY (harness.state ().ptt ());
+    QCOMPARE (harness.state ().tx_frequency (), Frequency {14076000});
+  }
+
+  void unsolicited_split_correction_keeps_processing_the_ptt_reply ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    struct Reports
+    {
+      bool ptt_wait_seen {false};
+      bool parsing {false};
+      bool checkpoint_ran {false};
+      bool nested_parser_wait {false};
+      bool ptt_reply_processed {false};
+      int corrections {0};
+    };
+    auto reports = std::make_shared<Reports> ();
+    harness.set_command_handler (
+      [&rig, reports] (QString const& verb, QStringList const& args, int) {
+        if (verb == "trx" && args == QStringList {"0", "true"})
+          {
+            reports->ptt_wait_seen = rig.busy_PTT_ && rig.tci_loop3_->isRunning ();
+            QTimer::singleShot (0, &rig, [reports] {
+              reports->checkpoint_ran = true;
+              reports->nested_parser_wait = reports->parsing;
+            });
+            reports->parsing = true;
+            QMetaObject::invokeMethod (&rig, "onMessageReceived", Qt::DirectConnection,
+              Q_ARG (QString, QStringLiteral ("split_enable:0,true;trx:0,true;")));
+            reports->ptt_reply_processed = rig.PTT_;
+            reports->parsing = false;
+            return true;
+          }
+        if (verb == "split_enable" && args == QStringList {"0", "false"}) ++reports->corrections;
+        return false;
+      });
+    auto on = state_from (harness);
+    on.ptt (true);
+    harness.set_now (on, 30);
+    QTRY_VERIFY_WITH_TIMEOUT (reports->checkpoint_ran && reports->corrections == 1, 5000);
+    QVERIFY (reports->ptt_wait_seen);
+    QVERIFY (reports->ptt_reply_processed);
+    QVERIFY (!reports->nested_parser_wait);
+    QCOMPARE (harness.failure_count (), 0);
+    QVERIFY (harness.state ().ptt ());
+  }
+
+  void matching_report_during_settling_avoids_another_split_command ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    struct Reports {bool settling_seen {false}; bool delivered {false}; bool barrier {false}; int commands {0};};
+    auto reports = std::make_shared<Reports> ();
+    harness.set_command_handler (
+      [reports] (QString const& verb, QStringList const& args, int) {
+        if (verb == "split_enable" && args == QStringList {"0", "true"}) ++reports->commands;
+        if (verb == "trx" && args == QStringList {"0", "false"}) reports->barrier = true;
+        return false;
+      });
+    QVERIFY (!rig.split_);
+    rig.requested_split_ = true;
+    rig.tci_timer5_->start (10000);
+    QTimer::singleShot (0, &rig, [&rig, reports] {
+      reports->settling_seen = rig.busy_split_ && rig.tci_loop5_->isRunning ()
+        && rig.tci_timer5_->isActive ();
+      reports->delivered = QMetaObject::invokeMethod (&rig, "onMessageReceived", Qt::DirectConnection,
+        Q_ARG (QString, QStringLiteral ("split_enable:0,true;")));
+    });
+    rig.rig_split ();
+    QVERIFY (reports->settling_seen);
+    QVERIFY (reports->delivered);
+    QVERIFY (!rig.busy_split_);
+    QVERIFY (!rig.tci_timer5_->isActive ());
+    // The following command is received after any split command on the same socket.
+    rig.sendTextMessage (QStringLiteral ("trx:0,false;"));
+    QTRY_VERIFY_WITH_TIMEOUT (reports->barrier, 5000);
+    QCOMPARE (reports->commands, 0);
+    QVERIFY (rig.state ().split ());
+  }
+
+  void unsolicited_split_correction_can_retry_after_its_throttle ()
+  {
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    struct Reports {int corrections {0}; int barriers {0};};
+    auto reports = std::make_shared<Reports> ();
+    harness.set_command_handler (
+      [reports] (QString const& verb, QStringList const& args, int) {
+        if (verb == "split_enable" && args == QStringList {"0", "false"})
+          {
+            ++reports->corrections;
+            return true;
+          }
+        if (verb == "trx" && args == QStringList {"0", "false"}) ++reports->barriers;
+        return false;
+      });
+    QVERIFY (!rig.requested_split_);
+    auto mismatch = [&] {
+      return QMetaObject::invokeMethod (&rig, "onMessageReceived", Qt::DirectConnection,
+        Q_ARG (QString, QStringLiteral ("split_enable:0,true;")));
+    };
+    QVERIFY (mismatch ());
+    QVERIFY (rig.tci_timer5_->isActive ());
+    QVERIFY (!rig.busy_split_);
+    QVERIFY (mismatch ());
+    rig.sendTextMessage (QStringLiteral ("trx:0,false;"));
+    QTRY_COMPARE_WITH_TIMEOUT (reports->barriers, 1, 5000);
+    QCOMPARE (reports->corrections, 1);
+    rig.tci_timer5_->stop ();
+    QVERIFY (QMetaObject::invokeMethod (rig.tci_timer5_, "timeout", Qt::DirectConnection));
+    QVERIFY (mismatch ());
+    rig.sendTextMessage (QStringLiteral ("trx:0,false;"));
+    QTRY_COMPARE_WITH_TIMEOUT (reports->barriers, 2, 5000);
+    QCOMPARE (reports->corrections, 2);
+    QVERIFY (rig.split_);
+  }
+
   void split_and_tx_vfo_settle_before_ptt ()
   {
     RigHarness harness;

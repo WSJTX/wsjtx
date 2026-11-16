@@ -819,7 +819,8 @@ void TCITransceiver::onMessageReceived(const QString &str)
           else if (requested_split_ != split_ && !tci_timer5_->isActive()) {
               CAT_TRACE("tci_timer5 started in onMessageReceived-Cmd_SplitEnable");
             tci_timer5_->start(210);
-            rig_split();
+            sendTextMessage (CmdSplitEnable + SmDP + rx_ + SmCM
+                             + (requested_split_ ? "true" : "false") + SmTZ);
           }
         }
         break;
@@ -1254,8 +1255,15 @@ void TCITransceiver::rig_split ()
 {
   printf("%s TCI rig_split:%d->%d busy:%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),split_,requested_split_,busy_split_);
   if (busy_split_) return;
-  if (tci_timer5_->isActive()) mysleep5(0);
   busy_split_ = true;
+  if (tci_timer5_->isActive()) {
+    mysleep5(0);
+    if (requested_split_ == split_) {
+      busy_split_ = false;
+      update_split (split_);
+      return;
+    }
+  }
   const QString cmd = CmdSplitEnable + SmDP + rx_ + SmCM + (requested_split_ ? "true" : "false") + SmTZ;
   sendTextMessage(cmd);
   mysleep5(500);
@@ -1723,7 +1731,7 @@ void TCITransceiver::mysleep4 (int ms)
 }
 void TCITransceiver::mysleep5 (int ms)
 {
-  if((tci_loop5_ && (tci_loop5_->isRunning())) || (tci_timer5_ && tci_timer5_->isActive())) return;
+  if (tci_loop5_ && tci_loop5_->isRunning()) return;
   if (ms) tci_timer5_->start(ms);
   wait_exec (tci_loop5_);
   if (tci_timer5_->isActive()) tci_timer5_->stop();
