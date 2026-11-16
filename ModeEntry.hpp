@@ -61,6 +61,10 @@ namespace ModeEntry
   public:
     void defer (Operation, quint64 connection, Radio::Frequency rx);
     void cancel () {pending_.reset ();}
+    // The application, not the operator, has moved or discovered the dial: a
+    // pending calibration start expects the new frequency instead of being
+    // cancelled by it. Other pending retunes are left as they are.
+    void follow (Radio::Frequency rx);
     bool pending () const {return pending_.has_value ();}
     std::optional<Operation> resume (quint64 acceptedIdentity, quint64 connection,
                                     OperatingFrequency::Snapshot const&);

@@ -370,6 +370,7 @@ private:
                                  QString const& dx_call, QString const& dx_grid, bool generate_messages);
   bool configureMode (QString const&);
   void completeModeFrequencyChange (ModeEntry::Operation const&);
+  std::optional<Frequency> freqCalStartTarget ();
   void resumeModeRetune ();
   void setupFST4 ();
   void setupFST4W ();
@@ -729,6 +730,7 @@ private slots:
   void on_actionFreqCal_triggered();
   void splash_done ();
   void on_measure_check_box_stateChanged (int);
+  void on_freqcal_range_check_box_toggled (bool);
   void on_sbNlist_valueChanged(int n);
   void on_sbNslots_valueChanged(int n);
   void on_sbF_Low_valueChanged(int n);
@@ -1894,6 +1896,7 @@ private:
     ApDxCall,
     Respond,
     Measure,
+    FreqCalRange,
     DxpedLabel,
     RxAll,
     CqOnly,

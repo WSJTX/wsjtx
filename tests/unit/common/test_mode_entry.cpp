@@ -29,6 +29,8 @@ private Q_SLOTS:
   void changed_retune_context_is_discarded_data ();
   void changed_retune_context_is_discarded ();
   void corrections_do_not_supersede_retune ();
+  void calibration_start_follows_dial_moved_by_the_application ();
+  void follow_leaves_other_retunes_alone ();
   void explicit_cancellation_survives_return_to_old_frequency ();
   void replacement_retune_retains_its_own_context ();
 };
@@ -265,6 +267,57 @@ void TestModeEntry::corrections_do_not_supersede_retune ()
   QVERIFY (retune.pending ());
   state.pendingTx = false;
   QVERIFY (retune.resume (1, 7, state));
+}
+
+void TestModeEntry::calibration_start_follows_dial_moved_by_the_application ()
+{
+  ModeEntry::PendingRetune retune;
+  retune.defer ({1, {"FreqCal"}}, 7, 134500);
+  retune.follow (14020000);
+  QVERIFY (!retune.resume (1, 7, receiving (134500)));
+  QVERIFY (!retune.pending ());
+
+  retune.defer ({1, {"FreqCal"}}, 7, 134500);
+  retune.follow (14020000);
+  auto state = receiving (14020000);
+  state.pendingRx = true;
+  QVERIFY (!retune.resume (1, 7, state));
+  QVERIFY (retune.pending ());
+  QVERIFY (retune.resume (1, 7, receiving (14020000)));
+  QVERIFY (!retune.pending ());
+
+  retune.defer ({1, {"FreqCal"}}, 7, 134500);
+  retune.follow (14020000);
+  retune.follow (7074000);
+  QVERIFY (retune.resume (1, 7, receiving (7074000)));
+
+  retune.defer ({1, {"FreqCal"}}, 7, 134500);
+  retune.follow (14020000);
+  QVERIFY (!retune.resume (1, 7, receiving (3573000)));
+  QVERIFY (!retune.pending ());
+
+  retune.defer ({1, {"FreqCal"}}, 7, 134500);
+  retune.follow (14020000);
+  QVERIFY (!retune.resume (1, 8, receiving (14020000)));
+  QVERIFY (!retune.pending ());
+}
+
+void TestModeEntry::follow_leaves_other_retunes_alone ()
+{
+  ModeEntry::PendingRetune retune;
+  retune.follow (14020000);
+  QVERIFY (!retune.pending ());
+
+  retune.defer ({1, {"Q65"}}, 7, 14074000);
+  retune.follow (7074000);
+  QVERIFY (!retune.resume (1, 7, receiving (7074000)));
+  QVERIFY (!retune.pending ());
+
+  retune.defer ({1, {"FreqCal"}}, 7, 0);
+  retune.follow (14020000);
+  QVERIFY (!retune.resume (1, 7, receiving (0)));
+  QVERIFY (retune.pending ());
+  QVERIFY (retune.resume (1, 7, receiving (3573000)));
 }
 
 void TestModeEntry::explicit_cancellation_survives_return_to_old_frequency ()

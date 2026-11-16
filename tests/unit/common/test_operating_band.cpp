@@ -531,6 +531,19 @@ private Q_SLOTS:
     QVERIFY (top);
     QCOMPARE (*top, std::numeric_limits<Frequency>::max ());
   }
+
+  void rig_tuning_ranges_answer_unknown_inside_or_outside ()
+  {
+    using RigFrequency::tunable;
+    QVERIFY (!tunable ({}, 196500).has_value ());
+    RigFrequency::Ranges const ranges {{1800000, 2000000}, {3000000, 30000000}};
+    QCOMPARE (tunable (ranges, 1800000), std::optional<bool> {true});
+    QCOMPARE (tunable (ranges, 2000000), std::optional<bool> {true});
+    QCOMPARE (tunable (ranges, 9998500), std::optional<bool> {true});
+    QCOMPARE (tunable (ranges, 196500), std::optional<bool> {false});
+    QCOMPARE (tunable (ranges, 2500000), std::optional<bool> {false});
+    QCOMPARE (tunable (ranges, 30000001), std::optional<bool> {false});
+  }
 };
 
 QTEST_APPLESS_MAIN (TestOperatingBand)

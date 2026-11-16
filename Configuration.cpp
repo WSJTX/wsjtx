@@ -1051,6 +1051,10 @@ private:
   TransceiverFactory::ParameterPack saved_rig_params_;
   TransceiverFactory::Capabilities::PortType last_port_type_;
   bool rig_is_dummy_;
+  RigFrequency::Ranges rig_tuning_ranges_;
+  bool rig_ranges_known_ {false};      // set by the rig's own online update
+  bool rig_ranges_fixed_ {false};      // tests only: ranges set by hand
+  bool rig_range_override_ {false};    // FreqCal's "Ignore range" box
   bool is_tci_;
   bool rig_active_;
   bool tx_inhibit_active_ {false};
@@ -1547,6 +1551,38 @@ bool Configuration::request_frequency (RigFrequency::Request const& request,
 {
   if (!m_->can_control_rig ("request_frequency")) return false;
   return m_->request_frequency (request, kind);
+}
+
+bool Configuration::rig_ranges_pending () const
+{
+  return m_->rig_active_ && !m_->rig_ranges_known_;
+}
+
+void Configuration::set_rig_tuning_ranges_for_test (RigFrequency::Ranges const& ranges)
+{
+  m_->rig_tuning_ranges_ = ranges;
+  m_->rig_ranges_known_ = true;
+  m_->rig_ranges_fixed_ = true;
+}
+
+bool Configuration::rig_range_override () const {return m_->rig_range_override_;}
+void Configuration::set_rig_range_override (bool override_ranges)
+{
+  m_->rig_range_override_ = override_ranges;
+  SettingsGroup g {m_->settings_, "Configuration"};
+  m_->settings_->setValue ("RigRangeOverride", override_ranges);
+}
+
+bool Configuration::rig_cannot_tune (Frequency frequency) const
+{
+  if (!m_->rig_active_ || !frequency || m_->rig_range_override_) return false;
+  FrequencyAdapter::Projection projection;
+  projection.offset = m_->stations_.offset (frequency);
+  projection.intercept = m_->calibration_.intercept;
+  projection.slope_ppm = m_->calibration_.slope_ppm;
+  projection.calibrated = !m_->frequency_calibration_disabled_;
+  // tunable() is empty when no ranges are known, and then the tune is allowed.
+  return !RigFrequency::tunable (m_->rig_tuning_ranges_, projection.encode (frequency)).value_or (true);
 }
 
 quint64 Configuration::frequency_generation () const
@@ -3772,6 +3808,7 @@ void Configuration::impl::read_settings ()
   type_2_msg_gen_ = settings_->value ("Type2MsgGen", QVariant::fromValue (Configuration::type_2_msg_3_full)).value<Configuration::Type2MsgGen> ();
 
   monitor_off_at_startup_ = settings_->value ("MonitorOFF", false).toBool ();
+  rig_range_override_ = settings_->value ("RigRangeOverride", false).toBool ();
   monitor_last_used_ = settings_->value ("MonitorLastUsed", false).toBool ();
   spot_to_psk_reporter_ = settings_->value ("PSKReporter", false).toBool ();
   psk_reporter_tcpip_ = settings_->value ("PSKReporterTCPIP", false).toBool ();
@@ -7966,6 +8003,8 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 
   if (state.online ())
     {
+      if (!rig_ranges_fixed_) rig_tuning_ranges_ = state.tuning_ranges ();
+      rig_ranges_known_ = true;
       ui_->test_PTT_push_button->setChecked (
         tx_inhibit_active_ ? cached_rig_state_.ptt () : state.ptt ());
 
@@ -8037,6 +8076,8 @@ void Configuration::impl::close_rig (bool failed)
   set_test_ptt_state (TestPttState::Idle);
   frequency_adapter_.new_connection ();
   deferred_frequency_retry_scheduled_ = false;
+  if (!rig_ranges_fixed_) rig_tuning_ranges_.clear ();
+  rig_ranges_known_ = false;
   ui_->test_PTT_push_button->setEnabled (false);
 
   // revert to no rig configured

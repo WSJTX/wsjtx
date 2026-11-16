@@ -413,6 +413,17 @@ public:
   Q_SLOT bool transceiver_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
   bool request_frequency (RigFrequency::Request const&, RigFrequencyChangePolicy::ChangeKind);
   quint64 frequency_generation () const;
+  // True only when the open rig's reported ranges exclude this dial frequency
+  // (after station offset and calibration); false when no ranges are known or
+  // the user checked FreqCal's "Ignore range" box.
+  bool rig_cannot_tune (Frequency) const;
+  // True while a rig is configured but has not yet reported its ranges
+  // (opening, or restarting after Settings).
+  bool rig_ranges_pending () const;
+  bool rig_range_override () const;
+  void set_rig_range_override (bool);
+  // Tests only: the in-process "None" rig reports no ranges of its own.
+  void set_rig_tuning_ranges_for_test (RigFrequency::Ranges const&);
   void set_frequency_activity_provider (std::function<RigFrequencyChangePolicy::Activity ()>);
   Q_SIGNAL void frequency_result (RigFrequency::Result const&);
   Q_SIGNAL void frequency_observation (RigFrequency::Evidence const&);

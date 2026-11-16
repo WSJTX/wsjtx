@@ -89,6 +89,7 @@ void MainWindow::on_monitorButton_clicked (bool checked)
           operatingFrequencyContext (), [this] (RigFrequency::Request const& request) {
             return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
           }, online);
+        if (transition.restorationAccepted) m_pendingModeRetune.follow (m_operatingFrequency.snapshot ().rx);
         synchronizeOperatingBandState ();
         applyMonitorEffects (true, transition.restorationAccepted);
       }

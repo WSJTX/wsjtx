@@ -241,6 +241,44 @@ auto MainWindow::calibrationEntryForDial (Frequency dial) const -> FrequencyList
   return reference ? frequencies->find (*reference) : frequencies->end ();
 }
 
+// Start at the first reference the rig can tune; a refused frequency takes
+// rig control offline, and Retry would request it again.
+auto MainWindow::freqCalStartTarget () -> std::optional<Frequency>
+{
+  auto const frequencies = m_config.frequencies ();
+  auto const audio = ui->RxFreqSpinBox->value ();
+  std::optional<Frequency> target;
+  bool skipped = false;
+  for (m_frequency_list_fcal_iter = frequencies->begin ();
+       m_frequency_list_fcal_iter != frequencies->end (); ++m_frequency_list_fcal_iter)
+    {
+      target = OperatingBand::calibrationDial (m_frequency_list_fcal_iter->frequency_, audio);
+      if (!target) continue;
+      if (!m_config.rig_cannot_tune (*target)) break;
+      skipped = true;
+      target.reset ();
+    }
+  if (skipped && target)
+    statusBar ()->showMessage (
+      tr ("FreqCal starts at the %1 MHz reference; lower references are outside the radio's range (check Ignore range to use them).")
+      .arg (m_frequency_list_fcal_iter->frequency_ / 1.e6, 0, 'f', 3), 10000);
+  else if (skipped)
+    statusBar ()->showMessage (tr ("No FreqCal reference is within the radio's range (check Ignore range to use them)."), 10000);
+  return target;
+}
+
+void MainWindow::on_freqcal_range_check_box_toggled (bool checked)
+{
+  m_config.set_rig_range_override (checked);
+  if (m_mode != "FreqCal" || m_modeSetupActive) return;
+  // Entry may have skipped references, or the current one may now be out of
+  // range: begin again at the first reference the radio can use.
+  auto const previous = m_frequency_list_fcal_iter;
+  auto const target = freqCalStartTarget ();
+  if (!target || !requestBandChange (*target, FrequencyRequestOrigin::User))
+    m_frequency_list_fcal_iter = previous;
+}
+
 void MainWindow::completeModeFrequencyChange (ModeEntry::Operation const& operation)
 {
   auto const& request = operation.request;
@@ -253,25 +291,27 @@ void MainWindow::completeModeFrequencyChange (ModeEntry::Operation const& operat
   if (m_modeEntries.current (operation.identity) && policy.target != ModeEntry::TargetKind::None
       && nominalFrequencyChangeAllowed (request.userInitiated ? FrequencyRequestOrigin::User : FrequencyRequestOrigin::Automatic))
     {
+      bool const calibration_start = policy.target == ModeEntry::TargetKind::CalibrationStart;
       if (policy.target == ModeEntry::TargetKind::Explicit) target = request.frequency;
-      else if (policy.target == ModeEntry::TargetKind::CalibrationStart)
-        {
-          m_frequency_list_fcal_iter = m_config.frequencies ()->begin ();
-          if (m_frequency_list_fcal_iter != m_config.frequencies ()->end ())
-            target = OperatingBand::calibrationDial (m_frequency_list_fcal_iter->frequency_, ui->RxFreqSpinBox->value ());
-        }
-      else
+      else if (!calibration_start)
         {
           Frequency frequency;
           if (workingFrequencyAt (m_config.frequencies ()->best_working_frequency (m_operatingFrequency.rx ()), frequency)) target = frequency;
         }
       auto const state = m_operatingFrequency.snapshot ();
-      if (!state.rx || state.pendingRx || state.pendingTx)
+      // The rig's ranges arrive with its first online update, which can follow
+      // the first frequency report; the start is chosen only once they are known.
+      if (!state.rx || state.pendingRx || state.pendingTx
+          || (calibration_start && m_config.rig_ranges_pending ()))
         m_pendingModeRetune.defer (operation, m_config.frequency_generation (), state.rx);
-      else if (target)
+      else
         {
-          auto const origin = request.userInitiated ? FrequencyRequestOrigin::User : FrequencyRequestOrigin::Automatic;
-          accepted = tryRequestNominalFrequencyChange (*target, origin, true);
+          if (calibration_start) target = freqCalStartTarget ();
+          if (target)
+            {
+              auto const origin = request.userInitiated ? FrequencyRequestOrigin::User : FrequencyRequestOrigin::Automatic;
+              accepted = tryRequestNominalFrequencyChange (*target, origin, true);
+            }
         }
     }
   context.acceptedRetune = accepted;

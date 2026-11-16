@@ -639,6 +639,12 @@ void TransceiverBase::update_swr (unsigned int p)
   actual_.swr (p);
 }
 
+void TransceiverBase::update_tuning_ranges (RigFrequency::Ranges const& ranges)
+{
+  CAT_TRACE ("tuning ranges: " << ranges.size ());
+  actual_.tuning_ranges (ranges);
+}
+
 void TransceiverBase::update_complete (bool force_signal)
 {
   CAT_TRACE ("force signal: " << force_signal) << '\n';

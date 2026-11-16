@@ -1,6 +1,8 @@
 #ifndef FREQUENCY_CONTROL_HPP
 #define FREQUENCY_CONTROL_HPP
 
+#include <optional>
+#include <vector>
 #include <QtGlobal>
 #include <QMetaType>
 #include "Radio.hpp"
@@ -24,6 +26,26 @@ namespace RigFrequency
   {
     auto const delta = observed > target ? observed - target : target - observed;
     return delta < resolution;
+  }
+
+  // A frequency range the rig reports it can tune (receive and transmit ranges
+  // combined), in rig (not dial) frequencies.
+  struct Range
+  {
+    Radio::Frequency low = 0;
+    Radio::Frequency high = 0;
+    bool operator == (Range const& other) const { return low == other.low && high == other.high; }
+    bool operator != (Range const& other) const { return !(*this == other); }
+  };
+  using Ranges = std::vector<Range>;
+
+  // No ranges means the backend did not report them, so the answer is unknown.
+  inline std::optional<bool> tunable (Ranges const& ranges, Radio::Frequency frequency)
+  {
+    if (ranges.empty ()) return {};
+    for (auto const& range : ranges)
+      if (frequency >= range.low && frequency <= range.high) return true;
+    return false;
   }
 
   struct Request

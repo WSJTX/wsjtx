@@ -1421,6 +1421,10 @@ MainWindow::MainWindow(QDir const& temp_directory,
              synchronizeOperatingBandState ();
              if (transition.before.rx != transition.after.rx)
                setXIT (ui->TxFreqSpinBox->value ());
+             // Until the rig's first online update (which carries its ranges) the
+             // dial is still being discovered, which is not an operator change.
+             if (m_config.rig_ranges_pending ())
+               m_pendingModeRetune.follow (transition.after.rx);
              resumeModeRetune ();
            });
   connect (&m_config, &Configuration::frequency_failure, this,
@@ -1472,10 +1476,15 @@ MainWindow::MainWindow(QDir const& temp_directory,
       statusUpdate ();
 #if defined(Q_OS_WIN)
       QTimer::singleShot (250, this, [=] {
+        // Re-sending the application's own frequency is not an operator change:
+        // a pending calibration start survives it.
+        auto const pending_retune = m_pendingModeRetune;
         if (m_mode != "Echo" && requestNominalFrequencyChange (
               m_operatingFrequency.remembered (), FrequencyRequestOrigin::Automatic))
           {
             m_msk144basefreq = m_operatingFrequency.remembered ();  // This is needed for Hamradio Deluxe
+            m_pendingModeRetune = pending_retune;
+            m_pendingModeRetune.follow (m_operatingFrequency.snapshot ().rx);
           }
       });
 #endif
@@ -11007,6 +11016,7 @@ void MainWindow::applyModeUiState(ModeUiState state)
   ui->actionEnable_AP_DXcall->setVisible(visible(ModeUiControl::ApDxCall));
   ui->respondComboBox->setVisible(visible(ModeUiControl::Respond));
   ui->measure_check_box->setVisible(visible(ModeUiControl::Measure));
+  ui->freqcal_range_check_box->setVisible(visible(ModeUiControl::FreqCalRange));
   ui->labDXped->setVisible(visible(ModeUiControl::DxpedLabel));
   ui->cbRxAll->setVisible(visible(ModeUiControl::RxAll));
   ui->cbCQonly->setVisible(visible(ModeUiControl::CqOnly));
@@ -11223,6 +11233,7 @@ void MainWindow::registerMainWindowFocusControls()
     ui->sbCQTxFreq, ui->cbCQTx, ui->cbRxAll,
     ui->cbShMsgs, ui->cbFast9, ui->cbAutoSeq, ui->respondComboBox,
     ui->cbTx6, ui->cbSWL, ui->pbBestSP, ui->measure_check_box,
+    ui->freqcal_range_check_box,
     ui->tabWidget->tabBar (),
     ui->genStdMsgsPushButton,
     ui->txb1, ui->txb2, ui->txb3, ui->txb4, ui->txb5, ui->txb6,
@@ -11618,17 +11629,26 @@ void MainWindow::on_RxFreqSpinBox_valueChanged(int n)
   if (m_mode == "FreqCal" && !m_modeSetupActive) {
     if (m_frequency_list_fcal_iter != m_config.frequencies ()->end ())
       {
-        if (!requestNominalFrequencyChange (
-              m_frequency_list_fcal_iter->frequency_ - n,
-              FrequencyRequestOrigin::User))
+        auto const dial = OperatingBand::calibrationDial (m_frequency_list_fcal_iter->frequency_, n);
+        bool const out_of_range = !dial || m_config.rig_cannot_tune (*dial);
+        if (dial && out_of_range)
+          statusBar ()->showMessage (
+            tr ("Rx %1 Hz would put the dial at %2 MHz, outside the radio's range; Rx was not changed (check Ignore range to allow it).")
+            .arg (n).arg (*dial / 1.e6, 0, 'f', 6), 10000);
+        if (out_of_range
+            || !requestNominalFrequencyChange (*dial, FrequencyRequestOrigin::User))
           {
-            auto const accepted_rx_frequency = static_cast<int> (
-              m_frequency_list_fcal_iter->frequency_ - m_operatingFrequency.rx ());
-            QSignalBlocker const rx_blocker {ui->RxFreqSpinBox};
-            QSignalBlocker const rx_copy_blocker {ui->RxFreqSpinBox_2};
-            ui->RxFreqSpinBox->setValue (accepted_rx_frequency);
-            ui->RxFreqSpinBox_2->setValue (accepted_rx_frequency);
-            m_wideGraph->setRxFreq (accepted_rx_frequency);
+            auto const reference = m_frequency_list_fcal_iter->frequency_;
+            auto const dial_now = m_operatingFrequency.rx ();
+            if (dial_now && reference > dial_now)
+              {
+                auto const accepted_rx_frequency = static_cast<int> (reference - dial_now);
+                QSignalBlocker const rx_blocker {ui->RxFreqSpinBox};
+                QSignalBlocker const rx_copy_blocker {ui->RxFreqSpinBox_2};
+                ui->RxFreqSpinBox->setValue (accepted_rx_frequency);
+                ui->RxFreqSpinBox_2->setValue (accepted_rx_frequency);
+                m_wideGraph->setRxFreq (accepted_rx_frequency);
+              }
           }
       }
   }
@@ -12358,6 +12378,8 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
     }, m_config.is_transceiver_online ());
   m_splitMode = s.split ();
+  if (transition.restorationAccepted || (!old_state.online () && s.online ()))
+    m_pendingModeRetune.follow (m_operatingFrequency.snapshot ().rx);
   synchronizeOperatingBandState ();
   if (transition.monitor)
     {
@@ -13954,17 +13976,26 @@ void MainWindow::on_actionErase_reference_spectrum_triggered()
 
 void MainWindow::freqCalStep()
 {
-  auto next = m_frequency_list_fcal_iter;
-  if (next == m_config.frequencies ()->end ()
-      || ++next == m_config.frequencies ()->end ()) {
-    next = m_config.frequencies ()->begin ();
-  }
+  auto const frequencies = m_config.frequencies ();
+  auto const audio = ui->RxFreqSpinBox->value ();
+  // At most one pass over the list, so out-of-range references cannot loop.
+  int entries = 0;
+  for (auto entry = frequencies->begin (); entry != frequencies->end (); ++entry) ++entries;
 
-  // allow for empty list
-  if (next != m_config.frequencies ()->end ()
-      && requestNominalFrequencyChange (
-        next->frequency_ - ui->RxFreqSpinBox->value (), FrequencyRequestOrigin::Automatic)) {
-    m_frequency_list_fcal_iter = next;
+  auto next = m_frequency_list_fcal_iter;
+  for (; entries > 0; --entries) {
+    if (next == frequencies->end () || ++next == frequencies->end ()) {
+      next = frequencies->begin ();
+    }
+    auto const dial = OperatingBand::calibrationDial (next->frequency_, audio);
+    if (!dial || m_config.rig_cannot_tune (*dial)) continue;
+    if (requestNominalFrequencyChange (*dial, FrequencyRequestOrigin::Automatic)) {
+      m_frequency_list_fcal_iter = next;
+    }
+    return;
+  }
+  if (next != frequencies->end ()) {
+    statusBar ()->showMessage (tr ("No FreqCal reference is within the radio's range (check Ignore range to use them)."), 10000);
   }
 }
 
