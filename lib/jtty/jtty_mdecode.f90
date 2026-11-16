@@ -1359,6 +1359,10 @@ contains
          nsync=count(is13.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
          cand(ncand)%snrdb=snrdb
 
+         if(ndebug.gt.1) write(*,3003) ichan,ipass,ic,cand(ncand)%f1,       &
+              cand(ncand)%xdt,nsync,snrdb,merge(6,8,ichan.eq.0),            &
+              merge(smin,5.0,ichan.eq.0)
+3003     format('sync-gate',3i4,f8.1,f7.3,i4,f7.1,'   need nsync>',i2,' snr>=',f5.1)
          if( ichan.eq.0 .and. (nsync .le. 6 .or. snrdb .lt. smin)) cycle
          if( ichan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
@@ -1504,6 +1508,12 @@ contains
          snrdb=max(db((pt-pn)/pn) - db(2500.0/baud), SNR_FLOOR_DB)
          cand(ncand)%snrdb=snrdb
       endif
+      ! Symbols disagreeing with the re-encoded frame. Reported only: across
+      ! 363 on-air recordings genuine and false decodes overlap at every value.
+      if(ndebug.gt.1) write(*,3004) ichan,cand(ncand)%f1,nsync,nsymerrs,      &
+           ic_label,trim(cand(ncand)%decoded)
+3004  format('symerr-gate',i3,f8.1,'  nsync=',i3,'  nsymerrs=',i3,            &
+           '  ic=',i3,'  |',a,'|')
       cand(ncand)%tsync=sample_time(istart) + real(cand(ncand)%xdt,real64)
       if(ic_label.ge.0) then
          rx_frame(1:NSYNC_SYM)=irxsync
