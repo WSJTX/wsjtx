@@ -46,10 +46,30 @@ function (require_mode_result expected_stderr)
   endif ()
 endfunction ()
 
+function (require_wav_rejection name expected_stderr)
+  set (directory "${CMAKE_CURRENT_BINARY_DIR}/Testing/Temporary/jt9-wav-error-${program_name}-${name}")
+  file (MAKE_DIRECTORY "${directory}")
+  execute_process (
+    COMMAND "${program}" -a "${directory}" -t "${directory}" -r "${source_dir}" ${ARGN}
+    WORKING_DIRECTORY "${directory}"
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE stdout
+    ERROR_VARIABLE stderr
+    TIMEOUT 60)
+  if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "${expected_stderr}" OR
+      stderr MATCHES "Sanitizer|runtime error:")
+    message (FATAL_ERROR "${program_name} ${name} produced an unexpected result (${result}): ${stdout}${stderr}")
+  endif ()
+  set (wav_stdout "${stdout}" PARENT_SCOPE)
+endfunction ()
+
 set (missing_wav "${CMAKE_CURRENT_BINARY_DIR}/jt9-cli-validation-missing.wav")
 if (EXISTS "${missing_wav}")
   message (FATAL_ERROR "CLI validation requires an absent WAV path: ${missing_wav}")
 endif ()
+get_filename_component (source_dir "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+set (valid_wav "${source_dir}/samples/FT8/210703_133430.wav")
+set (wrong_rate_wav "${source_dir}/samples/JT4/JT4F/OK1KIR_141105_175700.WAV")
 
 foreach (program "${JT9}" "${WSJT_CODEC}")
   get_filename_component (program_name "${program}" NAME_WE)
@@ -88,6 +108,22 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
   endif ()
   file (REMOVE_RECURSE "${empty_dir}")
   require_mode_result ("cannot read WAV file" --ft8)
+  require_mode_result ("cannot read WAV file" --ft8 -M)
+  if (EXISTS "${valid_wav}" AND EXISTS "${wrong_rate_wav}")
+    foreach (mtd IN ITEMS "" "-M")
+      string (REPLACE "-" "" profile "standard${mtd}")
+      require_wav_rejection ("${profile}-wrong-rate" "unsupported 11025 Hz WAV sample rate" --ft8 ${mtd} "${wrong_rate_wav}")
+      if (wav_stdout MATCHES "<DecodeFinished>")
+        message (FATAL_ERROR "${program_name} decoded an unsupported-rate WAV: ${wav_stdout}")
+      endif ()
+      require_wav_rejection ("${profile}-valid-then-missing" "cannot read WAV file" --ft8 ${mtd} "${valid_wav}" "${missing_wav}")
+      if (NOT wav_stdout MATCHES "CQ F5RXL IN94" OR NOT wav_stdout MATCHES "<DecodeFinished>")
+        message (FATAL_ERROR "${program_name} did not decode the valid WAV before rejecting missing input: ${wav_stdout}")
+      endif ()
+    endforeach ()
+  else ()
+    message (STATUS "Skipping ${program_name} sample-dependent WAV error checks: FT8 or JT4 sample is unavailable")
+  endif ()
   foreach (option -D --MTft8-StartTime)
     foreach (value 5)
       require_mode_result ("invalid value for -D: ${value}.*between 0 and 4" --ft8 "${option}" "${value}")

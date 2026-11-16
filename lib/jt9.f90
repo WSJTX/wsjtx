@@ -493,14 +493,14 @@ program jt9
      if (wav_status /= 0) then
         write(error_unit, '(A)') trim(program_name) // ': cannot read WAV file ' // trim(infile) // &
              ': ' // trim(optarg)
-        stop 2
+        call stop_wav_error()
      end if
      nfsample=wav%audio_format%sample_rate
      if (nfsample /= 12000 .and. .not. (mode == 4 .and. nfsample == 11025)) then
         close(unit=wav%lun)
         write(error_unit, '(A,I0,A)') trim(program_name) // ': unsupported ',nfsample, &
              ' Hz WAV sample rate for the selected mode'
-        stop 2
+        call stop_wav_error()
      end if
      call parse_wav_filename_nutc(infile, nutc, wav_utc_has_seconds)
      nutc=adjust_wav_nutc(mode,nutc,wav_utc_has_seconds)
@@ -526,7 +526,7 @@ program jt9
            close(unit=wav%lun)
            write(error_unit, '(A)') trim(program_name) // ': cannot read WAV file ' // &
                 trim(infile) // ': ' // trim(optarg)
-           stop 2
+           call stop_wav_error()
         end if
         if (samples_read == 0) then
            if(mode.ne.9.or.engine_valid_samples.eq.0) print*,'EOF on input file ',trim(infile)
@@ -612,6 +612,11 @@ program jt9
   if (allocated(shared_data)) deallocate(shared_data)
 
 contains
+
+  subroutine stop_wav_error()
+    deallocate(wav_samples)
+    stop 2
+  end subroutine stop_wav_error
 
   subroutine require_mode_submode(selected_mode)
     integer, intent(in) :: selected_mode
