@@ -284,3 +284,35 @@ add_test (NAME test_jt4_12000_read_extent COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/verify_jt4_12000_read_extent.cmake)
 set_tests_properties (test_jt4_12000_read_extent PROPERTIES
   FIXTURES_REQUIRED jt4_engine_wav LABELS "decoder;jt4;integration" TIMEOUT 60)
+
+
+add_executable (test_decoder_engine_wspr test_decoder_engine_wspr.c)
+set_target_properties (test_decoder_engine_wspr PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories (test_decoder_engine_wspr PRIVATE ${CMAKE_SOURCE_DIR})
+wsjt_link_common_fortran (test_decoder_engine_wspr)
+add_test (NAME test_decoder_engine_wspr COMMAND test_decoder_engine_wspr)
+set_tests_properties (test_decoder_engine_wspr PROPERTIES TIMEOUT 180 LABELS "decoder;wspr")
+add_test (NAME prepare_wspr_engine_wav COMMAND test_decoder_engine_wspr --write-wav
+  ${CMAKE_CURRENT_BINARY_DIR}/wspr-engine.wav "K1ABC FN42 33" 2 1520 1.2)
+set_tests_properties (prepare_wspr_engine_wav PROPERTIES FIXTURES_SETUP wspr_engine_wav TIMEOUT 30)
+if (TARGET wsjt_fort_omp AND TARGET wsjt_fort)
+  add_executable (test_decoder_engine_wspr_omp test_decoder_engine_wspr.c)
+  set_target_properties (test_decoder_engine_wspr_omp PROPERTIES LINKER_LANGUAGE CXX)
+  target_include_directories (test_decoder_engine_wspr_omp PRIVATE ${CMAKE_SOURCE_DIR})
+  target_link_libraries (test_decoder_engine_wspr_omp PRIVATE wsjt_fort_omp wsjt_fortran_openmp)
+  add_test (NAME test_decoder_engine_wspr_omp COMMAND test_decoder_engine_wspr_omp)
+  set_tests_properties (test_decoder_engine_wspr_omp PROPERTIES TIMEOUT 180 LABELS "decoder;wspr"
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2")
+endif ()
+
+add_test (NAME test_wspr_engine_cli COMMAND ${CMAKE_COMMAND}
+  "-DENGINE=$<TARGET_FILE:test_decoder_engine_wspr>"
+  "-DWSPRD=$<TARGET_FILE:wsprd>"
+  "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/wspr-cli"
+  -P ${CMAKE_SOURCE_DIR}/tests/integration/wsprd/verify_engine.cmake)
+set (wspr_cli_timeout 240)
+if (WSJT_ENABLE_ASAN_UBSAN OR WSJT_ENABLE_TSAN)
+  set (wspr_cli_timeout 600)
+endif ()
+set_tests_properties (test_wspr_engine_cli PROPERTIES
+  TIMEOUT ${wspr_cli_timeout} LABELS "decoder;wspr;integration")

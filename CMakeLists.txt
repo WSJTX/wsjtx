@@ -445,11 +445,17 @@ if (UNIX)
   endif ()
 endif ()
 
+# The same C decoder objects serve the standalone host and both engine archives.
+# Keeping them with their Fortran callees avoids cyclic static-library links.
+add_library (wsjt_wspr OBJECT ${wspr_decoder_CSRCS})
+target_include_directories (wsjt_wspr PRIVATE ${FFTW3_INCLUDE_DIRS})
+
 # build Fortran library routines without and optionally with OpenMP support
 if (WSJT_BUILD_FORTRAN_NON_OPENMP)
   set (WSJT_FORTRAN_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR})
-  add_library (wsjt_fort STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
+  add_library (wsjt_fort STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS}
+    $<TARGET_OBJECTS:wsjt_wspr>)
   set_target_properties (wsjt_fort
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR}
@@ -462,7 +468,8 @@ endif ()
 if (WSJT_BUILD_FORTRAN_OPENMP)
   set (WSJT_FORTRAN_OPENMP_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules_omp)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
-  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
+  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS}
+    $<TARGET_OBJECTS:wsjt_wspr>)
   set_target_properties (wsjt_fort_omp
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR}
@@ -549,6 +556,7 @@ generate_version_info (wsprd_VERSION_RESOURCES
 
 add_executable(wsprd
   ${wsprd_CSRCS}
+  $<TARGET_OBJECTS:wsjt_wspr>
   lib/indexx.f90
   lib/wsprd/osdwspr.f90
 )

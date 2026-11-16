@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
     }
     
     unsigned char channel_symbols[162];
-    get_wspr_channel_symbols(message, hashtab, loctab, channel_symbols);
+    get_wspr_channel_symbols_verbose(message, hashtab, loctab, channel_symbols, printdata);
     
     if( printchannel ) {
         printf("Channel symbols:\n");

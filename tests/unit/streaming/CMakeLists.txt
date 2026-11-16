@@ -1,5 +1,5 @@
 add_executable (test_streaming_consumers test_streaming_consumers.cpp)
-add_dependencies (test_streaming_consumers jt9 test_decoder_engine test_decoder_engine_q65 test_decoder_engine_fst4 test_decoder_engine_jt4 test_decoder_engine_jt65)
+add_dependencies (test_streaming_consumers jt9 test_decoder_engine test_decoder_engine_q65 test_decoder_engine_fst4 test_decoder_engine_jt4 test_decoder_engine_jt65 test_decoder_engine_wspr)
 target_link_libraries (test_streaming_consumers Qt5::Test)
 target_compile_definitions (test_streaming_consumers PRIVATE
   JT4_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt4-engine.wav"
@@ -7,12 +7,13 @@ target_compile_definitions (test_streaming_consumers PRIVATE
   JT9_EXECUTABLE="$<TARGET_FILE:jt9>"
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
   WSPRD_EXECUTABLE="$<TARGET_FILE:wsprd>"
+  WSPR_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/wspr-engine.wav"
   FST4_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/fst4-engine.wav"
   FST4W_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/fst4w-engine.wav"
   FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav"
   Q65_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/q65-engine.wav"
 )
-set (streaming_consumer_fixtures ft8_engine_wav jt4_engine_wav q65_engine_wav fst4_engine_wav fst4w_engine_wav jt65_engine_wav)
+set (streaming_consumer_fixtures ft8_engine_wav jt4_engine_wav q65_engine_wav fst4_engine_wav fst4w_engine_wav jt65_engine_wav wspr_engine_wav)
 if (WSJT_BUILD_UTILS)
   # sfoxsim writes 000000_000000.wav into its working directory.
   target_compile_definitions (test_streaming_consumers PRIVATE
@@ -38,6 +39,13 @@ set_tests_properties (test_streaming_consumers PROPERTIES
   FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
   ENVIRONMENT "${streaming_consumers_environment}"
 )
+
+add_test (NAME test_streaming_wspr_receive COMMAND test_streaming_consumers wsprdDecodesWaveform)
+set_tests_properties (test_streaming_wspr_receive PROPERTIES
+  LABELS "streaming;runtime;wspr"
+  FIXTURES_REQUIRED wspr_engine_wav
+  TIMEOUT 90
+  ENVIRONMENT "${streaming_consumers_environment}")
 
 # The GUI's decode schedule, apart from the rest of the binary: its sessions
 # wait for the decoder, which the sanitizers slow several times over.

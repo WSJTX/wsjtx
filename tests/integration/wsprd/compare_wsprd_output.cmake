@@ -5,6 +5,7 @@ foreach (required_variable WSPRD SAMPLE EXPECTED WORK_DIR)
 endforeach ()
 
 file (MAKE_DIRECTORY "${WORK_DIR}")
+file (WRITE "${WORK_DIR}/hashtable.txt" "")
 set (actual_file "${WORK_DIR}/actual.txt")
 set (stderr_file "${WORK_DIR}/stderr.txt")
 

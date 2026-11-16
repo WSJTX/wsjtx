@@ -253,116 +253,6 @@ static int frame_read(FILE *fp, unsigned char *type, void **body, uint32_t *len)
 // PCM → I/Q FFT/extract/IFFT (mirrors readwavfile lines 155-188).
 // ============================================================
 
-static unsigned long pcm_to_iq(int16_t *pcm, size_t npcm, int ntrmin,
-                               float *idat, float *qdat) {
-    int nfft1, nfft2 = 46080, nh2 = nfft2 / 2, i0;
-    double df;
-    size_t expected_npcm;
-    float *realin = NULL;
-    fftwf_complex *fftout = NULL;
-    fftwf_complex *fftin = NULL;
-    fftwf_complex *fftout2 = NULL;
-    fftwf_plan plan_fwd = NULL;
-    fftwf_plan plan_inv = NULL;
-    unsigned long result = 1;
-
-    if (ntrmin == 2) {
-        nfft1 = nfft2 * 32;
-        df = 12000.0 / nfft1;
-        i0 = 1500.0 / df + 0.5;
-        expected_npcm = 114 * 12000;
-    } else if (ntrmin == 15) {
-        nfft1 = nfft2 * 8 * 32;
-        df = 12000.0 / nfft1;
-        i0 = (1500.0 + 112.5) / df + 0.5;
-        expected_npcm = 8 * 114 * 12000;
-    } else {
-        fprintf(stderr, "wsprd --stream: invalid wspr_type=%d\n", ntrmin);
-        wsprd_stream_emit_error_code("invalid_wspr_type",
-                                     "wspr_type must be 2 or 15");
-        return 1;
-    }
-
-    if (npcm < expected_npcm) {
-        fprintf(stderr,
-                "wsprd --stream: short PCM (got %zu, expected %zu for WSPR-%d)\n",
-                npcm, expected_npcm, ntrmin);
-        wsprd_stream_emit_error_code("insufficient_audio",
-                                     "not enough PCM samples for the configured WSPR type");
-        return 1;
-    }
-
-    realin = fftwf_malloc(sizeof(float) * (size_t)nfft1);
-    fftout = fftwf_malloc(sizeof(fftwf_complex) * ((size_t)nfft1 / 2 + 1));
-    if (!realin || !fftout) {
-        wsprd_stream_emit_error_code("allocation_failed",
-                                     "unable to allocate streaming FFT buffers");
-        goto cleanup;
-    }
-    plan_fwd = fftwf_plan_dft_r2c_1d(nfft1, realin, fftout, FFTW_ESTIMATE);
-    if (!plan_fwd) {
-        wsprd_stream_emit_error_code("allocation_failed",
-                                     "unable to create streaming forward FFT plan");
-        goto cleanup;
-    }
-
-    for (size_t i = 0; i < expected_npcm; i++) realin[i] = pcm[i] / 32768.0f;
-    for (size_t i = expected_npcm; i < (size_t)nfft1; i++) realin[i] = 0.0f;
-
-    fftwf_execute(plan_fwd);
-    fftwf_destroy_plan(plan_fwd);
-    plan_fwd = NULL;
-    fftwf_free(realin);
-    realin = NULL;
-
-    fftin = fftwf_malloc(sizeof(fftwf_complex) * (size_t)nfft2);
-    if (!fftin) {
-        wsprd_stream_emit_error_code("allocation_failed",
-                                     "unable to allocate streaming inverse FFT input");
-        goto cleanup;
-    }
-    for (size_t i = 0; i < (size_t)nfft2; i++) {
-        size_t j = i0 + i;
-        if (i > (size_t)nh2) j = j - nfft2;
-        fftin[i][0] = fftout[j][0];
-        fftin[i][1] = fftout[j][1];
-    }
-    fftwf_free(fftout);
-    fftout = NULL;
-
-    fftout2 = fftwf_malloc(sizeof(fftwf_complex) * (size_t)nfft2);
-    if (!fftout2) {
-        wsprd_stream_emit_error_code("allocation_failed",
-                                     "unable to allocate streaming inverse FFT output");
-        goto cleanup;
-    }
-    plan_inv = fftwf_plan_dft_1d(nfft2, fftin, fftout2, FFTW_BACKWARD,
-                                 FFTW_ESTIMATE);
-    if (!plan_inv) {
-        wsprd_stream_emit_error_code("allocation_failed",
-                                     "unable to create streaming inverse FFT plan");
-        goto cleanup;
-    }
-    fftwf_execute(plan_inv);
-    fftwf_destroy_plan(plan_inv);
-    plan_inv = NULL;
-
-    for (size_t i = 0; i < (size_t)nfft2; i++) {
-        idat[i] = fftout2[i][0] / 1000.0f;
-        qdat[i] = fftout2[i][1] / 1000.0f;
-    }
-    result = (unsigned long)nfft2;
-
-cleanup:
-    if (plan_fwd) fftwf_destroy_plan(plan_fwd);
-    if (plan_inv) fftwf_destroy_plan(plan_inv);
-    if (realin) fftwf_free(realin);
-    if (fftout) fftwf_free(fftout);
-    if (fftin) fftwf_free(fftin);
-    if (fftout2) fftwf_free(fftout2);
-    return result;
-}
-
 // ============================================================
 // Public API (declared in wsprd_stream.h).
 // ============================================================
@@ -433,12 +323,9 @@ void wsprd_stream_emit_error_code(const char *code, const char *detail) {
     fflush(stdout);
 }
 
-// Read header + frames from stdin until configure + enough audio + halt
-// (or audio-exhaustion + EOF) are received. Populates *cfg and the
-// supplied I/Q buffers via FFT/extract/IFFT. Returns nfft2 (number of
-// complex samples populated) on success; 1 on protocol error.
+// Read one framed reception and prepare it in the shared decoder.
 unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
-                                float *idat, float *qdat) {
+                                wspr_decoder *decoder) {
     set_stdin_binary();
     if (wsjt_header_read(stdin) != 0) return 1;
 
@@ -565,7 +452,15 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
         return 1;
     }
 
-    unsigned long npoints = pcm_to_iq(pcm, pcm_n, cfg->wspr_type, idat, qdat);
+    size_t expected=114*12000*(cfg->wspr_type == 15 ? 8 : 1);
+    if (pcm_n < expected) {
+        free(pcm);
+        wsprd_stream_emit_error_code("insufficient_audio","not enough PCM samples for the configured WSPR type");
+        return 1;
+    }
+    int rc=wspr_decoder_prepare_pcm(decoder,pcm,(int32_t)expected,12000,cfg->wspr_type);
+    unsigned long npoints=rc == DECODER_OK ? 46080 : 1;
+    if (rc != DECODER_OK) wsprd_stream_emit_error_code("allocation_failed","unable to prepare WSPR audio");
     free(pcm);
     return npoints;
 }

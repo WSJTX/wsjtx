@@ -173,6 +173,7 @@ module decoder_engine
      type(engine_q65_options) :: q65
      type(engine_fst4_options) :: fst4
      type(engine_jt4_options) :: jt4
+     type(engine_wspr_options) :: wspr
   end type
   type :: host_decode_context
      integer :: legacy_mode=0, utc=0, half_symbol_stage=0
@@ -202,6 +203,8 @@ module decoder_engine
      type(counting_jt65_decoder), allocatable :: jt65
      type(counting_q65_decoder), allocatable :: q65
      type(counting_fst4_decoder), allocatable :: fst4
+     type(c_ptr) :: wspr=c_null_ptr
+     logical :: wspr_prepared=.false.
      type(attempt_request) :: request
      type(engine_observation), allocatable :: evidence(:)
      integer(c_short), allocatable :: audio(:)
@@ -221,6 +224,48 @@ module decoder_engine
   ! Set by engine_begin_input; the next decode without ids that is not a decode again takes a new input.
   logical, save :: fallback_begin=.false.
 
+  interface
+     integer(c_int) function wspr_create(state) bind(C,name='wspr_decoder_create')
+       import :: c_int,c_ptr
+       type(c_ptr), intent(out) :: state
+     end function
+     subroutine wspr_destroy(state) bind(C,name='wspr_decoder_destroy')
+       import :: c_ptr
+       type(c_ptr), value :: state
+     end subroutine
+     subroutine wspr_release(state) bind(C,name='wspr_decoder_release')
+       import :: c_ptr
+       type(c_ptr), value :: state
+     end subroutine
+     subroutine wspr_reset(state) bind(C,name='wspr_decoder_reset')
+       import :: c_ptr
+       type(c_ptr), value :: state
+     end subroutine
+     integer(c_int) function wspr_prepare(state,samples,count,rate,waveform) bind(C,name='wspr_decoder_prepare_pcm')
+       import :: c_int,c_ptr
+       type(c_ptr), value :: state,samples
+       integer(c_int), value :: count,rate,waveform
+     end function
+     integer(c_int) function wspr_decode(state,options,callback,user,count) bind(C,name='wspr_decoder_decode')
+       import :: c_int,c_ptr,c_funptr,engine_wspr_options
+       type(c_ptr), value :: state,user
+       type(engine_wspr_options), intent(in) :: options
+       type(c_funptr), value :: callback
+       integer(c_int), intent(out) :: count
+     end function
+     integer(c_int) function wspr_set_calls(state,entries,count) bind(C,name='wspr_decoder_set_calls')
+       import :: c_int,c_ptr
+       type(c_ptr), value :: state,entries
+       integer(c_int), value :: count
+     end function
+     integer(c_int) function wspr_get_calls(state,entries,entry_capacity,count) bind(C,name='wspr_decoder_get_calls')
+       import :: c_int,c_ptr
+       type(c_ptr), value :: state,entries
+       integer(c_int), value :: entry_capacity
+       integer(c_int), intent(out) :: count
+     end function
+  end interface
+
 contains
 
   pure integer function analysis_extent(mode,period,sample_rate) result(samples)
@@ -236,6 +281,12 @@ contains
        if(present(sample_rate)) samples=60*sample_rate
     case(engine_mode_jt9,engine_mode_jt65)
        samples=720000
+    case(engine_mode_wspr)
+       samples=0
+       if(present(period)) then
+          if(period==2) samples=1368000
+          if(period==15) samples=10944000
+       endif
     case(engine_mode_q65)
        samples=0
        if(present(period)) then
@@ -290,7 +341,7 @@ contains
     caps=engine_capabilities(engine_abi, &
          ior(ior(engine_support_ft8,engine_support_ft4), &
          ior(ior(ior(engine_support_jt9,engine_support_jt65),engine_support_q65), &
-         ior(ior(engine_support_fst4,engine_support_fst4w),engine_support_jt4))), &
+         ior(ior(ior(engine_support_fst4,engine_support_fst4w),engine_support_jt4),engine_support_wspr))), &
          0,0,evidence_capacity)
     status=invalid
     if(valid_handle(handle)) status=ok
@@ -316,6 +367,7 @@ contains
     integer, intent(in) :: progress
     integer(c_short), pointer :: samples(:)
     integer :: analysis_samples,allocation_status
+    integer(c_int) :: wspr_count
     integer(c_short), allocatable :: grown_audio(:)
     type(params_block) :: params
     type(decoder_callback_context) :: context
@@ -328,7 +380,8 @@ contains
     status=unsupported
     if(request%mode/=engine_mode_jt4.and.request%mode/=engine_mode_ft8.and.request%mode/=engine_mode_ft4.and. &
          request%mode/=engine_mode_jt9.and.request%mode/=engine_mode_jt65.and.request%mode/=engine_mode_q65.and. &
-         request%mode/=engine_mode_fst4.and.request%mode/=engine_mode_fst4w) go to 900
+         request%mode/=engine_mode_fst4.and.request%mode/=engine_mode_fst4w.and. &
+         request%mode/=engine_mode_wspr) go to 900
     if(request%mode==engine_mode_jt4) then
        if(audio%sample_rate_hz/=11025.and.audio%sample_rate_hz/=12000) go to 900
     else
@@ -337,7 +390,9 @@ contains
     status=invalid
     if(request%input_id<=0.or.request%analysis_id<=0.or.request%attempt_no<=0) go to 900
     if(request%phase<1.or.request%phase>3.or.request%source<0.or.request%source>1) go to 900
-    if(request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w) then
+    if(request%mode==engine_mode_wspr) then
+       analysis_samples=analysis_extent(request%mode,request%wspr%waveform)
+    else if(request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w) then
        analysis_samples=analysis_extent(request%mode,request%fst4%period_seconds)
     else
        analysis_samples=analysis_extent(request%mode,request%q65%period_seconds,audio%sample_rate_hz)
@@ -360,13 +415,17 @@ contains
     if(request%mode==engine_mode_q65.and.session%input_id/=0) then
        if(audio%sample_count/=session%input_sample_count) go to 900
     endif
+    if(request%mode==engine_mode_wspr.and.session%input_id/=0) then
+       if(audio%sample_count/=session%input_sample_count.or.audio%sample_rate_hz/=session%input_sample_rate) go to 900
+       if(request%wspr%waveform/=session%request%wspr%waveform) go to 900
+    endif
     if((request%mode==engine_mode_fst4.or.request%mode==engine_mode_fst4w).and.session%input_id/=0) then
        if(audio%sample_count/=session%input_sample_count) go to 900
        if(request%fst4%period_seconds/=session%request%fst4%period_seconds) go to 900
     endif
     if(session%analysis_id==request%analysis_id.and.request%attempt_no<=session%last_attempt) go to 900
 
-    if(size(session%audio)<analysis_samples) then
+    if(request%mode/=engine_mode_wspr.and.size(session%audio)<analysis_samples) then
        allocate(grown_audio(analysis_samples),stat=allocation_status)
        if(allocation_status/=0) then
           status=internal_error
@@ -386,15 +445,29 @@ contains
     session%user=user
     session%render_legacy=render
     session%emitted=0
-    call c_f_pointer(audio%samples,samples,[audio%sample_count])
-    session%audio(1:audio%sample_count)=samples
-    session%audio(audio%sample_count+1:analysis_samples)=0
+    if(request%mode/=engine_mode_wspr) then
+       call c_f_pointer(audio%samples,samples,[audio%sample_count])
+       session%audio(1:audio%sample_count)=samples
+       session%audio(audio%sample_count+1:analysis_samples)=0
+    endif
     status=ok
     context%sink=>collect_observation
     context%superfox_sink=>collect_superfox
     context%sink_user=handle
     context%render_legacy=render
-    if(request%mode==engine_mode_jt4) then
+    if(request%mode==engine_mode_wspr) then
+       if(.not.c_associated(session%wspr)) status=wspr_create(session%wspr)
+       if(status==ok.and..not.session%wspr_prepared) then
+          status=wspr_prepare(session%wspr,audio%samples,audio%sample_count,audio%sample_rate_hz,request%wspr%waveform)
+          session%wspr_prepared=status==ok
+       endif
+       if(status==ok) status=wspr_decode(session%wspr,request%wspr,c_funloc(collect_wspr),handle,wspr_count)
+       if(status/=ok.and.c_associated(session%wspr)) then
+          call wspr_release(session%wspr)
+          session%wspr_prepared=.false.
+       endif
+       call set_decode_completion(session%completion,0,session%emitted,0)
+    else if(request%mode==engine_mode_jt4) then
        call run_jt4_attempt(request%jt4,request%phase,audio%sample_count,audio%sample_rate_hz,context,progress,status)
     else if(request%mode==engine_mode_ft4) then
        call run_ft4_attempt(request%ft4,request%phase,context,progress)
@@ -515,6 +588,8 @@ contains
        problem=q65_option_problem(request%q65,check_utc)
     case(engine_mode_fst4,engine_mode_fst4w)
        problem=fst4_option_problem(request%fst4,check_utc)
+    case(engine_mode_wspr)
+       problem=wspr_option_problem(request%wspr)
     case default
        problem=ft8_option_problem(request%ft8)
     end select
@@ -1034,6 +1109,59 @@ contains
   end function
 
 
+  function wspr_option_problem(options) result(problem)
+    type(engine_wspr_options), intent(in) :: options
+    type(option_problem) :: problem
+    problem=option_problem()
+    if(.not.any(options%waveform==[2,15])) then
+       problem=option_problem('waveform','2 or 15')
+    else if(options%effort<0.or.options%effort>3) then
+       problem=option_problem('effort','from 0 to 3')
+    else if(.not.ieee_is_finite(options%search_low_hz).or..not.ieee_is_finite(options%search_high_hz)) then
+       problem=option_problem('search_range','finite audio frequencies')
+    else if(options%search_low_hz<0.or.options%search_high_hz>6000.or. &
+         options%search_low_hz>=options%search_high_hz) then
+       problem=option_problem('search_range','0 <= low < high <= 6000 Hz')
+    else if(.not.ieee_is_finite(options%calibration_error_hz)) then
+       problem=option_problem('calibration_error_hz','finite Hz')
+    endif
+  end function
+
+  integer(c_int) function engine_set_wspr_calls(handle,entries,count) &
+       bind(C,name='decoder_engine_set_wspr_calls') result(status)
+    type(c_ptr), value :: handle,entries
+    integer(c_int), value :: count
+    status=invalid
+    if(.not.valid_handle(handle)) return
+    status=busy
+    if(session%running) return
+    status=invalid
+    if(count<0.or.count>32768) return
+    if(count>0.and..not.c_associated(entries)) return
+    if(.not.c_associated(session%wspr)) then
+       status=wspr_create(session%wspr)
+       if(status/=ok) return
+    endif
+    status=wspr_set_calls(session%wspr,entries,count)
+  end function
+
+  integer(c_int) function engine_get_wspr_calls(handle,entries,entry_capacity,count) &
+       bind(C,name='decoder_engine_get_wspr_calls') result(status)
+    type(c_ptr), value :: handle,entries
+    integer(c_int), value :: entry_capacity
+    integer(c_int), intent(out) :: count
+    count=0
+    status=invalid
+    if(.not.valid_handle(handle)) return
+    status=busy
+    if(session%running) return
+    status=invalid
+    if(entry_capacity<0) return
+    if(entry_capacity>0.and..not.c_associated(entries)) return
+    status=ok
+    if(c_associated(session%wspr)) status=wspr_get_calls(session%wspr,entries,entry_capacity,count)
+  end function
+
   function q65_option_problem(options,check_utc) result(problem)
     type(engine_q65_options), intent(in) :: options
     logical, intent(in) :: check_utc
@@ -1231,6 +1359,12 @@ contains
     status=ok
   end function
 
+  subroutine collect_wspr(observation,user) bind(C)
+    type(engine_observation), intent(in) :: observation
+    type(c_ptr), value :: user
+    call collect_observation(user,observation)
+  end subroutine
+
   subroutine collect_observation(user,observation)
     type(c_ptr), intent(in) :: user
     type(engine_observation), intent(in) :: observation
@@ -1297,6 +1431,8 @@ contains
     call session%jt4%release_input()
     call session%jt65%release_input()
     call session%q65%release_input()
+    if(c_associated(session%wspr)) call wspr_release(session%wspr)
+    session%wspr_prepared=.false.
     session%input_id=0
     session%input_mode=0
     session%input_sample_count=0
@@ -1321,6 +1457,8 @@ contains
     call session%jt65%reset()
     call session%q65%reset()
     call session%fst4%reset()
+    if(c_associated(session%wspr)) call wspr_reset(session%wspr)
+    session%wspr_prepared=.false.
     call reset_pack77_state(session%knowledge)
     session%input_id=0
     session%input_mode=0
@@ -1341,6 +1479,7 @@ contains
     if(session%running) return
     call reset_ft8_kernel(session%kernel)
     call session%fst4%destroy()
+    if(c_associated(session%wspr)) call wspr_destroy(session%wspr)
     deallocate(session)
     host_handle=c_null_ptr
     status=ok

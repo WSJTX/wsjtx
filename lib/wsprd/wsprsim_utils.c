@@ -10,7 +10,7 @@ static char get_locator_character_code(char ch);
 static char get_callsign_character_code(char ch);
 static long unsigned int pack_grid4_power(char const *grid4, int power);
 static long unsigned int pack_call(char const *callsign);
-static void pack_prefix(char *callsign, int32_t *n, int32_t *m, int32_t *nadd );
+static int pack_prefix(char *callsign, int32_t *n, int32_t *m, int32_t *nadd );
 static void interleave(unsigned char *sym);
 
 char get_locator_character_code(char ch) {
@@ -78,12 +78,13 @@ long unsigned int pack_call(char const *callsign) {
     return n;
 }
 
-void pack_prefix(char *callsign, int32_t *n, int32_t *m, int32_t *nadd ) {
+int pack_prefix(char *callsign, int32_t *n, int32_t *m, int32_t *nadd ) {
     size_t i;
-    char * call6 = calloc(7,sizeof (char));
+    char call6[7]={0};
     size_t i1=strcspn(callsign,"/");
     
-    if( callsign[i1+2] == 0 ) { 
+    if( callsign[i1+2] == 0 ) {
+        if (i1 > 6) return 0;
         //single char suffix
         for (i=0; i<i1; i++) {
             call6[i]=callsign[i];
@@ -101,6 +102,7 @@ void pack_prefix(char *callsign, int32_t *n, int32_t *m, int32_t *nadd ) {
         }
         *m=60000-32768+*m;
     } else if( callsign[i1+3]==0 ) {
+        if (i1 > 6) return 0;
         //two char suffix
         for (i=0; i<i1; i++) {
             call6[i]=callsign[i];
@@ -139,7 +141,7 @@ void pack_prefix(char *callsign, int32_t *n, int32_t *m, int32_t *nadd ) {
             *nadd=1;
         }
     }
-    free (call6);
+    return 1;
 }
 
 void interleave(unsigned char *sym)
@@ -162,7 +164,7 @@ void interleave(unsigned char *sym)
     }
 }
 
-int get_wspr_channel_symbols(char* rawmessage, char* hashtab, char* loctab, unsigned char* symbols) {
+int get_wspr_channel_symbols_verbose(char* rawmessage, char* hashtab, char* loctab, unsigned char* symbols, int printdata) {
     int m=0, ntype=0;
     long unsigned int n=0;
     int i, j, ihash;
@@ -244,7 +246,7 @@ int get_wspr_channel_symbols(char* rawmessage, char* hashtab, char* loctab, unsi
         if( power > 60 ) power=60;
         power=power+nu[power%10];
         int n1, ng, nadd;
-        pack_prefix(callsign, &n1, &ng, &nadd);
+        if (!pack_prefix(callsign, &n1, &ng, &nadd)) return 0;
         ntype=power + 1 + nadd;
         m=128*ng+ntype+64;
         n=n1;
@@ -286,9 +288,7 @@ int get_wspr_channel_symbols(char* rawmessage, char* hashtab, char* loctab, unsi
     // unpack it with the routine that the decoder will use and display
     // the result. let the operator decide whether it worked.
     
-    char *check_call_loc_pow, *check_callsign;
-    check_call_loc_pow=malloc(sizeof(char)*23);
-    check_callsign=malloc(sizeof(char)*13);
+    char check_call_loc_pow[23], check_callsign[13];
     signed char check_data[11];
     memcpy(check_data,data,sizeof(char)*11);
 
@@ -306,7 +306,11 @@ int get_wspr_channel_symbols(char* rawmessage, char* hashtab, char* loctab, unsi
     for (i=0; i<162; i++) {
         symbols[i]=2*channelbits[i]+pr3[i];
     }
-    free(check_call_loc_pow);
-    free(check_callsign); 
+
     return 1;
+}
+
+int get_wspr_channel_symbols(char *message, char *hashtab, char *loctab, unsigned char *symbols)
+{
+    return get_wspr_channel_symbols_verbose(message,hashtab,loctab,symbols,0);
 }

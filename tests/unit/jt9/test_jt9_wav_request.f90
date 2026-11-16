@@ -37,8 +37,7 @@ contains
   subroutine check_request_layout()
     type(attempt_request) :: request
 
-    ! Additions can fit in existing padding: two bytes in JT65/Q65/JT4,
-    ! and four bytes at the end of the request.
+    ! Additions can fit in existing padding: two bytes in JT65/Q65/JT4.
     call check_size(c_sizeof(request%ft8),236_c_size_t,'ft8')
     call check_size(c_sizeof(request%ft4),56_c_size_t,'ft4')
     call check_size(c_sizeof(request%jt9),32_c_size_t,'jt9')
@@ -46,7 +45,8 @@ contains
     call check_size(c_sizeof(request%q65),104_c_size_t,'q65')
     call check_size(c_sizeof(request%fst4),80_c_size_t,'fst4')
     call check_size(c_sizeof(request%jt4),68_c_size_t,'jt4')
-    call check_size(c_sizeof(request),712_c_size_t,'attempt_request')
+    call check_size(c_sizeof(request%wspr),20_c_size_t,'wspr')
+    call check_size(c_sizeof(request),736_c_size_t,'attempt_request')
   end subroutine check_request_layout
 
   subroutine check_size(actual,expected,name)

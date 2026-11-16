@@ -10,7 +10,7 @@ module decoder_engine_types
   public :: engine_abi,engine_mode_ft8,engine_mode_ft4,engine_mode_jt9,engine_mode_jt65,engine_mode_q65
   public :: engine_support_ft8,engine_support_ft4,engine_support_jt9,engine_support_jt65,engine_support_q65
 
-  integer(c_int), parameter :: engine_abi=9,engine_mode_ft8=8,engine_mode_ft4=5,engine_mode_jt9=9,engine_mode_jt65=65
+  integer(c_int), parameter :: engine_abi=10,engine_mode_ft8=8,engine_mode_ft4=5,engine_mode_jt9=9,engine_mode_jt65=65
   integer(c_int), parameter :: engine_support_ft8=1,engine_support_ft4=2,engine_support_jt9=4,engine_support_jt65=8
 
   integer(c_int), parameter :: engine_mode_q65=66,engine_support_q65=16
@@ -21,6 +21,21 @@ module decoder_engine_types
 
   public :: engine_mode_jt4,engine_support_jt4
   integer(c_int), parameter :: engine_mode_jt4=4,engine_support_jt4=128
+
+  public :: engine_mode_wspr,engine_support_wspr,engine_wspr_options,wspr_result
+  integer(c_int), parameter :: engine_mode_wspr=243,engine_support_wspr=256
+
+  type, bind(C) :: engine_wspr_options
+     integer(c_int) :: waveform=2,effort=0
+     real(c_float) :: search_low_hz=1390,search_high_hz=1610,calibration_error_hz=0
+  end type
+
+  type, bind(C) :: wspr_result
+     integer(c_int) :: message_type=0,has_call=0,has_hash15=0,hash15=0,hash_resolved=0
+     integer(c_int) :: has_locator=0,has_power=0,power_dbm=0
+     real(c_float) :: snr_db=0,drift_hz=0,waveform_start_seconds=0
+     character(c_char) :: call(12)=c_null_char,locator(6)=c_null_char
+  end type
 
   type, bind(C) :: engine_jt4_options
      integer(c_int) :: utc=0,submode=0,receive_frequency_hz=1500,tolerance_hz=100,depth=1,min_sync=0
@@ -96,6 +111,7 @@ module decoder_engine_types
      type(q65_result) :: q65
      type(fst4_result) :: fst4
      type(jt4_result) :: jt4
+     type(wspr_result) :: wspr
   end type
 
   abstract interface

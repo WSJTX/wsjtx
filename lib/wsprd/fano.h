@@ -12,6 +12,17 @@
 #ifndef FANO_H
 #define FANO_H
 
+struct fano_node {
+    unsigned long encstate;
+    long gamma;
+    int metrics[4], tm[2], i;
+};
+
+/* Workspace contains nbits + 1 nodes. */
+int fano_with_workspace(unsigned int *, unsigned int *, unsigned int *,
+                        unsigned char *, unsigned char *, unsigned int,
+                        int [2][256], int, unsigned int, struct fano_node *);
+
 int fano(unsigned int *metric, unsigned int *cycles, unsigned int *maxnp,
 	unsigned char *data,unsigned char *symbols, unsigned int nbits,
 	 int mettab[2][256],int delta,unsigned int maxcycles);

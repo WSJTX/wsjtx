@@ -2329,6 +2329,41 @@ private slots:
       }
   }
 
+  void wsprdDecodesWaveform ()
+  {
+    auto const audio = wavSamples (QString::fromUtf8 (WSPR_ENGINE_WAV), 114 * 12000);
+    QCOMPARE (audio.size (), 2 * 114 * 12000);
+    auto const configure = QByteArray {
+      R"({"t":"configure","date":"260822","time":"1200","dialfreq":14.0956,"wspr_type":2})"};
+    auto const split = 57 * 12000 * 2;
+    auto const result = runWsprd (sessionHeader () + controlFrame (configure)
+      + frame (0x01u, audio.left (split)) + frame (0x01u, audio.mid (split))
+      + controlFrame (R"({"t":"halt"})"), 90000);
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    QCOMPARE (eventsMatching (events.values, "ready").size (), 1);
+    auto const decodes = eventsMatching (events.values, "decode");
+    QCOMPARE (decodes.size (), 1);
+    auto const decode = decodes.first ();
+    QCOMPARE (decode.value ("mode").toString (), QString {"WSPR"});
+    QCOMPARE (decode.value ("date").toString (), QString {"260822"});
+    QCOMPARE (decode.value ("time").toString (), QString {"1200"});
+    QCOMPARE (decode.value ("message").toString (), QString {"K1ABC FN42 33"});
+    auto const frequency = decode.value ("freq").toDouble (std::numeric_limits<double>::quiet_NaN ());
+    QVERIFY (std::isfinite (frequency) && std::abs (frequency - 14.097120) <= 0.000001);
+    auto const dt = decode.value ("dt").toDouble (std::numeric_limits<double>::quiet_NaN ());
+    QVERIFY (std::isfinite (dt) && std::abs (dt - 0.2) <= 0.1);
+    QVERIFY (decode.value ("snr").isDouble ());
+    QCOMPARE (decode.value ("drift").toInt (99), 0);
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("date").toString (), QString {"260822"});
+    QCOMPARE (completions.first ().value ("time").toString (), QString {"1200"});
+    QCOMPARE (events.values.first ().value ("t").toString (), QString {"ready"});
+    QCOMPARE (events.values.last ().value ("t").toString (), QString {"decode_finished"});
+  }
+
   void wsprdRejectsOversizedFrames_data ()
   {
     QTest::addColumn<quint32> ("declaredLength");

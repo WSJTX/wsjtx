@@ -749,14 +749,18 @@ set (wsprsim_CSRCS
   lib/wsprd/nhash.c
   )
 
-set (wsprd_CSRCS
-  lib/lookup3.c
-  lib/wsprd/wsprd.c
+set (wspr_decoder_CSRCS
+  lib/wsprd/wspr_decoder.c
   lib/wsprd/wsprsim_utils.c
   lib/wsprd/wsprd_utils.c
   lib/wsprd/fano.c
   lib/wsprd/jelinek.c
   lib/wsprd/tab.c
+  )
+
+set (wsprd_CSRCS
+  lib/lookup3.c
+  lib/wsprd/wsprd.c
   lib/wsprd/nhash.c
   lib/init_random_seed.c
   lib/wsprd/wsprd_stream.c
@@ -821,6 +825,7 @@ set (all_C_and_CXXSRCS
   ${wsjt_CSRCS}
   ${wsprsim_CSRCS}
   ${wsprd_CSRCS}
+  ${wspr_decoder_CSRCS}
   ${all_CXXSRCS}
   )
 

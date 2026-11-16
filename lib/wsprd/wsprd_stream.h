@@ -5,6 +5,8 @@
 #ifndef WSPRD_STREAM_H
 #define WSPRD_STREAM_H
 
+#include "wspr_decoder.h"
+
 struct wsprd_stream_config {
     char date[7];        // YYMMDD\0
     char uttime[5];      // HHMM\0
@@ -24,10 +26,9 @@ void wsprd_stream_emit_error(const char *msg);
 void wsprd_stream_emit_error_code(const char *code, const char *detail);
 
 // Reads WSJT header + frames from stdin until halt or EOF. On success,
-// populates *cfg and the supplied I/Q buffers (idat/qdat must hold
-// at least 46080 floats each). Returns the number of complex samples
-// populated (nfft2 = 46080), or 1 on protocol error.
+// populates *cfg and prepares the decoder. Returns the prepared complex
+// sample count (46080), or 1 on protocol or preparation error.
 unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
-                                float *idat, float *qdat);
+                                wspr_decoder *decoder);
 
 #endif

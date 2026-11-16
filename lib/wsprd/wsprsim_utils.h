@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <time.h>
 
-extern int printdata;
+int get_wspr_channel_symbols_verbose(char *, char *, char *, unsigned char *, int);
 
 int get_wspr_channel_symbols(char* message, char* hashtab, char*loctab, unsigned char* symbols);
 

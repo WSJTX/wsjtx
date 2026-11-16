@@ -10,6 +10,8 @@ struct wspr_vector {
     signed char data[11];
     const char *message;
     const char *callsign;
+    int message_type, power_dbm;
+    const char *resolved_call, *locator, *hash_call;
 };
 
 static int failures = 0;
@@ -38,8 +40,32 @@ static void decode_vector(const struct wspr_vector *vector,
 {
     char call_loc_pow[23] = {0};
     char callsign[13] = {0};
-    int noprint = unpk_((signed char *)vector->data, hashtab, loctab,
-                        call_loc_pow, callsign);
+    decoder_wspr_result result;
+    int noprint = wsprd_interpret((signed char *)vector->data, hashtab, loctab,
+                                  call_loc_pow, callsign, &result);
+    expect_int(vector->name, result.message_type, vector->message_type);
+    expect_int(vector->name, result.has_power, 1);
+    expect_int(vector->name, result.power_dbm, vector->power_dbm);
+    expect_int(vector->name, result.has_call, vector->resolved_call != NULL);
+    expect_int(vector->name, result.has_locator, vector->locator != NULL);
+    expect_int(vector->name, result.has_hash15, vector->hash_call != NULL);
+    expect_int(vector->name, result.hash_resolved,
+               vector->hash_call != NULL && vector->resolved_call != NULL);
+    char padded_call[12], padded_locator[6];
+    memset(padded_call, ' ', sizeof padded_call);
+    memset(padded_locator, ' ', sizeof padded_locator);
+    if (vector->resolved_call) memcpy(padded_call, vector->resolved_call, strlen(vector->resolved_call));
+    if (vector->locator) memcpy(padded_locator, vector->locator, strlen(vector->locator));
+    expect_int(vector->name, memcmp(result.call, padded_call, sizeof padded_call), 0);
+    expect_int(vector->name, memcmp(result.locator, padded_locator, sizeof padded_locator), 0);
+    if (vector->hash_call)
+        expect_int(vector->name, result.hash15,
+                   nhash(vector->hash_call, strlen(vector->hash_call), 146));
+    char wrapper_message[23], wrapper_call[13];
+    expect_int(vector->name,
+               unpk_((signed char *)vector->data, hashtab, loctab, wrapper_message, wrapper_call), noprint);
+    expect_string(vector->name, wrapper_message, call_loc_pow);
+    expect_string(vector->name, wrapper_call, callsign);
 
     expect_int(vector->name, noprint, 0);
     expect_string(vector->name, call_loc_pow, vector->message);
@@ -82,77 +108,88 @@ static const struct wspr_vector k1abc = {
     "K1ABC FN42 33",
     {-9, 12, 35, -117, 13, 24, 64, 0, 0, 0, 0},
     "K1ABC FN42 33",
-    "K1ABC"
+    "K1ABC",
+    DECODER_WSPR_STANDARD, 33, "K1ABC", "FN42", NULL
 };
 
 static const struct wspr_vector n1d = {
     "N1D FN42 33",
     {-9, -99, 1, -117, 13, 24, 64, 0, 0, 0, 0},
     "N1D FN42 33",
-    "N1D"
+    "N1D",
+    DECODER_WSPR_STANDARD, 33, "N1D", "FN42", NULL
 };
 
 static const struct wspr_vector five_n = {
     "5N/6O0O 37",
     {45, 15, -83, 104, 42, -103, -64, 0, 0, 0, 0},
     "5N/6O0O 37",
-    "5N/6O0O"
+    "5N/6O0O",
+    DECODER_WSPR_COMPOUND, 37, "5N/6O0O", NULL, NULL
 };
 
 static const struct wspr_vector pj4 = {
     "PJ4/K1ABC 37",
     {-9, 12, 35, -127, 14, -103, -64, 0, 0, 0, 0},
     "PJ4/K1ABC 37",
-    "PJ4/K1ABC"
+    "PJ4/K1ABC",
+    DECODER_WSPR_COMPOUND, 37, "PJ4/K1ABC", NULL, NULL
 };
 
 static const struct wspr_vector rover = {
     "K1ABC/R 37",
     {-9, 12, 35, -115, 79, 121, -64, 0, 0, 0, 0},
     "K1ABC/R 37",
-    "K1ABC/R"
+    "K1ABC/R",
+    DECODER_WSPR_COMPOUND, 37, "K1ABC/R", NULL, NULL
 };
 
 static const struct wspr_vector k1abc_max_power = {
     "K1ABC FN42 60",
     {-9, 12, 35, -117, 13, 31, 0, 0, 0, 0, 0},
     "K1ABC FN42 60",
-    "K1ABC"
+    "K1ABC",
+    DECODER_WSPR_STANDARD, 60, "K1ABC", "FN42", NULL
 };
 
 static const struct wspr_vector rover_max_power = {
     "K1ABC/R 60",
     {-9, 12, 35, -115, 79, 127, -128, 0, 0, 0, 0},
     "K1ABC/R 60",
-    "K1ABC/R"
+    "K1ABC/R",
+    DECODER_WSPR_COMPOUND, 60, "K1ABC/R", NULL, NULL
 };
 
 static const struct wspr_vector k1abc_type3_unresolved = {
     "<K1ABC> FN42AA 33",
     {-100, 54, -76, -77, 47, 39, -128, 0, 0, 0, 0},
     "<...> FN42AA 33",
-    "<...>"
+    "<...>",
+    DECODER_WSPR_HASHED, 33, NULL, "FN42AA", "K1ABC"
 };
 
 static const struct wspr_vector k1abc_type3_resolved = {
     "<K1ABC> FN42AA 33",
     {-100, 54, -76, -77, 47, 39, -128, 0, 0, 0, 0},
     "<K1ABC> FN42AA 33",
-    "<K1ABC>"
+    "<K1ABC>",
+    DECODER_WSPR_HASHED, 33, "K1ABC", "FN42AA", "K1ABC"
 };
 
 static const struct wspr_vector pj4_type3_unresolved = {
     "<PJ4/K1ABC> FK52UD 37",
     {-120, 36, 124, 105, -94, -26, -128, 0, 0, 0, 0},
     "<...> FK52UD 37",
-    "<...>"
+    "<...>",
+    DECODER_WSPR_HASHED, 37, NULL, "FK52UD", "PJ4/K1ABC"
 };
 
 static const struct wspr_vector pj4_type3_resolved = {
     "<PJ4/K1ABC> FK52UD 37",
     {-120, 36, 124, 105, -94, -26, -128, 0, 0, 0, 0},
     "<PJ4/K1ABC> FK52UD 37",
-    "<PJ4/K1ABC>"
+    "<PJ4/K1ABC>",
+    DECODER_WSPR_HASHED, 37, "PJ4/K1ABC", "FK52UD", "PJ4/K1ABC"
 };
 
 static void test_standard_and_compound_messages(char *hashtab, char *loctab)
