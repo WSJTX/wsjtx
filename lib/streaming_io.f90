@@ -166,7 +166,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use decoder_engine, only: engine_params_problem, option_problem
   use streaming_jtty, only: jtty_audio, jtty_end, jtty_range_key,          &
        jtty_emit_range_error, jtty_release, jtty_note_station,             &
-       jtty_spectrum_rows
+       jtty_spectrum_rows, jtty_prepared_audio
   use streaming_encode, only: stream_encode
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready, period_set_stop,           &
@@ -185,7 +185,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        receive_equalizes, receive_equalize
   use streaming_receive, only: receive
   use streaming_emit, only: streaming_emit_spectrum, streaming_emit_set_live,  &
-       streaming_emit_quiet
+       streaming_emit_quiet, streaming_emit_prepared_audio
   use four2a_patience, only: patience_override
   use spectrum_rows, only: wide_rows, wide_begin, wide_take, wide_row, WIDE_BINS, WIDE_DF
 
@@ -279,6 +279,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! The period's rows, fed every block from its first: rows_k samples.
   type(wide_rows) :: rows
   integer :: rows_k
+  ! The period's prepared audio, sent every block from its first: through
+  ! period sample prepared_k.
+  integer :: prepared_k
   ! The open JTTY session's first stream sample, and the samples read for
   ! it and not yet handed on, jblk(1:njblk) from stream sample jblk_from on.
   logical :: jtty_open
@@ -779,6 +782,7 @@ contains
     blk_from = 0
     blk_first = .true.
     rows_k = 0
+    prepared_k = 0
     call msk144_fast_reset()
   end subroutine begin_period
 
@@ -1136,12 +1140,14 @@ contains
     end do
   end subroutine block_add
 
-  ! The block in progress, as far as it is in: equalized, then its decoder's
-  ! share into id2, then its rows, then the decodes its audio triggers.
+  ! The block in progress, as far as it is in: equalized, then sent back,
+  ! then its decoder's share into id2, then its rows, then the decodes its
+  ! audio triggers.
   subroutine block_deliver()
     integer :: last
     call receive_equalize(blk(1:nblk), live_audio, blk_first)
     blk_first = .false.
+    call period_prepared()
     last = min(blk_from + nblk, period%k)
     if (last .gt. blk_from) shared_data%id2(blk_from + 1:last) = blk(1:last - blk_from)
     if (mode .eq. 144) then
@@ -1190,6 +1196,16 @@ contains
     end do
     rows_k = blk_from + nblk
   end subroutine period_rows
+
+  ! The block delivered, blk(1:nblk) from period sample blk_from on, after
+  ! the receive chain, with prepared_audio on live audio: a period has these
+  ! lines only from its first block, and none after a block without one.
+  subroutine period_prepared()
+    if (.not. (receive%prepared_audio .and. live_audio)) return
+    if (blk_from .ne. prepared_k) return
+    call streaming_emit_prepared_audio(blk_from + nblk, blk(1:nblk))
+    prepared_k = blk_from + nblk
+  end subroutine period_prepared
 
   ! MSK144's rows for the block delivered, its samples in id2 through
   ! blk_from + nblk, before its decode.
@@ -1273,11 +1289,13 @@ contains
          call jtty_deliver()
   end subroutine jtty_add
 
-  ! The JTTY samples held, through the receive chain to the rows and the
-  ! session.
+  ! The JTTY samples held, through the receive chain, back to the client
+  ! with prepared_audio on live audio, then to the rows and the session.
   subroutine jtty_deliver()
     if (receive_blocks()) call receive_equalize(jblk(1:njblk), live_audio,    &
          jblk_from .eq. jtty_origin)
+    if (receive%prepared_audio .and. live_audio)                             &
+         call jtty_prepared_audio(jblk(1:njblk), jblk_from)
     call jtty_rows()
     call jtty_audio(jblk(1:njblk), jblk_from, shared_data%params)
     njblk = 0

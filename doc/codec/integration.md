@@ -61,7 +61,7 @@ Each tarball's `README.txt` gives, for its release and platform, the system the 
 
 ### Pipes and exit status
 
-- Read standard output and standard error as they come, each on its own: a full pipe stops the codec ([What every client does](examples/README.md#what-every-client-does)). Once `spectrum` or `ref_spectrum` has been on, standard output's lines queue instead: the codec stops only once 16 MiB of lines other than live rows wait, and on live audio at most 20 rows wait, the oldest discarded (`rows_dropped`).
+- Read standard output and standard error as they come, each on its own: a full pipe stops the codec ([What every client does](examples/README.md#what-every-client-does)). Once `spectrum`, `ref_spectrum` or `prepared_audio` has been on, standard output's lines queue instead: the codec stops only once 16 MiB of lines other than live rows wait, and on live audio at most 20 rows wait, the oldest discarded (`rows_dropped`).
 - To end a session, send `halt` or close standard input; the codec drains the period in flight and exits.
 - The codec's standard output ends when it exits. Bound the wait for its exit status from there, and stop a codec that has not exited: the examples allow 10 s. A watchdog that reads the lines stops when they end, so the exit needs a deadline of its own.
 - Treat a broken pipe as the codec having exited: stop writing, read its remaining lines and take its exit status. On Linux and macOS, a C or C++ client ignores `SIGPIPE`, or the failed write ends the client. In Node.js, attach an `'error'` listener to the child's stdin, or the failed write ends the client.
@@ -77,7 +77,7 @@ Each tarball's `README.txt` gives, for its release and platform, the system the 
 
 - Each codec process holds its own buffers; [Memory](interface.md#memory) lists them, with measured peaks.
 - Set `OMP_STACKSIZE=10M` in the codec's environment ([Environment](interface.md#environment)).
-- A codec reads its standard input on one thread, runs the session on another and decodes on a third. Once a configure has turned `spectrum` or `ref_spectrum` on, another thread writes its standard output for the rest of the session. Some decoders add OpenMP threads, each with the stack `OMP_STACKSIZE` gives it. Large FFTs use `-m` threads, 1 by default.
+- A codec reads its standard input on one thread, runs the session on another and decodes on a third. Once a configure has turned `spectrum`, `ref_spectrum` or `prepared_audio` on, another thread writes its standard output for the rest of the session. Some decoders add OpenMP threads, each with the stack `OMP_STACKSIZE` gives it. Large FFTs use `-m` threads, 1 by default.
 - The multithreaded FT8 decoder (`multithreaded_ft8`) runs `ft8_threads` threads: 0 chooses from the CPU count, at most 12; 1 to 12 runs up to that many, at most the CPU count. A configure takes 0 to 24, and 13 to 24 run one thread. Each codec chooses on its own, so with several codecs on one host set `ft8_threads` for each.
 
 ## The clock

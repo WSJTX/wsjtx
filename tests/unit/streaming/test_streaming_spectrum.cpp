@@ -380,12 +380,16 @@ bool isRowType (QByteArray const& type)
   return "spectrum" == type || "fast_spectrum" == type || "ref_spectrum" == type;
 }
 
-// What a client that ignores the rows reads: every stdout line but theirs.
+// What a client that ignores the rows and the prepared audio reads: every
+// stdout line but theirs.
 QByteArrayList known (QList<Line> const& lines)
 {
   QByteArrayList kept;
   for (auto const& line : lines)
-    if (!line.error && !isRowType (typeOf (line.text)) && "rows_dropped" != typeOf (line.text)) kept << line.text;
+    {
+      auto const type = typeOf (line.text);
+      if (!line.error && !isRowType (type) && "rows_dropped" != type && "prepared_audio" != type) kept << line.text;
+    }
   return kept;
 }
 
@@ -408,6 +412,160 @@ int longestLine (QList<Line> const& lines)
   for (auto const& line : lines)
     if (!line.error) longest = std::max (longest, int (line.text.size ()) + 1);
   return longest;
+}
+
+// A prepared_audio line: a period mode's k, or JTTY's reception, begin and
+// end; its samples as int16 little-endian bytes.
+struct Prepared
+{
+  bool jtty {false};
+  qint64 k {0};
+  qint64 reception {0};
+  qint64 begin {0};
+  qint64 end {0};
+  QByteArray pcm;
+};
+
+// The prepared_audio lines in order, or the first problem with one: integer
+// fields, a period mode's samples or JTTY's end - begin the samples data
+// holds, data standard base64 with padding.
+QString preparedOf (QList<Line> const& lines, QList<Prepared>& found)
+{
+  found.clear ();
+  for (auto const& line : lines)
+    {
+      if (line.error || "prepared_audio" != typeOf (line.text)) continue;
+      auto const o = json (line.text);
+      auto const where = ": " + QString::fromUtf8 (line.text.left (120));
+      if (!o.value ("v").isDouble () || o.value ("v").toInt () != 1) return "no \"v\":1" + where;
+      auto const integer = [&] (char const * key, qint64& value) {
+        auto const v = o.value (key);
+        if (!v.isDouble () || v.toDouble () != std::floor (v.toDouble ())) return false;
+        value = qint64 (v.toDouble ());
+        return true;
+      };
+      Prepared each;
+      qint64 count = 0;
+      each.jtty = o.contains ("reception");
+      if (each.jtty)
+        {
+          if (!integer ("reception", each.reception) || !integer ("begin", each.begin) || !integer ("end", each.end))
+            return "a JTTY line without integer reception, begin and end" + where;
+          if (o.contains ("k") || o.contains ("samples")) return "a JTTY line with k or samples" + where;
+          count = each.end - each.begin;
+        }
+      else if (!integer ("k", each.k) || !integer ("samples", count)) return "a line without integer k and samples" + where;
+      auto const encoded = o.value ("data").toString ().toLatin1 ();
+      auto const decoded = QByteArray::fromBase64Encoding (encoded, QByteArray::AbortOnBase64DecodingErrors);
+      if (QByteArray::Base64DecodingStatus::Ok != decoded.decodingStatus || decoded.decoded.toBase64 () != encoded)
+        return "data is not standard base64 with padding" + where;
+      if (count <= 0 || decoded.decoded.size () != 2 * count)
+        return QString {"data holds %1 bytes for %2 samples"}.arg (decoded.decoded.size ()).arg (count) + where;
+      each.pcm = decoded.decoded;
+      found << each;
+    }
+  return {};
+}
+
+// A period mode's lines period by period: a line whose samples start at 0
+// starts a period, and each other line starts where the one before ended (k
+// rising by its samples). The first problem, or empty.
+QString preparedPeriods (QList<Prepared> const& lines, QList<QByteArray>& periods, QList<QList<qint64>>* ks = nullptr)
+{
+  periods.clear ();
+  if (ks) ks->clear ();
+  qint64 at = -1;
+  for (int i = 0; i < lines.size (); ++i)
+    {
+      auto const& line = lines.at (i);
+      auto const from = line.k - line.pcm.size () / 2;
+      if (line.jtty) return QString {"line %1 is a JTTY line"}.arg (i);
+      if (0 == from)
+        {
+          periods << QByteArray {};
+          if (ks) ks->append (QList<qint64> {});
+        }
+      else if (from != at) return QString {"line %1 starts at sample %2, not %3"}.arg (i).arg (from).arg (at);
+      periods.last () += line.pcm;
+      if (ks) ks->last () << line.k;
+      at = line.k;
+    }
+  return {};
+}
+
+// JTTY's lines of session reception from stream sample begin on, each from
+// the end of the one before; their samples, or the first problem.
+QString preparedSession (QList<Prepared> const& lines, qint64 reception, qint64 begin, QByteArray& pcm)
+{
+  pcm.clear ();
+  auto at = begin;
+  for (int i = 0; i < lines.size (); ++i)
+    {
+      auto const& line = lines.at (i);
+      if (!line.jtty || line.reception != reception || line.begin != at)
+        return QString {"line %1: JTTY %2, reception %3, begin %4; expected reception %5, begin %6"}.arg (i)
+          .arg (line.jtty).arg (line.reception).arg (line.begin).arg (reception).arg (at);
+      pcm += line.pcm;
+      at = line.end;
+    }
+  return {};
+}
+
+// Each spectrum or fast_spectrum row comes after the prepared_audio line of
+// the block it ends with (JTTY: the line that ends where the row does), and
+// the first ref_spectrum line before the first prepared_audio line; the
+// first problem, or empty. Live rows can go out later than the lines that
+// follow them, never earlier, so correct code always passes; a row queued
+// ahead of its line shows only while the writer has written the row before
+// the line overtakes it, which a reader that keeps up gives.
+QString preparedOrder (QList<Line> const& lines)
+{
+  QSet<QString> seen;          // "period k" of each prepared_audio line so far
+  int preparedPeriod = 0;
+  int rowPeriod = 0;
+  qint64 lastRowK = -1;
+  int firstPrepared = -1;
+  int firstRef = -1;
+  int rows = 0;
+  for (int i = 0; i < lines.size (); ++i)
+    {
+      auto const& line = lines.at (i);
+      if (line.error) continue;
+      auto const type = typeOf (line.text);
+      if ("ref_spectrum" == type && firstRef < 0) firstRef = i;
+      if ("prepared_audio" != type && "spectrum" != type && "fast_spectrum" != type) continue;
+      auto const o = json (line.text);
+      auto const jtty = o.contains ("reception");
+      auto const k = qint64 (o.value (jtty ? "end" : "k").toDouble ());
+      if ("prepared_audio" == type)
+        {
+          if (firstPrepared < 0) firstPrepared = i;
+          if (jtty) preparedPeriod = int (o.value ("reception").toDouble ());
+          else if (k - qint64 (o.value ("samples").toDouble ()) == 0) ++preparedPeriod;
+          seen.insert (QString {"%1 %2"}.arg (preparedPeriod).arg (k));
+          continue;
+        }
+      ++rows;
+      if (jtty) rowPeriod = int (o.value ("reception").toDouble ());
+      else if (k <= lastRowK || lastRowK < 0) ++rowPeriod;
+      lastRowK = k;
+      if (!seen.contains (QString {"%1 %2"}.arg (rowPeriod).arg (k)))
+        return QString {"line %1, a %2 row ending at %3, comes before its block's prepared_audio line"}.arg (i)
+          .arg (QString::fromUtf8 (type)).arg (k);
+    }
+  if (0 == rows) return "no rows";
+  if (firstRef >= 0 && firstPrepared >= 0 && firstRef > firstPrepared)
+    return "the first ref_spectrum line comes after the first prepared_audio line";
+  return {};
+}
+
+// Where two sample buffers first differ, for a failure message.
+QString firstDifference (QByteArray const& got, QByteArray const& expected)
+{
+  int i = 0;
+  while (i < std::min (got.size (), expected.size ()) && got.at (i) == expected.at (i)) ++i;
+  return QString {"%1 samples, %2 expected, first difference at sample %3"}.arg (got.size () / 2)
+    .arg (expected.size () / 2).arg (i / 2);
 }
 
 // --- one codec process ----------------------------------------------------------
@@ -2397,6 +2555,309 @@ private slots:
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
   }
 
+  // prepared_audio carries the audio after the receive chain, live: with
+  // ref_spectrum "apply" the GUI's equalized audio for each block, otherwise
+  // the audio as sent. A period mode's lines run a block each from the
+  // period's first sample, past the stop, through its last whole block
+  // (JT65+JT9, which has no stop, through its last sample), each period's
+  // from k 0 again; JTTY's from the session's first sample to its last,
+  // without a gap, a block each while equalizing and a frame each otherwise.
+  // With ref_spectrum off this key is the only one on; with rows on too,
+  // each block's line comes before its row.
+  void preparedAudioMatchesTheGui_data ()
+  {
+    QTest::addColumn<QString> ("kind");
+    QTest::addColumn<QString> ("reference");
+    QTest::addColumn<bool> ("rows");
+    QTest::newRow ("ft8 apply") << QString {"ft8"} << QString {"apply"} << true;
+    QTest::newRow ("ft8 apply without rows") << QString {"ft8"} << QString {"apply"} << false;
+    QTest::newRow ("ft8 off") << QString {"ft8"} << QString {"off"} << false;
+    QTest::newRow ("ft8 measure") << QString {"ft8"} << QString {"measure"} << false;
+    QTest::newRow ("msk144 apply") << QString {"msk144"} << QString {"apply"} << true;
+    QTest::newRow ("msk144 off") << QString {"msk144"} << QString {"off"} << false;
+    QTest::newRow ("jt65jt9 off") << QString {"jt65jt9"} << QString {"off"} << false;
+    QTest::newRow ("jtty apply") << QString {"jtty"} << QString {"apply"} << true;
+    QTest::newRow ("jtty off") << QString {"jtty"} << QString {"off"} << false;
+  }
+
+  void preparedAudioMatchesTheGui ()
+  {
+    QFETCH (QString, kind);
+    QFETCH (QString, reference);
+    QFETCH (bool, rows);
+    auto const applying = "apply" == reference;
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    auto const modelPath = modelDir (QTest::currentDataTag ());
+    QDir {}.mkpath (modelPath);
+    if (applying)
+      {
+        auto const curve = measuredReference (modelPath + " measure");
+        QVERIFY2 (!curve.isEmpty (), "no reference spectrum");
+        QVERIFY (writeFile (directory.path () + "/refspec.dat", curve));
+        QVERIFY (writeFile (modelPath + "/refspec.dat", curve));
+      }
+    QJsonObject keys {{"live_audio", true}, {"prepared_audio", true}};
+    if ("off" != reference) keys.insert ("ref_spectrum", reference);
+    if (rows) keys.insert ("spectrum", true);
+    auto const equalizedPath = modelPath + "/equalized.pcm";
+    QStringList script {"datadir " + modelPath, "reference " + reference, "equalized " + equalizedPath};
+    QByteArray input = sessionHeader ();
+    QByteArray sent;
+    int periodSamples = 0;
+    int block = HsymSamples;
+    int periods = 1;
+    if ("jtty" == kind)
+      {
+        sent = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
+        input += configure (with (JttySettings, keys)) + audio (sent, FrameSamples);
+        script << QString {"jtty 0 %1 1 0"}.arg (sent.size () / 2);
+      }
+    else if ("msk144" == kind)
+      {
+        sent = period (wavPcm (inSamples ("MSK144/181211_120800.wav")), Ft8PeriodSamples);
+        input += configure (with (Msk144Settings, keys)) + audio (sent);
+        script << QString {"msk144 0 %1 15"}.arg (Ft8PeriodSamples);
+        periodSamples = Ft8PeriodSamples;
+        block = BlockSamples;
+      }
+    else
+      {
+        auto const m = modeOf (kind);
+        auto const pcm = period (wavPcm (m.wav), m.samples);
+        input += configure (with (with (m.settings, {{"depth", 1}}), keys)) + audio (pcm) + configure (labelFor (m, 1))
+          + audio (pcm);
+        script << QString {"period live 0 %1"}.arg (m.samples) << QString {"period live %1 %1"}.arg (m.samples);
+        sent = pcm + pcm;
+        periodSamples = m.samples;
+        periods = 2;
+      }
+    QVERIFY2 (!sent.isEmpty (), "no recording");
+    Options options;
+    options.directory = directory.path ();
+    auto const codec = runInput (input + halt (), options);
+    QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
+    QVERIFY2 (longestLine (codec->lines) < LineLimit + 1, qPrintable (QString::number (longestLine (codec->lines))));
+    QList<Prepared> lines;
+    auto problem = preparedOf (codec->lines, lines);
+    QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+    QVERIFY2 (!lines.isEmpty (), qPrintable ("no prepared_audio line\n" + codec->report ()));
+    // What the decoders got: the GUI's equalized audio, or the audio sent.
+    auto expected = sent;
+    if (applying)
+      {
+        auto const model = runModel (modelPath, sent, script);
+        QVERIFY2 (model.ok, qPrintable (model.failure));
+        expected = readFile (equalizedPath);
+        QCOMPARE (expected.size (), sent.size ());
+        QVERIFY2 (expected != sent, "the filter changed nothing");
+      }
+    if (rows)
+      {
+        auto const order = preparedOrder (codec->lines);
+        QVERIFY2 (order.isEmpty (), qPrintable (order));
+      }
+    else QCOMPARE (rowsOf (codec->lines).rows.size (), countKind (rowsOf (codec->lines).rows, "ref"));
+    if ("jtty" == kind)
+      {
+        QByteArray got;
+        problem = preparedSession (lines, 1, 0, got);
+        QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+        QVERIFY2 (got == expected, qPrintable (firstDifference (got, expected)));
+        for (int i = 0; i < lines.size (); ++i)
+          {
+            auto const n = int (lines.at (i).pcm.size () / 2);
+            auto const want = applying ? HsymSamples : FrameSamples;
+            QVERIFY2 (n == want || (applying && i == lines.size () - 1 && n < want),
+                      qPrintable (QString {"line %1 carries %2 samples"}.arg (i).arg (n)));
+          }
+        return;
+      }
+    QList<QByteArray> got;
+    QList<QList<qint64>> ks;
+    problem = preparedPeriods (lines, got, &ks);
+    QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+    QCOMPARE (got.size (), periods);
+    auto const end = "jt65jt9" == kind ? periodSamples : periodSamples / block * block;
+    QList<qint64> wantKs;
+    for (int k = block; k <= end; k += block) wantKs << k;
+    if (end % block) wantKs << end;
+    for (int p = 0; p < periods; ++p)
+      {
+        QCOMPARE (ks.at (p), wantKs);
+        auto const want = expected.mid (2 * p * periodSamples, 2 * end);
+        QVERIFY2 (got.at (p) == want, qPrintable (QString {"period %1: %2"}.arg (p).arg (firstDifference (got.at (p), want))));
+      }
+  }
+
+  // When a period's lines start and stop: a period has them only if
+  // prepared_audio is on when its first block completes (turned on later, they
+  // start at the next period), also while the rows already run in blocks;
+  // turned off, the next block sends none. A flush before the stop sends the
+  // block it cuts short; a discontinuity or a mode change drops it; after
+  // each, k starts again with the next period. A configure that moves the
+  // stop to audio already in sends the part block, and the period goes on
+  // with the rest of the block at its end. In JTTY the lines start with the
+  // first audio after the key comes on and stop with the first after it goes
+  // off, and a discontinuity starts a new session's.
+  void preparedAudioStartsAndStops_data ()
+  {
+    QTest::addColumn<QString> ("scenario");
+    QTest::newRow ("on within a period") << QString {"on within a period"};
+    QTest::newRow ("on within a period with rows") << QString {"on within a period with rows"};
+    QTest::newRow ("stop moved within a block") << QString {"stop moved within a block"};
+    QTest::newRow ("off within a period") << QString {"off within a period"};
+    QTest::newRow ("flush within a period") << QString {"flush within a period"};
+    QTest::newRow ("discontinuity within a period") << QString {"discontinuity within a period"};
+    QTest::newRow ("mode change within a period") << QString {"mode change within a period"};
+    QTest::newRow ("jtty on within a session") << QString {"jtty on within a session"};
+    QTest::newRow ("jtty off within a session") << QString {"jtty off within a session"};
+    QTest::newRow ("jtty after a discontinuity") << QString {"jtty after a discontinuity"};
+  }
+
+  void preparedAudioStartsAndStops ()
+  {
+    QFETCH (QString, scenario);
+    QJsonObject const on {{"prepared_audio", true}};
+    QJsonObject const off {{"prepared_audio", false}};
+    constexpr int Cut = 100000;          // inside block 29, before FT8's stop
+    constexpr int Toggle = 50000;        // inside block 15
+    if (scenario.startsWith ("jtty"))
+      {
+        auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
+        QVERIFY2 (!pcm.isEmpty (), "no recording");
+        auto const turnsOn = scenario.contains (" on ");
+        auto const split = scenario.contains ("discontinuity");
+        auto const middle = split ? control ({{"t", "discontinuity"}}) : configure (turnsOn ? on : off);
+        auto const codec = runInput (sessionHeader () + configure (with (JttySettings, {{"live_audio", true}, {"prepared_audio", !turnsOn}}))
+                                     + audio (samples (pcm, 0, Toggle), FrameSamples) + middle
+                                     + audio (pcm.mid (2 * Toggle), FrameSamples) + halt ());
+        QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
+        QList<Prepared> lines;
+        auto problem = preparedOf (codec->lines, lines);
+        QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+        QByteArray got;
+        if (split)
+          {
+            // Session 1 to the discontinuity, session 2 from it.
+            QList<Prepared> first, second;
+            for (auto const& line : lines) (1 == line.reception ? first : second) << line;
+            problem = preparedSession (first, 1, 0, got);
+            QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+            QVERIFY2 (got == samples (pcm, 0, Toggle), qPrintable (firstDifference (got, samples (pcm, 0, Toggle))));
+            problem = preparedSession (second, 2, Toggle, got);
+            QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+            QVERIFY2 (got == pcm.mid (2 * Toggle), qPrintable (firstDifference (got, pcm.mid (2 * Toggle))));
+            return;
+          }
+        problem = preparedSession (lines, 1, turnsOn ? Toggle : 0, got);
+        QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+        auto const want = turnsOn ? pcm.mid (2 * Toggle) : samples (pcm, 0, Toggle);
+        QVERIFY2 (got == want, qPrintable (firstDifference (got, want)));
+        return;
+      }
+    auto const m = modeOf ("ft8");
+    auto const pcm = period (wavPcm (m.wav), m.samples);
+    auto const ft4 = modeOf ("ft4");
+    auto const ft4Pcm = period (wavPcm (ft4.wav), ft4.samples);
+    QVERIFY2 (!pcm.isEmpty () && !ft4Pcm.isEmpty (), "no recording");
+    auto const base = with (m.settings, {{"live_audio", true}, {"depth", 1}});
+    auto const whole = liveRows (m.samples) * HsymSamples;
+    auto const before = Cut / HsymSamples * HsymSamples;
+    QByteArray input = sessionHeader ();
+    QList<QByteArray> expected;      // each period's samples
+    QList<QList<qint64>> expectedKs;
+    auto const blocks = [] (int from, int to) {
+      QList<qint64> ks;
+      for (int k = from + HsymSamples; k <= to; k += HsymSamples) ks << k;
+      return ks;
+    };
+    if (scenario.startsWith ("on within a period"))
+      {
+        auto const first = scenario.endsWith ("with rows") ? with (base, {{"spectrum", true}}) : base;
+        input += configure (first) + audio (samples (pcm, 0, Toggle)) + configure (on) + audio (pcm.mid (2 * Toggle))
+          + configure (labelFor (m, 1)) + audio (pcm);
+        expected << samples (pcm, 0, whole);
+        expectedKs << blocks (0, whole);
+      }
+    else if ("stop moved within a block" == scenario)
+      {
+        // Multithreaded FT8 from the first pass stops at half-symbol 49, not 50.
+        constexpr int Moved = 170000;
+        input += configure (with (base, on)) + audio (samples (pcm, 0, Moved))
+          + configure ({{"multithreaded_ft8", true}, {"ft8_threads", 2}, {"ft8_decoder_start", 0}})
+          + audio (pcm.mid (2 * Moved));
+        expected << samples (pcm, 0, whole);
+        auto ks = blocks (0, 49 * HsymSamples);
+        ks << Moved;
+        for (int k = 50 * HsymSamples; k <= whole; k += HsymSamples) ks << k;
+        expectedKs << ks;
+      }
+    else if ("off within a period" == scenario)
+      {
+        input += configure (with (base, on)) + audio (samples (pcm, 0, Toggle)) + configure (off)
+          + audio (pcm.mid (2 * Toggle)) + configure (labelFor (m, 1)) + audio (pcm);
+        auto const last = Toggle / HsymSamples * HsymSamples;
+        expected << samples (pcm, 0, last);
+        expectedKs << blocks (0, last);
+      }
+    else if ("flush within a period" == scenario)
+      {
+        input += configure (with (base, on)) + audio (samples (pcm, 0, Cut)) + flush () + configure (labelFor (m, 1))
+          + audio (pcm);
+        expected << samples (pcm, 0, Cut) << samples (pcm, 0, whole);
+        expectedKs << (blocks (0, before) << Cut) << blocks (0, whole);
+      }
+    else if ("discontinuity within a period" == scenario)
+      {
+        input += configure (with (base, on)) + audio (samples (pcm, 0, Cut)) + control ({{"t", "discontinuity"}})
+          + configure (labelFor (m, 1)) + audio (pcm);
+        expected << samples (pcm, 0, before) << samples (pcm, 0, whole);
+        expectedKs << blocks (0, before) << blocks (0, whole);
+      }
+    else if ("mode change within a period" == scenario)
+      {
+        input += configure (with (base, on)) + audio (samples (pcm, 0, Cut))
+          + configure (with (ft4.settings, {{"depth", 1}})) + audio (ft4Pcm);
+        auto const ft4Whole = liveRows (ft4.samples) * HsymSamples;
+        expected << samples (pcm, 0, before) << samples (ft4Pcm, 0, ft4Whole);
+        expectedKs << blocks (0, before) << blocks (0, ft4Whole);
+      }
+    else QFAIL (qPrintable ("no scenario " + scenario));
+    auto const codec = runInput (input + halt ());
+    QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
+    QList<Prepared> lines;
+    auto problem = preparedOf (codec->lines, lines);
+    QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+    QList<QByteArray> got;
+    QList<QList<qint64>> ks;
+    problem = preparedPeriods (lines, got, &ks);
+    QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+    QCOMPARE (ks, expectedKs);
+    for (int p = 0; p < expected.size (); ++p)
+      QVERIFY2 (got.at (p) == expected.at (p), qPrintable (QString {"period %1: %2"}.arg (p).arg (firstDifference (got.at (p), expected.at (p)))));
+  }
+
+  // From a file nothing is sent, as the GUI saves only live audio, in a
+  // period mode and in JTTY.
+  void noPreparedAudioFromAFile ()
+  {
+    auto const m = modeOf ("ft8");
+    auto const pcm = period (wavPcm (m.wav), m.samples);
+    auto const jtty = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
+    QVERIFY2 (!pcm.isEmpty () && !jtty.isEmpty (), "no recording");
+    auto const file = runInput (sessionHeader () + configure (with (m.settings, {{"depth", 1}, {"prepared_audio", true}}))
+                                + audio (pcm) + configure (labelFor (m, 1)) + audio (pcm) + halt ());
+    QVERIFY2 (file->clean (), qPrintable (file->report ()));
+    QVERIFY2 (!messageSet (file->lines).isEmpty (), qPrintable (file->report ()));
+    QCOMPARE (count (file->lines, outType ("prepared_audio")), 0);
+    auto const session = runInput (sessionHeader () + configure (with (JttySettings, {{"prepared_audio", true}}))
+                                   + audio (jtty, FrameSamples) + halt ());
+    QVERIFY2 (session->clean (), qPrintable (session->report ()));
+    QVERIFY2 (count (session->lines, outType ("session")) > 0, qPrintable (session->report ()));
+    QCOMPARE (count (session->lines, outType ("prepared_audio")), 0);
+  }
+
   // The new keys' values: a wrong JSON type is configure_type_error, a value
   // out of range configure_range_error, and the frame is declined whole.
   void newKeysDeclineBadValues_data ()
@@ -2412,6 +2873,8 @@ private slots:
     QTest::newRow ("ref_spectrum 2") << QJsonObject {{"ref_spectrum", 2}} << QString {"configure_type_error"} << QString {"ref_spectrum"};
     QTest::newRow ("ref_spectrum_clear string") << QJsonObject {{"ref_spectrum_clear", "yes"}}
                                                << QString {"configure_type_error"} << QString {"ref_spectrum_clear"};
+    QTest::newRow ("prepared_audio 1") << QJsonObject {{"prepared_audio", 1}} << QString {"configure_type_error"}
+                                      << QString {"prepared_audio"};
   }
 
   void newKeysDeclineBadValues ()
@@ -2422,14 +2885,15 @@ private slots:
     auto const m = modeOf ("ft8");
     auto const pcm = period (wavPcm (m.wav), m.samples);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
-    auto const codec = runInput (sessionHeader () + configure (with (m.settings, {{"depth", 1}})) + configure (keys)
-                                 + audio (pcm) + halt ());
+    auto const codec = runInput (sessionHeader () + configure (with (m.settings, {{"depth", 1}, {"live_audio", true}}))
+                                 + configure (keys) + audio (pcm) + halt ());
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const at = find (codec->lines, outHas ("\"" + code.toUtf8 () + "\""));
     QVERIFY2 (at >= 0, qPrintable (codec->report ()));
     QCOMPARE (json (codec->lines.at (at).text).value ("key").toString (), key);
-    // The declined frame's spectrum key is not applied.
+    // The declined frame's keys are not applied.
     QCOMPARE (count (codec->lines, outType ("spectrum")), 0);
+    QCOMPARE (count (codec->lines, outType ("prepared_audio")), 0);
   }
 
   // Every mode's decodes, JT65+JT9's, MSK144's and JTTY's among them, are the
@@ -2437,23 +2901,31 @@ private slots:
   // low_sidelobes off; JT9's and JT65+JT9's have low_sidelobes on in both,
   // since it windows the spectra they decode. From a file FT8's early passes
   // run without the clock.
+  // The same holds with only prepared_audio on, against all the keys at
+  // their defaults ("prepared_audio" rows; JTTY's live there): a live
+  // session sends lines, one from a file none.
   void decodesUnchangedByRows_data ()
   {
     QTest::addColumn<QString> ("mode");
     QTest::addColumn<bool> ("live");
     QTest::addColumn<int> ("periods");
-    QTest::newRow ("ft8 file") << QString {"ft8"} << false << 2;
-    QTest::newRow ("ft8-mtd file") << QString {"ft8-mtd"} << false << 2;
-    QTest::newRow ("ft4 live") << QString {"ft4"} << true << 2;
-    QTest::newRow ("jt4 file") << QString {"jt4"} << false << 1;
-    QTest::newRow ("jt9 file") << QString {"jt9"} << false << 1;
-    QTest::newRow ("jt65 file") << QString {"jt65"} << false << 1;
-    QTest::newRow ("jt65jt9 file") << QString {"jt65jt9"} << false << 1;
-    QTest::newRow ("q65 live") << QString {"q65"} << true << 1;
-    QTest::newRow ("fst4 file") << QString {"fst4"} << false << 1;
-    QTest::newRow ("fst4w file") << QString {"fst4w"} << false << 1;
-    QTest::newRow ("msk144 live") << QString {"msk144"} << true << 1;
-    QTest::newRow ("jtty") << QString {"jtty"} << true << 1;
+    QTest::addColumn<bool> ("prepared");
+    struct Each
+    {
+      char const * name;
+      char const * mode;
+      bool live;
+      int periods;
+    };
+    for (auto const& each : {Each {"ft8 file", "ft8", false, 2}, Each {"ft8-mtd file", "ft8-mtd", false, 2},
+                             Each {"ft4 live", "ft4", true, 2}, Each {"jt4 file", "jt4", false, 1},
+                             Each {"jt9 file", "jt9", false, 1}, Each {"jt65 file", "jt65", false, 1},
+                             Each {"jt65jt9 file", "jt65jt9", false, 1}, Each {"q65 live", "q65", true, 1},
+                             Each {"fst4 file", "fst4", false, 1}, Each {"fst4w file", "fst4w", false, 1},
+                             Each {"msk144 live", "msk144", true, 1}, Each {"jtty", "jtty", true, 1}})
+      for (auto prepared : {false, true})
+        QTest::newRow (prepared ? qPrintable (QString {each.name} + " prepared_audio") : each.name)
+          << QString {each.mode} << each.live << each.periods << prepared;
   }
 
   void decodesUnchangedByRows ()
@@ -2461,15 +2933,17 @@ private slots:
     QFETCH (QString, mode);
     QFETCH (bool, live);
     QFETCH (int, periods);
-    auto const keys = spectrumKeys (true);
+    QFETCH (bool, prepared);
+    auto const keys = prepared ? QJsonObject {{"prepared_audio", true}} : spectrumKeys (true);
     std::function<QByteArray (QJsonObject const&)> input;
     bool sorted = false;
     if ("jtty" == mode)
       {
         auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav"));
         QVERIFY2 (!pcm.isEmpty (), "no recording");
+        auto const settings = prepared ? with (JttySettings, {{"live_audio", true}}) : JttySettings;
         input = [=] (QJsonObject const& on) {
-          return sessionHeader () + configure (with (JttySettings, on)) + audio (pcm, FrameSamples) + halt ();
+          return sessionHeader () + configure (with (settings, on)) + audio (pcm, FrameSamples) + halt ();
         };
       }
     else if ("msk144" == mode)
@@ -2502,12 +2976,24 @@ private slots:
     auto const on = runInput (input (keys), shared);
     QVERIFY2 (on->clean (), qPrintable (on->report ()));
     bool const windowed = "jt9" == mode || "jt65jt9" == mode;
-    auto const off = runInput (input ({{"low_sidelobes", windowed}}), shared);
+    auto const off = runInput (input (prepared ? QJsonObject {} : QJsonObject {{"low_sidelobes", windowed}}),
+                               shared);
     QVERIFY2 (off->clean (), qPrintable (off->report ()));
     QVERIFY2 (!messageSet (off->lines).isEmpty () || "jtty" == mode, qPrintable (off->report ()));
-    auto const rows = rowsOf (on->lines);
-    QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    QVERIFY2 (!rows.rows.isEmpty (), "the session with the key wrote no rows");
+    if (prepared)
+      {
+        QList<Prepared> lines;
+        auto const problem = preparedOf (on->lines, lines);
+        QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+        QVERIFY2 (live == !lines.isEmpty (), qPrintable (QString {"%1 prepared_audio lines"}.arg (lines.size ())));
+        QCOMPARE (rowsOf (on->lines).rows.size (), 0);
+      }
+    else
+      {
+        auto const rows = rowsOf (on->lines);
+        QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
+        QVERIFY2 (!rows.rows.isEmpty (), "the session with the key wrote no rows");
+      }
     QVERIFY2 (longestLine (on->lines) < LineLimit + 1, qPrintable (QString::number (longestLine (on->lines))));
     QCOMPARE (decodeLines (on->lines, sorted), decodeLines (off->lines, sorted));
     QCOMPARE (decisions (on->lines), decisions (off->lines));
@@ -2650,6 +3136,8 @@ private slots:
     QTest::newRow ("fast_spectrum") << QString {"fast_spectrum"} << QString {"msk144"};
     QTest::newRow ("ref_spectrum") << QString {"ref_spectrum"} << QString {"ft4"};
     QTest::newRow ("spectrum jtty") << QString {"spectrum"} << QString {"jtty"};
+    QTest::newRow ("prepared_audio") << QString {"prepared_audio"} << QString {"ft4"};
+    QTest::newRow ("prepared_audio jtty") << QString {"prepared_audio"} << QString {"jtty"};
   }
 
   void clientsIgnoringTheRowsStillWork ()
@@ -2657,14 +3145,16 @@ private slots:
     QFETCH (QString, event);
     QFETCH (QString, mode);
     QJsonObject const keys = "ref_spectrum" == event ? QJsonObject {{"ref_spectrum", "measure"}}
-                                                     : QJsonObject {{"spectrum", true}};
+      : "prepared_audio" == event ? QJsonObject {{"prepared_audio", true}} : QJsonObject {{"spectrum", true}};
     std::function<QByteArray (QJsonObject const&)> input;
     if ("jtty" == mode)
       {
         auto const pcm = wavPcm (inSamples ("JTTY/261105_101915_567.wav")).left (2 * 15 * SampleRate);
         QVERIFY2 (!pcm.isEmpty (), "no recording");
+        // prepared_audio comes only from live audio.
+        auto const settings = "prepared_audio" == event ? with (JttySettings, {{"live_audio", true}}) : JttySettings;
         input = [=] (QJsonObject const& on) {
-          return sessionHeader () + configure (with (JttySettings, on)) + audio (pcm, FrameSamples) + halt ();
+          return sessionHeader () + configure (with (settings, on)) + audio (pcm, FrameSamples) + halt ();
         };
       }
     else if ("msk144" == mode)
@@ -3335,12 +3825,20 @@ private slots:
   }
 
   // The queue's writer thread starts with the configure that first turns a
-  // row key on: none while both are off.
+  // receive key that sends lines on: none while they are off.
+  void writerThreadStartsWithTheFirstKey_data ()
+  {
+    QTest::addColumn<QString> ("key");
+    QTest::newRow ("spectrum") << QString {"spectrum"};
+    QTest::newRow ("prepared_audio") << QString {"prepared_audio"};
+  }
+
   void writerThreadStartsWithTheFirstKey ()
   {
 #ifndef Q_OS_UNIX
     QSKIP ("threads are counted on Unix");
 #else
+    QFETCH (QString, key);
     auto const m = modeOf ("ft8");
     auto const pcm = period (wavPcm (m.wav), m.samples);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
@@ -3351,7 +3849,7 @@ private slots:
     QVERIFY2 (codec.waitForCount (outHas ("configure_parse_error"), 1, waitMs (), "the first marker"),
               qPrintable (codec.report ()));
     auto const before = threadCount (codec.processId ());
-    codec.write (configure ({{"spectrum", true}}) + audio (samples (pcm, 5 * HsymSamples, 6 * HsymSamples)) + marker ());
+    codec.write (configure ({{key, true}}) + audio (samples (pcm, 5 * HsymSamples, 6 * HsymSamples)) + marker ());
     QVERIFY2 (codec.waitForCount (outHas ("configure_parse_error"), 2, waitMs (), "the second marker"),
               qPrintable (codec.report ()));
     auto const after = threadCount (codec.processId ());
@@ -3367,11 +3865,21 @@ private slots:
   // with rows off, pass starts within WSJT_SPECTRUM_PASS_TOLERANCE_MS
   // (default 100) of them, and one rows_dropped line, after which the rows run
   // from no more than 23 blocks before the reader resumed to the session's end.
+  // With prepared_audio on too, every one of its lines arrives (they are never
+  // discarded) and rows_dropped counts the rows alone.
+  void stallPastTheCapLeavesLiveDecodes_data ()
+  {
+    QTest::addColumn<bool> ("prepared");
+    QTest::newRow ("rows") << false;
+    QTest::newRow ("rows and prepared audio") << true;
+  }
+
   void stallPastTheCapLeavesLiveDecodes ()
   {
 #ifndef Q_OS_UNIX
     QSKIP ("the stalled reader runs on Unix pipes");
 #else
+    QFETCH (bool, prepared);
     constexpr int Periods = 3;
     constexpr int StallAt = 11000;
     constexpr int StallMs = 10000;
@@ -3404,6 +3912,7 @@ private slots:
       QJsonObject settings {{"mode", "FT8"}, {"depth", 3}, {"live_audio", true},
                             {"utc", QDateTime::fromMSecsSinceEpoch (next, Qt::UTC).toString ("HH:mm:ss")}};
       if (rows) settings = with (settings, spectrumKeys (false));
+      if (rows && prepared) settings.insert ("prepared_audio", true);
       codec.write (sessionHeader () + configure (settings));
       qint64 resume = -1;
       for (int p = 0; p < Periods; ++p)
@@ -3486,6 +3995,21 @@ private slots:
     qInfo ().noquote () << QString {"rows after rows_dropped from block %1; %2 blocks were in before the reader resumed"}
       .arg (first).arg (on.resumed);
     QVERIFY2 (first <= on.resumed && first >= on.resumed - 23, "the rows after rows_dropped are not the newest");
+    QList<Prepared> lines;
+    auto const problemLines = preparedOf (on.lines, lines);
+    QVERIFY2 (problemLines.isEmpty (), qPrintable (problemLines));
+    if (!prepared)
+      {
+        QCOMPARE (lines.size (), 0);
+        return;
+      }
+    QList<QByteArray> got;
+    auto const problemPeriods = preparedPeriods (lines, got);
+    QVERIFY2 (problemPeriods.isEmpty (), qPrintable (problemPeriods));
+    QCOMPARE (got.size (), Periods);
+    auto const want = samples (pcm, 0, liveRows (Ft8PeriodSamples) * HsymSamples);
+    for (int p = 0; p < Periods; ++p)
+      QVERIFY2 (got.at (p) == want, qPrintable (QString {"period %1: %2"}.arg (p).arg (firstDifference (got.at (p), want))));
 #endif
   }
 
@@ -3695,7 +4219,7 @@ private slots:
     QVERIFY2 (sorted.last () <= bound, "a row came later than the bound");
     auto const rows = rowsOf (lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    QStringList script = modelSettings (true, m.stop);
+    QStringList script = modelSettings (false, m.stop);
     for (int p = 0; p < periods; ++p) script << QString {"period live %1 %2"}.arg (p * m.samples).arg (m.samples);
     auto const model = runModel (modelDir (QTest::currentDataTag ()), sent, script);
     QVERIFY2 (model.ok, qPrintable (model.failure));

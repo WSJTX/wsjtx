@@ -416,9 +416,9 @@ contains
     decode_threaded = threaded
   end function decode_threaded
 
-  ! A configure turned spectrum or ref_spectrum on: from the first, every
-  ! stdout line goes to the writer thread, queued under the writer lock,
-  ! which a session without a decode thread makes then.
+  ! A configure turned spectrum, ref_spectrum or prepared_audio on: from the
+  ! first, every stdout line goes to the writer thread, queued under the
+  ! writer lock, which a session without a decode thread makes then.
   subroutine rows_start()
     if (rows_asked) return
     rows_asked = .true.

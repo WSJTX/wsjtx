@@ -10,7 +10,9 @@
 ! (ReferenceSpectrum.hpp) does, it resets the filter's history at the first
 ! block of a period or session and whenever the mode in force changes, and
 ! filters each block in chunks of at most 3456 samples. Only live audio is
-! equalized, as the GUI equalizes only its live audio.
+! equalized, as the GUI equalizes only its live audio. With prepared_audio
+! the samples it hands on go back to the client (lib/streaming_io.f90 and
+! lib/streaming_jtty.f90 send them).
 module streaming_receive
   use, intrinsic :: iso_fortran_env, only: int16
   use, intrinsic :: iso_c_binding, only: c_char, c_int, c_null_char
@@ -34,6 +36,7 @@ module streaming_receive
      logical :: spectrum = .false.
      logical :: low_sidelobes = .true.
      integer :: ref_spectrum = REF_SPECTRUM_OFF
+     logical :: prepared_audio = .false.
   end type receive_settings
   type(receive_settings), public, protected, save :: receive
 
@@ -70,12 +73,15 @@ contains
     if (cfg%ref_spectrum_set) call set_ref_(cfg%ref_spectrum)
     if (cfg%spectrum_set) receive%spectrum = cfg%spectrum
     if (cfg%low_sidelobes_set) receive%low_sidelobes = cfg%low_sidelobes
+    if (cfg%prepared_audio_set) receive%prepared_audio = cfg%prepared_audio
   end subroutine receive_configure
 
-  ! Whether rows or equalization are asked for, so that period modes and
-  ! MSK144 hand their audio over in GUI blocks (JTTY only while equalizing).
+  ! Whether rows, equalization or the prepared audio are asked for, so that
+  ! period modes and MSK144 hand their audio over in GUI blocks (JTTY only
+  ! while equalizing).
   logical function receive_blocks()
-    receive_blocks = receive%spectrum .or. receive%ref_spectrum .ne. REF_SPECTRUM_OFF
+    receive_blocks = receive%spectrum .or. receive%ref_spectrum .ne. REF_SPECTRUM_OFF &
+         .or. receive%prepared_audio
   end function receive_blocks
 
   ! Whether the chain equalizes or measures the audio: live audio, while
