@@ -1421,6 +1421,10 @@ MainWindow::MainWindow(QDir const& temp_directory,
              synchronizeOperatingBandState ();
              if (transition.before.rx != transition.after.rx)
                setXIT (ui->TxFreqSpinBox->value ());
+             // Until the rig's first online update (which carries its ranges) the
+             // dial is still being discovered, which is not an operator change.
+             if (m_config.rig_ranges_pending ())
+               m_pendingModeRetune.follow (transition.after.rx);
              resumeModeRetune ();
            });
   connect (&m_config, &Configuration::frequency_failure, this,
@@ -1472,10 +1476,15 @@ MainWindow::MainWindow(QDir const& temp_directory,
       statusUpdate ();
 #if defined(Q_OS_WIN)
       QTimer::singleShot (250, this, [=] {
+        // Re-sending the application's own frequency is not an operator change:
+        // a pending calibration start survives it.
+        auto const pending_retune = m_pendingModeRetune;
         if (m_mode != "Echo" && requestNominalFrequencyChange (
               m_operatingFrequency.remembered (), FrequencyRequestOrigin::Automatic))
           {
             m_msk144basefreq = m_operatingFrequency.remembered ();  // This is needed for Hamradio Deluxe
+            m_pendingModeRetune = pending_retune;
+            m_pendingModeRetune.follow (m_operatingFrequency.snapshot ().rx);
           }
       });
 #endif
@@ -12369,6 +12378,8 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
     }, m_config.is_transceiver_online ());
   m_splitMode = s.split ();
+  if (transition.restorationAccepted || (!old_state.online () && s.online ()))
+    m_pendingModeRetune.follow (m_operatingFrequency.snapshot ().rx);
   synchronizeOperatingBandState ();
   if (transition.monitor)
     {

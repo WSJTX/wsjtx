@@ -43,6 +43,13 @@ void ModeEntry::PendingRetune::defer (Operation operation, quint64 connection,
   pending_ = Pending {std::move (operation), connection, rx};
 }
 
+void ModeEntry::PendingRetune::follow (Radio::Frequency rx)
+{
+  if (!pending_ || !pending_->rx
+      || policyFor (pending_->operation.request, false).target != TargetKind::CalibrationStart) return;
+  pending_->rx = rx;
+}
+
 std::optional<ModeEntry::Operation> ModeEntry::PendingRetune::resume (
   quint64 acceptedIdentity, quint64 connection, OperatingFrequency::Snapshot const& state)
 {
