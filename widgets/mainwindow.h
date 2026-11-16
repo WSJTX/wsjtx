@@ -721,7 +721,6 @@ private slots:
   void on_sbTR_FST4W_valueChanged (int);
   void on_sbFtol_valueChanged (int);
   void on_sbFtol_2_valueChanged (int);
-  void on_comboBoxJttyStyle_currentIndexChanged (int index);
   void on_cbFast9_clicked(bool b);
   void on_sbCQTxFreq_valueChanged(int n);
   void on_cbCQTx_toggled(bool b);

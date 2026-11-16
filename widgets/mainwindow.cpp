@@ -714,13 +714,15 @@ MainWindow::MainWindow(QDir const& temp_directory,
   ui->q65Button->setToolTip (tr ("<html><head/><body><p>Switch to Q65 mode.<br> Cmd+right-click to switch to Q65 Pileup mode.</p></body></html>"));
 #endif
   configureModeControlsLayout ();
-  // A non-editable QComboBox always left-aligns its closed-box text, so fake a
-  // centered "label" via a read-only editable line edit; the dropdown list's
-  // own item text needs its alignment set separately (item textAlignment isn't
-  // a supported .ui property for QComboBox the way it is for list/table items).
-  ui->comboBoxJttyStyle->setEditable (true);
-  ui->comboBoxJttyStyle->lineEdit ()->setReadOnly (true);
-  ui->comboBoxJttyStyle->lineEdit ()->setAlignment (Qt::AlignCenter);
+  // The style buttons live in mainwindow.ui; each names its macro set in the
+  // "macroSet" property, so another button needs no code.
+  connect (ui->buttonGroupJttyStyle,
+           qOverload<QAbstractButton *> (&QButtonGroup::buttonClicked), this,
+           [this] (QAbstractButton * button) {
+    if (m_jttyMacros.selectByName (button->property ("macroSet").toString ())) {
+      refreshJttyMacroControls ();
+    }
+  });
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,
            &MainWindow::guardJttyLiveEntryLock);
   connect (ui->Tx_Message, &QPlainTextEdit::textChanged, this,

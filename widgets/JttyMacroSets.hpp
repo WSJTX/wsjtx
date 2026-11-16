@@ -57,6 +57,14 @@ namespace Jtty
   // The step after macro key 'key' was sent, however it was sent.
   EnterStep stepAfterKey (EnterRole role, int key, EnterStep step);
 
+  // True if text names myCall as a word: the call itself, <CALL>, CALL/P,
+  // X/CALL, with punctuation after it (CALL, CALL: ...). Case does not matter.
+  bool textHasCall (QString const& text, QString const& myCall);
+
+  // The Chat style's optional prefix: "CALL: " in front of text that does not
+  // name myCall. Text is returned unchanged if it is blank, or myCall is empty.
+  QString withMyCallPrefix (QString const& text, QString const& myCall);
+
   class MacroLibrary
   {
   public:

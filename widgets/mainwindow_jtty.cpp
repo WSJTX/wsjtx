@@ -252,6 +252,15 @@ bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, boo
   if (plan.text.trimmed ().isEmpty ()) return false;
 
   QString expanded = jtty_msg_expand (plan.text);
+  // Chat: the first words of an over get "MYCALL: " in front unless the
+  // message (all that is typed so far) already names the station.
+  if (ui->cbJttyMyCallPrefix->isChecked ()
+      && m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off
+      && m_jttyLiveEntryCommitted == 0 && m_jttyLiveEntryPending.isEmpty ()
+      && !m_jttyTxLifecycle.active ()
+      && !Jtty::textHasCall (jtty_msg_expand (uncommitted), m_config.my_callsign ())) {
+    expanded = Jtty::withMyCallPrefix (expanded, m_config.my_callsign ());
+  }
   if (ui->cbLowerCase->isChecked ()) expanded = expanded.toLower ();
   expanded = Jtty::prepareTransmitText (expanded).text;
 
@@ -1456,24 +1465,18 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
   m_wideGraph->setTol(n);
 }
 
-void MainWindow::on_comboBoxJttyStyle_currentIndexChanged(int index)
-{
-  if (index < 0 || index == m_jttyMacros.currentIndex ()) return;
-  m_jttyMacros.setCurrentIndex (index);
-  refreshJttyMacroControls ();
-}
-
 void MainWindow::refreshJttyMacroControls()
 {
-  {
-    QSignalBlocker const blocker {ui->comboBoxJttyStyle};
-    ui->comboBoxJttyStyle->clear ();
-    for (auto const& set : m_jttyMacros.sets ()) ui->comboBoxJttyStyle->addItem (set.name);
-    for (int i = 0; i < ui->comboBoxJttyStyle->count (); ++i) {
-      ui->comboBoxJttyStyle->setItemData (i, Qt::AlignCenter, Qt::TextAlignmentRole);
-    }
-    ui->comboBoxJttyStyle->setCurrentIndex (m_jttyMacros.currentIndex ());
+  // Check the button of the current set. A user set has no button: the group
+  // is exclusive, so it has to be let go of before every button can be cleared.
+  QString const setName = m_jttyMacros.current ().name;
+  bool const builtInSet = m_jttyMacros.current ().isBuiltIn ();
+  ui->buttonGroupJttyStyle->setExclusive (false);
+  for (auto * const button : ui->buttonGroupJttyStyle->buttons ()) {
+    button->setChecked (builtInSet && button->property ("macroSet").toString () == setName);
   }
+  ui->buttonGroupJttyStyle->setExclusive (true);
+  ui->cbJttyMyCallPrefix->setEnabled (m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off);
   QPushButton * const buttons[Jtty::macroKeyCount] {
     ui->pbF1, ui->pbF2, ui->pbF3, ui->pbF4, ui->pbF5, ui->pbF6, ui->pbF7, ui->pbF8,
     ui->pbSF1, ui->pbSF2, ui->pbSF3, ui->pbSF4, ui->pbSF5, ui->pbSF6, ui->pbSF7, ui->pbSF8};
