@@ -74,7 +74,7 @@ according to the ADIF log and history sources (on the chosen days, if
 set), for example to follow your
 progress in an EME contest.  
 
-image::active_stations_QMAP.png[align="center"]
+image::active_stations_QMAP.png[align="center",width=411]
 
 .SWL Mode
 
