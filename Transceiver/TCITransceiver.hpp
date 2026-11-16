@@ -196,6 +196,8 @@ protected:
   enum ModulatorState {Synchronizing, Active, Idle};
 
 private:
+  friend class TestTciTransceiverCharacterization;
+
   MODE get_mode (bool requested = false);
   QString frequency_to_string (Frequency) const;
   Frequency string_to_frequency (QString const&) const;
