@@ -1448,8 +1448,11 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
       QElapsedTimer deadline;
       deadline.start ();
       while (string_to_frequency (rx_frequency_) != f && inConnected
-             && error_.isEmpty () && deadline.elapsed () < 2000)
-        mysleep7 (static_cast<int> (2000 - deadline.elapsed ()));
+             && error_.isEmpty ()) {
+        auto const remaining = 2000 - deadline.elapsed ();
+        if (remaining <= 0) break;
+        mysleep7 (static_cast<int> (remaining));
+      }
       band_change2 = string_to_frequency (rx_frequency_) != f;
       if (!band_change2) update_rx_frequency (f, RigFrequency::Basis::Readback);
       else {
@@ -1517,8 +1520,11 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
         QElapsedTimer deadline;
         deadline.start ();
         while (string_to_frequency (other_frequency_) != tx && inConnected
-               && error_.isEmpty () && deadline.elapsed () < 1000)
-          mysleep2 (static_cast<int> (1000 - deadline.elapsed ()));
+               && error_.isEmpty ()) {
+          auto const remaining = 1000 - deadline.elapsed ();
+          if (remaining <= 0) break;
+          mysleep2 (static_cast<int> (remaining));
+        }
         other_band_change = string_to_frequency (other_frequency_) != tx;
         if (!other_band_change) update_other_frequency (tx, RigFrequency::Basis::Readback);
         else {
