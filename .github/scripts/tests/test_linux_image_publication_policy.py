@@ -218,12 +218,19 @@ git() {
             ({"event": "schedule", "schedule": "23 10 * * 1"}, "true", "true"),
         ]
         for path in (
-            ".github/workflows/build-macos.yml", ".github/actions/warm-macos-deps/action.yml",
+            ".github/actions/warm-macos-deps/action.yml",
             ".github/scripts/install-xpack-gfortran-macos.sh", ".github/scripts/build-qt-macos.sh",
-            ".github/scripts/macos-qt-cache-key.sh", ".github/scripts/verify-macos-static-archives.sh",
-            ".github/workflows/ci.yml", ".github/workflows/release.yml",
+            ".github/scripts/macos-qt-cache-key.sh",
         ):
             cases.append(({"event": "push", "paths": [path]}, "true", "true"))
+        # Not dependency-cache key inputs: build-macos.yml's keys must equal
+        # warm-macos-deps' (test_native_cache_policy.py), so a key change there
+        # also changes the action.
+        for path in (
+            ".github/workflows/build-macos.yml", ".github/scripts/verify-macos-static-archives.sh",
+            ".github/workflows/ci.yml", ".github/workflows/release.yml",
+        ):
+            cases.append(({"event": "push", "paths": [path]}, "false", "false"))
         for inputs, arm, intel in cases:
             with self.subTest(inputs=inputs):
                 outputs = self.select_warmers(**inputs)
@@ -238,7 +245,7 @@ git() {
             ({"event": "workflow_dispatch", "target": "linux-tsan"}, "false", "tsan"),
             ({"event": "push", "paths": [".github/scripts/build-hamlib-linux.sh"]}, "false", "normal"),
             ({"event": "push", "paths": [".github/scripts/build-qt-tsan-linux.sh"]}, "false", "tsan"),
-            ({"event": "push", "paths": ["CMakeLists.txt", ".github/scripts/verify-linux-ci-image.sh"]}, "true", "normal-and-tsan"),
+            ({"event": "push", "paths": ["CMakeLists.txt", ".github/scripts/verify-linux-ci-image.sh"]}, "false", "normal-and-tsan"),
             ({"event": "push", "paths": ["mainwindow.cpp"]}, "false", "none"),
         ]
         for arguments, selected, image_set in cases:
@@ -254,6 +261,7 @@ git() {
             ({"event": "workflow_dispatch", "target": "all"}, "true", "normal"),
             ({"event": "workflow_dispatch", "target": "linux-tsan"}, "false", "tsan"),
             ({"event": "push", "paths": [".github/images/linux-ci/Dockerfile.armhf-cross"]}, "false", "normal"),
+            ({"event": "push", "paths": [".github/scripts/build-hamlib-armhf-cross.sh"]}, "false", "normal"),
             ({"event": "push", "paths": ["mainwindow.cpp"]}, "false", "none"),
         ]
         for arguments, selected, image_set in cases:
@@ -262,7 +270,7 @@ git() {
                 self.assertEqual(outputs["linux_armhf"], selected)
                 self.assertEqual(outputs["image_set"], image_set)
 
-    def test_armhf_build_inputs_select_warming(self):
+    def test_armhf_build_inputs_do_not_start_the_warmer(self):
         push_filters = re.findall(r'^      - "([^"]+)"$', WARM.split("  schedule:", 1)[0], re.MULTILINE)
         for path in (
             ".github/workflows/build-linux.yml",
@@ -273,9 +281,9 @@ git() {
             "CMakeLists.txt", "CMake/Sources.cmake", "tests/unit/CMakeLists.txt",
         ):
             with self.subTest(path=path):
-                self.assertTrue(any(fnmatch.fnmatchcase(path, pattern) for pattern in push_filters))
+                self.assertFalse(any(fnmatch.fnmatchcase(path, pattern) for pattern in push_filters))
                 outputs = self.select_warmers("push", paths=[path])
-                self.assertEqual(outputs["linux_armhf"], "true")
+                self.assertEqual(outputs["linux_armhf"], "false")
                 self.assertEqual(outputs["image_set"], "none")
 
     def test_armhf_warmers_share_configuration_and_serialize(self):
@@ -310,7 +318,7 @@ git() {
         self.assertIn("- promote", published)
         self.assertNotIn("warm-armhf-ccache", job("promote"))
 
-    def test_sanitizer_build_inputs_select_warming(self):
+    def test_sanitizer_build_inputs_do_not_start_the_warmer(self):
         push_filters = re.findall(
             r'^      - "([^"]+)"$',
             WARM.split("  schedule:", 1)[0],
@@ -326,10 +334,52 @@ git() {
             "tests/unit/CMakeLists.txt",
         ):
             with self.subTest(path=path):
-                self.assertTrue(any(fnmatch.fnmatchcase(path, pattern) for pattern in push_filters))
+                self.assertFalse(any(fnmatch.fnmatchcase(path, pattern) for pattern in push_filters))
                 outputs = self.select_warmers("push", paths=[path])
-                self.assertEqual(outputs["linux_asan_ubsan"], "true")
+                self.assertEqual(outputs["linux_asan_ubsan"], "false")
                 self.assertEqual(outputs["image_set"], "none")
+
+    @staticmethod
+    def warmer_jobs():
+        parts = re.split(r"^  ([a-z][a-z0-9_-]*):\n", WARM.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
+        return dict(zip(parts[1::2], parts[2::2]))
+
+    def test_warmer_prunes_develop_linux_ccache_after_its_warmers(self):
+        jobs = self.warmer_jobs()
+        prune = jobs["prune-linux-ccache"]
+        needs = set(re.findall(r"^      - ([a-z0-9_-]+)$", prune.split("    if:", 1)[0], re.MULTILINE))
+        self.assertEqual(needs, {
+            "detect", "refresh-linux-images", "refresh-tsan-image", "warm-linux-arm64-ccache",
+            "warm-linux-armhf-ccache", "warm-linux-asan-ubsan-ccache",
+        })
+        self.assertIn("    if: always() && !cancelled() && github.ref == 'refs/heads/develop'\n", prune)
+        self.assertIn("    continue-on-error: true\n", prune)
+        self.assertIn("    permissions:\n      actions: write\n      contents: read\n", prune)
+        self.assertEqual(WARM.count("actions: write"), 1)
+        self.assertIn("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", prune)
+        self.assertIn(
+            "python3 .github/scripts/prune_linux_ccache.py\n"
+            "          --repository ${{ github.repository }}\n"
+            "          --ref refs/heads/develop\n"
+            "          --apply\n"
+            "          --skip-sha-check\n",
+            prune,
+        )
+        # ci.yml, whose Linux x86_64 job saves the commit's entry, keeps the check.
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn("prune_linux_ccache.py", ci)
+        self.assertNotIn("--skip-sha-check", ci)
+        self.assertEqual(list(jobs)[-2:], ["prune-linux-ccache", "summary"])
+        self.assertIn("      - prune-linux-ccache\n", jobs["summary"])
+
+    def test_warmer_build_artifacts_expire_after_one_day(self):
+        calls = 0
+        for name, body in self.warmer_jobs().items():
+            if re.search(r"^    uses: \./\.github/workflows/build-(?:linux|windows|macos)\.yml$", body, re.MULTILINE):
+                calls += 1
+                with self.subTest(job=name):
+                    self.assertIn("      artifact_retention_days: 1\n", body)
+        self.assertEqual(calls, 5)
 
     def test_asan_warmers_share_configuration_and_serialize(self):
         standalone = job("warm-linux-asan-ubsan-ccache", WARM)

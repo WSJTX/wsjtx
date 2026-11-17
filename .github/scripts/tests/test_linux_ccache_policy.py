@@ -137,6 +137,74 @@ class LinuxCcachePolicyTests(unittest.TestCase):
             action,
         )
 
+    def test_sanitizer_ccache_cap_applies_only_to_the_trim_cleanup(self):
+        resolve = self.sanitizer_step("Resolve sanitizer configuration")
+        asan = resolve.split("          asan-ubsan)\n", 1)[1].split("            ;;\n", 1)[0]
+        tsan = resolve.split("          tsan)\n", 1)[1].split("            ;;\n", 1)[0]
+        self.assertIn('echo "ccache_max_size=3G" >> "$GITHUB_OUTPUT"', asan)
+        self.assertIn('echo "ccache_max_size=5G" >> "$GITHUB_OUTPUT"', tsan)
+        configure = self.sanitizer_step("Configure ccache")
+        environment = configure.split("        {\n", 1)[1].split('        } >> "$GITHUB_ENV"\n', 1)[0]
+        self.assertIn('echo "CCACHE_TRIM_SINCE=$(date +%s)"', environment)
+        self.assertNotIn("CCACHE_MAXSIZE", configure, "a capped build evicts objects as it compiles")
+        trim = self.sanitizer_step("Trim sanitizer objects")
+        self.assertIn("        MAX_SIZE: ${{ steps.sanitizer.outputs.ccache_max_size }}\n", trim)
+        self.assertIn('        CCACHE_MAXSIZE="${MAX_SIZE:?}" ccache --cleanup\n', trim)
+        # Only the trim's cleanup sees the cap, and nothing writes it into the saved ccache.conf.
+        action = self.read(".github/actions/build-linux-sanitizers/action.yml")
+        code = "\n".join(line for line in action.splitlines() if not line.lstrip().startswith("#"))
+        self.assertEqual(code.count("CCACHE_MAXSIZE"), 1)
+        self.assertEqual(code.count("ccache_max_size"), 3)
+        self.assertEqual(re.findall(r"--max-size|ccache +-M\b|\bmax_size *=", code), [])
+
+    def test_sanitizer_trim_runs_exactly_when_the_save_runs(self):
+        action = self.read(".github/actions/build-linux-sanitizers/action.yml")
+        trim = self.sanitizer_step("Trim sanitizer objects")
+        save = self.sanitizer_step("Save sanitizer objects")
+        condition = re.compile(r"^      if: (.+)$", re.MULTILINE)
+        self.assertEqual(condition.findall(trim), condition.findall(save))
+        self.assertEqual(len(condition.findall(save)), 1)
+        self.assertIn("      continue-on-error: true\n", trim)
+        self.assertNotIn("continue-on-error", save)
+        self.assertLess(
+            action.index("- name: Require sanitizer tests to pass"),
+            action.index("- name: Trim sanitizer objects"),
+        )
+        steps = re.findall(r"^    - name: (.+)$", action, re.MULTILINE)
+        self.assertEqual(steps[steps.index("Trim sanitizer objects") + 1], "Save sanitizer objects")
+        self.assertIn("BUILD_DIR: ${{ steps.sanitizer.outputs.build_dir }}", trim)
+        commands = [
+            'rm -rf "${GITHUB_WORKSPACE:?}/${BUILD_DIR:?}"',
+            'ccache --evict-older-than "$(( $(date +%s) - ${CCACHE_TRIM_SINCE:?} + 60 ))s"',
+            'CCACHE_MAXSIZE="${MAX_SIZE:?}" ccache --cleanup',
+            "ccache --show-stats",
+            "df -h",
+        ]
+        positions = [trim.index(f"        {command}\n") for command in commands]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_no_step_after_the_trim_reads_the_build_directory(self):
+        action = self.read(".github/actions/build-linux-sanitizers/action.yml")
+        after_trim = action.split("    - name: Trim sanitizer objects\n", 1)[1]
+        after_trim = after_trim.split("\n    - name: ", 1)[1]
+        for reference in ("build_dir", "wsjtx-sanitizer-build", "wsjtx-tsan-build", "working-directory"):
+            with self.subTest(reference=reference):
+                self.assertNotIn(reference, after_trim)
+        self.assertIn('Path(os.environ["RUNNER_TEMP"]) / "sanitizer-ccache-stats.txt"', after_trim)
+        build = self.read(".github/workflows/build-linux-sanitizers.yml").split("\n  build:\n", 1)[1]
+        steps = re.findall(r"^      - (?:uses|name|run): (.+)$", build, re.MULTILINE)
+        self.assertEqual(steps[-1], "./.github/actions/build-linux-sanitizers")
+
+    def test_selected_artifacts_save_linux_ccache_only_on_develop(self):
+        workflow = self.read(".github/workflows/build-selected-artifacts.yml")
+        jobs = re.split(r"\n  (?=[A-Za-z0-9_-]+:\n)", workflow.split("\njobs:\n", 1)[1])
+        linux = [body for body in jobs if "uses: ./.github/workflows/build-linux.yml" in body]
+        self.assertEqual(len(linux), 3)
+        for body in linux:
+            with self.subTest(job=body.split(":", 1)[0]):
+                self.assertIn("      save_ccache: ${{ github.ref == 'refs/heads/develop' }}\n", body)
+        self.assertEqual(re.findall(r"save_ccache: (?:true|\$\{\{ true \}\})", workflow), [])
+
     def test_armhf_verifies_and_forwards_cache_identity(self):
         workflow = self.read(".github/workflows/build-linux.yml")
         self.assert_cache_tiers(workflow, "ccache-linux-armhf-${{ inputs.armhf_distro }}-")

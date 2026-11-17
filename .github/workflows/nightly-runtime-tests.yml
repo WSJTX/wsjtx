@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Nightly Runtime Tests
+
+# develop pushes and routine PRs leave out the CTest label `runtime`; this
+# workflow builds develop's tip each night and runs only those tests, skipping
+# a night when develop has not moved since a passing nightly
+# (select_nightly_runtime.py). A night after a failed nightly retests the same
+# commit; a dispatch always runs the tests.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-runtime-tests
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
+jobs:
+  prepare:
+    if: github.repository == 'WSJTX/wsjtx-internal'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      linux_image_tag: ${{ steps.linux-image.outputs.image_tag }}
+      run_tests: ${{ steps.select.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        run: |
+          STATE=$(python3 .github/scripts/release-policy.py read-state)
+          VERSION=$(jq -r .version <<<"$STATE")
+          echo "Derived version from release-state.txt: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - id: select
+        name: Select nightly runtime tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/select_nightly_runtime.py
+      - id: linux-image
+        name: Resolve Linux CI image generation
+        if: steps.select.outputs.run == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/resolve-linux-ci-image-tag.py
+
+  runtime:
+    needs: [prepare]
+    if: needs.prepare.outputs.run_tests == 'true'
+    uses: ./.github/workflows/build-linux.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      arch: "x86_64"
+      image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
+      allow_stale_image: true
+      build_packages: false
+      runtime_tests: only
+      artifact_retention_days: 7

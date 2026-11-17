@@ -14,6 +14,10 @@ inputs:
   directory:
     description: "Directory that holds the target's release tarballs"
     required: true
+  artifact_retention_days:
+    description: "Days to keep the artifacts; 0 keeps the repository default"
+    required: false
+    default: "0"
 
 runs:
   using: "composite"
@@ -25,6 +29,7 @@ runs:
         path: ${{ inputs.directory }}/wsjtx-${{ inputs.version }}-${{ inputs.target }}-jt9.tar.gz
         if-no-files-found: error
         compression-level: 0
+        retention-days: ${{ inputs.artifact_retention_days }}
 
     - name: Upload codec tarball
       uses: actions/upload-artifact@v7
@@ -33,6 +38,7 @@ runs:
         path: ${{ inputs.directory }}/wsjtx-${{ inputs.version }}-${{ inputs.target }}-codec.tar.gz
         if-no-files-found: error
         compression-level: 0
+        retention-days: ${{ inputs.artifact_retention_days }}
 
     - name: Upload wsprd tarball
       uses: actions/upload-artifact@v7
@@ -41,6 +47,7 @@ runs:
         path: ${{ inputs.directory }}/wsjtx-${{ inputs.version }}-${{ inputs.target }}-wsprd.tar.gz
         if-no-files-found: error
         compression-level: 0
+        retention-days: ${{ inputs.artifact_retention_days }}
 
     - name: Upload utilities tarball
       uses: actions/upload-artifact@v7
@@ -49,3 +56,4 @@ runs:
         path: ${{ inputs.directory }}/wsjtx-${{ inputs.version }}-${{ inputs.target }}-utilities.tar.gz
         if-no-files-found: error
         compression-level: 0
+        retention-days: ${{ inputs.artifact_retention_days }}

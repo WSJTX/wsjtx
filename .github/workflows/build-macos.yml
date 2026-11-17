@@ -42,6 +42,11 @@ on:
         required: false
         type: boolean
         default: false
+      artifact_retention_days:
+        description: "Days to keep the package and binary artifacts; 0 keeps the repository default"
+        required: false
+        type: number
+        default: 0
       signing_mode:
         description: "Package signing policy: validation or distribution"
         required: false
@@ -121,6 +126,11 @@ on:
         required: false
         type: boolean
         default: true
+      artifact_retention_days:
+        description: "Days to keep the package and binary artifacts; 0 keeps the repository default"
+        required: false
+        type: number
+        default: 0
       release_channel:
         description: "Build release channel"
         required: false
@@ -185,6 +195,7 @@ jobs:
       - name: Validate workflow inputs
         env:
           WSJTX_VERSION: ${{ inputs.version }}
+          ARTIFACT_RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
         run: .github/scripts/validate-ci-inputs.sh
 
       - name: Verify macOS build tuple
@@ -992,6 +1003,7 @@ jobs:
         with:
           name: ${{ steps.package.outputs.artifact_name }}
           path: ${{ steps.package.outputs.path }}
+          retention-days: ${{ inputs.artifact_retention_days }}
 
       - name: Upload signing report
         if: inputs.signing_mode == 'validation'
@@ -1025,6 +1037,7 @@ jobs:
         with:
           name: individual-binaries-macos-${{ inputs.arch }}
           path: packages/*.tar.gz
+          retention-days: ${{ inputs.artifact_retention_days }}
 
       - name: Package release tarballs
         run: |
@@ -1052,6 +1065,7 @@ jobs:
           version: ${{ inputs.version }}
           target: ${{ inputs.arch }}-macOS
           directory: release-tarballs
+          artifact_retention_days: ${{ inputs.artifact_retention_days }}
 
       # Keep repository-built code after signing, notarization, cleanup, and
       # artifact publication so a detached child cannot reach later secrets.
