@@ -25,7 +25,8 @@ linux_ci_image_set_for_inputs() {
   local normal=false tsan=false path
 
   for path in "$@"; do
-    if is_linux_ci_image_input normal-noble "$path" ||
+    if is_linux_ci_image_input normal-jammy "$path" ||
+       is_linux_ci_image_input normal-noble "$path" ||
        is_linux_ci_image_input normal-bookworm "$path" ||
        is_linux_ci_image_input armhf-cross-bookworm "$path" ||
        is_linux_ci_image_input armhf-runtime-bookworm "$path" ||
@@ -75,6 +76,10 @@ expect_image_set() {
 }
 
 if [ "${1:-}" = "--self-test" ]; then
+  expect_input normal-jammy ".github/images/linux-ci/Dockerfile.jammy"
+  expect_input normal-jammy ".github/scripts/build-qt-linux.sh"
+  expect_image_set normal ".github/images/linux-ci/Dockerfile.jammy"
+  expect_image_set normal ".github/scripts/build-qt-linux.sh"
   expect_input normal-noble ".github/images/linux-ci/Dockerfile.noble"
   expect_input tsan-noble ".github/images/linux-ci/Dockerfile.noble"
   expect_input normal-bookworm ".github/images/linux-ci/Dockerfile.bookworm"

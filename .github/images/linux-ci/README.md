@@ -1,10 +1,11 @@
 # Linux CI images
 
-WSJT-X publishes seven private, single-platform build environments to GHCR:
+WSJT-X publishes eight private, single-platform build environments to GHCR:
 
 | Package | Platform | CI consumers |
 | --- | --- | --- |
-| `wsjtx-internal/linux-noble` | `linux/amd64` | Normal and ASan/UBSan |
+| `wsjtx-internal/linux-jammy` | `linux/amd64` | Normal x64 CI and releases |
+| `wsjtx-internal/linux-noble` | `linux/amd64` | ASan/UBSan |
 | `wsjtx-internal/linux-tsan-noble` | `linux/amd64` | TSan |
 | `wsjtx-internal/linux-arm64-bookworm` | `linux/arm64` | aarch64 |
 | `wsjtx-internal/linux-armhf-cross-bookworm` | `linux/amd64` | Native armhf cross-build |
@@ -13,7 +14,7 @@ WSJT-X publishes seven private, single-platform build environments to GHCR:
 | `wsjtx-internal/linux-armv7-trixie` | `linux/arm/v7` | armhf Trixie tests and packaging under QEMU |
 
 The normal images contain the compiler, development and packaging closure, and
-the slow-moving pFUnit and Hamlib prefixes. The TSan image instead contains the
+the prepared Hamlib prefix. The TSan image instead contains the
 pinned, instrumented Qt, Boost, and Hamlib tuple. ARMHF has two builder/runtime
 pairs. Bookworm uses Debian GCC 12 packages, 32-bit `time_t`, and
 glibc 2.36 ceiling. Trixie uses Debian GCC 14 cross packages, 64-bit `time_t`,
@@ -45,6 +46,33 @@ the candidate generation's ccache snapshots before `stable` moves. TSan publicat
 is an explicit image cohort and verifies its pinned closure during the image
 build; the current code-level TSan suite is not part of image promotion.
 
+## Jammy x64 builds
+
+Normal x64 CI and releases build WSJT-X once using Ubuntu 22.04, GCC 12,
+CMake 3.22 and shared Qt 5.15.18 from the `linux-jammy` image.
+The Jammy publisher caches the Qt build layers in the registry under `linux-jammy:buildcache`.
+Noble remains an internal ASan/UBSan builder in the same promoted generation;
+it is not part of the six-image release dependency selection.
+
+The x64 AppImage and CLI archive checks enforce a glibc 2.35 ceiling on required
+ELF versions. Clean Ubuntu 22.04 and 24.04 containers exercise the same packaged
+artifacts and retain dependency, checksum and timing logs. Other architectures
+keep their existing profiles and glibc ceilings.
+
+Native DEB and RPM packages use distribution libraries. Their CPack staging hook
+removes runtime search paths inherited from the build image. AppDir installation
+retains those paths so linuxdeploy can gather the private Qt and FFTW libraries.
+
+For a single x64 check, dispatch `Build Selected Artifacts` with `linux-x64`
+in `artifact-now` mode. An explicit immutable `image_tag` reuses a prepared
+candidate without rebuilding dependencies; an empty tag selects the validated
+generation. The same build produces native packages and portable artifacts,
+followed by separate clean installation and portable runtime checks.
+Manual `CI` runs can also select `linux_image_tag` to validate a
+complete candidate generation before promotion, including the matching Noble
+sanitizer and ARM builders when those jobs are selected. `armhf_image_tag` can
+override the shared generation for an explicit ARMHF diagnostic run.
+
 ## Publication
 
 For a single-platform check, dispatch `publish-linux-ci-images.yml` with
@@ -53,7 +81,8 @@ For a single-platform check, dispatch `publish-linux-ci-images.yml` with
 cross-builder followed by its matching runtime image. The resulting immutable
 tag can then be passed to `build-linux.yml` with the matching architecture and
 ARMHF distro for application tests and packaging. Broaden validation after that
-build passes. `candidate_profile=all` retains the complete-cohort publication path.
+build passes. `candidate_profile=x86_64` selects Jammy. `candidate_profile=all`
+publishes the complete cohort, including the internal Noble sanitizer image.
 
 `publish-linux-ci-images.yml` pushes unique candidate and immutable `build-*`
 tags for the selected image cohort. Each Docker build verifies the image
@@ -63,9 +92,10 @@ pipeline runs against its exact `build-*` tag and saves a generation-specific
 ccache archive. This prevents a new image from becoming stable without a cache
 that pull requests can restore. Successful generations also receive
 `validated-build-*` tags. The secondary normal-image `stable` tags move first
-and `linux-noble:stable` moves last within that cohort. Consumers resolve that
+and `linux-jammy:stable` moves last within that cohort. Consumers resolve that
 pointer to its immutable `build-*` tag and use the same generation for every
-normal Linux leg.
+normal Linux leg, including Noble for ASan/UBSan. Rollback checks the same
+selected packages before moving any stable pointers and moves Jammy last.
 
 Both ARMHF pairs are included when the cache-refresh workflow refreshes the
 normal Linux image cohort. All four ARMHF images are built, promoted, and rolled
@@ -117,20 +147,23 @@ builds may be run from another ref.
 ## First dual-distro release rollout
 
 1. Land the recipes and consumers together on the protected source branch.
-   Publish the normal image cohort with `include_armhf: true`, producing all six
+   Publish the normal image cohort with `include_armhf: true`, producing all seven
    non-TSan images. Promotion requires the image checks and existing x64/ARM64
    application gates; ARMHF warming occurs afterward and does not gate promotion.
+   The first Jammy rollout needs this promotion before routine CI can resolve
+   `linux-jammy:stable`. Pre-promotion checks must select an immutable candidate.
 2. Run full CI against the exact new immutable generation. Require both ARMHF
    distro builds, runtime tests, artifact checks, and clean DEB installation to
    pass before preparing the release dependency selection.
 3. Run `prepare-release-dependencies.yml` from protected `develop`, selecting the
    protected source branch and its matching `validated-build-*` generation.
    Review and commit the generated schema-2 `release-linux-images.json`, containing
-   six real image digests, before creating a release candidate. Preparation verifies
-   and copies the images; it does not manufacture a lock before publication.
+   six real image digests, before creating a release candidate. The x64 entry
+   selects Jammy; the internal Noble sanitizer image is excluded. Preparation
+   verifies and copies the images; it does not manufacture a lock before publication.
 
-Historical protected source branches use their own preparation helper and retain
-their original four-image contract. New source requires both ARMHF pairs and a
+Protected source branches use their own preparation helper and retain their
+existing image contract. New source requires Jammy, both ARMHF pairs, and a
 six-image lock. The beta scheduler defers source revisions that predate the new
 profiles. Already-published releases retain their original manifests and assets.
 
@@ -159,7 +192,8 @@ The image recipe and ccache compatibility identities intentionally answer
 different questions. The recipe and legacy `toolchain_id` describe the complete
 image for verification and provenance. Actions-cache keys instead use the
 architecture, ARMHF distro or sanitizer profile when applicable, a `gcc<major>-v2`
-compatibility ID, and the immutable image generation.
+compatibility ID, and the immutable image generation. Normal x64 uses the
+`jammy-gcc12` runtime profile; Noble sanitizer builds keep their own profile.
 
 Within that archive, ccache uses a verified content signature covering the C
 and C++ drivers, GCC frontends and LTO executable, assembler, their resolved

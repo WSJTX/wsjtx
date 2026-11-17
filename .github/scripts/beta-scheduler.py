@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 from datetime import datetime, timedelta, timezone
 import importlib.util
@@ -61,7 +62,7 @@ PUBLISHER = "publish-linux-ci-images.yml"
 PUBLICATION = "public-release.yml"
 BETA_CUT = "beta-cut.yml"
 IMAGE_REFRESH_JOB = "refresh-linux-images"
-NORMAL_IMAGES_JOB = "build-normal"
+NORMAL_IMAGES_JOB = "build-x64"
 CANDIDATE_TITLE = re.compile(r"Prepare Release Candidate build/v(?P<version>\S+) \((?P<operation>validate|create)\)")
 PREPARATION_TITLE = re.compile(r"Prepare Release Dependencies (?P<source>\S+) (?P<generation>\S+)")
 GENERATION_TAG = re.compile(r"validated-build-\d{8}-(?P<run>\d+)-(?P<attempt>\d+)")
@@ -520,8 +521,9 @@ class Scheduler:
         if wanted is None:
             raise RuntimeError(f"develop commit {target} is missing from the checkout")
         if set(wanted) != set(images.IMAGES):
-            raise Skip(f"Newest develop commit that passed CI and Nightly Tests, {target}, predates dual-distro ARMHF "
-                       "images; wait for CI and Nightly Tests to pass on a commit with Bookworm and Trixie support.")
+            raise Skip(f"Newest develop commit that passed CI and Nightly Tests, {target}, "
+                       "predates the current Linux release image selection; wait for CI and Nightly Tests "
+                       "to pass on a commit with the current image profiles.")
         current = self.repository.read(line.tip, LOCK_FILE)
         if current is not None and lock_recipes(current) == wanted:
             self.notes.append(f"Linux image lock: kept; develop's recipe fingerprints match {line.branch}'s lock.")
@@ -773,6 +775,17 @@ class Repository:
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run(["tar", "-x", "-f", "-", "-C", directory], input=archive, check=True, capture_output=True)
             profiles = images.IMAGES
+            source = Path(directory) / ".github/scripts/release-linux-images.py"
+            if not source.exists():
+                return {}
+            module = ast.parse(source.read_text(encoding="utf-8"))
+            historical_images = next(
+                ast.literal_eval(node.value) for node in module.body
+                if isinstance(node, ast.Assign)
+                and any(isinstance(target, ast.Name) and target.id == "IMAGES" for target in node.targets)
+            )
+            if historical_images["x86_64"][:2] != profiles["x86_64"][:2]:
+                profiles = {key: spec for key, spec in profiles.items() if key != "x86_64"}
             if not (Path(directory) / ".github/images/linux-ci/Dockerfile.armhf-cross-trixie").exists():
                 profiles = {key: spec for key, spec in profiles.items() if not key.startswith("armhf_trixie")}
             return {

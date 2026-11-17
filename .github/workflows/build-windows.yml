@@ -260,10 +260,6 @@ jobs:
             -DCMAKE_REQUIRE_FIND_PACKAGE_OpenMP=ON \
             -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
             -DWSJT_PRERELEASE_NUMBER="${WSJT_PRERELEASE_NUMBER}" \
-            -DPFUNIT_DIR="${{ steps.windows-deps.outputs.pfunit_dir }}" \
-            -DGFTL_DIR="${{ steps.windows-deps.outputs.gftl_dir }}" \
-            -DGFTL_SHARED_DIR="${{ steps.windows-deps.outputs.gftl_shared_dir }}" \
-            -DFARGPARSE_DIR="${{ steps.windows-deps.outputs.fargparse_dir }}" \
             -Wno-dev
 
       - name: Build and test targets

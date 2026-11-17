@@ -8,7 +8,7 @@ import os
 
 LABELS = {
     "qt": "Qt", "libusb": "libusb", "portaudio": "PortAudio", "fftw": "FFTW",
-    "boost": "Boost", "hamlib": "Hamlib", "pfunit": "pFUnit",
+    "boost": "Boost", "hamlib": "Hamlib",
 }
 
 

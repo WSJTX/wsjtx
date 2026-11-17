@@ -3,7 +3,7 @@
 import importlib.util
 import sys
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -50,6 +50,33 @@ class RefreshDecisionTests(unittest.TestCase):
 
     def test_missing_stable_bootstraps_the_cohort(self):
         self.assertTrue(MODULE.cohort_incomplete(Mock(), []))
+
+    def test_missing_jammy_bootstraps_despite_existing_noble_stable(self):
+        client = Mock()
+        client.list_versions.side_effect = lambda owner, package: (
+            [] if package == "wsjtx-internal/linux-jammy"
+            else [version(1, 1, ("stable", "build-20260801-1-1"), self.now)]
+        )
+        with patch.dict(MODULE.os.environ, {"GITHUB_TOKEN": "test"}), \
+             patch.object(MODULE, "GitHubPackagesClient", return_value=client), \
+             patch.object(MODULE.sys, "argv", ["refresh"]), patch("builtins.print"):
+            self.assertEqual(MODULE.main(), 0)
+        client.list_versions.assert_called_once_with(MODULE.OWNER, "wsjtx-internal/linux-jammy")
+
+    def test_unpublished_jammy_bootstraps_but_other_registry_errors_fail(self):
+        for status in (404, 403, 500):
+            error = RuntimeError("registry error")
+            error.__cause__ = HTTPError("https://example.invalid", status, "error", {}, None)
+            client = Mock()
+            client.list_versions.side_effect = error
+            with self.subTest(status=status), patch.dict(MODULE.os.environ, {"GITHUB_TOKEN": "test"}), \
+                 patch.object(MODULE, "GitHubPackagesClient", return_value=client), \
+                 patch.object(MODULE.sys, "argv", ["refresh"]), patch("builtins.print"):
+                if status == 404:
+                    self.assertEqual(MODULE.main(), 0)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        MODULE.main()
 
     def test_unpublished_package_refreshes_but_other_registry_errors_fail(self):
         versions = [version(1, 1, ("stable", "build-20260801-1-1"), self.now)]

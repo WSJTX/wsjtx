@@ -70,7 +70,7 @@ The release pipeline requires this repository configuration. Each row links to i
 | Release-bot App | Installed on `wsjtx-internal` with Contents, Workflows, and Actions write. `beta-automation` holds variable `RELEASE_BOT_APP_ID` (the App's numeric ID or client ID) and secret `RELEASE_BOT_PRIVATE_KEY`. | [5.6 Release-bot GitHub App](#56-release-bot-github-app) |
 | Beta switch | Repository variable `BETA_AUTOMATION` on `WSJTX/wsjtx-internal` equals `enabled` while betas run. Never set on `WSJTX/wsjtx`. | [Pause and freeze](#pause-and-freeze) |
 | Issues | Issues enabled on `WSJTX/wsjtx-internal` for the beta alert issue | [Failure alerts](#failure-alerts) |
-| Prepared image packages | `ghcr.io/wsjtx/wsjtx/linux-noble`, `ghcr.io/wsjtx/wsjtx/linux-arm64-bookworm`, `ghcr.io/wsjtx/wsjtx/linux-armhf-cross-bookworm`, and `ghcr.io/wsjtx/wsjtx/linux-armv7-bookworm` are public, and `wsjtx-internal` has write access to them. | [Prepared Linux release images](#prepared-linux-release-images) |
+| Prepared image packages | `ghcr.io/wsjtx/wsjtx/linux-jammy`, `ghcr.io/wsjtx/wsjtx/linux-arm64-bookworm`, `ghcr.io/wsjtx/wsjtx/linux-armhf-cross-bookworm`, and `ghcr.io/wsjtx/wsjtx/linux-armv7-bookworm` are public, and `wsjtx-internal` has write access to them. | [Prepared Linux release images](#prepared-linux-release-images) |
 | Linux image selection | Each `release/X.Y` has a committed `release-linux-images.json` before its first candidate. | [Prepared Linux release images](#prepared-linux-release-images) |
 
 ---

@@ -53,8 +53,9 @@ class SelectionTests(unittest.TestCase):
         lock = selection(); lock["schema"] = 1; cases.append(lock)
         lock = selection(); lock["images"]["x86_64"] = None; cases.append(lock)
         lock = selection(); lock["generation"] = "stable"; cases.append(lock)
-        lock = selection(); lock["images"]["x86_64"]["reference"] = f"{images.PRIVATE}/linux-noble@{DIGEST}"; cases.append(lock)
-        lock = selection(); lock["images"]["x86_64"]["reference"] = f"{images.PUBLIC}/linux-noble:stable"; cases.append(lock)
+        lock = selection(); lock["images"]["x86_64"]["reference"] = f"{images.PRIVATE}/linux-jammy@{DIGEST}"; cases.append(lock)
+        lock = selection(); lock["images"]["x86_64"]["reference"] = f"{images.PUBLIC}/linux-jammy:stable"; cases.append(lock)
+        lock = selection(); lock["images"]["x86_64"]["reference"] = f"{images.PUBLIC}/linux-noble@{DIGEST}"; cases.append(lock)
         lock = selection(); lock["images"]["aarch64"]["recipe_sha256"] = "c" * 64; cases.append(lock)
         for lock in cases:
             with self.subTest(lock=lock), self.assertRaises(ValueError):
@@ -94,6 +95,14 @@ class SelectionTests(unittest.TestCase):
             with patch.object(images, "run", side_effect=["4.7.2", "", "generation=" + GENERATION.removeprefix("validated-"), ""]) as command:
                 images.image_manifest("image@" + DIGEST, images.IMAGES[key], RECIPE, GENERATION)
             self.assertIn("ARMHF_DISTRO=" + distro, command.call_args_list[1].args[0])
+
+    def test_image_validation_selects_the_matching_normal_profile(self):
+        for key, profile in (("x86_64", "normal-jammy"), ("aarch64", "normal-bookworm")):
+            with self.subTest(key=key), patch.object(
+                images, "run", side_effect=["4.7.2", "", "generation=" + GENERATION.removeprefix("validated-"), ""]
+            ) as command:
+                images.image_manifest("image@" + DIGEST, images.IMAGES[key], RECIPE, GENERATION)
+            self.assertIn("WSJTX_CI_IMAGE_PROFILE=" + profile, command.call_args_list[1].args[0])
 
     def test_verified_image_is_removed(self):
         with patch.object(images, "run", side_effect=["4.7.2", "", "generation=" + GENERATION.removeprefix("validated-"), ""]) as command:
@@ -136,6 +145,8 @@ class SelectionTests(unittest.TestCase):
         (lock, _), commands = self.prepare()
         self.assertEqual(lock, selection())
         self.assertEqual(len(commands), 6)
+        self.assertIn("/linux-jammy@", commands[0].args[0][4])
+        self.assertTrue(all("/linux-noble" not in " ".join(call.args[0]) for call in commands))
         for call in commands:
             args = call.args[0]
             self.assertEqual(args[:4], ["skopeo", "copy", "--all", "--preserve-digests"])

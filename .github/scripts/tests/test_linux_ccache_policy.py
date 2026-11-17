@@ -56,7 +56,8 @@ class LinuxCcachePolicyTests(unittest.TestCase):
 
     def test_normal_cache_prefers_current_image_generation(self):
         action = self.read(".github/actions/build-linux-payload/action.yml")
-        self.assert_cache_tiers(action, "ccache-linux-${{ inputs.arch }}-")
+        self.assert_cache_tiers(action, "ccache-linux-${{ inputs.arch }}-"
+                                "${{ inputs.runtime_base == 'jammy-gcc12' && 'jammy-' || '' }}")
         self.assertIn(
             'export CCACHE_COMPILERCHECK="${{ steps.image.outputs.ccache_compiler_check }}"',
             action,

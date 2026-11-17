@@ -18,7 +18,7 @@ CLASSIFIER = (ROOT / ".github/scripts/is-linux-ci-image-input.sh").read_text()
 
 def job(name: str, workflow: str = PUBLISH) -> str:
     match = re.search(
-        rf"^  {re.escape(name)}:\n(?P<body>.*?)(?=^  [a-z][a-z0-9-]*:\n|\Z)",
+        rf"^  {re.escape(name)}:\n(?P<body>.*?)(?=^  [a-z][a-z0-9_-]*:\n|\Z)",
         workflow,
         re.MULTILINE | re.DOTALL,
     )
@@ -29,7 +29,7 @@ def job(name: str, workflow: str = PUBLISH) -> str:
 
 class LinuxImagePublicationPolicyTests(unittest.TestCase):
     def test_dependency_fingerprints_exclude_package_only_validation(self):
-        profiles = ("normal-noble", "normal-bookworm", "tsan-noble",
+        profiles = ("normal-noble", "normal-jammy", "normal-bookworm", "tsan-noble",
                     "armhf-cross-bookworm", "armhf-cross-trixie",
                     "armhf-runtime-bookworm", "armhf-runtime-trixie")
         package_helper = ".github/scripts/linux-artifact-validation.sh"
@@ -72,7 +72,7 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
                 with self.subTest(profile=profile):
                     self.assertEqual(before[profile] == after[profile], "runtime" in profile)
 
-        for filename in ("Dockerfile.noble", "Dockerfile.bookworm",
+        for filename in ("Dockerfile.noble", "Dockerfile.jammy", "Dockerfile.bookworm",
                          "Dockerfile.armhf-cross", "Dockerfile.armhf-cross-trixie"):
             recipe = (ROOT / ".github/images/linux-ci" / filename).read_text()
             self.assertIn(dependency_helper, recipe)
@@ -95,13 +95,19 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
                                         env={**environment, "CANDIDATE_PROFILE": profile},
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        for key, value in (("PROMOTE", "true"), ("INCLUDE_ARMHF", "true"),
-                           ("IMAGE_SET", "tsan"), ("PUBLICATION_TARGET", "public-release")):
-            with self.subTest(key=key):
-                result = subprocess.run(["bash", "-c", body], env={**environment, key: value},
-                                        capture_output=True, text=True)
-                self.assertEqual(result.returncode, 2)
-                self.assertIn("Single-profile candidates require", result.stdout)
+            for overrides in (
+                {"PROMOTE": "true"}, {"INCLUDE_ARMHF": "true"},
+                {"IMAGE_SET": "tsan"}, {"PUBLICATION_TARGET": "public-release"},
+                {"MODE": "rollback", "ROLLBACK_TAG": "validated-build-20261109-123-1"},
+            ):
+                with self.subTest(profile=profile, overrides=overrides):
+                    result = subprocess.run(
+                        ["bash", "-c", body],
+                        env={**environment, "CANDIDATE_PROFILE": profile, **overrides},
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("Single-profile candidates require", result.stdout)
 
     def test_publisher_rejects_combined_cohort_requests(self):
         body = textwrap.dedent(job("validate-inputs").split("        run: |\n", 1)[1])
@@ -116,21 +122,24 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
         self.assertIn("Publish normal and TSan cohorts separately", result.stdout)
 
     def test_candidate_profiles_select_only_their_image_jobs(self):
-        names = {"build-normal", "build-arm64", "build-tsan", "build-armhf-cross",
+        names = {"build-asan-ubsan", "build-x64", "build-arm64", "build-tsan", "build-armhf-cross",
                  "build-armhf-runtime", "build-armhf-trixie-cross", "build-armhf-trixie-runtime"}
         cases = [
-            ("x86_64", "normal", False, {"build-normal"}),
+            ("x86_64", "normal", False, {"build-x64"}),
             ("aarch64", "normal", False, {"build-arm64"}),
             ("armhf-bookworm", "normal", False, {"build-armhf-cross", "build-armhf-runtime"}),
             ("armhf-trixie", "normal", False, {"build-armhf-trixie-cross", "build-armhf-trixie-runtime"}),
-            ("all", "normal", False, {"build-normal", "build-arm64"}),
+            ("all", "normal", False, {"build-asan-ubsan", "build-x64", "build-arm64"}),
             ("all", "normal", True, names - {"build-tsan"}),
             ("all", "tsan", False, {"build-tsan"}),
         ]
-        for profile, image_set, include_armhf, expected in cases:
-            with self.subTest(profile=profile, image_set=image_set, include_armhf=include_armhf):
+        cases = [(*case, "internal") for case in cases]
+        cases.append(("all", "normal", True, names - {"build-tsan", "build-asan-ubsan"}, "public-release"))
+        for profile, image_set, include_armhf, expected, publication_target in cases:
+            with self.subTest(profile=profile, image_set=image_set, include_armhf=include_armhf,
+                              publication_target=publication_target):
                 inputs = {"candidate_profile": profile, "image_set": image_set,
-                          "include_armhf": include_armhf}
+                          "include_armhf": include_armhf, "publication_target": publication_target}
                 selected = set()
                 for name in names:
                     expression = job(name).split("    needs:", 1)[0].split("    if:", 1)[1]
@@ -140,6 +149,26 @@ class LinuxImagePublicationPolicyTests(unittest.TestCase):
                     if eval(expression, {"__builtins__": {}}, {}):
                         selected.add(name)
                 self.assertEqual(selected, expected)
+
+    def test_jammy_build_uses_matching_package_recipe_and_cache(self):
+        build = job("build-x64")
+        self.assertIn("file: .github/images/linux-ci/Dockerfile.jammy", build)
+        self.assertIn("platforms: linux/amd64", build)
+        for tag in ("candidate_tag", "build_tag"):
+            self.assertIn(
+                "${{ needs.metadata.outputs.package_root }}/linux-jammy:${{ needs.metadata.outputs."
+                + tag + " }}",
+                build,
+            )
+        self.assertIn("IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_jammy_recipe }}", build)
+        cache = "type=registry,ref=${{ needs.metadata.outputs.package_root }}/linux-jammy:buildcache"
+        self.assertIn(f"cache-from: {cache}\n", build)
+        self.assertIn(f"cache-to: {cache},mode=max,oci-mediatypes=true,image-manifest=true", build)
+        self.assertNotIn(":stable", build)
+        metadata = job("metadata")
+        self.assertIn("linux-ci-image-fingerprint.sh normal-jammy", metadata)
+        for name in ("warm-normal-ccache", "warm-arm64-ccache", "promote"):
+            self.assertIn("inputs.promote", job(name))
 
     def test_armhf_image_builds_register_emulation_before_buildx(self):
         for name in ("build-armhf-cross", "build-armhf-runtime",
@@ -219,7 +248,7 @@ git() {
         ]
         for path in (
             ".github/actions/warm-macos-deps/action.yml",
-            ".github/scripts/install-xpack-gfortran-macos.sh", ".github/scripts/build-qt-macos.sh",
+            ".github/scripts/build-qt-macos.sh",
             ".github/scripts/macos-qt-cache-key.sh",
         ):
             cases.append(({"event": "push", "paths": [path]}, "true", "true"))
@@ -228,6 +257,7 @@ git() {
         # also changes the action.
         for path in (
             ".github/workflows/build-macos.yml", ".github/scripts/verify-macos-static-archives.sh",
+            ".github/scripts/install-xpack-gfortran-macos.sh", ".github/scripts/install-r-macos-gfortran.sh",
             ".github/workflows/ci.yml", ".github/workflows/release.yml",
         ):
             cases.append(({"event": "push", "paths": [path]}, "false", "false"))
@@ -245,6 +275,8 @@ git() {
             ({"event": "workflow_dispatch", "target": "linux-tsan"}, "false", "tsan"),
             ({"event": "push", "paths": [".github/scripts/build-hamlib-linux.sh"]}, "false", "normal"),
             ({"event": "push", "paths": [".github/scripts/build-qt-tsan-linux.sh"]}, "false", "tsan"),
+            ({"event": "push", "paths": [".github/scripts/build-qt-linux.sh"]}, "false", "normal"),
+            ({"event": "push", "paths": [".github/scripts/qt5-source-config.sh"]}, "false", "normal-and-tsan"),
             ({"event": "push", "paths": ["CMakeLists.txt", ".github/scripts/verify-linux-ci-image.sh"]}, "false", "normal-and-tsan"),
             ({"event": "push", "paths": ["mainwindow.cpp"]}, "false", "none"),
         ]
@@ -444,12 +476,12 @@ git() {
             PUBLISH.count(
                 "labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}"
             ),
-            7,
+            8,
         )
 
     def test_reusable_publisher_exports_all_release_image_digests(self):
         self.assertIn("x86_64_digest:", PUBLISH)
-        self.assertIn("value: ${{ jobs.build-normal.outputs.digest }}", PUBLISH)
+        self.assertIn("value: ${{ jobs.build-x64.outputs.digest }}", PUBLISH)
         self.assertIn("aarch64_digest:", PUBLISH)
         self.assertIn("value: ${{ jobs.build-arm64.outputs.digest }}", PUBLISH)
         self.assertIn("armhf_digest:", PUBLISH)
@@ -521,7 +553,7 @@ git() {
         case = re.search(r"\.github/scripts/boost-log-queue\.patch\)\n(?P<body>.*?);;",
                          WARM, re.DOTALL).group("body")
         self.assertIn("enable_cache_all", case)
-        profiles = ("normal-noble", "normal-bookworm", "tsan-noble",
+        profiles = ("normal-noble", "normal-jammy", "normal-bookworm", "tsan-noble",
                     "armhf-cross-bookworm", "armhf-cross-trixie")
         for profile in profiles:
             with self.subTest(profile=profile):
@@ -535,14 +567,170 @@ git() {
         for cache in ("macos_arm64", "macos_x86_64", "windows", "linux_armhf"):
             self.assertEqual(outputs[cache], "true")
 
+    def test_selected_dispatch_builds_x64_only_once(self):
+        selected = (ROOT / ".github/workflows/build-selected-artifacts.yml").read_text()
+        for target, mode, expected in (
+            ("linux-x64", "artifact-now", ["linux-x64"]),
+            ("linux-x64", "linux-smoke-first", ["linux-smoke-x64"]),
+            ("linux-arm64", "artifact-now", []),
+            ("windows-x64", "artifact-now", []),
+            ("windows-x64", "linux-smoke-first", ["linux-smoke-x64"]),
+            ("all", "artifact-now", ["linux-x64"]),
+            ("all", "linux-smoke-first", ["linux-smoke-x64"]),
+        ):
+            with self.subTest(target=target, mode=mode):
+                chosen = []
+                for name in ("linux-x64", "linux-smoke-x64"):
+                    body = job(name, selected)
+                    condition = re.search(r"    if: (.*?)(?=    uses:)", body, re.DOTALL).group(1)
+                    condition = " ".join(condition.removeprefix(">-").split())
+                    condition = condition.replace("inputs.targets", repr(target))
+                    condition = condition.replace("inputs.mode", repr(mode))
+                    condition = condition.replace("&&", " and ").replace("||", " or ")
+                    if eval(condition, {"__builtins__": {}}, {}):
+                        chosen.append(name)
+                self.assertEqual(chosen, expected)
+
+    def test_portable_runtime_follows_either_successful_x64_build(self):
+        selected = (ROOT / ".github/workflows/build-selected-artifacts.yml").read_text()
+        runtime = job("linux-portable-runtime", selected)
+        condition = re.search(r"    if: >-\n(.*?)(?=    name:)", runtime, re.DOTALL).group(1)
+        for prepare, smoke, normal, cancelled, expected in (
+            ("success", "skipped", "success", False, True),
+            ("success", "success", "skipped", False, True),
+            ("success", "skipped", "failure", False, False),
+            ("success", "failure", "skipped", False, False),
+            ("success", "skipped", "skipped", False, False),
+            ("failure", "skipped", "success", False, False),
+            ("success", "success", "skipped", True, False),
+        ):
+            with self.subTest(prepare=prepare, smoke=smoke, normal=normal, cancelled=cancelled):
+                expression = " ".join(condition.split())
+                expression = expression.replace("!cancelled()", repr(not cancelled))
+                for name, result in (("prepare", prepare), ("linux-smoke-x64", smoke), ("linux-x64", normal)):
+                    expression = expression.replace(f"needs.{name}.result", repr(result))
+                expression = expression.replace("&&", " and ").replace("||", " or ")
+                self.assertEqual(eval(expression, {"__builtins__": {}}, {}), expected)
+        self.assertIn('ubuntu: ["22.04", "24.04"]', runtime)
+        self.assertIn('merge-multiple: true', runtime)
+        self.assertIn('linux-x86_64-@(AppImage|jt9|codec|wsprd|utilities)', runtime)
+
+    def test_jammy_provenance_preserves_dependency_cache_layers(self):
+        recipe = (ROOT / ".github/images/linux-ci/Dockerfile.jammy").read_text()
+        apt = recipe.index('/usr/local/bin/install-packages jammy')
+        qt = recipe.index('RUN /usr/local/share/wsjtx-ci/build-qt-linux.sh')
+        manifest = recipe.index('RUN /usr/local/bin/write-wsjtx-ci-manifest')
+        self.assertLess(recipe.index('ARG IMAGE_REFRESH_EPOCH'), apt)
+        for argument in ("IMAGE_CREATED", "IMAGE_GENERATION", "IMAGE_REVISION", "IMAGE_RECIPE_SHA256"):
+            with self.subTest(argument=argument):
+                declaration = recipe.index(f'ARG {argument}')
+                self.assertLess(qt, declaration)
+                self.assertLess(declaration, manifest)
+        self.assertLess(qt, recipe.index('LABEL org.opencontainers.image.created='))
+
+    def test_selected_artifacts_use_immutable_candidate_generation_before_promotion(self):
+        workflow = (ROOT / ".github/workflows/build-selected-artifacts.yml").read_text()
+        prepare = job("prepare", workflow)
+        body = re.search(
+            r"      - id: linux-image\n.*?        run: \|\n(?P<body>.*?)(?=^      - |\Z)",
+            prepare, re.MULTILINE | re.DOTALL,
+        ).group("body")
+        body = textwrap.dedent(body)
+        generation = "build-20261111-17-1"
+        for tag, accepted in (
+            ("", True), (generation, True), ("validated-" + generation, True),
+            ("candidate-17-1", True), ("stable", False), ("candidate-invalid", False),
+        ):
+            with self.subTest(tag=tag), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                scripts = root / ".github/scripts"
+                scripts.mkdir(parents=True)
+                shutil.copy(ROOT / ".github/scripts/validate-ci-inputs.sh", scripts)
+                resolver = scripts / "resolve-linux-ci-image-tag.py"
+                resolver.write_text(
+                    "#!/usr/bin/env bash\nprintf '%s\\n' 'image_tag=" + generation +
+                    "' >> \"$GITHUB_OUTPUT\"\n"
+                )
+                resolver.chmod(0o755)
+                output = root / "output"
+                result = subprocess.run(
+                    ["bash", "-e", "-o", "pipefail", "-c", body], cwd=root,
+                    env={**os.environ, "REQUESTED_TAG": tag, "GITHUB_OUTPUT": str(output)},
+                    text=True, capture_output=True,
+                )
+                self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
+                if accepted:
+                    self.assertEqual(output.read_text().strip(), "image_tag=" + (tag or generation))
+
     def test_candidate_warm_uses_exact_tag_and_publishes_without_recache(self):
         warm = job("warm-normal-ccache")
-        self.assertIn("- build-normal", warm)
+        self.assertIn("- build-x64", warm)
         self.assertIn("uses: ./.github/workflows/build-linux.yml", warm)
         self.assertIn("image_tag: ${{ needs.metadata.outputs.build_tag }}", warm)
         self.assertIn("allow_stale_image: false", warm)
         self.assertIn("recache: false", warm)
         self.assertIn("save_ccache: true", warm)
+
+    def test_jammy_image_resolution_requires_immutable_images(self):
+        body = textwrap.dedent(job("resolve-image", BUILD).split("        run: |\n", 1)[1])
+        environment = {
+            **os.environ, "ARMHF_DISTRO": "bookworm", "ARCH": "x86_64",
+            "ARMHF_BUILD": "false", "ARMHF_BUILD_ONLY": "false",
+            "IMAGE_SOURCE": "internal", "IMAGE_DIGEST": "",
+            "ARMHF_CROSS_IMAGE_DIGEST": "",
+            "REQUEST_REPOSITORY": "WSJTX/wsjtx", "GITHUB_REF": "refs/tags/v4.7.2",
+        }
+        tag = "build-20261109-42580943971-1"
+        for requested, stale, source, arch, accepted in (
+            (tag, "false", "internal", "x86_64", True),
+            ("candidate-123-1", "false", "internal", "x86_64", True),
+            (tag, "true", "internal", "x86_64", True),
+            ("stable", "false", "internal", "x86_64", False),
+            ("", "false", "internal", "x86_64", True),
+            (tag, "false", "public-release", "x86_64", False),
+            (tag, "false", "internal", "aarch64", True),
+        ):
+            with self.subTest(tag=requested, stale=stale, source=source, arch=arch), \
+                 tempfile.TemporaryDirectory() as directory:
+                output = pathlib.Path(directory) / "output"
+                scripts = pathlib.Path(directory) / ".github/scripts"
+                scripts.mkdir(parents=True)
+                shutil.copy(ROOT / ".github/scripts/validate-ci-inputs.sh", scripts)
+                resolver = scripts / "resolve-linux-ci-image-tag.py"
+                resolver.write_text("#!/usr/bin/env bash\nprintf 'image_tag=" + tag + "\\n' >> \"$GITHUB_OUTPUT\"\n")
+                resolver.chmod(0o755)
+                result = subprocess.run(
+                    ["bash", "-e", "-o", "pipefail", "-c", body], cwd=directory,
+                    env={**environment, "REQUESTED_TAG": requested,
+                         "ALLOW_STALE_IMAGE": stale, "IMAGE_SOURCE": source,
+                         "ARCH": arch, "GITHUB_OUTPUT": str(output)},
+                    text=True, capture_output=True,
+                )
+                self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
+                if accepted:
+                    package = "linux-jammy" if arch == "x86_64" else "linux-arm64-bookworm"
+                    self.assertIn(
+                        f"image_reference=ghcr.io/wsjtx/wsjtx-internal/{package}:{requested or tag}",
+                        output.read_text(),
+                    )
+
+        digest = "sha256:" + "a" * 64
+        for requested in ("validated-" + tag, "release-v4.7.2-" + "b" * 40 + "-123-1"):
+            for stale in ("false", "true"):
+                with self.subTest(tag=requested, stale=stale), \
+                     tempfile.TemporaryDirectory() as directory:
+                    output = pathlib.Path(directory) / "output"
+                    result = subprocess.run(
+                        ["bash", "-e", "-o", "pipefail", "-c", body], cwd=ROOT,
+                        env={**environment, "REQUESTED_TAG": requested,
+                             "ALLOW_STALE_IMAGE": stale, "IMAGE_SOURCE": "public-release",
+                             "IMAGE_DIGEST": digest,
+                             "GITHUB_OUTPUT": str(output)}, text=True, capture_output=True,
+                    )
+                    self.assertEqual(result.returncode == 0, stale == "false", result.stdout + result.stderr)
+                    if stale == "false":
+                        self.assertIn(f"image_reference=ghcr.io/wsjtx/wsjtx/linux-jammy@{digest}",
+                                      output.read_text())
 
         promote = job("promote")
         self.assertIn("needs.warm-normal-ccache.result == 'success'", promote)
@@ -579,9 +767,11 @@ git() {
             self.assertIn(f"group: linux-ci-image-publishing-{cohort}", retention)
             self.assertIn("cancel-in-progress: false", retention)
             if cohort == "normal":
+                self.assertIn("--package wsjtx-internal/linux-jammy", retention)
                 self.assertNotIn("linux-tsan-noble", retention)
                 self.assertNotIn("refresh-tsan-image", retention)
             else:
+                self.assertNotIn("wsjtx-internal/linux-jammy", retention)
                 self.assertNotIn("wsjtx-internal/linux-noble", retention)
                 self.assertNotIn("needs.refresh-linux-images", retention)
         self.assertNotIn("continue-on-error", job("refresh-tsan-image", WARM))
@@ -600,6 +790,25 @@ git() {
                     result if m[1] == "build-tsan" else "skipped"), condition)
                 condition = condition.replace("&&", " and ").replace("||", " or ")
                 self.assertEqual(bool(eval(condition, {"__builtins__": {}}, {})), result == "success")
+
+    def test_normal_promotion_requires_jammy_and_sanitizer_images_and_application_warmers(self):
+        promote = job("promote")
+        expression = promote.split("    if:", 1)[1].split("    needs:", 1)[0]
+        expression = " ".join(expression.strip().removeprefix(">-").split())
+        required = ("build-x64", "build-asan-ubsan", "build-arm64",
+                    "warm-normal-ccache", "warm-arm64-ccache")
+        for failed in (None, *required):
+            with self.subTest(failed=failed):
+                condition = expression.replace("always()", "True")
+                condition = re.sub(r"inputs\.(\w+)", lambda m: repr({
+                    "mode": "refresh", "promote": True, "image_set": "normal", "include_armhf": False,
+                }[m[1]]), condition)
+                condition = re.sub(r"needs\.([a-z0-9-]+)\.result", lambda m: repr(
+                    "failure" if m[1] == failed else "success"), condition)
+                condition = condition.replace("&&", " and ").replace("||", " or ").replace("false", "False")
+                self.assertEqual(bool(eval(condition, {"__builtins__": {}}, {})), failed is None)
+        moves = re.findall(r"--tag ghcr.io/wsjtx/wsjtx-internal/([^ :]+):stable", promote)
+        self.assertEqual(moves[-1], "linux-jammy")
 
     def test_metadata_loads_only_the_selected_image_cohort(self):
         metadata = job("metadata")
@@ -640,7 +849,7 @@ git() {
         self.assertIn("normal|tsan) ;;", validate)
         self.assertIn('[ "$IMAGE_SET" = tsan ] && [ "$INCLUDE_ARMHF" = true ]', validate)
         self.assertIn("inputs.image_set == 'tsan'", job("build-tsan"))
-        self.assertIn("inputs.image_set == 'normal'", job("build-normal"))
+        self.assertIn("inputs.image_set == 'normal'", job("build-asan-ubsan"))
         self.assertIn('if [ "$IMAGE_SET" != tsan ]; then', job("promote"))
         self.assertIn('if [ "$IMAGE_SET" != normal ]; then', job("promote"))
         self.assertIn('if [ "$IMAGE_SET" != tsan ]; then', job("rollback"))
@@ -650,13 +859,13 @@ git() {
         rollback = job("rollback")
         self.assertNotIn("tsan_available", rollback)
         self.assertNotIn("armhf_available", rollback)
-        self.assertIn("packages+=(linux-noble linux-arm64-bookworm)", rollback)
+        self.assertIn("packages+=(linux-jammy linux-noble linux-arm64-bookworm)", rollback)
         self.assertIn(
             "packages+=(linux-armhf-cross-bookworm linux-armv7-bookworm linux-armhf-cross-trixie linux-armv7-trixie)",
             rollback,
         )
         self.assertIn("packages+=(linux-tsan-noble)", rollback)
-        self.assertIn("stable_packages+=(linux-noble)", rollback)
+        self.assertIn("stable_packages+=(linux-jammy)", rollback)
 
     def test_trixie_pair_and_both_cache_warmers_are_distro_specific(self):
         cross = job("build-armhf-trixie-cross")

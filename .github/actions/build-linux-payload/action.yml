@@ -76,6 +76,7 @@ runs:
       id: image
       shell: bash
       env:
+        WSJTX_CI_IMAGE_PROFILE: ${{ inputs.runtime_base == 'jammy-gcc12' && 'normal-jammy' || (inputs.runtime_base == 'bookworm-gcc12' && 'normal-bookworm' || 'normal-noble') }}
         WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
       run: >-
         .github/scripts/verify-linux-ci-image.sh
@@ -91,8 +92,8 @@ runs:
           echo "FC=gfortran"
         } >> "$GITHUB_ENV"
 
-    - name: Select GCC 12 Bookworm toolchain
-      if: inputs.runtime_base == 'bookworm-gcc12'
+    - name: Select GCC 12 toolchain
+      if: inputs.runtime_base == 'bookworm-gcc12' || inputs.runtime_base == 'jammy-gcc12'
       shell: bash
       run: |
         CC=/usr/bin/gcc-12
@@ -115,6 +116,9 @@ runs:
         echo "CC=$CC" >> "$GITHUB_ENV"
         echo "CXX=$CXX" >> "$GITHUB_ENV"
         echo "FC=$FC" >> "$GITHUB_ENV"
+        if [ "${{ inputs.runtime_base }}" = jammy-gcc12 ]; then
+          echo "LINUX_GLIBC_CEILING=2.35" >> "$GITHUB_ENV"
+        fi
 
     # Run-unique keys let a refreshed archive become the newest prefix match
     # even when an immutable cache already exists for the same commit SHA.
@@ -130,10 +134,10 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: .ccache
-        key: ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
+        key: ccache-linux-${{ inputs.arch }}-${{ inputs.runtime_base == 'jammy-gcc12' && 'jammy-' || '' }}${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-${{ github.sha }}${{ steps.ccache-key.outputs.suffix }}
         restore-keys: |
-          ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
-          ccache-linux-${{ inputs.arch }}-${{ steps.image.outputs.ccache_compatibility_id }}-
+          ccache-linux-${{ inputs.arch }}-${{ inputs.runtime_base == 'jammy-gcc12' && 'jammy-' || '' }}${{ steps.image.outputs.ccache_compatibility_id }}-${{ steps.image.outputs.generation }}-
+          ccache-linux-${{ inputs.arch }}-${{ inputs.runtime_base == 'jammy-gcc12' && 'jammy-' || '' }}${{ steps.image.outputs.ccache_compatibility_id }}-
 
     - name: Configure ccache
       shell: bash
@@ -169,9 +173,8 @@ runs:
           -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DBoost_NO_BOOST_CMAKE=OFF \
           -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
           -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
-          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.qt_prefix }};${{ steps.image.outputs.hamlib_prefix }}" \
           -DWSJT_SKIP_MANPAGES=ON \
-          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
           -Wno-dev
 
     - name: Configure build and tests
@@ -191,7 +194,7 @@ runs:
           -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DBoost_NO_BOOST_CMAKE=OFF \
           -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
           -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
-          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.qt_prefix }};${{ steps.image.outputs.hamlib_prefix }}" \
           -DCMAKE_C_COMPILER_LAUNCHER=ccache \
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DWSJT_SKIP_MANPAGES=ON \
@@ -200,10 +203,13 @@ runs:
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
           -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
           -DWSJT_PRERELEASE_NUMBER="${WSJT_PRERELEASE_NUMBER}" \
-          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
           -Wno-dev
 
         validate_linux_boost_selection wsjtx-build "${{ steps.image.outputs.boost_prefix }}"
+        if [ -n "${{ steps.image.outputs.qt_prefix }}" ]; then
+          qt_core=$(awk -F= '$1 == "Qt5Core_DIR:PATH" {print $2}' wsjtx-build/CMakeCache.txt)
+          test "$qt_core" = "${{ steps.image.outputs.qt_prefix }}/lib/cmake/Qt5Core"
+        fi
 
     - name: Build and test targets
       shell: bash
@@ -229,10 +235,9 @@ runs:
           -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DBoost_NO_BOOST_CMAKE=OFF \
           -DFFTW3_ROOT_DIR="${{ steps.image.outputs.fftw_prefix }}" \
           -DWSJT_FFTW_VERSION="${{ steps.image.outputs.fftw_version }}" \
-          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.hamlib_prefix }};/opt/wsjtx/pfunit" \
+          -DCMAKE_PREFIX_PATH="${{ steps.image.outputs.qt_prefix }};${{ steps.image.outputs.hamlib_prefix }}" \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=NON_OPENMP_ONLY \
-          -DPFUNIT_DIR="${{ steps.image.outputs.pfunit_dir }}" \
           -Wno-dev
         cmake --build cfgmatrix-NON_OPENMP_ONLY \
           --target jt65sim m65impl qmap_impl test_jtty_pack \
@@ -360,6 +365,11 @@ runs:
         ARCH: ${{ inputs.arch }}
       run: |
         cmake --install wsjtx-build --prefix "${GITHUB_WORKSPACE}/AppDir/usr"
+        if [ -n "${{ steps.image.outputs.qt_prefix }}" ]; then
+          mkdir -p AppDir/usr/share/doc/qt5
+          cp "${{ steps.image.outputs.qt_prefix }}"/share/licenses/Qt5/* AppDir/usr/share/doc/qt5/
+          cp "${{ steps.image.outputs.qt_prefix }}/.wsjtx-qt-source" AppDir/usr/share/doc/qt5/source.txt
+        fi
         source .github/scripts/linux-artifact-validation.sh
         validate_linux_application_tree AppDir appdir "$ARCH"
 

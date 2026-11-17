@@ -53,11 +53,13 @@ link_options=()
 if [ -n "$linkflags" ]; then
   link_options+=("linkflags=$linkflags")
 fi
-./b2 -j"${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}" \
+echo "Building and installing Boost..."
+./b2 -d0 -j"${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}" \
   --user-config="$PWD/user-config.jam" \
   toolset=gcc-wsjtx variant=release link=static runtime-link=shared threading=multi \
   cxxstd=11 cxxflags="$cxxflags" "${link_options[@]}" \
   "${target_options[@]}" --layout=system install
+echo "Boost build and installation complete."
 
 python3 - "$prefix" "$LINUX_BOOST_VERSION" "$LINUX_BOOST_SOURCE_URL" \
   "$LINUX_BOOST_SOURCE_SHA256" "$compiler" "$cxxflags" "$linkflags" \

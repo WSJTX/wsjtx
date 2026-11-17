@@ -118,7 +118,7 @@ class TSanDependencyVerificationTests(unittest.TestCase):
         arguments = verifier.split("  cmake_args=(\n", 1)[1].split("  export PKG_CONFIG_PATH=", 1)[0]
         result = subprocess.run(
             ["bash", "-c", "set -eu\n"
-             'expected_flavor=tsan\nimage_prefix=/fixture\nBOOST_VERSION=1.92.0\n'
+             'expected_flavor=tsan\nprofile=tsan-noble\nimage_prefix=/fixture\nBOOST_VERSION=1.92.0\n'
              'smoke_dir=/smoke\nhamlib_prefix=/fixture/tsan/hamlib\n'
              "cmake_args=(\n" + arguments + '\nprintf "%s\\n" "${cmake_args[@]}"'],
             text=True, capture_output=True, check=True,
@@ -195,7 +195,7 @@ class TSanDependencyVerificationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_patch_change_invalidates_dependency_cache(self):
-        for name in ("tsan-linux-deps-config.sh", "build-boost-tsan-linux.sh", "boost-version.sh", "boost-log-queue.patch"):
+        for name in ("tsan-linux-deps-config.sh", "qt5-source-config.sh", "build-boost-tsan-linux.sh", "boost-version.sh", "boost-log-queue.patch"):
             shutil.copyfile(SCRIPTS / name, self.root / name)
         command = ["bash", "-c", 'source "$1"; TSAN_TOOLCHAIN_ID=fixture; '
                    'tsan_dependency_cache_key boost', "test", str(self.root / "tsan-linux-deps-config.sh")]

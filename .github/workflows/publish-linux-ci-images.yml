@@ -43,8 +43,8 @@ on:
         description: "Immutable tag shared by the published image cohort"
         value: ${{ jobs.metadata.outputs.build_tag }}
       x86_64_digest:
-        description: "Digest of the linux-noble release image"
-        value: ${{ jobs.build-normal.outputs.digest }}
+        description: "Digest of the linux-jammy release image"
+        value: ${{ jobs.build-x64.outputs.digest }}
       aarch64_digest:
         description: "Digest of the linux-arm64-bookworm release image"
         value: ${{ jobs.build-arm64.outputs.digest }}
@@ -234,6 +234,7 @@ jobs:
       normal_hamlib_ref: ${{ steps.metadata.outputs.normal_hamlib_ref }}
       tsan_hamlib_ref: ${{ steps.metadata.outputs.tsan_hamlib_ref }}
       normal_noble_recipe: ${{ steps.metadata.outputs.normal_noble_recipe }}
+      normal_jammy_recipe: ${{ steps.metadata.outputs.normal_jammy_recipe }}
       normal_bookworm_recipe: ${{ steps.metadata.outputs.normal_bookworm_recipe }}
       armhf_cross_recipe: ${{ steps.metadata.outputs.armhf_cross_recipe }}
       armhf_runtime_recipe: ${{ steps.metadata.outputs.armhf_runtime_recipe }}
@@ -293,6 +294,7 @@ jobs:
               . .github/scripts/linux-ci-image-config.sh
               echo "normal_hamlib_ref=$LINUX_HAMLIB_REF"
               echo "normal_noble_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-noble)"
+              echo "normal_jammy_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-jammy)"
               echo "normal_bookworm_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh normal-bookworm)"
               echo "armhf_cross_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh armhf-cross-bookworm)"
               echo "armhf_runtime_recipe=$(.github/scripts/linux-ci-image-fingerprint.sh armhf-runtime-bookworm)"
@@ -306,9 +308,9 @@ jobs:
             fi
           } >> "$GITHUB_OUTPUT"
 
-  build-normal:
+  build-asan-ubsan:
     if: >-
-      (inputs.candidate_profile == 'all' || inputs.candidate_profile == 'x86_64') &&
+      inputs.candidate_profile == 'all' && inputs.publication_target == 'internal' &&
       inputs.image_set == 'normal'
     needs: metadata
     runs-on: ubuntu-24.04
@@ -345,6 +347,44 @@ jobs:
             IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
           cache-from: ${{ needs.metadata.outputs.normal_cache_from }}
           cache-to: type=inline
+
+  build-x64:
+    if: >-
+      (inputs.candidate_profile == 'all' || inputs.candidate_profile == 'x86_64') && inputs.image_set == 'normal'
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/images/linux-ci/Dockerfile.jammy
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          labels: ${{ inputs.publication_target == 'public-release' && 'org.opencontainers.image.source=https://github.com/WSJTX/wsjtx' || '' }}
+          tags: |
+            ${{ needs.metadata.outputs.package_root }}/linux-jammy:${{ needs.metadata.outputs.candidate_tag }}
+            ${{ needs.metadata.outputs.package_root }}/linux-jammy:${{ needs.metadata.outputs.build_tag }}
+          build-args: |
+            IMAGE_CREATED=${{ needs.metadata.outputs.created }}
+            IMAGE_GENERATION=${{ needs.metadata.outputs.build_tag }}
+            IMAGE_REVISION=${{ github.sha }}
+            IMAGE_RECIPE_SHA256=${{ needs.metadata.outputs.normal_jammy_recipe }}
+            IMAGE_REFRESH_EPOCH=${{ needs.metadata.outputs.refresh_epoch }}
+          cache-from: type=registry,ref=${{ needs.metadata.outputs.package_root }}/linux-jammy:buildcache
+          cache-to: type=registry,ref=${{ needs.metadata.outputs.package_root }}/linux-jammy:buildcache,mode=max,oci-mediatypes=true,image-manifest=true
 
   build-tsan:
     if: inputs.image_set == 'tsan'
@@ -610,7 +650,7 @@ jobs:
       inputs.image_set == 'normal'
     needs:
       - metadata
-      - build-normal
+      - build-x64
     uses: ./.github/workflows/build-linux.yml
     permissions:
       contents: read
@@ -648,7 +688,7 @@ jobs:
     if: >-
       always() && inputs.mode == 'refresh' && inputs.promote &&
       (inputs.image_set == 'tsan' ||
-       (needs.build-normal.result == 'success' &&
+       (needs.build-asan-ubsan.result == 'success' && needs.build-x64.result == 'success' &&
         needs.build-arm64.result == 'success' &&
         needs.warm-normal-ccache.result == 'success' &&
         needs.warm-arm64-ccache.result == 'success' &&
@@ -658,7 +698,8 @@ jobs:
       (inputs.image_set == 'normal' || needs.build-tsan.result == 'success')
     needs:
       - metadata
-      - build-normal
+      - build-asan-ubsan
+      - build-x64
       - build-tsan
       - build-arm64
       - build-armhf-cross
@@ -686,7 +727,8 @@ jobs:
           references=()
           if [ "$IMAGE_SET" != tsan ]; then
             references+=(
-              "linux-noble@${{ needs.build-normal.outputs.digest }}"
+              "linux-noble@${{ needs.build-asan-ubsan.outputs.digest }}"
+              "linux-jammy@${{ needs.build-x64.outputs.digest }}"
               "linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}"
             )
             if [ "$INCLUDE_ARMHF" = true ]; then
@@ -709,7 +751,10 @@ jobs:
           if [ "$IMAGE_SET" != tsan ]; then
             docker buildx imagetools create --prefer-index=false \
               --tag "ghcr.io/wsjtx/wsjtx-internal/linux-noble:${VALIDATED_TAG}" \
-              ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
+              ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-asan-ubsan.outputs.digest }}
+            docker buildx imagetools create --prefer-index=false \
+              --tag "ghcr.io/wsjtx/wsjtx-internal/linux-jammy:${VALIDATED_TAG}" \
+              ghcr.io/wsjtx/wsjtx-internal/linux-jammy@${{ needs.build-x64.outputs.digest }}
             docker buildx imagetools create --prefer-index=false \
               --tag "ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm:${VALIDATED_TAG}" \
               ghcr.io/wsjtx/wsjtx-internal/linux-arm64-bookworm@${{ needs.build-arm64.outputs.digest }}
@@ -757,10 +802,13 @@ jobs:
                 --tag ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm:stable \
                 ghcr.io/wsjtx/wsjtx-internal/linux-armv7-bookworm@${{ needs.build-armhf-runtime.outputs.digest }}
             fi
-            # linux-noble:stable moves last within the normal image cohort.
             docker buildx imagetools create --prefer-index=false \
               --tag ghcr.io/wsjtx/wsjtx-internal/linux-noble:stable \
-              ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-normal.outputs.digest }}
+              ghcr.io/wsjtx/wsjtx-internal/linux-noble@${{ needs.build-asan-ubsan.outputs.digest }}
+            # linux-jammy:stable moves last within the normal image cohort.
+            docker buildx imagetools create --prefer-index=false \
+              --tag ghcr.io/wsjtx/wsjtx-internal/linux-jammy:stable \
+              ghcr.io/wsjtx/wsjtx-internal/linux-jammy@${{ needs.build-x64.outputs.digest }}
           fi
 
   warm-asan-ubsan-ccache:
@@ -843,14 +891,14 @@ jobs:
           packages=()
           stable_packages=()
           if [ "$IMAGE_SET" != tsan ]; then
-            packages+=(linux-noble linux-arm64-bookworm)
-            stable_packages+=(linux-arm64-bookworm)
+            packages+=(linux-jammy linux-noble linux-arm64-bookworm)
+            stable_packages+=(linux-noble linux-arm64-bookworm)
             if [ "$INCLUDE_ARMHF" = true ]; then
               packages+=(linux-armhf-cross-bookworm linux-armv7-bookworm linux-armhf-cross-trixie linux-armv7-trixie)
               stable_packages+=(linux-armhf-cross-trixie linux-armv7-trixie linux-armhf-cross-bookworm linux-armv7-bookworm)
             fi
-            # linux-noble:stable moves last within the normal image cohort.
-            stable_packages+=(linux-noble)
+            # linux-jammy:stable moves last within the normal image cohort.
+            stable_packages+=(linux-jammy)
           fi
           if [ "$IMAGE_SET" != normal ]; then
             packages+=(linux-tsan-noble)

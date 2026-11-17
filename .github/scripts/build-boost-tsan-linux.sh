@@ -40,7 +40,8 @@ patch --batch --forward --fuzz=0 -p1 < "$script_dir/boost-log-queue.patch"
 
 printf 'using gcc : %s : %s ;\n' "$TSAN_GCC_SUFFIX" "$TSAN_CXX" > user-config.jam
 ./bootstrap.sh --prefix="$prefix" --with-libraries=log
-./b2 -j"$(nproc)" \
+echo "Building and installing Boost..."
+./b2 -d0 -j"$(nproc)" \
   --user-config="${PWD}/user-config.jam" \
   toolset="gcc-${TSAN_GCC_SUFFIX}" \
   variant=release \
@@ -52,5 +53,6 @@ printf 'using gcc : %s : %s ;\n' "$TSAN_GCC_SUFFIX" "$TSAN_CXX" > user-config.ja
   linkflags="$TSAN_LINK_FLAGS" \
   --layout=system \
   install
+echo "Boost build and installation complete."
 
 tsan_write_dependency_manifest boost "$prefix"

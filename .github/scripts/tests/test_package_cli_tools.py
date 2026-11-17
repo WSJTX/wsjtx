@@ -741,7 +741,7 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
         with tarfile.open(self.dir / f"{name}.tar.gz", "w:gz") as archive:
             archive.add(tree, arcname=top or name)
 
-    def smoke(self, groups, *arguments, platform="linux", target="linux-x86_64", script=SMOKE):
+    def smoke(self, groups, *arguments, platform="linux", target="linux-x86_64", script=SMOKE, environment=None):
         groups_file = self.root / "release-tarballs.txt"
         groups_file.write_text("# comment\n" + "".join(f"{line}\n" for line in groups), encoding="utf-8")
         return subprocess.run(
@@ -749,7 +749,10 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
                 "bash", str(script), "--platform", platform, "--version", "9.9.9", "--target", target,
                 "--groups", str(groups_file), "--dir", str(self.dir), *arguments,
             ],
-            env=dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}", TMPDIR=str(self.root), LD_LIBRARY_PATH="/bogus"),
+            env={
+                **os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}", "TMPDIR": str(self.root),
+                "LD_LIBRARY_PATH": "/bogus", "LINUX_GLIBC_CEILING": "", **(environment or {}),
+            },
             text=True, capture_output=True, check=False,
         )
 
@@ -801,6 +804,53 @@ class SmokeReleaseTarballsTests(unittest.TestCase):
         sample.parent.mkdir(parents=True)
         sample.write_bytes(b"RIFF")
         return scripts / SMOKE.name
+
+    def linux_runtime_policy(self):
+        fixtures = self.root / "fixtures"
+        fixtures.mkdir(exist_ok=True)
+        for name, body in (
+            ("file", "#!/bin/sh\necho 'ELF 64-bit LSB shared object, x86-64'\n"),
+            ("readelf", READELF_STUB),
+            ("dpkg", "#!/bin/sh\npython3 -c 'import sys; sys.exit(not (tuple(map(int, sys.argv[1].split(\".\"))) > tuple(map(int, sys.argv[2].split(\".\")))))' \"$2\" \"$4\"\n"),
+        ):
+            (self.bin / name).write_text(body, encoding="utf-8")
+            (self.bin / name).chmod(0o755)
+        for binary in ("jt9", "encode77", "libQt5Core.so.5", "libgfortran.so.5"):
+            (fixtures / f"readelf.d.{binary}").write_text("\n".join(needed("libc.so.6")), encoding="utf-8")
+            (fixtures / f"readelf.V.{binary}").write_text("\n".join(versions("GLIBC_2.35")), encoding="utf-8")
+        return {"LINUX_GLIBC_CEILING": "2.35", "STUB_FIXTURES": str(fixtures)}
+
+    def test_linux_runtime_ceiling_checks_each_extracted_program_and_library(self):
+        self.tarball("jt9", ["jt9"], libraries=["libQt5Core.so.5"])
+        self.tarball("utilities", ["encode77"], libraries=["libgfortran.so.5"])
+        result = self.smoke(["jt9 jt9", "utilities encode77"], environment=self.linux_runtime_policy())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count("Runtime symbol requirements:"), 4)
+        self.assertEqual(
+            [line.split(" ", 1)[0] for line in self.log.read_text(encoding="utf-8").splitlines()],
+            ["jt9", "encode77"],
+        )
+
+    def test_linux_runtime_policy_rejects_incompatible_tree_before_its_program_runs(self):
+        self.tarball("jt9", ["jt9"], libraries=["libQt5Core.so.5"])
+        self.tarball("utilities", ["encode77"], libraries=["libgfortran.so.5"])
+        for kind, binary, lines, message in (
+            ("V", "encode77", versions("GLIBC_2.36"), "requires GLIBC_2.36, above ceiling 2.35"),
+            ("V", "libgfortran.so.5", versions("GLIBC_2.36"), "requires GLIBC_2.36, above ceiling 2.35"),
+            ("d", "libgfortran.so.5", needed("libboost_log.so.1.83.0"), "imports a Boost shared library"),
+        ):
+            with self.subTest(kind=kind, binary=binary):
+                environment = self.linux_runtime_policy()
+                (self.root / f"fixtures/readelf.{kind}.{binary}").write_text("\n".join(lines), encoding="utf-8")
+                if self.log.exists():
+                    self.log.unlink()
+                result = self.smoke(["jt9 jt9", "utilities encode77"], environment=environment)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(
+                    [line.split(" ", 1)[0] for line in self.log.read_text(encoding="utf-8").splitlines()],
+                    ["jt9"],
+                )
 
     def test_windows_programs_launch_through_the_clean_path_launcher(self):
         script = self.scripts_copy()

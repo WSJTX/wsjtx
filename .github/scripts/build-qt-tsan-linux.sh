@@ -63,6 +63,7 @@ export CXXFLAGS="$TSAN_SANITIZER_FLAGS"
 export LDFLAGS="$TSAN_LINK_FLAGS"
 
 configure_args=(
+  -silent
   -opensource
   -confirm-license
   -release
@@ -121,8 +122,11 @@ configure_args=(
 )
 
 ./configure "${configure_args[@]}"
+echo "Building Qt ${TSAN_QT_VERSION}..."
 make -j"$(nproc)"
-make install
+echo "Installing Qt..."
+make -s install
+echo "Qt build and installation complete."
 
 actual_version="$("${prefix}/bin/qtpaths" --qt-version)"
 if [ "$actual_version" != "$TSAN_QT_VERSION" ]; then

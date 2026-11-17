@@ -853,7 +853,7 @@ class ImageLockTest(SchedulerTestCase):
     def test_green_commit_before_dual_distro_support_defers_without_mutation(self):
         self.repo.recipes[GREEN] = {key: value for key, value in RECIPES.items()
                                     if not key.startswith("armhf_trixie")}
-        with self.assertRaisesRegex(beta.Skip, "predates dual-distro ARMHF"):
+        with self.assertRaisesRegex(beta.Skip, "predates the current Linux release image selection"):
             self.cut()
         self.assertEqual(self.packages.calls, [])
         self.assertEqual(self.internal.dispatches, [])
@@ -898,11 +898,11 @@ class ImageLockTest(SchedulerTestCase):
         for name, jobs, waits in (
             ("refresh skipped", [detect, {"name": "refresh-linux-images", "status": "completed",
                                           "conclusion": "skipped"}], False),
-            ("TSan image only", [detect, {"name": "refresh-linux-images / build-normal", "status": "completed",
+            ("TSan image only", [detect, {"name": "refresh-linux-images / build-x64", "status": "completed",
                                           "conclusion": "skipped"}], False),
-            ("normal images building", [detect, {"name": "refresh-linux-images / build-normal",
+            ("normal images building", [detect, {"name": "refresh-linux-images / build-x64",
                                                  "status": "in_progress", "conclusion": None}], True),
-            ("built, not yet promoted", [detect, {"name": "refresh-linux-images / build-normal",
+            ("built, not yet promoted", [detect, {"name": "refresh-linux-images / build-x64",
                                                   "status": "completed", "conclusion": "success"}], True),
             ("refresh pending", [detect, {"name": "refresh-linux-images", "status": "queued",
                                           "conclusion": None}], True),
@@ -944,7 +944,7 @@ class ImageLockTest(SchedulerTestCase):
                        status="in_progress", actor="dchristle")
         self.repo.recipes["c5" * 20] = dict(DRIFTED)
         self.internal.add(building)
-        self.internal.job_lists[building["id"]] = [{"name": "build-normal", "status": "in_progress",
+        self.internal.job_lists[building["id"]] = [{"name": "build-x64", "status": "in_progress",
                                                      "conclusion": None}]
         self.assertRefreshAlert(building)
 
@@ -1895,9 +1895,9 @@ class RepositoryTest(unittest.TestCase):
         shutil.copytree(ROOT / "tests/dependencies", self.work / "tests/dependencies")
         recipes = self.commit("add the pipeline")
         self.git(self.work, "push", str(self.origin), f"{recipes}:refs/heads/develop")
-        dockerfile = self.work / ".github/images/linux-ci/Dockerfile.noble"
+        dockerfile = self.work / ".github/images/linux-ci/Dockerfile.jammy"
         dockerfile.write_text(dockerfile.read_text() + "# drift\n")
-        drifted = self.commit("drift the noble recipe")
+        drifted = self.commit("drift the Jammy recipe")
         self.git(self.work, "push", str(self.origin), f"{drifted}:refs/heads/develop")
         self.repository.sync()
         expected = {
@@ -1910,6 +1910,38 @@ class RepositoryTest(unittest.TestCase):
         self.assertNotEqual(changed["x86_64"], expected["x86_64"])
         self.assertEqual(changed["armhf_runtime"], expected["armhf_runtime"])
         self.assertIsNone(self.repository.fingerprints("0" * 40))
+
+    def test_fingerprints_skip_the_historical_x64_profile_but_report_broken_current_recipes(self):
+        shutil.copytree(ROOT / ".github", self.work / ".github")
+        shutil.copytree(ROOT / "tests/dependencies", self.work / "tests/dependencies")
+        image_script = self.work / ".github/scripts/release-linux-images.py"
+        current_mapping = image_script.read_text()
+        old_mapping = current_mapping.replace(
+            '"x86_64": ("linux-jammy", "normal-jammy"',
+            '"x86_64": ("linux-noble", "normal-noble"',
+        )
+        self.assertNotEqual(old_mapping, current_mapping)
+        image_script.write_text(old_mapping)
+        dockerfile = self.work / ".github/images/linux-ci/Dockerfile.jammy"
+        dockerfile.unlink()
+        historical = self.commit("use the older x64 image selection")
+        image_script.write_text(current_mapping)
+        broken = self.commit("select Jammy without its recipe")
+        image_script.write_text("IMAGES = {\n")
+        malformed = self.commit("malformed release image selection")
+        image_script.unlink()
+        pre_contract = self.commit("before release image selection")
+        self.git(self.work, "push", str(self.origin), f"{pre_contract}:refs/heads/develop")
+        self.repository.sync()
+
+        fingerprints = self.repository.fingerprints(historical)
+        self.assertNotIn("x86_64", fingerprints)
+        self.assertEqual(set(fingerprints), set(beta.images.IMAGES) - {"x86_64"})
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.repository.fingerprints(broken)
+        with self.assertRaises(SyntaxError):
+            self.repository.fingerprints(malformed)
+        self.assertEqual(self.repository.fingerprints(pre_contract), {})
 
     def test_lock_validation_runs_the_merged_trees_validator(self):
         shutil.copytree(ROOT / ".github", self.work / ".github")
@@ -1949,6 +1981,12 @@ class WorkflowWiringTest(unittest.TestCase):
         newest = subprocess.run(["jq", "-c", query], input=json.dumps(runs), capture_output=True, text=True,
                                 check=True).stdout
         self.assertEqual(json.loads(newest)["id"], 3)
+
+    def test_image_refresh_tracking_follows_the_x64_release_image(self):
+        workflow = (ROOT / ".github/workflows/publish-linux-ci-images.yml").read_text()
+        self.assertIn(beta.NORMAL_IMAGES_JOB, self.jobs(workflow))
+        output = workflow.split("      x86_64_digest:\n", 1)[1].split("        value: ", 1)[1].splitlines()[0]
+        self.assertEqual(output, "${{ jobs." + beta.NORMAL_IMAGES_JOB + ".outputs.digest }}")
 
     def test_candidate_run_name_is_what_the_continuation_parses(self):
         helper = (ROOT / ".github/workflows/release-tag-helper.yml").read_text()

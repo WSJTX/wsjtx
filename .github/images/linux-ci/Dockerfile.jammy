@@ -1,0 +1,56 @@
+FROM ubuntu:22.04
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG IMAGE_REFRESH_EPOCH
+ENV DEBIAN_FRONTEND=noninteractive WSJTX_CI_IMAGE_PROFILE=normal-jammy \
+    CC=gcc-12 CXX=g++-12 FC=gfortran-12
+
+COPY .github/scripts/run-apt-get.sh /usr/local/bin/run-apt-get
+COPY .github/images/linux-ci/install-packages.sh /usr/local/bin/install-packages
+RUN chmod +x /usr/local/bin/run-apt-get /usr/local/bin/install-packages \
+    && test -n "$IMAGE_REFRESH_EPOCH" \
+    && /usr/local/bin/install-packages jammy
+
+COPY .github/scripts/linux-ci-image-config.sh \
+     .github/scripts/linux-boost-config.sh \
+     .github/scripts/boost-version.sh \
+     .github/scripts/build-boost-linux.sh \
+     .github/scripts/boost-log-queue.patch \
+     .github/scripts/linux-boost-validation.sh \
+     .github/scripts/fftw-version.sh \
+     .github/scripts/build-fftw.sh \
+     .github/scripts/build-fftw-smoke-linux.sh \
+     .github/scripts/qt5-source-config.sh \
+     .github/scripts/build-qt-linux.sh \
+     .github/scripts/build-hamlib-linux.sh \
+     .github/scripts/linux-ccache-compiler-signature.sh \
+     .github/scripts/verify-linux-ci-image.sh \
+     /usr/local/share/wsjtx-ci/
+COPY tests/dependencies/test_fftw_runtime.c /usr/local/share/wsjtx-ci/
+COPY .github/images/linux-ci/write-manifest.sh /usr/local/bin/write-wsjtx-ci-manifest
+RUN set -eux; \
+    chmod +x /usr/local/bin/write-wsjtx-ci-manifest /usr/local/share/wsjtx-ci/*.sh; \
+    . /usr/local/share/wsjtx-ci/linux-ci-image-config.sh; \
+    . /usr/local/share/wsjtx-ci/linux-boost-config.sh; \
+    /usr/local/share/wsjtx-ci/build-boost-linux.sh "$BOOST_VERSION" "$LINUX_BOOST_PREFIX"; \
+    FFTW_ARCH=x86_64 /usr/local/share/wsjtx-ci/build-fftw.sh "$LINUX_FFTW_PREFIX"; \
+    mkdir -p /tmp/wsjtx-hamlib-build; \
+    cd /tmp/wsjtx-hamlib-build; \
+    /usr/local/share/wsjtx-ci/build-hamlib-linux.sh "$LINUX_HAMLIB_COMMIT" "$LINUX_HAMLIB_PREFIX"; \
+    cd /; \
+    rm -rf /tmp/wsjtx-hamlib-build
+RUN /usr/local/share/wsjtx-ci/build-qt-linux.sh /opt/wsjtx/qt
+ENV LANG=C.UTF-8 PATH="/opt/wsjtx/qt/bin:${PATH}" CMAKE_PREFIX_PATH=/opt/wsjtx/qt
+
+ARG IMAGE_CREATED
+ARG IMAGE_GENERATION=local
+ARG IMAGE_REVISION
+ARG IMAGE_RECIPE_SHA256
+LABEL org.opencontainers.image.created="${IMAGE_CREATED}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/WSJTX/wsjtx-internal" \
+      org.opencontainers.image.title="WSJT-X Jammy x64 compatibility image"
+
+RUN /usr/local/bin/write-wsjtx-ci-manifest normal x86_64 "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256" \
+    && IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \
+      /usr/local/share/wsjtx-ci/verify-linux-ci-image.sh normal x86_64 4.7.2

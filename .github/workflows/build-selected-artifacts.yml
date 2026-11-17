@@ -30,7 +30,7 @@ on:
         type: boolean
         default: false
       image_tag:
-        description: "Immutable Linux candidate/build image tag; empty uses the validated generation"
+        description: "Immutable Linux image tag; empty uses the validated generation"
         required: false
         type: string
         default: ""
@@ -94,7 +94,9 @@ jobs:
               if targets not in (target, "all") and not (arch == "x86_64" and os.environ["MODE"] == "linux-smoke-first"):
                   continue
               images = [("ubuntu", "24.04", "deb"), ("ubuntu", "26.10", "deb"), ("fedora", "44", "rpm")]
-              if arch == "aarch64":
+              if arch == "x86_64":
+                  images.insert(0, ("ubuntu", "22.04", "deb"))
+              else:
                   images.append(("debian", "12", "deb"))
               for distro, version, package_format in images:
                   rows.append(dict(arch=arch, runner=runner, distro=f"{distro}-{version}",
@@ -103,6 +105,51 @@ jobs:
               print("matrix=" + json.dumps({"include": rows}), file=output)
               print("enabled=" + str(bool(rows)).lower(), file=output)
           PY
+
+  linux-portable-runtime:
+    needs: [prepare, linux-smoke-x64, linux-x64]
+    if: >-
+      !cancelled() && needs.prepare.result == 'success' &&
+      (needs.linux-smoke-x64.result == 'success' || needs.linux-x64.result == 'success')
+    name: Portable x64 artifacts on Ubuntu ${{ matrix.ubuntu }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ["22.04", "24.04"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wsjtx-${{ needs.prepare.outputs.version }}-linux-x86_64-@(AppImage|jt9|codec|wsprd|utilities)
+          path: portable-artifacts
+          merge-multiple: true
+      - name: Probe portable artifacts in a clean runtime
+        env:
+          UBUNTU_VERSION: ${{ matrix.ubuntu }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          mkdir -p runtime-logs
+          appimages=(portable-artifacts/*.AppImage)
+          [ "${#appimages[@]}" -eq 1 ] && [ -f "${appimages[0]}" ]
+          started=$SECONDS
+          image="ubuntu:$UBUNTU_VERSION"
+          docker pull "$image"
+          echo "image_pull_seconds=$((SECONDS - started))" > runtime-logs/pull-timing.txt
+          docker image inspect "$image" > runtime-logs/container-image.json
+          docker run --rm \
+            -v "$PWD/portable-artifacts:/artifacts:ro" \
+            -v "$PWD:/source:ro" \
+            -v "$PWD/runtime-logs:/logs" \
+            "$image" bash /source/.github/scripts/validate-linux-portable-runtime.sh \
+            "/artifacts/${appimages[0]#portable-artifacts/}" /artifacts /logs "$VERSION"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wsjtx-portable-runtime-ubuntu-${{ matrix.ubuntu }}
+          path: runtime-logs/
+          if-no-files-found: error
 
   # In linux-smoke-first mode, this is both the cheap gate and a normal Linux
   # x64 artifact build. Do not also run linux-x64 for the same dispatch.

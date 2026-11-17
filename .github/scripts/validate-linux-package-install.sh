@@ -38,10 +38,11 @@ fi
 sha256sum "$package" "$appimage"
 
 case "$distro" in
-  ubuntu-24.04|ubuntu-26.10|debian-12)
+  ubuntu-22.04|ubuntu-24.04|ubuntu-26.10|debian-12)
     [ "$(dpkg --print-architecture)" = "$deb_arch" ]
     [ "$(dpkg-deb -f "$package" Package)" = wsjtx ]
     [ "$(dpkg-deb -f "$package" Architecture)" = "$deb_arch" ]
+    dpkg-deb --info "$package" > "$log_dir/package-info.txt"
     if dpkg-query -W -f='${db:Status-Status}' wsjtx 2>/dev/null | awk '$0 == "installed" { found=1 } END { exit !found }'; then
       linux_validation_error "WSJT-X must not be preinstalled"
       exit 1
@@ -56,6 +57,8 @@ case "$distro" in
   fedora-44)
     [ "$(rpm -qp --qf '%{NAME}' "$package")" = wsjtx ]
     [ "$(rpm -qp --qf '%{ARCH}' "$package")" = "$arch" ]
+    rpm -qpi "$package" > "$log_dir/package-info.txt"
+    rpm -qpR "$package" > "$log_dir/package-requires.txt"
     if rpm -q wsjtx >/dev/null 2>&1; then
       linux_validation_error "WSJT-X must not be preinstalled"
       exit 1
@@ -78,6 +81,17 @@ while IFS= read -r path; do
   [[ "$metadata" == *ELF* ]] || continue
   validate_elf_metadata "$arch" "$path" "$metadata" "$(readelf -hW -- "$path")" "$(readelf -lW -- "$path")"
   dynamic=$(readelf -dW -- "$path")
+  rpaths=$(printf '%s\n' "$dynamic" | awk '/\(RPATH\)|\(RUNPATH\)/')
+  case "$rpaths" in
+    *"/opt/wsjtx/"*|*"/work/"*|*"/__w/"*)
+      linux_validation_error "Installed package contains a build-environment library search path: $path"
+      exit 1
+      ;;
+  esac
+  {
+    printf '%s\n%s\n' "$path" "$dynamic"
+    readelf -VW -- "$path"
+  } >> "$log_dir/installed-elf-metadata.txt"
   validate_linux_boost_dynamic "$path" "$dynamic"
   if [[ "$dynamic" == *"(NEEDED)"* ]]; then
     resolved=$(ldd "$path")

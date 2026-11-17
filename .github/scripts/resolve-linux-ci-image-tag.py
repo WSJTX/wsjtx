@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve the coherent immutable generation selected by linux-noble:stable."""
+"""Resolve the coherent immutable generation selected by linux-jammy:stable."""
 
 from __future__ import annotations
 
@@ -14,7 +14,8 @@ from ghcr_retention import GitHubPackagesClient, Version  # noqa: E402, F401
 
 
 OWNER = "WSJTX"
-NORMAL_PACKAGE = "wsjtx-internal/linux-noble"
+NORMAL_PACKAGE = "wsjtx-internal/linux-jammy"
+ASAN_PACKAGE = "wsjtx-internal/linux-noble"
 TSAN_PACKAGE = "wsjtx-internal/linux-tsan-noble"
 ARM64_PACKAGE = "wsjtx-internal/linux-arm64-bookworm"
 ARMHF_PACKAGE = "wsjtx-internal/linux-armv7-bookworm"
@@ -22,7 +23,7 @@ ARMHF_CROSS_PACKAGE = "wsjtx-internal/linux-armhf-cross-bookworm"
 ARMHF_TRIXIE_PACKAGE = "wsjtx-internal/linux-armv7-trixie"
 ARMHF_TRIXIE_CROSS_PACKAGE = "wsjtx-internal/linux-armhf-cross-trixie"
 ARMHF_PACKAGES = (ARMHF_CROSS_PACKAGE, ARMHF_PACKAGE, ARMHF_TRIXIE_CROSS_PACKAGE, ARMHF_TRIXIE_PACKAGE)
-ROUTINE_PACKAGES = (ARM64_PACKAGE,)
+ROUTINE_PACKAGES = (ASAN_PACKAGE, ARM64_PACKAGE)
 BUILD_TAG = re.compile(r"^build-\d{8}-\d+-\d+$")
 
 
@@ -32,15 +33,15 @@ def resolve(client: GitHubPackagesClient, *, require_armhf: bool = False) -> str
     if not stable:
         raise RuntimeError(
             "No promoted Linux CI image generation is available: "
-            "linux-noble:stable is missing. Bootstrap the GHCR images with "
+            "linux-jammy:stable is missing. Bootstrap the GHCR images with "
             "warm-dependency-caches.yml before running Linux CI."
         )
     if len(stable) != 1:
-        raise RuntimeError(f"expected one linux-noble:stable version, found {len(stable)}")
+        raise RuntimeError(f"expected one linux-jammy:stable version, found {len(stable)}")
     build_tags = [tag for tag in stable[0].tags if BUILD_TAG.fullmatch(tag)]
     if len(build_tags) != 1:
         raise RuntimeError(
-            "linux-noble:stable must share a version with exactly one immutable build tag"
+            "linux-jammy:stable must share a version with exactly one immutable build tag"
         )
     generation = build_tags[0]
     required_packages = ROUTINE_PACKAGES + (ARMHF_PACKAGES if require_armhf else ())

@@ -32,7 +32,6 @@ COPY .github/scripts/linux-ci-image-config.sh \
      .github/scripts/fftw-version.sh \
      .github/scripts/build-fftw.sh \
      .github/scripts/build-fftw-smoke-linux.sh \
-     .github/scripts/build-pfunit-linux.sh \
      .github/scripts/build-hamlib-linux.sh \
      .github/scripts/linux-ccache-compiler-signature.sh \
      .github/scripts/verify-linux-ci-image.sh \
@@ -47,16 +46,12 @@ RUN set -eux; \
     . /usr/local/share/wsjtx-ci/linux-boost-config.sh; \
     /usr/local/share/wsjtx-ci/build-boost-linux.sh "$BOOST_VERSION" "$LINUX_BOOST_PREFIX"; \
     FFTW_ARCH="${IMAGE_ARCH:-x86_64}" /usr/local/share/wsjtx-ci/build-fftw.sh "$LINUX_FFTW_PREFIX"; \
-    mkdir -p /tmp/wsjtx-pfunit-build; \
-    cd /tmp/wsjtx-pfunit-build; \
-    /usr/local/share/wsjtx-ci/build-pfunit-linux.sh \
-      "$LINUX_PFUNIT_COMMIT" "$LINUX_PFUNIT_PREFIX"; \
     mkdir -p /tmp/wsjtx-hamlib-build; \
     cd /tmp/wsjtx-hamlib-build; \
     /usr/local/share/wsjtx-ci/build-hamlib-linux.sh \
       "$LINUX_HAMLIB_COMMIT" "$LINUX_HAMLIB_PREFIX"; \
     cd /; \
-    rm -rf /tmp/wsjtx-pfunit-build /tmp/wsjtx-hamlib-build; \
+    rm -rf /tmp/wsjtx-hamlib-build; \
     /usr/local/bin/write-wsjtx-ci-manifest \
       normal "$IMAGE_ARCH" "$IMAGE_GENERATION" "$IMAGE_RECIPE_SHA256"; \
     IMAGE_RECIPE_SHA256="$IMAGE_RECIPE_SHA256" \

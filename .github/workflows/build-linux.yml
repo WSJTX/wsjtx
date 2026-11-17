@@ -208,7 +208,8 @@ on:
 # Splitting on arch
 # keeps the per-arch runtime profile explicit at the job level:
 #
-#   x86_64 — validated Noble container on ubuntu-24.04.
+#   x86_64 — validated GCC 12 Jammy container on ubuntu-24.04,
+#            with source-built Qt 5.15.18 and a glibc 2.35 baseline.
 #   aarch64 — validated GCC 12 Bookworm container on ubuntu-24.04-arm,
 #            matching Bookworm C++ headers/runtime and its glibc 2.36 baseline.
 #   armhf  — x86_64 cross-build using the selected Bookworm or Trixie profile,
@@ -267,7 +268,10 @@ jobs:
             exit 2
           fi
           case "$ARCH" in
-            x86_64) package=linux-noble; cross_package= ;;
+            x86_64)
+              package=linux-jammy
+              cross_package=
+              ;;
             aarch64) package=linux-arm64-bookworm; cross_package= ;;
             armhf) package="linux-armv7-$ARMHF_DISTRO"; cross_package="linux-armhf-cross-$ARMHF_DISTRO" ;;
             *)
@@ -323,6 +327,10 @@ jobs:
 
           if [ -n "$REQUESTED_TAG" ]; then
             IMAGE_TAG="$REQUESTED_TAG" .github/scripts/validate-ci-inputs.sh
+            if [ "$ARCH" = x86_64 ] && [ "$IMAGE_SOURCE" = internal ] && [[ ! "$REQUESTED_TAG" =~ ^(candidate-[0-9]+-[0-9]+|(validated-)?build-[0-9]{8}-[0-9]+-[0-9]+)$ ]]; then
+              echo "::error::x64 builds require an immutable candidate or build generation"
+              exit 2
+            fi
             echo "image_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
           elif [ "$ARMHF_BUILD" = true ]; then
             RESOLVE_ARMHF=true .github/scripts/resolve-linux-ci-image-tag.py
@@ -347,7 +355,7 @@ jobs:
     needs: resolve-image
     if: inputs.arch == 'x86_64'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     container:
       image: ${{ needs.resolve-image.outputs.image_reference }}
       options: --shm-size=1g
@@ -367,11 +375,13 @@ jobs:
           VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
         run: .github/scripts/validate-ci-inputs.sh
       - uses: ./.github/actions/build-linux-payload
+        env:
+          LANG: C.UTF-8
         with:
           arch: x86_64
           version: ${{ inputs.version }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
-          runtime_base: host
+          runtime_base: jammy-gcc12
           recache: ${{ inputs.recache }}
           save_ccache: ${{ inputs.save_ccache }}
           validate_fortran_fallback: ${{ inputs.validate_fortran_fallback }}

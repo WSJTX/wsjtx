@@ -151,7 +151,7 @@ class NativeCachePolicyTests(unittest.TestCase):
                 r"id: (?P<id>[a-z0-9-]+-cache)\n(?:.*\n){1,3}?\s+path: (?P<path>.+)\n\s+key: (?P<key>.+)\n", text)}
 
         self.assertEqual(set(caches(action)[1]),
-                         {f"{name}-cache" for name in ("qt", "libusb", "portaudio", "fftw", "boost", "hamlib", "pfunit")})
+                         {f"{name}-cache" for name in ("qt", "libusb", "portaudio", "fftw", "boost", "hamlib")})
         self.assertEqual(caches(action), caches(build))
 
     def test_boost_caches_track_the_queue_publication_patch(self):

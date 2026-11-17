@@ -17,8 +17,9 @@ from ghcr_retention import GitHubPackagesClient, Version  # noqa: E402
 
 
 OWNER = "WSJTX"
-PACKAGE = "wsjtx-internal/linux-noble"
+PACKAGE = "wsjtx-internal/linux-jammy"
 COHORT_PACKAGES = (
+    "wsjtx-internal/linux-noble",
     "wsjtx-internal/linux-arm64-bookworm",
     "wsjtx-internal/linux-armhf-cross-bookworm", "wsjtx-internal/linux-armv7-bookworm",
     "wsjtx-internal/linux-armhf-cross-trixie", "wsjtx-internal/linux-armv7-trixie",
@@ -55,7 +56,12 @@ def main() -> int:
         return 2
 
     client = GitHubPackagesClient(token)
-    versions = client.list_versions(OWNER, PACKAGE)
+    try:
+        versions = client.list_versions(OWNER, PACKAGE)
+    except RuntimeError as error:
+        if not isinstance(error.__cause__, HTTPError) or error.__cause__.code != 404:
+            raise
+        versions = []
     if cohort_incomplete(client, versions):
         print("Linux CI stable image cohort is incomplete; decision: refresh")
         return 0
