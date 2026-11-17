@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <memory>
+#include <vector>
 
 #include <QDir>
 #include <QHostAddress>
@@ -744,6 +745,63 @@ private slots:
         fixture.transceiver->stop ();
         QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
       }
+  }
+
+  void ignoresModeReadbackWhileTransmitting ()
+  {
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    ScriptedHRDServer::Capabilities capabilities;
+    capabilities.buttons = QStringList {"TX"};
+    capabilities.dropdowns = QStringList {"Mode"};
+    capabilities.selections["Mode"] = QStringList {"USB", "DATA-U"};
+    capabilities.values["Mode"] = "DATA-U";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.start ());
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::DIG_U);
+
+    // The fixture reports two VFOs by default, the case where the mode
+    // used to be read during transmit.
+    std::vector<Transceiver::ModeStatus> statuses;
+    QObject::connect (fixture.transceiver.get (), &Transceiver::mode_status,
+                      [&] (Transceiver::ModeStatus const& status, unsigned)
+                      {
+                        statuses.push_back (status);
+                      });
+
+    auto requested = fixture.transceiver->state ();
+    requested.ptt (true);
+    fixture.transceiver->set (requested, 3);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QVERIFY (fixture.transceiver->state ().ptt ());
+
+    // Some HRD setups report USB for DATA-U while transmitting.
+    capabilities.values["Mode"] = "USB";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::DIG_U);
+
+    requested.ptt (false);
+    fixture.transceiver->set (requested, 4);
+    capabilities.values["Mode"] = "DATA-U";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.poll ());
+    QVERIFY (!fixture.transceiver->state ().ptt ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::DIG_U);
+    for (auto const& status : statuses)
+      {
+        QVERIFY2 (Transceiver::ModeStatusKind::Preparing == status.kind
+                  || Transceiver::DIG_U == status.mode,
+                  "mode policy was told about a mode other than DIG_U");
+      }
+
+    // readback resumes after transmit
+    capabilities.values["Mode"] = "USB";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::USB);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
   }
 
   void rediscoversModeOrderAfterRestart ()
