@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QKeyEvent>
 #include <QTranslator>
+#include <QTimer>
 #include <math.h>
 #include "ui_widegraph.h"
 #include "commons.h"
@@ -66,6 +67,12 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
 
   connect (ui->widePlot, &CPlotter::jttyDecodeAgainAtSample,
            this, &WideGraph::jttyDecodeAgainAtSample);
+
+  // labels expire on their own, whether or not anything new is decoded
+  auto * callTimer = new QTimer {this};
+  callTimer->setInterval (1000);
+  connect (callTimer, &QTimer::timeout, this, &WideGraph::refreshJttyCalls);
+  callTimer->start ();
 
   {
     //Restore user's settings
@@ -393,9 +400,35 @@ void WideGraph::setTxFreq(int n)                                   //setTxFreq
   ui->widePlot->setTxFreq(n);
 }
 
+void WideGraph::jttyCallUpdate (qint64 messageId, QString const& text, float frequency,
+                                bool growing, QString const& myCall)
+{
+  if (m_mode != "JTTY") return;
+  if (m_jttyCalls.update (messageId, text, frequency, growing, myCall,
+                          QDateTime::currentMSecsSinceEpoch ())) {
+    refreshJttyCalls ();
+  }
+}
+
+void WideGraph::clearJttyCalls ()
+{
+  m_jttyCalls.clear ();
+  ui->widePlot->setCallLabels ({});
+}
+
+void WideGraph::refreshJttyCalls ()
+{
+  ui->widePlot->setCallLabels (m_mode == "JTTY"
+                               ? m_jttyCalls.labels (QDateTime::currentMSecsSinceEpoch ())
+                               : QVector<WaterfallCalls::Label> {});
+}
+
 void WideGraph::setMode(QString mode)                              //setMode
 {
-  if (m_mode == "JTTY" && mode != m_mode) jttyReceptionEnded ();
+  if (m_mode == "JTTY" && mode != m_mode) {
+    jttyReceptionEnded ();
+    clearJttyCalls ();
+  }
   m_mode=mode;
   ui->fSplitSpinBox->setVisible(m_mode.startsWith("FST4"));
   ui->fSplitSpinBox->setEnabled(m_mode.startsWith("FST4"));

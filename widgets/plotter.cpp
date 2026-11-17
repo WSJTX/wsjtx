@@ -140,7 +140,8 @@ void CPlotter::paintEvent(QPaintEvent *)                                // paint
   m_paintEventBusy=true;
   QPainter painter(this);
   painter.drawPixmap(0,0,m_ScalePixmap);
-  painter.drawPixmap(0,30,m_WaterfallPixmap,0,0,m_scale.width(),m_h1);
+  painter.drawPixmap(0,waterfallTop(),m_WaterfallPixmap,0,0,m_scale.width(),m_h1);
+  if (hasCallStrip ()) drawCallStrip (painter);
   painter.drawPixmap(0,m_h1,m_2DPixmap);
   int x = XfromFreq(m_rxFreq);
   if (m_bars) {
@@ -470,6 +471,88 @@ void CPlotter::drawJttyLabels (QPainter& painter, bool newestOnly)
     QRect const rect {5, row, m_scale.width () - 10, painter.fontMetrics ().height ()};
     painter.drawText (rect, (m_timestamp == 2 ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignTop, label);
   }
+}
+
+int CPlotter::waterfallTop () const
+{
+  return 30 + (hasCallStrip () ? callStripHeight : 0);
+}
+
+void CPlotter::setCallLabels (QVector<WaterfallCalls::Label> const& labels)
+{
+  if (labels.size () == m_callLabels.size ()) {
+    bool same = true;
+    for (int i = 0; i < labels.size () && same; ++i) {
+      same = labels[i].call == m_callLabels[i].call && labels[i].freq == m_callLabels[i].freq
+        && labels[i].kind == m_callLabels[i].kind;
+    }
+    if (same) return;
+  }
+  m_callLabels = labels;
+  if (hasCallStrip ()) update ();
+}
+
+QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
+{
+  QFont font ("Arial");
+  font.setPointSize (9);
+  font.setBold (true);
+  QFontMetrics const fm {font};
+  int const width = m_scale.width ();
+  int const rowHeight = callStripHeight / 2;
+  auto const placed = WaterfallCalls::place (
+      m_callLabels,
+      [this] (double f) {return double (m_scale.xFromFreqHz (float (f)));},
+      [&fm] (QString const& call) {return double (fm.horizontalAdvance (call));},
+      width);
+  QVector<PlacedCall> out;
+  for (auto const& p : placed) {
+    auto const& label = m_callLabels[p.index];
+    int const w = fm.horizontalAdvance (label.call);
+    int const x = int (p.xCentre) - w / 2;
+    out.append ({label, QRect (x, 30 + p.row * rowHeight, w, rowHeight), int (p.xCentre)});
+  }
+  return out;
+}
+
+QStringList CPlotter::shownCallLabels () const
+{
+  QStringList calls;
+  for (auto const& p : layoutCallLabels ()) calls << p.label.call;
+  return calls;
+}
+
+QRect CPlotter::callLabelRect (QString const& call) const
+{
+  for (auto const& p : layoutCallLabels ()) {
+    if (p.label.call == call) return p.rect;
+  }
+  return {};
+}
+
+void CPlotter::drawCallStrip (QPainter& painter)
+{
+  painter.save ();
+  painter.fillRect (0, 30, m_scale.width (), callStripHeight, QColor (0x18, 0x18, 0x18));
+  QFont font ("Arial");
+  font.setPointSize (9);
+  font.setBold (true);
+  painter.setFont (font);
+  for (auto const& p : layoutCallLabels ()) {
+    QColor colour {0xe0, 0xe0, 0xe0};
+    switch (p.label.kind) {
+    case WaterfallCalls::Kind::Me: colour = QColor (0xff, 0x70, 0x70); break;
+    case WaterfallCalls::Kind::Own: colour = QColor (0xff, 0xe0, 0x60); break;
+    case WaterfallCalls::Kind::Cq: colour = QColor (0x5e, 0xe0, 0x5e); break;
+    case WaterfallCalls::Kind::Other: break;
+    }
+    painter.setPen (QPen (colour, 2));
+    // the extent of the signal: a thin bar at the top of the strip
+    painter.drawLine (XfromFreq (p.label.freq), 31, XfromFreq (p.label.freq + p.label.width), 31);
+    painter.setPen (colour);
+    painter.drawText (p.rect, Qt::AlignCenter, p.label.call);
+  }
+  painter.restore ();
 }
 
 void CPlotter::DrawOverlay()                   //DrawOverlay()
@@ -988,6 +1071,14 @@ void CPlotter::mouseReleaseEvent (QMouseEvent * event)
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
     if(!shift and m_mode=="FST4W") return;
     int newFreq = int(FreqfromX(x)+0.5);
+    if (hasCallStrip ()) {                      // a click on a call label = that signal
+      for (auto const& p : layoutCallLabels ()) {
+        if (p.rect.adjusted (-2, 0, 2, 0).contains (event->pos ())) {
+          newFreq = int (p.label.freq + 0.5f);
+          break;
+        }
+      }
+    }
     int oldTxFreq = m_txFreq;
     int oldRxFreq = m_rxFreq;
     if (ctrl and m_mode!="FST4W") {
@@ -1014,7 +1105,7 @@ void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
     bool leftbutton = (event->button() & Qt::LeftButton);
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
   if (leftbutton and m_mode=="JTTY" and !ctrl) {
-    int const row = event->y() - 30;
+    int const row = event->y() - waterfallTop();
     if (row >= 0 && row < m_jttyRows.size ()) {
       auto const& audio = m_jttyRows[row].audio;
       if (audio.hasAudio ()) emit jttyDecodeAgainAtSample (audio.reception, audio.endSample);
@@ -1060,7 +1151,9 @@ void CPlotter::setTxFreq(int n)                                 //setTxFreq
 
 void CPlotter::setMode(QString mode)                            //setMode
 {
+  bool const strip = hasCallStrip ();
   m_mode=mode;
+  if (strip != hasCallStrip ()) update ();      // the waterfall moves up or down
 }
 
 void CPlotter::setSubMode(int n)                                //setSubMode

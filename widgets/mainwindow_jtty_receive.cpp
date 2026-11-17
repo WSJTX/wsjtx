@@ -141,6 +141,13 @@ struct MainWindow::JttyReceiveState {
           window.showStatusMessage(MainWindow::tr("PSK Reporter spot queue full; oldest spot dropped"));
       }
     };
+    if (source == DecodeSource::Live && window.m_mode == "JTTY") {
+      for (auto const& update : updates) {
+        window.m_wideGraph->jttyCallUpdate(
+            update.messageId, Jtty::stripJttyFillerText(update.text), update.frequency,
+            update.terminal == Jtty::ReceiveTerminal::Growing, window.m_config.my_callsign());
+      }
+    }
     results.apply(updates, reception, inputs, effects);
   }
 };

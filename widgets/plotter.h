@@ -17,6 +17,7 @@
 
 #include "WaterfallScale.hpp"
 #include "JttySpectrum.hpp"
+#include "WaterfallCalls.hpp"
 
 #define VERT_DIVS 7	//specify grid screen divisions
 
@@ -104,6 +105,13 @@ public:
   void setJttySpectrum (std::array<float, JttySpectrumFrame::BinCount> const& cumulative,
                         std::array<float, JttySpectrumFrame::BinCount> const& linearAverage);
 
+  // JTTY: the callsign strip between the frequency scale and the waterfall.
+  static constexpr int callStripHeight = 32;
+  void setCallLabels (QVector<WaterfallCalls::Label> const& labels);
+  QStringList shownCallLabels () const;               // placed, in priority order
+  QRect callLabelRect (QString const& call) const;    // in widget coordinates
+  int  waterfallTop () const;                         // y of the first waterfall row
+
 signals:
   void freezeDecode1(int n);
   void setFreq1(int rxFreq, int txFreq);
@@ -123,6 +131,15 @@ private:
   float FreqfromX(int x);
   void drawSavedWaterfall();
   void drawJttyLabels (QPainter& painter, bool newestOnly);
+  bool hasCallStrip () const {return m_mode == "JTTY";}
+  struct PlacedCall {
+    WaterfallCalls::Label label;
+    QRect rect;                 // widget coordinates
+    int centreX;
+  };
+  QVector<PlacedCall> layoutCallLabels () const;
+  void drawCallStrip (QPainter& painter);
+  QVector<WaterfallCalls::Label> m_callLabels;
 
   QAction * m_set_freq_action;
 

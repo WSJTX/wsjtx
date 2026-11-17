@@ -15,6 +15,7 @@ class TestablePlotter final : public CPlotter
 {
 public:
   using CPlotter::mouseDoubleClickEvent;
+  using CPlotter::mouseReleaseEvent;
 
   TestablePlotter ()
   {
@@ -51,7 +52,7 @@ public:
 
   void clickRow (int row)
   {
-    QMouseEvent event {QEvent::MouseButtonDblClick, QPointF (100, 30 + row),
+    QMouseEvent event {QEvent::MouseButtonDblClick, QPointF (100, waterfallTop () + row),
                        Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
     mouseDoubleClickEvent (&event);
   }
@@ -97,6 +98,62 @@ private slots:
     plotter.clickRow (0);
     QCOMPARE (selected.size (), 2);
     QCOMPARE (selected[1][0].toULongLong (), quint64 (5));
+  }
+
+  static WaterfallCalls::Label label (QString const& call, float freq,
+                                      WaterfallCalls::Kind kind = WaterfallCalls::Kind::Cq)
+  {
+    WaterfallCalls::Label l;
+    l.call = call;
+    l.freq = freq;
+    l.width = WaterfallCalls::jttySignalWidth;
+    l.kind = kind;
+    return l;
+  }
+
+  void callStripSitsBetweenScaleAndWaterfall ()
+  {
+    TestablePlotter plotter;
+    QCOMPARE (plotter.waterfallTop (), 30 + CPlotter::callStripHeight);
+    plotter.setMode ("FT8");
+    QCOMPARE (plotter.waterfallTop (), 30);        // other modes: no strip
+    plotter.setMode ("JTTY");
+    QCOMPARE (plotter.waterfallTop (), 30 + CPlotter::callStripHeight);
+  }
+
+  void labelsAreShownInTheStripAndClickSelectsTheirSignal ()
+  {
+    TestablePlotter plotter;
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("DL3WDG", 200), label ("K1ABC", 500),
+                            label ("K2DEF", 800)});
+    QCOMPARE (plotter.shownCallLabels (), (QStringList {"DL3WDG", "K1ABC", "K2DEF"}));
+    for (auto const& call : plotter.shownCallLabels ()) {
+      auto const rect = plotter.callLabelRect (call);
+      QVERIFY (rect.top () >= 30);
+      QVERIFY (rect.bottom () < 30 + CPlotter::callStripHeight);
+    }
+    QSignalSpy freq (&plotter, &CPlotter::setFreq1);
+    auto const rect = plotter.callLabelRect ("K1ABC");
+    QMouseEvent click {QEvent::MouseButtonRelease, QPointF (rect.center ()),
+                       Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
+    plotter.mouseReleaseEvent (&click);
+    QCOMPARE (freq.size (), 1);
+    QCOMPARE (freq[0][0].toInt (), 500);          // that signal's frequency, not the pixel
+    plotter.setCallLabels ({});
+    QVERIFY (plotter.shownCallLabels ().isEmpty ());
+  }
+
+  void noStripLabelsOutsideJtty ()
+  {
+    TestablePlotter plotter;
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("DL3WDG", 1000)});
+    QCOMPARE (plotter.shownCallLabels ().size (), 1);
+    plotter.setMode ("FT8");
+    QCOMPARE (plotter.waterfallTop (), 30);
   }
 };
 

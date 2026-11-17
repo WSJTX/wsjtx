@@ -9,6 +9,7 @@
 #include <QVariant>
 #include "WFPalette.hpp"
 #include "JttySpectrum.hpp"
+#include "WaterfallCalls.hpp"
 
 #define MAX_SCREENSIZE 2048
 
@@ -30,6 +31,10 @@ public:
   void   dataSink2(float s[], float df3, int ihsym, int ndiskdata, float pdB);
   void   jttyDataSink (JttySpectrumFrame const& frame);
   void   jttyReceptionEnded ();
+  // Callsign labels on the waterfall (JTTY): fed with every live decode update.
+  void   jttyCallUpdate (qint64 messageId, QString const& text, float frequency,
+                         bool growing, QString const& myCall);
+  void   clearJttyCalls ();
   void   setRxFreq(int n);
   int    rxFreq();
   int    nStartFreq();
@@ -105,6 +110,8 @@ private:
   void readPalette ();
   void replot();
   void drawJttyAverage ();
+  void refreshJttyCalls ();
+  WaterfallCalls::Board m_jttyCalls;
 
   QScopedPointer<Ui::WideGraph> ui;
 
