@@ -446,7 +446,7 @@ void EmeCabrilloDialog::update_text ()
 void EmeCabrilloDialog::refresh ()
 {
   auto const n = days_.size ();
-  days_button_->setText (n == 0 ? tr ("choose…") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
+  days_button_->setText (n == 0 ? tr ("Choose days …") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
   days_label_->setText (DaysCalendar::text (days_, tr ("(choose the contest days)")));
 
   // bands with QSOs on the days; those unticked are left out
@@ -501,7 +501,7 @@ void EmeCabrilloDialog::refresh ()
     {
       QStringList calls;
       for (auto const& qso : selection_.no_grid) calls << qso.call;
-      warnings << tr ("%1 QSO(s) need a grid: %2")
+      warnings << tr ("%1 QSO(s) need a grid to be properly scored: %2")
         .arg (selection_.no_grid.size ()).arg (calls.join (", "));
     }
   if (selection_.no_time.size ())
@@ -532,11 +532,15 @@ void EmeCabrilloDialog::refresh ()
   if (no_own_grid)
     warnings << tr ("Some QSOs have no own grid: cannot be saved.");
 
-  QString html;
-  for (auto const& w : warnings) html += "<p style='color:#c00000'>" + escaped (w) + "</p>";
+  QString html, table;
+  QStringList note_lines;              // one paragraph, so the lines sit together
+  for (auto const& w : warnings)
+    note_lines << "<span style='color:#c00000'>" + escaped (w) + "</span>";
   if (selection_.qsos.size ())
     {
       auto const s = EmeCabrillo::score (selection_.qsos);
+      int scored_qsos = 0;             // the band columns already leave dupes out
+      for (auto const& b : s.bands) scored_qsos += b.qsos;
       // the bands across, so that many bands do not push the file out of view
       QString bands_row, qsos_row, grids_row;
       for (auto const& b : s.bands)
@@ -545,15 +549,15 @@ void EmeCabrilloDialog::refresh ()
           qsos_row += QString {"<td align='right'>%1</td>"}.arg (b.qsos);
           grids_row += QString {"<td align='right'>%1</td>"}.arg (b.grids);
         }
-      html += "<table cellspacing='0' cellpadding='1'><tr><th align='left'>" + tr ("Band") + "</th>" + bands_row
+      table += "<table cellspacing='0' cellpadding='1'><tr><th align='left'>" + tr ("Band") + "</th>" + bands_row
         + "<th align='right'>&nbsp;&nbsp;" + tr ("Total") + "</th></tr><tr><td>" + tr ("QSOs") + "</td>" + qsos_row
-        + QString {"<td align='right'><b>%1</b></td></tr>"}.arg (selection_.qsos.size ())
+        + QString {"<td align='right'><b>%1</b></td></tr>"}.arg (scored_qsos)
         + "<tr><td>" + tr ("Grids") + "</td>" + grids_row
         + QString {"<td align='right'><b>%1</b></td></tr></table>"}.arg (s.multipliers)
         + "<p><b>" + escaped (tr ("Claimed score %1 x %2 = %3").arg (s.points).arg (s.multipliers).arg (s.claimed))
         + "</b></p>";
     }
-  // Below the score: one line for what was left out, the weekends only
+  // Above the score: what is and is not in the entry, the weekends only
   // when they matter; the details (which dupes, the counts) in the tooltip.
   QStringList details;
   bool weekends_matter = !selection_.off_weekend.isEmpty ();
@@ -570,7 +574,7 @@ void EmeCabrilloDialog::refresh ()
                                                  ? tr ("no QSOs") : weekend.group);
       details << tr ("Weekend %1: %2").arg (days.join ('/'), counts.isEmpty () ? tr ("no QSOs") : counts.join (", "));
     }
-  if (weekends_matter) html += "<p>" + escaped (tr ("Weekends: %1").arg (weekend_texts.join ("; "))) + "</p>";
+  if (weekends_matter) note_lines << escaped (tr ("Weekends: %1").arg (weekend_texts.join ("; ")));
   int copies = 0;
   for (auto const& record : copies_) copies += days_.contains (EmeCabrillo::record_date (record));
   QStringList left_out;
@@ -578,15 +582,19 @@ void EmeCabrilloDialog::refresh ()
   if (selection_.satellite) left_out << tr ("%1 satellite").arg (selection_.satellite);
   if (selection_.not_eme) left_out << tr ("%1 not EME (PROP_MODE)").arg (selection_.not_eme);
   if (selection_.mode_out) left_out << tr ("%1 in unticked modes").arg (selection_.mode_out);
-  if (left_out.size ()) html += "<p>" + escaped (tr ("Left out: %1.").arg (left_out.join (", "))) + "</p>";
+  if (left_out.size ()) note_lines << escaped (tr ("Left out: %1.").arg (left_out.join (", ")));
   if (selection_.dupes.size ())
-    html += "<p>" + escaped (tr ("Dupes in log: %1 (scored 0).").arg (selection_.dupes.size ())) + "</p>";
+    note_lines << escaped (tr ("%1 dupes in log (scored 0).").arg (selection_.dupes.size ()));
   if (selection_.dupes.size ())
     {
       QStringList dupes;
       for (auto const& qso : selection_.dupes) dupes << qso_text (qso);
       details << tr ("Dupes (worked before on the band from the same grid): %1").arg (dupes.join (", "));
     }
+  // A trailing blank line: Qt gives the paragraph no bottom margin, so
+  // without it the table headings sit against the last note.
+  if (note_lines.size ()) html += "<p>" + note_lines.join ("<br>") + "<br>&nbsp;</p>";
+  html += table;                   // what is in the entry, then what it scores
   // the operators the logs name, if the Operators box does not have them all
   if (multi_op_->isChecked ())
     {
@@ -681,8 +689,8 @@ void EmeCabrilloDialog::show_grid_rows ()
       }
     if (qso.entered)
       {
-        colour.clear ();
-        return QString {};
+        colour = "#008000";
+        return QString {QChar {0x2713}};        // a tick: typed in and accepted
       }
     if (qso.filled)
       {

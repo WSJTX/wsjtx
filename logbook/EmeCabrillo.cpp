@@ -442,8 +442,13 @@ namespace EmeCabrillo
           }
         if (qso.grid.isEmpty ())
           {
+            // In the entry even so: ARRL fill the grid in, which CW operators
+            // rely on, and a QSO missing from our log counts against the
+            // station that logged it. It scores a QSO but no multiplier, and
+            // cannot be checked for repeats without a grid.
             result.no_grid << qso;
             result.need_grid << qso;
+            result.qsos << qso;
             continue;
           }
         auto const once = band + '|' + call + '|' + qso.grid;
@@ -479,7 +484,7 @@ namespace EmeCabrillo
     for (auto const& qso : qsos)
       {
         if (qso.dupe) continue;         // in the entry, worth nothing
-        grids[qso.band] << qso.grid;
+        if (!qso.grid.isEmpty ()) grids[qso.band] << qso.grid;   // no grid, no multiplier
         ++count[qso.band];
         ++scored;
       }

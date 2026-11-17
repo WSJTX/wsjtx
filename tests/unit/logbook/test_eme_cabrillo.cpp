@@ -501,17 +501,17 @@ void TestEmeCabrillo::dialog_keeps_typed_grids ()
   };
   {
     EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", weekend, directory.path ()};
-    QCOMPARE (dialog.selection ().qsos.size (), 3);                 // W5LUA EM13, its dupe, K1JT
+    QCOMPARE (dialog.selection ().qsos.size (), 4);                 // the dupe and two grid-less
     QVERIFY (dialog.findChild<QLineEdit *> ("grid_W5LUA"));         // the dupe has a row
     auto msk = dialog.findChild<QCheckBox *> ("mode_MSK144");
     QVERIFY (msk);
     QCOMPARE (msk->text (), QString {"MSK144 (1)"});
     msk->setChecked (false);                                        // meteor scatter, not EME
-    QCOMPARE (dialog.selection ().qsos.size (), 2);                 // the dupe is in the entry
+    QCOMPARE (dialog.selection ().qsos.size (), 3);                 // MSK144 gone, grid-less stay
     QCOMPARE (dialog.selection ().mode_out, 1);
     type (dialog, "W5LUA", "EM12");
     type (dialog, "G4CCH", "IO91");
-    QCOMPARE (dialog.selection ().qsos.size (), 3);
+    QCOMPARE (dialog.selection ().qsos.size (), 3);   // typing grids changes no count
     QVERIFY (dialog.cabrillo_text ().contains ("W5LUA         EM12\n"));
     dialog.add_log (other);
     QCOMPARE (dialog.selection ().qsos.size (), 4);                 // typed grids still there
@@ -526,7 +526,8 @@ void TestEmeCabrillo::dialog_keeps_typed_grids ()
     QVERIFY (dialog.cabrillo_text ().contains ("W5LUA         EM12\n"));
     QVERIFY (dialog.cabrillo_text ().contains ("G4CCH         IO91\n"));
     type (dialog, "G4CCH", "");                                     // taken out again
-    QVERIFY (!dialog.cabrillo_text ().contains ("G4CCH"));
+    QVERIFY (dialog.cabrillo_text ().contains ("G4CCH"));         // still in the entry
+    QVERIFY (!dialog.cabrillo_text ().contains ("G4CCH         IO91"));   // without a grid
   }
   QCOMPARE (settings.value ("EmeCabrillo/TypedGrids").toStringList ().size (), 1);
 }
@@ -688,16 +689,17 @@ void TestEmeCabrillo::band_and_mode_codes ()
 void TestEmeCabrillo::selects_the_entry ()
 {
   auto const s = EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), contest_days (), "dl3wdg", "JN68LM");
-  QCOMPARE (calls (s.qsos), (QStringList {"K1JT", "K1JT", "W5LUA", "OK1KIR", "PA3DZL", "K1JT", "W5LUA"}));
+  QCOMPARE (calls (s.qsos), (QStringList {"K1JT", "K1JT", "W5LUA", "OK1KIR", "G4CCH", "PA3DZL", "K1JT", "W5LUA"}));
   QStringList bands, modes;
   for (auto const& qso : s.qsos) {bands << qso.band; modes << qso.mode;}
-  QCOMPARE (bands, (QStringList {"1.2G", "144", "1.2G", "1.2G", "50", "1.2G", "1.2G"}));
-  QCOMPARE (modes, (QStringList {"DG", "CW", "DG", "DG", "PH", "DG", "DG"}));
+  QCOMPARE (bands, (QStringList {"1.2G", "144", "1.2G", "1.2G", "1.2G", "50", "1.2G", "1.2G"}));
+  QCOMPARE (modes, (QStringList {"DG", "CW", "DG", "DG", "DG", "PH", "DG", "DG"}));
   QCOMPARE (s.qsos[3].grid, QString {"JO70"});          // from the QSO between the weekends
   QVERIFY (s.qsos[3].filled);
   QCOMPARE (s.dupes.size (), 1);
   QCOMPARE (s.dupes[0].time, QString {"0200"});
-  QVERIFY (s.qsos[5].dupe);                             // in the entry, scored below
+  QVERIFY (s.qsos[4].grid.isEmpty ());                  // no grid, but in the entry
+  QVERIFY (s.qsos[6].dupe);                             // in the entry, scored below
   QCOMPARE (calls (s.no_grid), QStringList {"G4CCH"});
   QCOMPARE (calls (s.need_grid), (QStringList {"OK1KIR", "G4CCH"}));
   QCOMPARE (s.satellite, 1);
@@ -707,7 +709,7 @@ void TestEmeCabrillo::selects_the_entry ()
 
   auto const one = EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), contest_days (),
                                         "DL3WDG", "JN68", {"1.2G"});
-  QCOMPARE (one.qsos.size (), 5);      // four scored, plus the dupe
+  QCOMPARE (one.qsos.size (), 6);      // four scored, the grid-less one and the dupe
   QCOMPARE (one.other, 2);
   QCOMPARE (one.bands, (QSet<QString> {"1.2G", "144", "50"}));   // still offered
   QVERIFY (EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), {}, "DL3WDG", "JN68").qsos.isEmpty ());
@@ -735,13 +737,13 @@ void TestEmeCabrillo::score_and_text ()
 {
   auto const s = EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), contest_days (), "DL3WDG", "JN68LM");
   auto const score = EmeCabrillo::score (s.qsos);
-  QCOMPARE (score.points, 600);
-  QCOMPARE (score.multipliers, 6);
-  QCOMPARE (score.claimed, qint64 {3600});
+  QCOMPARE (score.points, 700);        // the grid-less QSO counts too
+  QCOMPARE (score.multipliers, 6);     // but gives no multiplier
+  QCOMPARE (score.claimed, qint64 {4200});
   QCOMPARE (score.bands.size (), 3);
   QCOMPARE (score.bands[0].band, QString {"50"});
   QCOMPARE (score.bands[2].band, QString {"1.2G"});
-  QCOMPARE (score.bands[2].qsos, 4);
+  QCOMPARE (score.bands[2].qsos, 5);   // the grid-less 1.2G QSO counts
   QCOMPARE (score.bands[2].grids, 4);
 
   EmeCabrillo::Header header;
@@ -757,7 +759,7 @@ void TestEmeCabrillo::score_and_text ()
   QVERIFY (lines.contains ("CATEGORY-BAND: ALL"));
   QVERIFY (lines.contains ("CATEGORY-MODE: MIXED"));
   QVERIFY (lines.contains ("GRID-LOCATOR: JN68"));
-  QVERIFY (lines.contains ("CLAIMED-SCORE: 3600"));
+  QVERIFY (lines.contains ("CLAIMED-SCORE: 4200"));
   QVERIFY (lines.contains ("LOCATION: DX"));
   QVERIFY (lines.contains ("QSO:  1.2G DG 2026-10-31 0100 DL3WDG        JN68 K1JT          FN20"));
 
@@ -766,10 +768,10 @@ void TestEmeCabrillo::score_and_text ()
   // nothing to the score.
   int qso_lines = 0;
   for (auto const& line : lines) if (line.startsWith ("QSO:")) ++qso_lines;
-  QCOMPARE (qso_lines, int (s.qsos.size ()));           // the dupe is one of them
+  QCOMPARE (qso_lines, int (s.qsos.size ()));           // the dupe and the grid-less one among them
   QVERIFY (std::any_of (lines.cbegin (), lines.cend (), [] (QString const& line) {
         return line.startsWith ("QSO:") && line.contains (" 0200 ");}));
-  QCOMPARE (score.points, 100 * int (s.qsos.size () - 1));   // but is not scored
+  QCOMPARE (score.points, 100 * int (s.qsos.size () - 1));   // only the dupe is unscored
   for (auto const& line : lines) QVERIFY2 (!line.startsWith ("NAME"), qPrintable (line));
 
   auto const one = EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), contest_days (),
@@ -793,7 +795,7 @@ void TestEmeCabrillo::dialog ()
   }
   QSettings settings {directory.filePath ("settings.ini"), QSettings::IniFormat};
   EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", contest_days (), directory.path ()};
-  QVERIFY (dialog.cabrillo_text ().contains ("CLAIMED-SCORE: 3600\n"));
+  QVERIFY (dialog.cabrillo_text ().contains ("CLAIMED-SCORE: 4200\n"));
   QCOMPARE (dialog.selection ().no_grid.size (), 1);
 
   QSet<QDate> changed;
