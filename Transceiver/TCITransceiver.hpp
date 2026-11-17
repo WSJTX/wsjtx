@@ -125,6 +125,7 @@ signals:
   void sendAudioData(int, quint32, float*);
   void receiveIQ(bool,int);
   void txAudioChrono(quint32);
+  void txChronoDiagnostic (QString const& stage, qint64 bytes, qint64 expectedBytes);
   void tci_done1();
   void tci_done2();
   void tci_done3();

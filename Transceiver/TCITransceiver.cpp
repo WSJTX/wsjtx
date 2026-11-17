@@ -975,18 +975,37 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
       return;
     }
     writeAudioData(const_cast<float *> (TciStream::float_payload (data)),pStream->length);
-  } else if (pStream->type == TciStream::TxChrono &&  pStream->receiver == rx_.toUInt()) {
+  } else if (pStream->type == TciStream::TxChrono) {
+    Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver received request"),
+                               data.size (), TciStream::HeaderSize);
+    if (pStream->receiver != rx_.toUInt()) {
+      Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver rejected receiver %1 (expected %2)")
+                                 .arg (pStream->receiver).arg (rx_.toUInt ()),
+                                 data.size (), TciStream::HeaderSize);
+      return;
+    }
     quint32 channels;
     if (!TciStream::valid_tx_chrono (*pStream, stream_channels_supported_,
                                      audioSampleRate, &channels)) {
+      Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver rejected request header "
+                                                "(rate=%1/%2 format=%3 codec=%4 length=%5 channels=%6 channelField=%7)")
+                                 .arg (pStream->sampleRate).arg (audioSampleRate).arg (pStream->format)
+                                 .arg (pStream->codec).arg (pStream->length).arg (pStream->channels)
+                                 .arg (stream_channels_supported_),
+                                 data.size (), TciStream::HeaderSize);
       return;
     }
+    Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver validated request"),
+                               data.size (), TciStream::HeaderSize);
 
     qint64 generatedScalars {0};
     {
-      std::lock_guard<std::mutex> lock {mtx_};
+      std::unique_lock<std::mutex> lock {mtx_};
       tx_fifo += 1; tx_fifo &= 7;
       if (!TciStream::prepare_tx_audio_frame (&m_tx1[tx_fifo], *pStream, channels)) {
+        lock.unlock ();
+        Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver could not frame reply"), 0,
+                                   TciStream::HeaderSize + pStream->length * sizeof (float));
         return;
       }
 
@@ -1002,7 +1021,16 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
       tx_fifo2 = tx_fifo;
     }
 
-    if (!inConnected || commander_->sendBinaryMessage(m_tx1[tx_fifo2]) != m_tx1[tx_fifo2].size()) {
+    auto const& reply = m_tx1[tx_fifo2];
+    auto const reply_size = reply.size ();
+    if (!inConnected) {
+      Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver disconnected before reply"),
+                                 0, reply_size);
+      return;
+    }
+    auto const sent = commander_->sendBinaryMessage (reply);
+    Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver reply send"), sent, reply_size);
+    if (sent != reply_size) {
       return;
     }
 

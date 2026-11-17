@@ -7,6 +7,7 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QScopedValueRollback>
 #include <QTest>
 #include <QSignalSpy>
 #include <QTimer>
@@ -421,9 +422,18 @@ namespace
                [this] (TxEvidence::TxStartSnapshot const& value) {commitment = value;});
       connect (&harness.rig (), &Transceiver::rawTxPlayoutSnapshot, this,
                [this] (TxEvidence::TxRawPlayoutSnapshot const& value) {playout = value;});
+      connect (qobject_cast<TCITransceiver *> (&harness.rig ()),
+               &TCITransceiver::txChronoDiagnostic, this,
+               [this] (QString const& stage, qint64 bytes, qint64 expected)
+               {
+                 record_trace (stage, bytes, expected);
+               });
       connect (&harness.server (), &TciSimServer::binary_received, this,
                [this] (QByteArray const& data, int generation)
                {
+                 if (tracing_)
+                   record_trace (QStringLiteral ("simulator received reply on generation %1")
+                                 .arg (generation), data.size ());
                  if (generation != harness_.server ().connection_generation ()) return;
                  packet = data;
                  ++packets;
@@ -459,26 +469,30 @@ namespace
     {
       ++pulls_;
       diagnostics_.clear ();
+      trace_.clear ();
+      QScopedValueRollback<bool> const tracing {tracing_, true};
+      elapsed_.start ();
       auto const previous = packets;
       auto const failure_cursor = harness_.failure_count ();
       auto const scalar_count = quint64 (frames) * channels;
       bool accepted {false};
-      QElapsedTimer elapsed;
-      elapsed.start ();
       auto const fail = [&] (QString const& stage) {
         auto const * response = packets > previous ? TciStream::header (packet) : nullptr;
         auto const framing = response
-          ? QString {"type=%1 rate=%2 format=%3 codec=%4 channels=%5 length=%6 bytes=%7"}
-              .arg (response->type).arg (response->sampleRate).arg (response->format)
+          ? QString {"type=%1 receiver=%2 rate=%3 format=%4 codec=%5 channels=%6 length=%7 bytes=%8"}
+              .arg (response->type).arg (response->receiver).arg (response->sampleRate).arg (response->format)
               .arg (response->codec).arg (response->channels).arg (response->length).arg (packet.size ())
           : QString {"no response header; bytes=%1"}.arg (packets > previous ? packet.size () : 0);
         diagnostics_ = QString {"%1: pull=%2 frames=%3 channels=%4 sendAccepted=%5 elapsedMs=%6 "
                                 "responses=%7 active=%8 writtenFrames=%9 servedFrames=%10 "
-                                "totalFrames=%11 playoutState=%12 playoutElapsedUs=%13\n%14\n%15"}
-          .arg (stage).arg (pulls_).arg (frames).arg (channels).arg (accepted).arg (elapsed.elapsed ())
+                                "totalFrames=%11 playoutState=%12 playoutElapsedUs=%13\n%14\n"
+                                "Audio pull trace: %15\n%16"}
+          .arg (stage).arg (pulls_).arg (frames).arg (channels).arg (accepted).arg (elapsed_.elapsed ())
           .arg (packets - previous).arg (active).arg (playout.successfully_written_frames)
           .arg (playout.source_served_frames).arg (playout.source_total_frames)
-          .arg (int (playout.state)).arg (playout.elapsed_usecs).arg (framing, harness_.diagnostics ());
+          .arg (int (playout.state)).arg (playout.elapsed_usecs)
+          .arg (framing, trace_.isEmpty () ? QStringLiteral ("none") : trace_.join (QStringLiteral ("; ")),
+                harness_.diagnostics ());
         return false;
       };
       if ((channels != 1u && channels != 2u) || scalar_count > TciStream::MaxFloatSamples)
@@ -490,7 +504,11 @@ namespace
       header->type = TciStream::TxChrono;
       header->length = frames * channels;
       header->channels = channels;
-      accepted = harness_.server ().send_binary (chrono);
+      auto const generation = harness_.server ().connection_generation ();
+      qint64 sent;
+      accepted = harness_.server ().send_binary (chrono, &sent);
+      record_trace (QStringLiteral ("simulator request send on generation %1").arg (generation),
+                    sent, chrono.size ());
       if (!accepted) return fail (QStringLiteral ("request send rejected"));
       if (!harness_.server ().wait_for ([&] {
             return packets > previous || harness_.failure_count () > failure_cursor
@@ -529,10 +547,21 @@ namespace
     }
 
   private:
+    void record_trace (QString const& stage, qint64 bytes, qint64 expected = -1)
+    {
+      if (!tracing_ || trace_.size () >= 8) return;
+      auto entry = QStringLiteral ("%1 ms %2 bytes=%3").arg (elapsed_.elapsed ()).arg (stage).arg (bytes);
+      if (expected >= 0) entry += QStringLiteral ("/%1").arg (expected);
+      trace_.append (entry);
+    }
+
     RigHarness& harness_;
     unsigned sequence_ {100};
     int pulls_ {0};
     QString diagnostics_;
+    QStringList trace_;
+    QElapsedTimer elapsed_;
+    bool tracing_ {false};
 
   public:
     State requested;
