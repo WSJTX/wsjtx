@@ -46,6 +46,7 @@ runs:
           asan-ubsan)
             echo "build_dir=wsjtx-sanitizer-build" >> "$GITHUB_OUTPUT"
             echo "ccache_dir=.ccache-sanitizers" >> "$GITHUB_OUTPUT"
+            echo "ccache_max_size=3G" >> "$GITHUB_OUTPUT"
             echo "cache_key=asan-ubsan-gcc" >> "$GITHUB_OUTPUT"
             echo "cmake_option=WSJT_ENABLE_ASAN_UBSAN" >> "$GITHUB_OUTPUT"
             echo "summary_name=Linux x86_64 ASan + UBSan" >> "$GITHUB_OUTPUT"
@@ -57,6 +58,7 @@ runs:
           tsan)
             echo "build_dir=wsjtx-tsan-build" >> "$GITHUB_OUTPUT"
             echo "ccache_dir=.ccache-tsan" >> "$GITHUB_OUTPUT"
+            echo "ccache_max_size=5G" >> "$GITHUB_OUTPUT"
             echo "cache_key=tsan-gcc" >> "$GITHUB_OUTPUT"
             echo "cmake_option=WSJT_ENABLE_TSAN" >> "$GITHUB_OUTPUT"
             echo "summary_name=Linux x86_64 TSan" >> "$GITHUB_OUTPUT"
@@ -129,6 +131,10 @@ runs:
         {
           echo "CCACHE_DIR=$CCACHE_DIR"
           echo "CCACHE_COMPILERCHECK=$CCACHE_COMPILERCHECK"
+          # Restored objects keep their archived mtimes, and ccache updates the
+          # mtime of every object this build reads or writes, so the trim before
+          # the save can evict what this build did not use.
+          echo "CCACHE_TRIM_SINCE=$(date +%s)"
         } >> "$GITHUB_ENV"
         echo "ccache recache: ${{ inputs.recache }}"
         if [ "${{ inputs.recache }}" = "true" ]; then
@@ -278,6 +284,25 @@ runs:
         if [ "$failed" = "true" ]; then
           exit 1
         fi
+
+    # Free the runner disk for the archive and keep only the objects this build
+    # used, within the profile's cap. No later step reads the build directory.
+    # The cap applies to this cleanup only: during the build it would make
+    # ccache evict objects whenever the cache passed it, and `ccache --max-size`
+    # would write it into the saved ccache.conf for every later build.
+    - name: Trim sanitizer objects
+      if: inputs.save_ccache == 'true' && github.ref == 'refs/heads/develop' && steps.image.outputs.recipe_match == 'true' && steps.ccache.outputs.cache-hit != 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        BUILD_DIR: ${{ steps.sanitizer.outputs.build_dir }}
+        MAX_SIZE: ${{ steps.sanitizer.outputs.ccache_max_size }}
+      run: |
+        rm -rf "${GITHUB_WORKSPACE:?}/${BUILD_DIR:?}"
+        ccache --evict-older-than "$(( $(date +%s) - ${CCACHE_TRIM_SINCE:?} + 60 ))s"
+        CCACHE_MAXSIZE="${MAX_SIZE:?}" ccache --cleanup
+        ccache --show-stats
+        df -h
 
     - name: Save sanitizer objects
       id: save-ccache

@@ -58,8 +58,9 @@ class ReleaseWorkflowPolicyTests(unittest.TestCase):
         ci = (ROOT / ".github/workflows/ci.yml").read_text()
         intel = job(ci, "macos-intel")
         self.assertIn("needs: [prepare, linux]", intel)
-        predicate = intel.split("    if: >-\n", 1)[1].split("    uses:", 1)[0]
-        self.assertEqual(predicate.strip(), "github.event_name == 'workflow_dispatch' ||\n      contains(github.event.pull_request.labels.*.name, 'full-ci')")
+        predicate = intel.split("    if: ", 1)[1].split("    uses:", 1)[0]
+        self.assertEqual(predicate.strip(), "needs.prepare.outputs.full_ci == 'true'")
+        self.assertIn("full_ci: ${{ steps.scope.outputs.full_ci }}\n", job(ci, "prepare"))
         selected = (ROOT / ".github/workflows/build-selected-artifacts.yml").read_text()
         self.assertIn("          - macos-x64\n", selected)
         body = job(selected, "macos-x64")
@@ -208,7 +209,8 @@ class ReleaseWorkflowPolicyTests(unittest.TestCase):
             self.assertIn("armhf_distro: ${{ matrix.armhf_distro }}", armhf)
             self.assertIn("fail-fast: false", armhf)
             if filename == "ci.yml":
-                self.assertIn("full-ci", armhf)
+                self.assertIn("    if: needs.prepare.outputs.full_ci == 'true'\n", armhf)
+                self.assertIn("full_ci: ${{ steps.scope.outputs.full_ci }}\n", job(workflow, "prepare"))
             else:
                 self.assertIn("image_source: public-release", armhf)
                 self.assertIn("needs.prepare.outputs.armhf_trixie_digest", armhf)
