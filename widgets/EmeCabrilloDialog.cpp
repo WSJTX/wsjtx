@@ -168,9 +168,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   layout->addWidget (preview_, 1);
 
   auto buttons = new QHBoxLayout;
-  auto hint = new QLabel {tr ("Upload at contests.arrl.org/arrlemescoresubmission.php"), this};
-  hint->setTextInteractionFlags (Qt::TextSelectableByMouse);
-  buttons->addWidget (hint, 1);
+  buttons->addStretch (1);
   save_button_ = new QPushButton {tr ("Save…"), this};
   connect (save_button_, &QPushButton::clicked, this, &EmeCabrilloDialog::save);
   buttons->addWidget (save_button_);
@@ -818,6 +816,5 @@ void EmeCabrilloDialog::save ()
   if (typed)
     message += "\n\n" + tr ("The %1 grid(s) you typed are in the Cabrillo file only: the ADIF logs are not changed.")
       .arg (typed);
-  message += "\n\n" + tr ("Upload it at contests.arrl.org/arrlemescoresubmission.php.");
   MessageBox::information_message (this, message);
 }
