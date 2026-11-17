@@ -721,9 +721,12 @@ void MainWindow::on_cbFast9_clicked(bool b)
   if(m_mode=="JT9") {
     m_bFast9=b;
 //    ui->cbAutoSeq->setVisible(b);
-    blocked=true;   // needed to prevent a loop
-    on_actionJT9_triggered();
-    QTimer::singleShot (50, [=] {blocked = false;});   // needed to prevent a loop
+    // No JT9 request while a mode entry is being set up; the entry itself configures the mode.
+    if (!m_modeSetupActive) {
+      blocked=true;   // needed to prevent a loop
+      on_actionJT9_triggered();
+      QTimer::singleShot (50, [=] {blocked = false;});   // needed to prevent a loop
+    }
     QTimer::singleShot (200, [=] {
       if(m_mode=="JT9") m_settings->setValue("JT9_Fast",m_bFast9);
     });
