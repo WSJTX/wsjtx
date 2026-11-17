@@ -36,6 +36,9 @@ public:
   // Days (UTC) whose QSOs count as worked for #, Wanted only and QSOs (Q65
   // list); empty (= every QSO counts) when the "on days" box is not checked.
   QSet<QDate> wantedDays() const;
+  // The chosen days themselves, whether or not "on days" is checked (the
+  // ARRL EME Cabrillo dialog's first suggestion; it keeps its own after).
+  QSet<QDate> chosenDays() const;
   void setRate(int n);
   void setBandChanges(int n);
   void setScore(int n);

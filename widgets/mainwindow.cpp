@@ -137,6 +137,8 @@
 #include "FoxLogWindow.hpp"
 #include "CabrilloLogWindow.hpp"
 #include "ExportCabrillo.h"
+#include "EmeCabrilloDialog.hpp"
+#include "SettingsGroup.hpp"
 #include "Network/Cloudlog.hpp"
 #include "ui_mainwindow.h"
 #include "qmap/decode_ipc.h"
@@ -11831,6 +11833,32 @@ void MainWindow::on_actionExport_Cabrillo_log_triggered()
     {
       MessageBox::information_message (this, tr ("Cabrillo Log saved"));
     }
+}
+
+// A Cabrillo log for the ARRL EME contest from the ADIF log, on the
+// dialog's own contest days. Active Stations' "on days" are only the first
+// suggestion; after that the two are kept apart, so log work never changes
+// what is used while operating.
+void MainWindow::on_actionExport_EME_Cabrillo_log_triggered()
+{
+  QSet<QDate> days;
+  if (m_ActiveStationsWidget)
+    {
+      days = m_ActiveStationsWidget->chosenDays ();
+    }
+  else
+    {
+      SettingsGroup group {m_settings, "ActiveStations"};
+      for (auto const& text : m_settings->value ("WantedDayList").toStringList ())
+        {
+          auto const day = QDate::fromString (text, Qt::ISODate);
+          if (day.isValid ()) days.insert (day);
+        }
+    }
+  auto const adif = m_config.adif_log_file_path ();
+  EmeCabrilloDialog dialog {m_settings, adif, m_config.my_callsign (), m_config.my_grid (), days,
+                            QFileInfo {adif}.absolutePath (), this};
+  dialog.exec ();
 }
 
 

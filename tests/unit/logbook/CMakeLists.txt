@@ -47,3 +47,16 @@ add_test (NAME test_cabrillo_log COMMAND test_cabrillo_log)
 set_tests_properties (test_cabrillo_log PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
+
+add_executable (test_eme_cabrillo test_eme_cabrillo.cpp)
+add_dependencies (test_eme_cabrillo wsjt_qt_autogen)
+target_include_directories (test_eme_cabrillo PRIVATE
+  ${CMAKE_BINARY_DIR}
+  ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include
+  ${CMAKE_BINARY_DIR}/wsjt_qt_autogen/include_$<CONFIG>)
+target_link_libraries (test_eme_cabrillo wsjt_qt wsjt_cxx wsjt_fort_common
+  Boost::log_setup Qt5::Test Qt5::Widgets)
+add_test (NAME test_eme_cabrillo COMMAND test_eme_cabrillo)
+set_tests_properties (test_eme_cabrillo PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  TIMEOUT 60)
