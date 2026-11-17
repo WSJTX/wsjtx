@@ -278,7 +278,7 @@ public:
   QString checkLiveAudioTestJttyMailboxOverflow();
   QString checkLiveAudioTestJttyDrain();
   QString checkLiveAudioTestOutputFaults ();
-  QString checkQsoCompletionTest ();
+  QString checkQsoCompletionTest (QString const& requestedProfile);
   bool liveAudioTestJttyStreamActive () const
   {
     return m_jttyTxStream && m_jttyTxStream->isActive ();

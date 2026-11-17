@@ -23,7 +23,7 @@
 extern bool blocked;
 extern bool programStart;
 
-QString MainWindow::checkQsoCompletionTest ()
+QString MainWindow::checkQsoCompletionTest (QString const& requestedProfile)
 {
   if (!m_automated_test || !m_config.is_dummy_rig ()
       || !qobject_cast<FixtureAudioInput *> (m_soundInput)
@@ -134,6 +134,14 @@ QString MainWindow::checkQsoCompletionTest ()
   bool const prompting = m_config.prompt_to_log ();
   bool const clearCall = m_config.clear_DXcall ();
   bool const clearGrid = m_config.clear_DXgrid ();
+  if (m_config.autoLog () && prompting)
+    return "The QSO fixture enabled both automatic and prompted logging.";
+  QString loadedProfile = prompting ? "prompt" : logging ? "automatic" : "disabled";
+  if (!clearCall && !clearGrid) loadedProfile += "-keep";
+  else if (!clearCall) loadedProfile += "-keep-call";
+  else if (!clearGrid) loadedProfile += "-keep-grid";
+  if (loadedProfile != requestedProfile)
+    return QString {"Requested QSO profile %1, loaded %2."}.arg (requestedProfile, loadedProfile);
   auto fieldsMatch = [&] (bool logged) {
     return m_hisCall == (logged && clearCall ? QString {} : QString {"W1AW"})
       && ui->dxGridEntry->text () == (logged && clearGrid ? QString {} : QString {"FN31"});

@@ -1220,8 +1220,8 @@ int main(int argc, char *argv[])
           if (qso_completion_test)
             {
               a.setQuitOnLastWindowClosed (false);
-              QTimer::singleShot (0, &w, [&a, &w, &qso_completion_succeeded] {
-                auto const error = w.checkQsoCompletionTest ();
+              QTimer::singleShot (0, &w, [&a, &w, &qso_completion_succeeded, qso_completion_profile] {
+                auto const error = w.checkQsoCompletionTest (qso_completion_profile);
                 qso_completion_succeeded = error.isEmpty ();
                 std::cerr << "WSJT-X QSO completion test "
                           << (error.isEmpty () ? "passed" : "failed: ")
