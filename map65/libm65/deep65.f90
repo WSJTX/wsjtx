@@ -179,7 +179,6 @@ contains
 subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mrs2)
 
   use timer_module, only: timer
-  use debug_log, only: dbg, itoa
   implicit none
 
   real,          intent(in)    :: s3(64,63)
@@ -195,24 +194,11 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mr
   character c*1
   integer i,ip1,j,k
   real bias,p,p1,p2,ref,ref0,sum
-  integer :: n_g4swx, n_dg2ycb
   data ip1/1/ ! Default safety, in case ntot ends up 0 the very first time
   save
 
   call build_call3_candidates(mycall, hiscall, hisgrid, neme)
 
-  ! TEMP diagnostic 2026-09-10: confirm whether the currently-loaded candidate
-  ! list (whether just rebuilt or reused from cache) actually contains the
-  ! callsigns known to be in CALL3.TXT right now.
-  n_g4swx = 0
-  n_dg2ycb = 0
-  do k = 1, ntot
-     if (index(testmsg(k), 'G4SWX') > 0) n_g4swx = n_g4swx + 1
-     if (index(testmsg(k), 'DG2YCB') > 0) n_dg2ycb = n_dg2ycb + 1
-  end do
-  call dbg('deep65: about to score, ntot=' // itoa(ntot) // &
-           ' n_g4swx_in_list=' // itoa(n_g4swx) // &
-           ' n_dg2ycb_in_list=' // itoa(n_dg2ycb))
   call timer('deep65b ',0)
   ref0=0.
   do j=1,63
@@ -270,11 +256,6 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mr
      qual=0.
   endif
   decoded(22:22)=c
-
-  ! TEMP diagnostic 2026-09-10.
-  call dbg('deep65: result ip1=' // itoa(ip1) // ' p1=' // itoa(nint(100*p1)) // &
-           ' p2=' // itoa(nint(100*p2)) // ' bias=' // itoa(nint(100*bias)) // &
-           ' qual=' // itoa(nint(qual)) // ' bestmsg="' // trim(testmsg(max(ip1,1))) // '"')
 
 ! Make sure everything is upper case.
   do i=1,22
