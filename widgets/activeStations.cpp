@@ -270,7 +270,7 @@ void ActiveStations::wantedDaysChanged()
 void ActiveStations::showWantedDays()
 {
   auto const n = m_wantedDays.size ();
-  ui->pbWantedDays->setText (n == 0 ? tr ("choose…") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
+  ui->pbWantedDays->setText (n == 0 ? tr ("Choose days …") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
   ui->pbWantedDays->setToolTip (tr ("Days (UTC) whose QSOs count as worked: %1. Click to change.")
                                 .arg (daysText (m_wantedDays)));
   ui->pbWantedDays->setEnabled (ui->cbWantedDays->isChecked ());
