@@ -121,15 +121,17 @@ private slots:
   {
     // It once ended up in another page's grid and was never shown.
     auto const widgets = readWidgets (QStringLiteral (WSJTX_SOURCE_DIR "/widgets/mainwindow.ui"));
-    QString prefix, serial;
+    QString prefix, serial, test;
     int count = 0;
     for (auto const& w : widgets) {
       if (w.name == QLatin1String ("cbJttyMyCallPrefix")) { prefix = w.layout; ++count; }
       if (w.name == QLatin1String ("sbSerialNumber_2")) serial = w.layout;
+      if (w.name == QLatin1String ("pbJttyTest")) test = w.layout;
     }
     QCOMPARE (count, 1);
     QVERIFY (!serial.isEmpty ());
     QCOMPARE (prefix, serial);
+    QCOMPARE (test, serial);   // the temporary Test button, same row
   }
 
   void theGroupIsDeclaredInTheUiFile ()
