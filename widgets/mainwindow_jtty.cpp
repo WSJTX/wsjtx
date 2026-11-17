@@ -1466,11 +1466,17 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
 }
 
 // TEMPORARY, for testing the callsign labels on the waterfall: shown only when
-// My Call is DL3WDG. Remove together with on_pbJttyTest_clicked().
+// the environment variable WSJTX_JTTY_TEST is set (and not 0 or empty).
+// Remove together with on_pbJttyTest_clicked().
+static bool jttyTestEnabled ()
+{
+  auto const value = qEnvironmentVariable ("WSJTX_JTTY_TEST").trimmed ();
+  return !value.isEmpty () && value != QLatin1String ("0");
+}
+
 void MainWindow::updateJttyTestButton()
 {
-  ui->pbJttyTest->setVisible (m_config.my_callsign ().trimmed ().toUpper ()
-                              == QStringLiteral ("DL3WDG"));
+  ui->pbJttyTest->setVisible (jttyTestEnabled ());
 }
 
 // Five CQs in one over, each at its own audio frequency, so five stations
@@ -1481,8 +1487,7 @@ void MainWindow::on_pbJttyTest_clicked()
     {"CQ DL3WDG CQ", 1000}, {"CQ K1ABC CQ", 1150},
     {"CQ K2DEF CQ", 1300}, {"CQ DL3ABC CQ", 1540},
     {"CQ K1JT CQ", 1590}};      // 50 Hz from DL3ABC: their labels overlap
-  if (m_mode != "JTTY"
-      || m_config.my_callsign ().trimmed ().toUpper () != QStringLiteral ("DL3WDG")) return;
+  if (m_mode != "JTTY" || !jttyTestEnabled ()) return;
   if (m_jttyLiveEntryArmed || m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ()) {
     showStatusWarning (tr ("Wait until the current transmission is finished."));
     return;

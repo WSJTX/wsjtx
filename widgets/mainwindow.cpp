@@ -3456,7 +3456,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   if (QDialog::Accepted == m_config.exec ()) {
     cancelPendingFt8Decode ("settings changed");
     updateJttySentExchange ();  // the contest exchange may have changed
-    updateJttyTestButton ();    // shown for one call only
+    updateJttyTestButton ();    // shown only with WSJTX_JTTY_TEST set
     applyFootswitchSettings ();
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
