@@ -27,7 +27,8 @@
 enum { SAMPLE_COUNT = 720000 };
 extern void decoder_engine_test_jt9_signal(int submode, int start_sample, float spread_hz,
                                          float frequency_hz, int16_t *samples);
-extern void decoder_engine_test_jt9_reference(int submode, int windowed, const int16_t *samples, float result[4]);
+extern void decoder_engine_test_jt9_reference(int submode, int windowed, int rows, int count,
+                                         const int16_t *samples, float result[4]);
 
 typedef struct {
   decoder_engine_handle engine;
@@ -178,8 +179,8 @@ static void run_tests(void)
     float windowed[4] = {0};
     prepare(&f, submode);
     if (submode == 0 || submode == 7) {
-      decoder_engine_test_jt9_reference(submode, 1, f.samples, windowed);
-      decoder_engine_test_jt9_reference(submode, 0, f.samples, f.reference);
+      decoder_engine_test_jt9_reference(submode, 1, 181, SAMPLE_COUNT, f.samples, windowed);
+      decoder_engine_test_jt9_reference(submode, 0, 181, SAMPLE_COUNT, f.samples, f.reference);
       f.compare_reference = 1;
     }
     decode(&f, 1);
@@ -233,6 +234,21 @@ static void run_tests(void)
     f.check_dt = 1;
     f.expected_dt = 0.45f;
     decode(&f, 1);
+    CHECK(decoder_engine_release_input(f.engine, f.request.input_id) == DECODER_OK);
+  }
+
+  /* The GUI's live JT9 decode stops at 173 half-symbols (rows*3456 samples). The slow
+     decode takes its spectra rows (all submodes) and its npts8 (JT9A) from the sample
+     count; compare with the legacy path at that count. */
+  static const struct { int submode, rows; } cuts[] = {{0, 173}, {7, 173}};
+  for (size_t i = 0; i < sizeof cuts / sizeof *cuts; ++i) {
+    prepare(&f, cuts[i].submode);
+    decoder_engine_test_jt9_reference(cuts[i].submode, 0, cuts[i].rows, cuts[i].rows * 3456,
+                                      f.samples, f.reference);
+    f.audio.sample_count = cuts[i].rows * 3456;
+    f.compare_reference = 1;
+    decode(&f, 1);
+    f.compare_reference = 0;
     CHECK(decoder_engine_release_input(f.engine, f.request.input_id) == DECODER_OK);
   }
 

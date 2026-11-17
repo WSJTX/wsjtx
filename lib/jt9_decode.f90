@@ -69,12 +69,16 @@ contains
     integer :: count,half_symbols
 
     count=max(0,min(sample_count,60*12000))
-    half_symbols=min(181,max(0,(count-2048)/3456))
+    ! The live GUI decode gets whole 3456-sample blocks, so half_symbols is its ihsym.
+    half_symbols=min(181,max(0,count/3456))
     call this%release_input()
     if(half_symbols.lt.2) return
     if(.not.any(samples(1:count).ne.0)) return
     if(.not.allocated(this%spectra)) allocate(this%spectra(184,6827))
     call this%spectrum%prepare_spectra(samples,half_symbols,this%spectra,low_sidelobes)
+    ! count/8 is the GUI's npts8, ihsym*nsps/16 (nsps 6912), at the live stops. For a
+    ! whole file it gives downsam9 its full span (capped at 653,184 samples, 54.4 s),
+    ! which a late-DT signal needs.
     call this%decode(callback,this%spectra,samples,receive_frequency,.true.,count/8, &
          search_low,search_low,search_high,tolerance,half_symbols,repeat,depth,9,submode,0)
   end subroutine decode_pcm
