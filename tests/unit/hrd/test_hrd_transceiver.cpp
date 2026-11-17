@@ -601,9 +601,16 @@ private slots:
       {
         QCOMPARE (writes.size (), readback.size () + 1);
         QCOMPARE (writes.front (), QString {"[1] set frequency-hz 10368100055"});
+        if (readback.size () == 2)
+          QCOMPARE (writes.at (1), QString {"[1] set frequency-hz 10368100051"});
         QCOMPARE (writes.back (), "[1] set frequency-hz " + original);
       }
-    QTRY_COMPARE_WITH_TIMEOUT (fixture.state.frequency (), quint64 (10368100000), 2500);
+    QElapsedTimer watchdog;
+    watchdog.start ();
+    while (fixture.state.frequency () != 10368100000 && fixture.failure.isEmpty () && watchdog.elapsed () < 5000)
+      QVERIFY (fixture.poll ());
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QCOMPARE (fixture.state.frequency (), quint64 (10368100000));
     QVERIFY (fixture.server.commands ().contains ("[1] get frequencies"));
     QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
   }
