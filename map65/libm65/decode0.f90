@@ -39,13 +39,6 @@ contains
       nhsym0 = nhsym
       newdat0 = newdat
 
-      ! TEMP diagnostic 2026-09-10 for the missing-final-pass / incomplete-
-      ! data-set investigation.
-      call dbg('decode0: ENTRY at t=' // rtoa(sec_midn()) // &
-               ' nhsym0=' // itoa(nhsym0) // ' newdat0=' // itoa(newdat0) // &
-               ' manualDecodeFlag=' // itoa(manualDecodeFlag) // &
-               ' nagain=' // itoa(nagain) // ' ndiskdat=' // itoa(ndiskdat))
-
       ! newdat is forced to 1 by decode() for every call (manual or
       ! automatic); it does not by itself mean "the live buffers just
       ! finished a fresh accumulation."
