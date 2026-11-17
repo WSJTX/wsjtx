@@ -60,6 +60,13 @@
 !                     An MSK144 decode adds "period" after "message", then
 !                     "training":true when configure's train is still true
 !                     after its window, where the GUI marks the decode ^.
+!                     A WSPR decode carries, between "message" and "pass",
+!                     what wsprd's ALL_WSPR.TXT and wspr_spots.txt lines
+!                     print: "audio_freq", "snr_real", "drift", "wspr_sync",
+!                     "wspr_sync10", "wspr_pass", "wspr_blocksize",
+!                     "wspr_jitter", "wspr_osd", "wspr_hard_errors",
+!                     "wspr_cycles" and "wspr_metric" (lib/streaming_wspr.f90
+!                     states them).
 !   decode_finished   {"v":1,"t":"decode_finished","period_end":"HHMMSS",
 !                      "synced":0,"decoded":14,"average":0}
 !                     The counts of jt9's <DecodeFinished> for the pass that
@@ -67,7 +74,8 @@
 !                     periods averaged), not a count of the decode events
 !                     sent: an FT8 period's early passes are not in them, a
 !                     decode again gives its own pass's, and they are all 0 for
-!                     a final pass not run and for MSK144.
+!                     a final pass not run and for MSK144. wsprd prints no
+!                     counts: a WSPR period's decoded is its decode count.
 !   error             {"v":1,"t":"error","msg":"..."}
 !   error (coded)     {"v":1,"t":"error","code":"configure_parse_error","detail":"..."}
 !   error (version)   {"v":1,"t":"error","code":"unknown_schema_version","got":N}
@@ -499,6 +507,15 @@ module streaming_emit
      real(8) :: trperiod = 60.d0
   end type time_form
 
+  ! A WSPR decode's fields after its message (lib/streaming_wspr.f90):
+  ! audio_freq already formatted, the rest as wsprd's lines print them.
+  type, public :: wspr_marks
+     character(len=32) :: audio_freq = '0.0'
+     real :: snr_real = 0, sync = 0
+     integer :: drift = 0, sync10 = 0, pass = 0, blocksize = 0, jitter = 0
+     integer :: osd = 0, hard_errors = 0, cycles = 0, metric = 0
+  end type wspr_marks
+
   logical, save :: enabled_ = .false.
   ! The form of the decode passes' labels.
   type(time_form), save :: form_
@@ -636,11 +653,10 @@ contains
 
   subroutine streaming_emit_ready()
     if (.not. enabled_) return
-    ! Full jt9-internal mode support (FT8/FT4/JT9/JT65/JT65+JT9/JT4/FST4/
-    ! FST4W/Q65/MSK144), Echo, JTTY and FreqCal. Modes outside this set (e.g.,
-    ! wsprd C2 streaming, map65 I/Q) may extend this list later.
+    ! modes: the modes a configure decodes, jt9's ten, Echo, JTTY, FreqCal
+    ! and WSPR; encodes: the modes pack and render encode.
     call put_('{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W",' // &
-       '"Q65","MSK144","ECHO","JTTY","FREQCAL"],' // &
+       '"Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],' // &
        '"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144",' // &
        '"ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}')
   end subroutine streaming_emit_ready
@@ -655,10 +671,11 @@ contains
   !   msg       : decoded message text (gets JSON-escaped + trimmed)
   !   training  : an MSK144 decode made while training
   !   form      : the label's form, for a line outside the decode passes
+  !   wspr      : a WSPR decode's fields
   !   the rest  : what jt9's line shows beyond the decode (the schema above)
   subroutine streaming_emit_decode(mode_str, nutc, snr, dt, freq, msg, utc_is_hhmmss, &
        training, ap, sync, flags, q, avg, copied, period, spread, superfox, text_width, &
-       form)
+       form, wspr)
     character(len=*), intent(in) :: mode_str
     integer,          intent(in) :: nutc
     integer,          intent(in) :: snr
@@ -672,6 +689,7 @@ contains
     logical, optional, intent(in) :: copied, superfox
     real, optional, intent(in) :: spread
     type(time_form), optional, intent(in) :: form
+    type(wspr_marks), optional, intent(in) :: wspr
 
     character(len=8)   :: time_str
     character(len=320) :: msg_escaped
@@ -706,6 +724,18 @@ contains
          marks = marks // ',"submode":"' // achar(iachar('A') + submode_) // '"'
     if (present(period) .and. .not. present(training)) marks = marks // ',"period":' // int_text_(period)
     if (present(spread)) marks = marks // ',"spread":' // real_text_(spread)
+    if (present(wspr)) marks = marks // ',"audio_freq":' // trim(wspr%audio_freq)    &
+         // ',"snr_real":' // real_text_(wspr%snr_real)                               &
+         // ',"drift":' // int_text_(wspr%drift)                                      &
+         // ',"wspr_sync":' // real_text_(wspr%sync)                                  &
+         // ',"wspr_sync10":' // int_text_(wspr%sync10)                               &
+         // ',"wspr_pass":' // int_text_(wspr%pass)                                   &
+         // ',"wspr_blocksize":' // int_text_(wspr%blocksize)                         &
+         // ',"wspr_jitter":' // int_text_(wspr%jitter)                               &
+         // ',"wspr_osd":' // int_text_(wspr%osd)                                     &
+         // ',"wspr_hard_errors":' // int_text_(wspr%hard_errors)                     &
+         // ',"wspr_cycles":' // int_text_(wspr%cycles)                               &
+         // ',"wspr_metric":' // int_text_(wspr%metric)
     if (.not. present(training)) then
        if (pass_ .gt. 0) marks = marks // ',"pass":' // int_text_(pass_)
     end if
@@ -1276,11 +1306,12 @@ contains
 
   ! The protocol's name for a mode number, or the number.
   function streaming_emit_mode_name(mode) result(name)
-    use streaming_control, only: MODE_FREQCAL, MODE_ECHO
+    use streaming_control, only: MODE_FREQCAL, MODE_ECHO, MODE_WSPR
     integer, intent(in) :: mode
     character(len=12)   :: name
     select case (mode)
     case (MODE_FREQCAL); name = 'FREQCAL'
+    case (MODE_WSPR); name = 'WSPR'
     case (4);       name = 'JT4'
     case (5);       name = 'FT4'
     case (8);       name = 'FT8'

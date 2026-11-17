@@ -215,6 +215,9 @@ Mode modeOf (QString const& name)
   if ("fst4-60" == name)
     return {inSamples ("FST4+FST4W/210115_0058.wav"), with (fst4, {{"nfa", 1000}, {"nfb", 1400}}), 60 * SampleRate,
             "FST4", 60, false, 187};
+  if ("wspr" == name)
+    return {inSamples ("WSPR/150426_0918.wav"), {{"mode", "WSPR"}, {"utc", "09:18:00"}, {"depth", 3}},
+            120 * SampleRate, "WSPR", 120, false, 396};
   return {};
 }
 
@@ -1595,6 +1598,8 @@ private slots:
     QTest::newRow ("fst4 file") << QString {"fst4"} << false << 1 << 0 << false;
     QTest::newRow ("fst4w file") << QString {"fst4w"} << false << 1 << 0 << false;
     QTest::newRow ("fst4-60 live low sidelobes") << QString {"fst4-60"} << true << 1 << 0 << true;
+    QTest::newRow ("wspr live") << QString {"wspr"} << true << 1 << 0 << false;
+    QTest::newRow ("wspr file") << QString {"wspr"} << false << 1 << 0 << false;
   }
 
   void periodRowsMatchTheGui ()
@@ -2196,6 +2201,7 @@ private slots:
     QTest::newRow ("msk144") << QString {"msk144"} << QStringList {"apply"};
     QTest::newRow ("fast JT9") << QString {"fastjt9"} << QStringList {"apply"};
     QTest::newRow ("jtty") << QString {"jtty"} << QStringList {"apply"};
+    QTest::newRow ("wspr") << QString {"wspr"} << QStringList {"apply"};
   }
 
   void equalizedRowsMatchTheGui ()
@@ -2598,6 +2604,7 @@ private slots:
     QTest::newRow ("jt65jt9 off") << QString {"jt65jt9"} << QString {"off"} << false;
     QTest::newRow ("jtty apply") << QString {"jtty"} << QString {"apply"} << true;
     QTest::newRow ("jtty off") << QString {"jtty"} << QString {"off"} << false;
+    QTest::newRow ("wspr apply") << QString {"wspr"} << QString {"apply"} << true;
   }
 
   void preparedAudioMatchesTheGui ()
@@ -2942,7 +2949,8 @@ private slots:
                              Each {"jt9 file", "jt9", false, 1}, Each {"jt65 file", "jt65", false, 1},
                              Each {"jt65jt9 file", "jt65jt9", false, 1}, Each {"q65 live", "q65", true, 1},
                              Each {"fst4 file", "fst4", false, 1}, Each {"fst4w file", "fst4w", false, 1},
-                             Each {"msk144 live", "msk144", true, 1}, Each {"jtty", "jtty", true, 1}})
+                             Each {"msk144 live", "msk144", true, 1}, Each {"jtty", "jtty", true, 1},
+                             Each {"wspr live", "wspr", true, 1}})
       for (auto prepared : {false, true})
         QTest::newRow (prepared ? qPrintable (QString {each.name} + " prepared_audio") : each.name)
           << QString {each.mode} << each.live << each.periods << prepared;

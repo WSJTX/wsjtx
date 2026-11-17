@@ -60,8 +60,9 @@ module streaming_control
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
-  ! WSPR, Echo, Tune, Fox and SuperFox, which only encode requests name, have
-  ! no jt9 mode number either.
+  ! WSPR, Echo, Tune, Fox and SuperFox have no jt9 mode number either:
+  ! encode requests name all five, and configure selects WSPR and Echo by
+  ! name only, as JTTY.
   integer, parameter, public :: MODE_WSPR = 1001
   integer, parameter, public :: MODE_ECHO = 1002
   integer, parameter, public :: MODE_TUNE = 1003
@@ -262,6 +263,11 @@ module streaming_control
      ! in Fox mode starts a new caller list (lib/ft8_engine_kernel.f90).
      logical                :: fox_callers_clear_set    = .false.
      logical                :: fox_callers_clear        = .false.
+     ! wspr_hash_clear true empties the WSPR decoder's hash table and
+     ! deletes <-a>/hashtable.txt, as the GUI's Erase WSPR hashtable does,
+     ! once, at the frame's place in the stream (lib/streaming_wspr.f90).
+     logical                :: wspr_hash_clear_set      = .false.
+     logical                :: wspr_hash_clear          = .false.
      logical                :: q65_callers_remove_set   = .false.
      logical                :: q65_callers_remove_out_of_range = .false.
      integer                :: q65_callers_remove_count = 0
@@ -681,9 +687,10 @@ contains
           int_val = mode_string_to_int(trim(str_val))
           if (upper_(trim(str_val)) .eq. 'JTTY') int_val = MODE_JTTY
           if (upper_(trim(str_val)) .eq. 'FREQCAL') int_val = MODE_FREQCAL
-          ! Echo decodes by name only, as JTTY: MODE_ECHO, the name its
-          ! renders take, has no jt9 mode number.
+          ! Echo and WSPR decode by name only, as JTTY: MODE_ECHO and
+          ! MODE_WSPR, the names their renders take, have no jt9 mode number.
           if (upper_(trim(str_val)) .eq. 'ECHO') int_val = MODE_ECHO
+          if (upper_(trim(str_val)) .eq. 'WSPR') int_val = MODE_WSPR
           if (int_val .ge. 0) then
              cfg%mode_set = .true.
              cfg%mode     = int_val
@@ -1146,6 +1153,16 @@ contains
        if (ok) then
           cfg%fox_callers_clear_set = .true.
           cfg%fox_callers_clear     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"wspr_hash_clear"', 'wspr_hash_clear', 'bool',        &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"wspr_hash_clear"', lval, ok)
+       if (ok) then
+          cfg%wspr_hash_clear_set = .true.
+          cfg%wspr_hash_clear     = lval
        end if
     end if
 

@@ -21,13 +21,30 @@ With no file argument, wsjt-codec runs a session on its standard input and outpu
 
 With no `-p`, or `-p 60`, a session starts with 15 s periods with no mode option, 7.5 s with `-5` and 30 s with `-k`; otherwise it keeps `-p`'s period, 60 s by default, so `-8` starts FT8 with 60 s periods. Pass no mode option. The mode options and the decoder options set starting values only; `-M`, `-U` and `-E` do not apply to a session. The codec checks the starting values once, after `ready`. Send the mode, the period and the decoder settings in `configure`.
 
+### WSPR files
+
+```
+wsjt-codec -2 [-d DEPTH] [-O MHZ] [-a PATH] FILE ...
+```
+
+`-2` (`--wspr`) decodes each file as `wsprd` decodes it, with the same code: it prints `wsprd`'s lines and `<DecodeFinished>`, appends to `ALL_WSPR.TXT`, rewrites `wspr_spots.txt`, and reads and rewrites `hashtable.txt` in `-a`, byte for byte as `wsprd` with the options below, starting from a fresh `-a`. (The codec reads its FFTW wisdom, `jt9_wisdom.dat`, from `-a` first; other modes' runs add to it.)
+
+- A file follows `wsprd`'s rule. A name containing `.wav` is a 12 kHz, 16-bit mono WAV with a 44-byte header, decoded as WSPR-2; otherwise a name containing `.c2` is a `.c2` file as WSJT-X writes it, which carries its own dial frequency and WSPR type. The lines take their date and time from the `YYMMDD_HHMM` before the suffix.
+- `-d` maps to `wsprd`'s options as WSJT-X maps its decoding depth, by the low three bits: 1 (the default) `-qB`, 2 `-C 500 -o 4`, 3 `-C 500 -o 4 -d`, and 0 or 4 to 7 none.
+- `-O` (`--dial`) is the dial frequency in MHz, `wsprd`'s `-f`, default 0, which gives the audio frequency in MHz, as when WSJT-X decodes a file it opens. A `.c2` file's own dial frequency wins.
+- The period is 120 s; a `-p` other than 120 is refused.
+- `-q` leaves out `<DecodeFinished>`.
+- The codec writes `timer.out` and saves `jt9_wisdom.dat` in `-a`, and not `wsprd`'s `wspr_timer.out` or `wspr_wisdom.dat`.
+- A file `wsprd` cannot read stops the codec there, with `wsprd`'s message and status 1 (and gfortran's `STOP 1` on standard error).
+- With no file, `-2` starts a session in [WSPR](#wspr) with 120 s periods, as `-8` starts one in FT8; send the mode in `configure`.
+
 ## Environment
 
 Set `OMP_STACKSIZE=10M` in the codec's environment, as WSJT-X sets it for its decoder. Without it the decoders' OpenMP threads get the default stack, and on Linux each thread's copy of the decoders' thread-local arrays, about 2.7 MB, comes out of that stack, leaving about 5.5 MiB of the usual 8 MiB.
 
 ## Directories and files
 
-- `-a`: the codec reads its FFTW wisdom, `jt9_wisdom.dat`, from here at the start and saves it here; it writes `timer.out` here in every session; MSK144 training writes its `.pcoeff` files here; the reference-spectrum equalization reads and writes `refspec.dat` here, WSJT-X's file and format; JT4 and JT65 read `CALL3.TXT` from here; Q65 keeps its caller history, `tsil.3q`, here in the `na_vhf`, `ww_digi`, `arrl_digi` and `q65_pileup` activities and can append to `q65_decodes.txt`; FST4W reads and rewrites `fst4w_calls.txt` here. Keep it across runs.
+- `-a`: the codec reads its FFTW wisdom, `jt9_wisdom.dat`, from here at the start and saves it here; it writes `timer.out` here in every session; MSK144 training writes its `.pcoeff` files here; the reference-spectrum equalization reads and writes `refspec.dat` here, WSJT-X's file and format; JT4 and JT65 read `CALL3.TXT` from here; Q65 keeps its caller history, `tsil.3q`, here in the `na_vhf`, `ww_digi`, `arrl_digi` and `q65_pileup` activities and can append to `q65_decodes.txt`; FST4W reads and rewrites `fst4w_calls.txt` here; WSPR loads its hash table from `hashtable.txt` here before the session's first WSPR decode and rewrites it after every WSPR period, wsprd's file and format ([WSPR](#wspr)). Keep it across runs.
 - `-t`: the decoders' temporary files, such as `decoded.txt`, and the side files `houndcallers.txt`, `avemsg.txt` and `red.dat`, which also come as lines ([Side outputs and labels](#side-outputs-and-labels)).
 - `-r`: `ALLCALL7.TXT`, the call list the multithreaded FT8 decoder loads. Without it the codec writes `ALLCALL7.TXT is too short or broken?` to standard error.
 - The working directory: JT4 can write `fort.77` there, and a file named `rx_messages.txt` there is a test hook: the FT8 decoder returns its lines as decodes, and JT65+JT9 decodes nothing while it is there. Start each codec in a working directory of its own.
@@ -68,12 +85,12 @@ This section follows a decode session from its first configure to its exit statu
 - A configure changes only the keys it carries, with the exceptions below; every other setting keeps its value.
 - A configure is applied whole or not at all. A declined one sends one `error` line and changes nothing, its label included.
 - A configure is checked against the mode it would leave the stream in, including values carried from earlier frames. `configure_range_error` names the first refused key, and its `mode` is the mode the frame would leave; the stream stays in the mode it had.
-- `trperiod` must be a finite number above 0 and at most 1800 (`invalid_trperiod`). JT9, JT4, JT65 and JT65+JT9 decode only at a `trperiod` of 60, fast JT9 (`fast` true) and FreqCal only at 5, 10, 15 or 30, fast JT9 in submodes E to H, and ECHO only at 3 (`configure_range_error`). The keys checked, in order: `fast` in another mode than JT9, `trperiod`, then fast JT9's `submode`.
+- `trperiod` must be a finite number above 0 and at most 1800 (`invalid_trperiod`). JT9, JT4, JT65 and JT65+JT9 decode only at a `trperiod` of 60, fast JT9 (`fast` true) and FreqCal only at 5, 10, 15 or 30, fast JT9 in submodes E to H, ECHO only at 3, and WSPR only at 120 (`configure_range_error`). The keys checked, in order: `fast` in another mode than JT9, `trperiod`, then fast JT9's `submode`.
 - An accepted configure has no reply, and neither do `flush`, `discontinuity` and `halt`. The lines that follow them are those of the decoding they cause.
 - Keys the codec does not know are ignored, so a misspelled key is not reported. `pack` and `render` refuse keys they do not know.
 - Write integer keys as plain JSON integers: `1500`, not `1500.0` or `1.5e3`. A number in another form is not reported, and the key is ignored or misread; `nutc` is the exception, and a number in another form there declines the frame with `configure_type_error`. Other numbers are plain decimals too, except the elements of `phase_eq`, which may carry exponents.
 - A configure that carries `mode` or `trperiod`, even with the values in force, resets each of `nfa`, `nfb` and `ntol` that it does not carry. `nfa` and `nfb` return to their values at the start of the session (`-L` and `-H`, 200 and 4000 Hz by default); `ntol` returns to the mode's default: 100 Hz in FST4W, 20 in JT65+JT9 and JTTY, 10 in Q65, 50 in FreqCal and fast JT9 and 1000 in the other modes. An `ntol` carried in the same frame is capped at 100 in FST4W and at 1000 in the other modes but JTTY, and Q65 and JT65+JT9 take 10 and 20 whatever it says. Send `nfa`, `nfb` and `ntol` with every configure that carries `mode` or `trperiod`.
-- A configure that carries `mode` without `trperiod` also sets the mode's default period: 15 s for FT8, 7.5 s for FT4, 30 s for MSK144, 3 s for ECHO and 60 s for the other modes, which FreqCal and fast JT9 refuse, so send `trperiod` with `"mode":"FREQCAL"` and with fast JT9's `mode`. A configure that carries `mode` without `fast` sets `fast` false, so send `fast` with every fast JT9 configure that carries `mode`. A configure that enters fast JT9, one that carries `"mode":"JT9"` with `fast` true (as choosing JT9 with Fast on) or turns `fast` on (as WSJT-X's Fast check box), sets the receive and the transmit frequency to 700, as WSJT-X sets Rx Freq and Tx Freq, unless it carries `rxfreq` (`tx_audio_offset_hz` for the transmit one). A `fast` true in fast JT9 without `mode` enters nothing and resets neither frequency nor `ntol`, as WSJT-X keeps Rx Freq and F Tol on a submode change; one that carries only `trperiod` keeps the frequencies and resets `ntol` to 50 by the rule above. WSJT-X's Fast check box keeps F Tol, where the codec's frame that turns `fast` on carries `trperiod` and so resets `ntol` to 50: send `ntol`.
+- A configure that carries `mode` without `trperiod` also sets the mode's default period: 15 s for FT8, 7.5 s for FT4, 30 s for MSK144, 3 s for ECHO, 120 s for WSPR and 60 s for the other modes, which FreqCal and fast JT9 refuse, so send `trperiod` with `"mode":"FREQCAL"` and with fast JT9's `mode`. A configure that carries `mode` without `fast` sets `fast` false, so send `fast` with every fast JT9 configure that carries `mode`. A configure that enters fast JT9, one that carries `"mode":"JT9"` with `fast` true (as choosing JT9 with Fast on) or turns `fast` on (as WSJT-X's Fast check box), sets the receive and the transmit frequency to 700, as WSJT-X sets Rx Freq and Tx Freq, unless it carries `rxfreq` (`tx_audio_offset_hz` for the transmit one). A `fast` true in fast JT9 without `mode` enters nothing and resets neither frequency nor `ntol`, as WSJT-X keeps Rx Freq and F Tol on a submode change; one that carries only `trperiod` keeps the frequencies and resets `ntol` to 50 by the rule above. WSJT-X's Fast check box keeps F Tol, where the codec's frame that turns `fast` on carries `trperiod` and so resets `ntol` to 50: send `ntol`.
 - Two groups of keys each carry one setting, and a frame that carries any key of a group replaces the whole setting, so send each group whole: `depth_level`, `q65_maxiters_level`, `use_averaging`, `deep_ap_search` and `q65_auto_clear_average`; and `contest_type`, `single_decode`, `vhf_features`, `noise_blanker_level` and `q65_pileup`. The keys of the group that the frame leaves out become 0, false or none (`noise_blanker_level` -3). A `contest_type` of `q65_pileup` sets `q65_pileup` too unless the frame carries it.
 - `depth` and the first group are two forms of one setting: a frame that carries both is declined with `configure_type_error`, key `depth`. `depth_level` and `q65_maxiters_level` in one frame must agree in their low two bits (`configure_type_error`, key `q65_maxiters_level`).
 - A configure that carries `mycall` without `my_call_standard`, or `his_call` without `his_call_standard`, sets the flag from the call: true for a call FT8 sends unchanged in every standard message, CQ included (upper case, as WSJT-X sends it, with no leading Q; a trailing /R or /P allowed, /M or /MM not), false for an empty or nonstandard one.
@@ -133,8 +150,8 @@ Send `busy_events` true, and keep the deadlines WSJT-X's watchdog keeps:
 | Status | When |
 |---|---|
 | 0 | After `halt` or the end of input, once the last period's lines are out; also after `-v` and `--help` |
-| 1 | A bad session header (one `error` line with `msg` instead of `code`), a frame longer than 43,200,000 bytes (`frame_too_large`), no memory to buffer or queue the input (`out_of_memory`), no memory for the decoder's buffer (an `error` line with `msg`, before `ready`), or a fatal JTTY error |
-| 2 | An invalid command-line value (stderr only), or `-9`, `-4`, `-6`, or `-6` with `-9`, and a `-p` other than 60 (`configure_range_error` in place of `ready`) |
+| 1 | A bad session header (one `error` line with `msg` instead of `code`), a frame longer than 43,200,000 bytes (`frame_too_large`), no memory to buffer or queue the input (`out_of_memory`), no memory for the decoder's buffer (an `error` line with `msg`, before `ready`), or a fatal JTTY error; with `-2` and files, an `-a` that is not a usable directory or a file `wsprd` cannot read (`wsprd`'s message on stderr) |
+| 2 | An invalid command-line value (stderr only), or `-9`, `-4`, `-6`, or `-6` with `-9`, and a `-p` other than 60 (`configure_range_error` in place of `ready`); `-2` with a `-p` other than 120 (stderr only) |
 
 - After an `out_of_memory` raised while queuing input for the decoder, and after JTTY's fatal errors, the status is not guaranteed to be 1.
 - Once the output queue runs ([Spectrum rows and equalization](#spectrum-rows-and-equalization)), an exit by a runtime error, or by a stop in code the codec shares with WSJT-X, loses the lines still queued, decodes included.
@@ -146,6 +163,7 @@ Send `busy_events` true, and keep the deadlines WSJT-X's watchdog keeps:
 - Once `spectrum`, `ref_spectrum` or `prepared_audio` has been on, the output queue holds up to 20 rows (about 0.7 MB) and up to 16 MiB of other lines ([Spectrum rows and equalization](#spectrum-rows-and-equalization)), and its writer thread has a 256 KiB stack and, on Linux, its own copy of the thread-local arrays.
 - Once a JTTY session has decoded audio, the codec keeps the last 180 s of it for [JTTY review](#jtty-review) in a buffer of 4,320,000 bytes, allocated whole at its first sample, and a review in progress holds a copy of the audio it reviews, up to as much again.
 - Once a session has decoded both MSK144 and a period mode that runs OpenMP threads, it holds a second pool of those threads, each with its copy.
+- Once a session has decoded WSPR, it holds about 4.2 MB for the rest of it: the hash table (0.6 MB), the period's I/Q and what subtraction leaves of it (1 MB), the subtraction's buffers (1.1 MB), the decoder's spectra (0.7 MB) and its transform's buffers (0.7 MB). Each WSPR decode also allocates about 12 MB of FFT buffers while it downsamples the period, freed before the decode itself runs.
 - When the codec cannot buffer or queue its input it sends `out_of_memory` and exits. When it cannot copy a pass's audio for the decoder it skips the pass (`pass_skipped`, reason `memory`), on file audio too; live, fast JT9 tries again at its next block and skips only at its last, and from a file, where its first try is its last, it skips at once.
 - On an 18-core arm64 Mac, the session under [A first session](#a-first-session) peaked at 121 MB resident in a fresh process, and at 268 MB with `multithreaded_ft8` true.
 
@@ -205,7 +223,7 @@ These configure keys carry WSJT-X's settings and state. Send the values WSJT-X w
 
 - Live audio and timing: `live_audio` is WSJT-X's distinction between live audio and a file. `decode_after_eme_delay` is its "Decode after EME delay": a configure that carries it, `mode` or `trperiod` sets the EME delay to 2.5 s while `decode_after_eme_delay` is true and to 0 while it is false, and `eme_delay_seconds`, when sent, wins.
 - Decoder progress: `busy_events` turns on the `busy`, `pass_progress` and `planning` lines, which tell a slow decode from a hung one as WSJT-X's watchdog does.
-- Decoding again: `nagain_flag` true asks once to decode the last period again. On live audio it is refused while the decoder is busy (`decode_again_unavailable`), as WSJT-X's Decode button is; send it again after a `decode_finished`. MSK144, Echo, JTTY and FreqCal keep no period to decode again; in JTTY, WSJT-X's Decode button is a [JTTY review](#jtty-review): send `jtty_review`.
+- Decoding again: `nagain_flag` true asks once to decode the last period again. On live audio it is refused while the decoder is busy (`decode_again_unavailable`), as WSJT-X's Decode button is; send it again after a `decode_finished`. MSK144, Echo, JTTY, FreqCal and WSPR keep no period to decode again; in JTTY, WSJT-X's Decode button is a [JTTY review](#jtty-review): send `jtty_review`.
 - Averages: `clear_average` is WSJT-X's Clear Avg, for JT4, JT65, JT65+JT9 and Q65, and acts only on the next decode that runs; in ECHO it clears Echo's averages instead, at its next measurement ([Echo keys](#echo-keys)).
 - MSK144: `short_messages` and `swl` are WSJT-X's "Sh" and "SWL" check boxes; `train` is its "Measure phase response", reported by `msk144_trained`, after which `train` is false; `phase_eq` holds the five coefficients its Equalization Tools apply (all zeros, the default, is no equalization). Each is in force in every mode until another configure sets it.
 - JT4 and JT65: `min_width` is JT4's; `min_sync` is JT4's, JT65's and JT65+JT9's, and in fast JT9 only its sign counts: below 0 a decode returns up to 50 lines, otherwise 2, as in WSJT-X; `n_2pass` and `aggressive` (WSJT-X's Aggressive, 0 to 10) are JT65's and JT65+JT9's; `jt65_ap_on` is JT65's; `n_trials` is the trial count of JT65's soft-decision decoder.
@@ -214,6 +232,7 @@ These configure keys carry WSJT-X's settings and state. Send the values WSJT-X w
 - The multithreaded FT8 decoder: `multithreaded_ft8` selects it, and only it reads `ft8_cycles`, `ft8_rxf_sensitivity`, `ft8_threads`, `ft8_low_threshold`, `ft8_subpass`, `ap_my_call`, `hide_ft8_duplicates`, `enable_dxc_search`, `wide_dxc_search`, `hound_mode`, `multi_instance`, `skip_tx1`, `nagain_filter`, `stop_hint`, `candthin_threshold` and `dt_center_seconds`, and the station state `last_tx_seconds_ago`, `currently_txing`, `mode_changed`, `sec_band_changed` and `delay_units`. `ft8_decoder_start` sets its pass schedule. An `ft8_threads` outside 0 to 24 declines a configure in FT8 (`configure_range_error`), single-threaded too.
 - SuperFox: `superfox_mode` and `even_sequence` drive SuperFox decoding, and `date` reaches only the SuperFox decoder.
 - Fox: `fox_callers_clear` is WSJT-X's Fox reset of the caller list ([Side outputs and labels](#side-outputs-and-labels)).
+- WSPR: `wspr_hash_clear` is WSJT-X's Erase WSPR hashtable ([WSPR](#wspr)).
 - Displays and equalization: `spectrum`, `low_sidelobes` (which also windows slow JT9's and JT65+JT9's symbol spectra), `ref_spectrum` and `ref_spectrum_clear` ([Spectrum rows and equalization](#spectrum-rows-and-equalization)).
 - Saved audio: `prepared_audio` sends back the audio after the receive chain, for the files WSJT-X's Save Decoded and Save All write ([Spectrum rows and equalization](#spectrum-rows-and-equalization)).
 - Q65: `max_drift_hz` sets Q65's drift search; `q65_pileup` (or a `contest_type` of `q65_pileup`) is WSJT-X's Q65 Pileup activity; `q65_callers_clear` and `q65_callers_remove` edit the pileup list as WSJT-X's Erase and Ctrl-click do ([Side outputs and labels](#side-outputs-and-labels)).
@@ -233,7 +252,7 @@ It received this; lines that begin `wsjt-codec:` came from stderr, which the har
 
 ```
 wsjt-codec: header ok (fmt=0 ch=1 rate=12 kHz)
-{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}
+{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}
 wsjt-codec: pass nzhsym=41 samples=141696 depth=3 cycles=3 multithreaded=F live=F again=F emedelay=0.0
 {"v":1,"t":"decode","mode":"FT8","time":"133430","snr":17,"dt":0.254999995,"freq":2571,"message":"W1FC F5BZB -08","ap":0,"pass":41}
 {"v":1,"t":"decode","mode":"FT8","time":"133430","snr":15,"dt":-0.0649999976,"freq":2157,"message":"WM3PEN EA6VQ -09","ap":0,"pass":41}
@@ -395,7 +414,7 @@ It sent the session header, then:
 The codec's standard output:
 
 ```text
-{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}
+{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}
 {"v":1,"t":"encoded","id":1,"mode":"FT8","msgsent":"CQ K1ABC FN42","tones":[3,1,4,0,6,5,2,0,0,0,0,0,0,0,0,1,0,0,5,4,7,6,7,0,4,6,0,6,0,2,1,5,3,3,4,3,3,1,4,0,6,5,2,7,3,6,0,1,1,0,4,7,5,1,7,0,0,7,3,3,4,7,4,5,4,5,5,1,3,3,5,4,3,1,4,0,6,5,2],"fallback":false,"spacing":1,"freq":1500,"rate":12000,"samples":151681}
 {"v":1,"t":"pcm","id":1,"seg":0,"seq":0,"data":"AAABAAYACQD//+b/zv/T/wcA[43,668 base64 characters elided]"}
 [8 lines elided: pcm, seq 1 to 8, 16,384 samples each]
@@ -549,40 +568,61 @@ Echo measures the echoes of the station's own transmissions, as WSJT-X's Echo mo
 
 ## WSPR
 
-In this release wsjt-codec encodes WSPR but does not decode it: `ready` lists WSPR in `encodes`, not in `modes`. `wsprd -0` decodes it. wsprd is not in the codec's tarball: each release ships it in a tarball of its own, `wsjtx-<release>-<target>-wsprd.tar.gz`.
+wsjt-codec decodes WSPR as WSJT-X does, through wsprd's own decoder, and encodes it ([Slot modes](#slot-modes)). A configure with `"mode":"WSPR"` (case aside; it has no integer code) starts it. This is WSPR-2, WSJT-X's WSPR.
 
-- `wsprd -0` reads the same session header and frames on its standard input and writes one JSON object a line on its standard output; its names are under [wsprd control messages](#wsprd-control-messages) and the tables that follow. Its diagnostics go to standard error.
-- A process decodes one period. Send the header, a `configure` with `date`, `time` and `dialfreq` (and `wspr_type` 15 for WSPR-15), the period's audio from its start, then `halt`; closing standard input does the same as `halt`.
-- wsprd decodes once its input ends, on the first 114 s of audio it received (1,368,000 samples), or 912 s for WSPR-15; less is `insufficient_audio`.
-- `ready` comes before wsprd reads the header. A header it cannot take, or input that ends inside a frame's 5-byte header, ends it with exit status 1 and a message on standard error only. An unknown option, or an `-a` it cannot read and write, prints its usage text on standard output in place of `ready`, and exits 1. Rely on the exit status, not on an `error` line.
-- Its errors end it as [wsprd error codes](#wsprd-error-codes) states. A decoded period sends its `decode` lines, in order of frequency, then `decode_finished`, and wsprd exits with status 0.
-- A `decode` line's `freq` is `dialfreq` plus the signal's audio frequency, in MHz, and its `time` is the configure's `time`.
-- With `-0`, the configure's `dialfreq` and `wspr_type` stand in for `-f` and `-m`. wsprd keeps its files in `-a`, the working directory by default, and stops if it cannot write there: it appends its decodes to `ALL_WSPR.TXT`, reads and rewrites `hashtable.txt`, the calls and grids it has decoded, for resolving hashed calls, and writes `wspr_spots.txt`, `wspr_timer.out` and `wspr_wisdom.dat`. Keep `-a` across runs; two wsprd processes in one `-a` write the same files.
-- WSJT-X runs wsprd with `-a` set to its data directory and the options of its decode depth: `-qB` at Fast, `-C 500 -o 4` at Normal, and `-C 500 -o 4 -d` at Deep. They apply with `-0` too.
+### WSPR periods
 
-### A wsprd session
+- `trperiod` must be 120, the default a configure that carries `"mode":"WSPR"` sets; another is declined (`configure_range_error`, key `trperiod`).
+- Each period decodes once, on the decode thread as the other period modes decode: from live audio at WSJT-X's stop, 396 half-symbols (1,368,576 samples, 114.05 s into the period), and from a file once the period is in. The decoder reads the period's first 1,368,000 samples, the 114 s wsprd reads from WSJT-X's WAV file, so live and file decode the same audio. Its `decode` lines carry `"pass":396`.
+- `depth` is WSJT-X's decode depth, with WSJT-X's wsprd options: 1 (Fast) `-qB`, 2 (Normal) `-C 500 -o 4`, 3 (Deep) `-C 500 -o 4 -d`, read from the depth's low three bits as WSJT-X reads it, so 9 is 1; low bits 0 or 4 to 7, wsprd's defaults.
+- The `decode` lines come in wsprd's order, ascending frequency, then the period's `decode_finished`, its `decoded` the number of them. With `busy_events`, `busy` true comes before them and `busy` false after, as for the other period modes.
+- A live period the busy decoder would not run is skipped (`pass_skipped`, reason `busy`), as is a period the decoder finds no memory for (reason `memory`), and a period cut short (a `flush`, `halt` or the end of input) decodes what it has, zeros after it, as wsprd decodes a short WAV file; its `pass` is then the half-symbols counted, at most 181, as in the other period modes but FT8.
+- WSPR keeps no period to decode again: `nagain_flag` is refused (`decode_again_unavailable`), as WSJT-X's Decode button does nothing in WSPR.
+- The hash table, which resolves the calls in type 3 messages (`<K1ABC> FN42AX 37`), lives for the session: the codec loads it from `hashtable.txt` in `-a` before the session's first WSPR decode and writes it back, in wsprd's format, after every WSPR period it decodes, so it carries from period to period and, through `-a`, from session to session. An edit of the file during a session is overwritten at the next WSPR period. `wspr_hash_clear` true empties the table and deletes the file, as WSJT-X's Erase WSPR hashtable, at the configure's place in the stream: after the decodes before it, so the next period's type 3 calls show as `<...>` until their stations' type 1 or 2 messages are decoded again.
+- The codec writes no `ALL_WSPR.TXT` or `wspr_spots.txt` and never reads or writes `wspr_wisdom.dat`: the logs are the client's, from the `decode` lines, and wsprd's FFTs see the codec's `jt9_wisdom.dat` ([Directories and files](#directories-and-files)). Its decodes equal wsprd's in a fresh `-a`.
+- With `spectrum`, `ref_spectrum` or `prepared_audio`, WSPR sends the rows and lines every period mode sends, and decodes the equalized audio, as WSJT-X equalizes before it saves the WAV file wsprd reads ([Spectrum rows and equalization](#spectrum-rows-and-equalization)).
 
-This session ran `wsprd -0` on [`samples/WSPR/150426_0918.wav`](https://wsjtx.github.io/wsjtx/samples/WSPR/150426_0918.wav), a 120 s WSPR recording, from an empty working directory. It sent the session header, then:
+### Rebuilding wsprd's lines
 
-1. a control frame: `{"t":"configure","date":"150426","time":"0918","dialfreq":14.0956,"wspr_type":2}`;
-2. 120 audio frames of 12,000 samples, the file's 1,440,000 samples;
-3. a control frame: `{"t":"halt"}`.
+A WSPR `decode` line carries every number wsprd's lines print, so a client can write WSJT-X's logs byte for byte. With C's printf (rounding half to even on the binary value, as glibc and macOS do; see [Displaying dt and spread](#displaying-dt-and-spread)):
+
+- the dial frequency D, in MHz, is the double wsprd reads from `-f`: WSJT-X passes the dial as `%.6f` MHz, so parse that text, or divide an integer dial in Hz by 1e6;
+- F = D + `audio_freq`/1e6, in double: `audio_freq` parses to the exact value wsprd adds;
+- date6 is the UTC date of the period's start, YYMMDD, which the client knows and the codec does not; time4 is the first four digits of `time`.
+
+```
+ALL_WSPR.TXT    "%6s %4s %3.0f %5.2f %11.7f  %-22s %2d %5.2f %2d %2d %4d %2d %3d %5u %5d\n"
+                date6, time4, snr_real, dt, F, message, drift, wspr_sync, wspr_pass,
+                wspr_blocksize, wspr_jitter, wspr_osd, wspr_hard_errors, wspr_cycles, wspr_metric
+wspr_spots.txt  "%6s %4s %3d %3.0f %4.1f %10.6f  %-22s %2d %5u %4d\n"
+                date6, time4, wspr_sync10, snr_real, dt, F, message, drift, wspr_cycles, wspr_jitter
+```
+
+wsprd appends to `ALL_WSPR.TXT` and rewrites `wspr_spots.txt` with each period's lines. Its standard output line is `"%4s %3.0f %4.1f %10.6f %2d  %-s \n"` of time4, `snr_real`, `dt`, F, `drift` and `message`. Read `snr_real`, `dt` and `wspr_sync` back into single precision first, as wsprd holds them; their 9 digits read back as those values.
+
+### A WSPR session
+
+This session sent [`samples/WSPR/150426_0918.wav`](https://wsjtx.github.io/wsjtx/samples/WSPR/150426_0918.wav), a 120 s WSPR recording, to the codec in a fresh `-a`, with `OMP_STACKSIZE=10M`: the session header, then a control frame `{"t":"configure","mode":"WSPR","depth":3,"nutc":918}`, 120 audio frames of 12,000 samples, and `{"t":"halt"}`.
 
 It received:
 
 ```text
-{"v":1,"t":"ready","modes":["WSPR"],"protocol":1}
-{"v":1,"t":"decode","mode":"WSPR","date":"150426","time":"0918","snr":-9,"dt":1.1,"freq":14.097046,"drift":0,"message":"ND6P DM04 30"}
-{"v":1,"t":"decode","mode":"WSPR","date":"150426","time":"0918","snr":-15,"dt":0.1,"freq":14.097060,"drift":0,"message":"W5BIT EL09 17"}
+{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}
+{"v":1,"t":"decode","mode":"WSPR","time":"091800","snr":-9,"dt":1.13333321,"freq":1446,"message":"ND6P DM04 30","audio_freq":1446.283203125,"snr_real":-8.51409531,"drift":0,"wspr_sync":0.683369577,"wspr_sync10":6,"wspr_pass":1,"wspr_blocksize":1,"wspr_jitter":0,"wspr_osd":0,"wspr_hard_errors":0,"wspr_cycles":1,"wspr_metric":612,"pass":396}
 [6 lines elided]
-{"v":1,"t":"decode","mode":"WSPR","date":"150426","time":"0918","snr":-25,"dt":0.7,"freq":14.097194,"drift":0,"message":"W3BI FN20 30"}
-{"v":1,"t":"decode_finished","date":"150426","time":"0918"}
+{"v":1,"t":"decode","mode":"WSPR","time":"091800","snr":-27,"dt":0.706666708,"freq":1594,"message":"W3BI FN20 30","audio_freq":1594.432373046875,"snr_real":-26.6666451,"drift":0,"wspr_sync":0.143378228,"wspr_sync10":1,"wspr_pass":1,"wspr_blocksize":1,"wspr_jitter":0,"wspr_osd":0,"wspr_hard_errors":30,"wspr_cycles":362,"wspr_metric":-101,"pass":396}
+{"v":1,"t":"decode_finished","period_end":"091800","synced":0,"decoded":8,"average":0}
 ```
 
-wsprd exited with status 0, and left `ALL_WSPR.TXT`, `hashtable.txt`, `wspr_spots.txt`, `wspr_timer.out` and `wspr_wisdom.dat` in its working directory.
+The codec exited with status 0 and left `hashtable.txt` in `-a`.
 
-- wsprd decoded the first 114 s of the 120 s it received, after `halt`.
-- `ND6P DM04 30` at 14.097046 MHz is about 1446 Hz of audio above the 14.0956 MHz dial.
+- With a dial of 14.0956 MHz (`-f 14.095600`) and the date 150426, F for the first line is 14.0956 + 1446.283203125/1e6, and the line rebuilds as wsprd's `ALL_WSPR.TXT` line for the same file:
+
+```text
+150426 0918  -9  1.13  14.0970463  ND6P DM04 30            0  0.68  1  1    0  0   0     1   612
+```
+
+- `W3BI FN20 30`'s `wspr_metric` is -101, as wsprd prints it.
 
 ## Names
 
@@ -612,10 +652,10 @@ A control frame's `t` names the message.
 
 | Key | Type | Use | Start | Meaning |
 | --- | --- | --- | --- | --- |
-| `mode` | string or integer | most clients | FT8 | The mode to decode: one of the names `ready` lists in `modes`, case aside, or its integer code: FT8 8, FT4 5, JT9 9, JT65 65, JT65+JT9 74, JT4 4, FST4 240, FST4W 241 (242 is FST4W with the command line's `-Y`: its decodes show an unresolved hashed call as its hash22 value, `<NNNNNNN>`), Q65 66, MSK144 144. JTTY, ECHO and FREQCAL have none. |
+| `mode` | string or integer | most clients | FT8 | The mode to decode: one of the names `ready` lists in `modes`, case aside, or its integer code: FT8 8, FT4 5, JT9 9, JT65 65, JT65+JT9 74, JT4 4, FST4 240, FST4W 241 (242 is FST4W with the command line's `-Y`: its decodes show an unresolved hashed call as its hash22 value, `<NNNNNNN>`), Q65 66, MSK144 144. JTTY, ECHO, FREQCAL and WSPR have none. |
 | `trperiod` | number | most clients | 15 (`-p`) | The period, seconds: a finite number above 0 and at most 1800. It starts at 15 s with no mode option (see Command line). |
 | `submode` | string or integer | most clients | A (`-b`) | The submode, where the mode has one: an upper-case letter from A (only its first character is read), or 0 for A and so on. |
-| `depth` | integer | most clients | 1 (`-d`) | Decoding depth, 1 to 3. |
+| `depth` | integer | most clients | 1 (`-d`) | Decoding depth, 1 to 3; in WSPR, WSJT-X's wsprd options for it ([WSPR](#wspr)). |
 | `nfa` | integer | most clients | 200 (`-L`) | Lowest audio frequency searched, Hz. |
 | `nfb` | integer | most clients | 4000 (`-H`) | Highest audio frequency searched, Hz. |
 | `rxfreq` | integer | most clients | 1500 (`-f`) | Receive audio frequency, Hz; it sets the transmit frequency too, unless `tx_audio_offset_hz` does. Entering FreqCal moves only the receive frequency to 1500, and entering fast JT9 moves both to 700, unless the frame carries the key ([Configure](#configure)). |
@@ -717,6 +757,7 @@ A control frame's `t` names the message.
 | `version` | integer |  | 1 | The frame's schema version; without it, 1. A frame of another is declined (`unknown_schema_version`). |
 | `vhf_features` | boolean |  | false | WSJT-X's VHF features; one of the `contest_type` group. |
 | `wide_dxc_search` | boolean |  | true, false with `-Z` | The multithreaded FT8 decoder's wideband DX call search. |
+| `wspr_hash_clear` | boolean |  | false | true empties WSPR's hash table and deletes `hashtable.txt` in `-a`, as WSJT-X's Erase WSPR hashtable does, once, at the frame's place in the stream ([WSPR](#wspr)); false does nothing. |
 
 ### Request keys
 
@@ -807,9 +848,9 @@ Every line begins with `"v":1` and its `t`. The fields each line can carry follo
 | --- | --- | --- | --- |
 | `mode` | all | string | The mode; JT65+JT9's decodes say JT9 or JT65. |
 | `time` | all | string | The period's label, always six digits. |
-| `snr` | all | integer | SNR, dB. |
+| `snr` | all | integer | SNR, dB; in WSPR what wsprd's `%3.0f` prints of `snr_real`, rounded half to even (wsprd prints `-0` where `snr` is 0 and `snr_real` is negative). |
 | `dt` | all | number | DT, seconds: the decoder's single-precision value to 9 significant digits. In fast JT9 it is the message's start in the period, to 0.1 s, as `fast9` prints it, not a time offset. |
-| `freq` | all | integer | Audio frequency, Hz. |
+| `freq` | all | integer | Audio frequency, Hz; in WSPR `audio_freq` rounded half to even. |
 | `message` | all | string | The message as jt9 prints it, `?` and `OOO` included. |
 | `ap` | FT8, FT4, FST4, FST4W | integer | The N of jt9's aN; 0 for none. |
 | `sync` | JT65, JT4 | string | JT65: `#`, `#*` or `##`; JT4: `*` or `#`. Empty for a candidate jt9 prints without it, whose message is empty too. |
@@ -823,7 +864,19 @@ Every line begins with `"v":1` and its `t`. The fields each line can carry follo
 | `superfox` | SuperFox | boolean | true; a SuperFox decode has none of the fields from `ap` to `spread`. |
 | `text_width` | SuperFox | integer | The columns jt9's line gives the message; SuperFox pads some texts with blanks. |
 | `training` | MSK144 | boolean | true while configure's `train` is still true after its window, where WSJT-X marks the decode ^. |
-| `pass` | all but MSK144 | integer | The half-symbol stop of the pass that decoded it: 41, 46 or 47 for an early FT8 pass; in fast JT9 the block it decoded at, its end in samples over 3,456, and none when a period cut short below one block decodes (its `busy` line's `nzhsym` is then 0). |
+| `audio_freq` | WSPR | number | wsprd's audio frequency, Hz, its single-precision 1500 + f1, written in full, so that a double parse is exact ([Rebuilding wsprd's lines](#rebuilding-wsprds-lines)). |
+| `snr_real` | WSPR | number | wsprd's SNR, dB, to 9 significant digits. |
+| `drift` | WSPR | integer | wsprd's drift, Hz over the transmission, truncated toward zero as wsprd prints it. |
+| `wspr_sync` | WSPR | number | wsprd's sync, to 9 significant digits. |
+| `wspr_sync10` | WSPR | integer | `wspr_spots.txt`'s sync column, wsprd's `(int)(10*sync)` in single precision. |
+| `wspr_pass` | WSPR | integer | The wsprd pass that decoded it, 1 to 3. |
+| `wspr_blocksize` | WSPR | integer | `ALL_WSPR.TXT`'s block size column. |
+| `wspr_jitter` | WSPR | integer | The time jitter, in 375 Hz samples, that decoded it. |
+| `wspr_osd` | WSPR | integer | 1 when the ordered-statistics decoder decoded it, else 0. |
+| `wspr_hard_errors` | WSPR | integer | `ALL_WSPR.TXT`'s hard-error count. |
+| `wspr_cycles` | WSPR | integer | The Fano decoder's cycles over 81, as `ALL_WSPR.TXT` and `wspr_spots.txt` print them. |
+| `wspr_metric` | WSPR | integer | The Fano metric as `ALL_WSPR.TXT` prints it (`%5d` of an unsigned value, so it can be negative). |
+| `pass` | all but MSK144 | integer | The half-symbol stop of the pass that decoded it: 41, 46 or 47 for an early FT8 pass; 396 in WSPR; in fast JT9 the block it decoded at, its end in samples over 3,456, and none when a period cut short below one block decodes (its `busy` line's `nzhsym` is then 0). |
 
 #### `decode_finished`
 
@@ -831,8 +884,8 @@ Every line begins with `"v":1` and its `t`. The fields each line can carry follo
 | --- | --- | --- |
 | `period_end` | string | The period's label. |
 | `synced` | integer | jt9's synced count for the pass that ended the period. |
-| `decoded` | integer | jt9's decoded count for that pass, not a count of the `decode` lines sent. |
-| `average` | integer | jt9's average count; Q65's is 1000 times the even periods averaged plus the odd. All three are 0 for a final not run and for MSK144, fast JT9 and Echo. |
+| `decoded` | integer | jt9's decoded count for that pass, not a count of the `decode` lines sent; in WSPR, whose wsprd prints no counts, the number of its `decode` lines. |
+| `average` | integer | jt9's average count; Q65's is 1000 times the even periods averaged plus the odd. All three are 0 for a final not run and for MSK144, fast JT9 and Echo, and `synced` and `average` in WSPR. |
 
 #### `pass_skipped`
 
@@ -1197,90 +1250,3 @@ The `reason` of a `rejected` line.
 | `invalid_runtime` | JTTY: a native form its context cannot fill. |
 | `encoding_failed` | The encoder produced no frames or audio. |
 | `unavailable` | `jtty_review`: the stream is not in JTTY (`key` `mode`), no audio of the session is kept (`session`), or the picked sample is outside the kept audio (`sample`). |
-
-### wsprd control messages
-
-`wsprd -0` decodes one WSPR period a process from the same session header and frames; it takes 12 kHz mono int16 audio only.
-
-| Message | Meaning |
-| --- | --- |
-| `configure` | Sets the date, time, dial frequency and WSPR type; send it before the audio. |
-| `halt` | Decodes the audio received and ends the session. |
-
-### wsprd keys
-
-The keys of wsprd's `configure`.
-
-| Key | Type | Use | Meaning |
-| --- | --- | --- | --- |
-| `t` | string |  | `configure` or `halt`. |
-| `date` | string |  | The date, "YYMMDD". Required. |
-| `time` | string |  | The period's start, "HHMM". Required. |
-| `dialfreq` | number |  | The dial frequency, MHz. Required. |
-| `wspr_type` | integer |  | 2 for WSPR, 15 for WSPR-15; 2 without it. |
-| `mycall` | string | no effect | Read and not used. |
-| `mygrid` | string | no effect | Read and not used. |
-
-### wsprd output lines
-
-| Line | Meaning |
-| --- | --- |
-| `ready` | Sent at start, before the session header is read: `modes` is ["WSPR"]. |
-| `decode` | One decoded message: date, time, SNR, DT, frequency in MHz, drift and message. |
-| `decode_finished` | The period's decoding is done. |
-| `error` | An error, named by its `code`. |
-
-### wsprd output fields
-
-Each line begins with `"v":1` and its `t`.
-
-#### `ready`
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `modes` | array of strings | ["WSPR"]. |
-| `protocol` | integer | 1. |
-
-#### `decode`
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `mode` | string | WSPR. |
-| `date` | string | configure's `date`, YYMMDD. |
-| `time` | string | configure's `time`, HHMM. |
-| `snr` | integer | SNR, dB. |
-| `dt` | number | DT, seconds, to one decimal. |
-| `freq` | number | The frequency, MHz, to six decimals. |
-| `drift` | integer | The drift. |
-| `message` | string | The message. |
-
-#### `decode_finished`
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `date` | string | configure's `date`. |
-| `time` | string | configure's `time`. |
-
-#### `error`
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `code` | string | The error ([wsprd error codes](#wsprd-error-codes)). |
-| `detail` | string | Free text. |
-| `msg` | string | Free text in place of `code` and `detail`; none of wsprd's errors uses it. |
-
-### wsprd error codes
-
-Each of these but `control_parse_error` ends wsprd with exit status 1.
-
-| Code | Meaning |
-| --- | --- |
-| `frame_too_large` | A control frame longer than 1024 bytes, or an audio frame longer than WSPR-15's 10,944,000 samples. |
-| `frame_read_error` | The input ended inside a frame's body. |
-| `allocation_failed` | Memory or an FFT plan could not be allocated. |
-| `control_parse_error` | A control frame without a string `t`; the frame is skipped. |
-| `odd_audio_frame` | An audio frame with an odd byte count. |
-| `invalid_wspr_type` | A `wspr_type` other than 2 or 15. |
-| `missing_configure` | No configure before `halt` or the end of input. |
-| `incomplete_configure` | The configure lacks `date`, `time` or `dialfreq`. |
-| `insufficient_audio` | Less audio than one period of the configured WSPR type. |

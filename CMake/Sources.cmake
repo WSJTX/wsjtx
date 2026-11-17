@@ -133,6 +133,7 @@ set (jt9_FSRCS
   lib/decoder_ipc_layout.f90
   lib/jt9a.f90
   lib/jt9_stream_stub.f90
+  lib/jt9_wspr_stub.f90
   lib/jt9_version.c
   )
 
@@ -142,11 +143,14 @@ set (wsjt_codec_FSRCS
   lib/jt9a_stub.f90
   lib/streaming_decode.f90
   lib/streaming_jtty_review.f90
+  lib/streaming_wspr.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # stdin helpers: Windows binary mode, terminal check
   lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
   lib/stream_decode.c    # the decode thread, its queue and the stdout writer lock
+  lib/stream_wspr.c      # WSPR through wsprd's decode library (wsprd_decode)
   lib/stream_ft8_backpressure.cpp # the stream's calls into the GUI's FT8 decode scheduler
+  lib/codec_wspr_file.c  # -2: WSPR files through wsprd's run over a file
   lib/jt9_version.c
   )
 
@@ -440,6 +444,7 @@ set (wsjt_FSRCS
   lib/fmtmsg.f90
   lib/foldspec9f.f90
   lib/fftw_tsan.f90
+  lib/fftw_locked.f90
   lib/first_call_tsan.f90
   lib/fftw_wisdom.f90
   lib/four2a.f90
@@ -761,12 +766,17 @@ set (wspr_decoder_CSRCS
   lib/wsprd/tab.c
   )
 
+# wsprd's run over a file and the codec's WSPR calls (wsprd_decode.h), over
+# the decoder above.
+set (wsprd_decode_CSRCS
+  lib/wsprd/wsprd_decode.c
+  )
+
 set (wsprd_CSRCS
   lib/lookup3.c
   lib/wsprd/wsprd.c
   lib/wsprd/nhash.c
   lib/init_random_seed.c
-  lib/wsprd/wsprd_stream.c
   )
 
 set (wsjtx_UISRCS
@@ -827,6 +837,7 @@ set (all_CXXSRCS
 set (all_C_and_CXXSRCS
   ${wsjt_CSRCS}
   ${wsprsim_CSRCS}
+  ${wsprd_decode_CSRCS}
   ${wsprd_CSRCS}
   ${wspr_decoder_CSRCS}
   ${all_CXXSRCS}

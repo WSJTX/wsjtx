@@ -279,7 +279,7 @@ class PackageCliToolsTests(unittest.TestCase):
             "https://github.com/WSJTX/wsjtx/tree/v9.9.9/doc/codec\n\n", readme,
         )
         self.assertIn(
-            "\n\ndoc/codec/ in the source code of this release documents how a client program drives wsprd -0: "
+            "\n\ndoc/codec/ in the source code of this release documents how a client program drives wsjt-codec, WSPR included: "
             "https://github.com/WSJTX/wsjtx/tree/v9.9.9/doc/codec\n\n", self.text("wsjtx-9.9.9-x86_64-macOS-wsprd", "README.txt"),
         )
         for group in ("jt9", "utilities"):

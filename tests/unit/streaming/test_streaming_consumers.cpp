@@ -16,7 +16,6 @@
 namespace
 {
 constexpr quint32 Jt9AudioCapacityBytes = 30u * 60u * 12000u * 2u;
-constexpr quint32 WsprdAudioCapacityBytes = 8u * 114u * 12000u * 2u;
 // FT4's 7.5 s period at 12 kHz.
 constexpr int Ft4PeriodSamples = 90000;
 // FST4's 15 s period at 12 kHz.
@@ -27,7 +26,7 @@ constexpr int Jt9DrainBytes = 4096;
 constexpr int Jt9ControlCapacityBytes = 262144;
 
 constexpr char ReadyLine[] =
-  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1})";
+  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1})";
 constexpr char OddAudioFrameLine[] =
   R"({"v":1,"t":"error","code":"odd_audio_frame","detail":"audio frame length must contain whole int16 samples"})";
 constexpr char ControlFrameTooLargeLine[] =
@@ -174,9 +173,7 @@ ParsedEvents parseEvents (QByteArray const& output)
           auto const requiresDetail =
             code.toString () == "frame_too_large" ||
             code.toString () == "unknown_mode" ||
-            code.toString () == "invalid_trperiod" ||
-            code.toString () == "invalid_wspr_type" ||
-            code.toString () == "insufficient_audio";
+            code.toString () == "invalid_trperiod";
           if (requiresDetail && !event.value ("detail").isString ())
             {
               parsed.error = QString {"coded error is missing detail: %1"}.arg (
@@ -217,19 +214,6 @@ ProcessResult runJt9 (QByteArray const& input, QStringList options = {},
           << "-t" << directory.path ();
   return runProcess (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), options, input,
                      directory.path (), timeoutMs);
-}
-
-ProcessResult runWsprd (QByteArray const& input, int timeoutMs = 30000,
-                        bool closeInput = true)
-{
-  QTemporaryDir directory;
-  if (!directory.isValid ())
-    {
-      return {};
-    }
-  return runProcess (QString::fromUtf8 (WSPRD_EXECUTABLE),
-                     {"-a", directory.path (), "-H", "-0"}, input,
-                     directory.path (), timeoutMs, closeInput);
 }
 
 void verifyCompleted (ProcessResult const& result, int expectedExitCode)
@@ -2329,71 +2313,6 @@ private slots:
       }
   }
 
-  void wsprdDecodesWaveform ()
-  {
-    auto const audio = wavSamples (QString::fromUtf8 (WSPR_ENGINE_WAV), 114 * 12000);
-    QCOMPARE (audio.size (), 2 * 114 * 12000);
-    auto const configure = QByteArray {
-      R"({"t":"configure","date":"260822","time":"1200","dialfreq":14.0956,"wspr_type":2})"};
-    auto const split = 57 * 12000 * 2;
-    auto const result = runWsprd (sessionHeader () + controlFrame (configure)
-      + frame (0x01u, audio.left (split)) + frame (0x01u, audio.mid (split))
-      + controlFrame (R"({"t":"halt"})"), 90000);
-    verifyCompleted (result, 0);
-    auto const events = verifyEvents (result);
-    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
-    QCOMPARE (eventsMatching (events.values, "ready").size (), 1);
-    auto const decodes = eventsMatching (events.values, "decode");
-    QCOMPARE (decodes.size (), 1);
-    auto const decode = decodes.first ();
-    QCOMPARE (decode.value ("mode").toString (), QString {"WSPR"});
-    QCOMPARE (decode.value ("date").toString (), QString {"260822"});
-    QCOMPARE (decode.value ("time").toString (), QString {"1200"});
-    QCOMPARE (decode.value ("message").toString (), QString {"K1ABC FN42 33"});
-    auto const frequency = decode.value ("freq").toDouble (std::numeric_limits<double>::quiet_NaN ());
-    QVERIFY (std::isfinite (frequency) && std::abs (frequency - 14.097120) <= 0.000001);
-    auto const dt = decode.value ("dt").toDouble (std::numeric_limits<double>::quiet_NaN ());
-    QVERIFY (std::isfinite (dt) && std::abs (dt - 0.2) <= 0.1);
-    QVERIFY (decode.value ("snr").isDouble ());
-    QCOMPARE (decode.value ("drift").toInt (99), 0);
-    auto const completions = eventsMatching (events.values, "decode_finished");
-    QCOMPARE (completions.size (), 1);
-    QCOMPARE (completions.first ().value ("date").toString (), QString {"260822"});
-    QCOMPARE (completions.first ().value ("time").toString (), QString {"1200"});
-    QCOMPARE (events.values.first ().value ("t").toString (), QString {"ready"});
-    QCOMPARE (events.values.last ().value ("t").toString (), QString {"decode_finished"});
-  }
-
-  void wsprdRejectsOversizedFrames_data ()
-  {
-    QTest::addColumn<quint32> ("declaredLength");
-    QTest::newRow ("over capacity") << WsprdAudioCapacityBytes + 2u;
-    QTest::newRow ("uint32 max") << std::numeric_limits<quint32>::max ();
-  }
-
-  void wsprdRejectsOversizedFrames ()
-  {
-    QFETCH (quint32, declaredLength);
-    auto const result = runWsprd (sessionHeader () +
-                                  declaredFrame (0x01u, declaredLength));
-    verifyCompleted (result, 1);
-    auto const events = verifyEvents (result);
-    QCOMPARE (eventsMatching (events.values, "error", "frame_too_large").size (), 1);
-    QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
-  }
-
-  void wsprdDispatchesConfigureStructurally ()
-  {
-    auto const configure = QByteArray {
-      R"({"t":"configure","date":"260822","time":"1200","dialfreq":14.0956,"wspr_type":2,"mycall":"halt","mygrid":"FN20"})"};
-    auto const result = runWsprd (sessionHeader () + controlFrame (configure) +
-                                  controlFrame (R"({"t":"halt"})"));
-    verifyCompleted (result, 1);
-    auto const events = verifyEvents (result);
-    QCOMPARE (eventsMatching (events.values, "error", "insufficient_audio").size (), 1);
-    QCOMPARE (eventsMatching (events.values, "error", "missing_configure").size (), 0);
-  }
-
   // Live, the GUI decodes these modes when its half-symbol count reaches the
   // stop point (MainWindow::fixStop), on the audio up to it; from a file it
   // decodes at the stop on the whole period it read.
@@ -2779,19 +2698,6 @@ private slots:
     QCOMPARE (ran.size (), 1);
     QCOMPARE (ran.first ().samples, samples);
     QCOMPARE (ran.first ().emedelay, emedelay);
-  }
-
-  void wsprdRejectsInvalidWsprType ()
-  {
-    auto const configure = QByteArray {
-      R"({"t":"configure","date":"260822","time":"1200","dialfreq":14.0956,"wspr_type":3})"};
-    auto const result = runWsprd (sessionHeader () + controlFrame (configure),
-                                  3000, false);
-    verifyCompleted (result, 1);
-    auto const events = verifyEvents (result);
-    QCOMPARE (eventsMatching (events.values, "error", "invalid_wspr_type").size (), 1);
-    QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
-    QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 0);
   }
 };
 

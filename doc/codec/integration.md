@@ -46,7 +46,7 @@ It prints `20`.
 - To roll back, ship the earlier release's tarball and drive it as its own `doc/codec/` describes.
 - To bundle the codec, ship the tarball's directory as it unpacks; its `README.txt` gives the layout to keep.
 - To fetch the codec at install or first run, download the tarball, check its sha256 and size against `release-manifest.json`, unpack it, and run `-v`.
-- `wsprd`, which decodes WSPR, ships in its own tarball, `wsjtx-$VERSION-$TARGET-wsprd.tar.gz`: pin, bundle or fetch it the same way.
+- The codec decodes WSPR itself (`"mode":"WSPR"`). `wsprd`, which also decodes WSPR from WAV and `.c2` files, still ships in its own tarball, `wsjtx-$VERSION-$TARGET-wsprd.tar.gz`: pin, bundle or fetch it the same way if a client still runs it.
 
 ## Signing and minimum system
 
@@ -69,7 +69,7 @@ Each tarball's `README.txt` gives, for its release and platform, the system the 
 
 ## Directories
 
-- Give each running codec its own `-a`, `-t` and working directory. Keep `-a` across runs: the codec reads its FFTW wisdom from there at the start and saves it there, and MSK144's training and the reference spectrum, `refspec.dat`, go there too. The decoders' temporary files go to `-t`; JT4 can write `fort.77` to its working directory, and a file named `rx_messages.txt` there is a test hook ([Directories and files](interface.md#directories-and-files)).
+- Give each running codec its own `-a`, `-t` and working directory. Keep `-a` across runs: the codec reads its FFTW wisdom from there at the start and saves it there, and MSK144's training, the reference spectrum, `refspec.dat`, and WSPR's hash table, `hashtable.txt`, which resolves type 3 calls from session to session, go there too. The decoders' temporary files go to `-t`; JT4 can write `fort.77` to its working directory, and a file named `rx_messages.txt` there is a test hook ([Directories and files](interface.md#directories-and-files)).
 - The codec only reads `-r`, so codecs can share it. The codec tarball carries `ALLCALL7.TXT`, which the multithreaded FT8 decoder reads from `-r`: point `-r` at the tarball's directory, or copy the file to yours.
 - `CALL3.TXT`, which JT4 and JT65 read from `-a`, is the client's to supply. The source has one at its top level.
 

@@ -31,6 +31,10 @@
 ! calls it (FastDecode.cpp), at the first of its tries (lib/streaming_io.f90)
 ! that finds the decoder free; a busy last try skips the period
 ! (pass_skipped "busy").
+!
+! WSPR decodes once a period, at the final, through lib/streaming_wspr.f90,
+! which owns the session's hash table; wspr_hash_clear is applied here, in
+! stream order, between passes.
 module streaming_decode
   use, intrinsic :: iso_fortran_env, only: int16, int64, error_unit
   use, intrinsic :: iso_c_binding, only: c_double, c_ptr, c_loc, c_f_pointer, &
@@ -55,6 +59,8 @@ module streaming_decode
   use decoder_engine, only: engine_begin_input
   use four2a_patience, only: patience_override
   use streaming_side, only: side_q65_edit, side_fox_clear
+  use streaming_control, only: MODE_WSPR
+  use streaming_wspr, only: wspr_decode, wspr_hash_clear
 
   include 'jt9com.f90'
 
@@ -78,7 +84,7 @@ module streaming_decode
   integer, parameter :: NFSAMPLE = 12000
   character(len=*), parameter, public :: NO_DECODED_PERIOD =                &
        'no decoded period to decode again (none yet or since a ' //         &
-       'mode or period change; MSK144, Echo, JTTY and FreqCal keep none)'
+       'mode or period change; MSK144, Echo, JTTY, FreqCal and WSPR keep none)'
 
   ! A pass's audio: the period's first n samples and, for JT65+JT9, the
   ! symbol spectra.
@@ -118,8 +124,10 @@ module streaming_decode
      ! and q65_callers_remove), applied at its place in the stream.
      logical :: q65_clear = .false.
      character(len=12), allocatable :: q65_remove(:)
-     ! And fox_callers_clear, the Fox caller list's reset.
+     ! And fox_callers_clear, the Fox caller list's reset, and
+     ! wspr_hash_clear, the WSPR hash table's.
      logical :: fox_clear = .false.
+     logical :: wspr_clear = .false.
      ! A line: the lines to write, each ended by a newline.
      character(len=:), allocatable :: line
   end type decode_op
@@ -623,6 +631,7 @@ contains
        if (size(op%q65_remove) .gt. 0) call side_q65_edit(.false., op%q65_remove)
     end if
     if (op%fox_clear) call side_fox_clear()
+    if (op%wspr_clear) call wspr_hash_clear()
     stream_params = op%params
     ! Turned on, busy_events says busy for a final that waits.
     if (op%events_set .and. (op%events .neqv. events)) then
@@ -766,6 +775,12 @@ contains
        call load_work(op%audio, op%k)
        call report_pass(p, op%k)
        call run_decoder(p)
+    else if (op%mode .eq. MODE_WSPR) then
+       call report_pass(p, op%k)
+       call run_wspr(p, op%audio, op%k, op%form)
+       ! No period to decode again: the GUI's Decode button does nothing in WSPR.
+       busy_until = decoder_freed_at(finished_before)
+       return
     else
        call load_work(op%audio, op%k)
        call report_pass(p, op%k)
@@ -885,6 +900,33 @@ contains
     end do
     call streaming_emit_decode_finished(p%nutc, label_hhmmss(p%nmode))
   end subroutine run_fast
+
+  ! WSPR's decode of a period on its first k samples (lib/streaming_wspr.f90),
+  ! as the GUI runs wsprd at its stop: with busy_events its busy line first;
+  ! then its decode lines and the period's decode_finished, which counts
+  ! them, as wsprd's <DecodeFinished> counts nothing. A decoder that cannot
+  ! run (no memory for its buffers or plans) skips the pass, as the other
+  ! period modes do for want of memory.
+  subroutine run_wspr(p, audio, k, form)
+    type(params_block), intent(in) :: p
+    type(pass_audio),   intent(in) :: audio
+    integer,            intent(in) :: k
+    type(time_form),    intent(in) :: form
+    character(len=6) :: label
+    integer :: count
+    if (events) then
+       label = streaming_emit_label(p%nutc, label_hhmmss(p%nmode))
+       call streaming_emit_busy(p%nmode, label, p%nzhsym, logical(p%nagain), .false.)
+       shown = .true.
+    end if
+    call test_hold(p%nzhsym)
+    call wspr_decode(audio%id2, min(k, audio%n), p%ndepth, p%nutc, count)
+    if (count .lt. 0) then
+       call skip_pass(p%nzhsym, .true., 'memory', p, form)
+    else
+       call streaming_emit_decode_finished(p%nutc, label_hhmmss(p%nmode), [0, count, 0])
+    end if
+  end subroutine run_wspr
 
   ! The GUI's Decode button: one pass with nagain over the last decoded
   ! period, with its time and sequence.

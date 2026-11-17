@@ -6,14 +6,12 @@ target_compile_definitions (test_streaming_consumers PRIVATE
   JT65_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/jt65-engine.wav"
   JT9_EXECUTABLE="$<TARGET_FILE:jt9>"
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
-  WSPRD_EXECUTABLE="$<TARGET_FILE:wsprd>"
-  WSPR_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/wspr-engine.wav"
   FST4_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/fst4-engine.wav"
   FST4W_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/fst4w-engine.wav"
   FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav"
   Q65_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/q65-engine.wav"
 )
-set (streaming_consumer_fixtures ft8_engine_wav jt4_engine_wav q65_engine_wav fst4_engine_wav fst4w_engine_wav jt65_engine_wav wspr_engine_wav)
+set (streaming_consumer_fixtures ft8_engine_wav jt4_engine_wav q65_engine_wav fst4_engine_wav fst4w_engine_wav jt65_engine_wav)
 if (WSJT_BUILD_UTILS)
   # sfoxsim writes 000000_000000.wav into its working directory.
   target_compile_definitions (test_streaming_consumers PRIVATE
@@ -39,13 +37,6 @@ set_tests_properties (test_streaming_consumers PROPERTIES
   FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
   ENVIRONMENT "${streaming_consumers_environment}"
 )
-
-add_test (NAME test_streaming_wspr_receive COMMAND test_streaming_consumers wsprdDecodesWaveform)
-set_tests_properties (test_streaming_wspr_receive PROPERTIES
-  LABELS "streaming;runtime;wspr"
-  FIXTURES_REQUIRED wspr_engine_wav
-  TIMEOUT 90
-  ENVIRONMENT "${streaming_consumers_environment}")
 
 # The GUI's decode schedule, apart from the rest of the binary: its sessions
 # wait for the decoder, which the sanitizers slow several times over.
@@ -887,7 +878,8 @@ endfunction ()
 # Source archives omit samples/: the rows need every recording they read.
 set (streaming_spectrum_samples TRUE)
 foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav JT65/JT65B/000000_0004.wav
-    FST4+FST4W/210115_0058.wav MSK144/181211_120500.wav MSK144/181211_120800.wav JTTY/261105_101915_567.wav)
+    FST4+FST4W/210115_0058.wav MSK144/181211_120500.wav MSK144/181211_120800.wav JTTY/261105_101915_567.wav
+    WSPR/150426_0918.wav)
   if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/${sample}")
     set (streaming_spectrum_samples FALSE)
   endif ()
@@ -895,7 +887,7 @@ endforeach ()
 if (streaming_spectrum_samples)
   foreach (row "ft8 live" "ft8 live low sidelobes" "ft8 live and a half" "ft8 file" "ft8 file short" "ft8-mtd file"
       "ft4 live" "ft4 file low sidelobes" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 file" "fst4 file"
-      "fst4w file" "fst4-60 live low sidelobes")
+      "fst4w file" "fst4-60 live low sidelobes" "wspr live" "wspr file")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (rows_${name} "periodRowsMatchTheGui:${row}")
   endforeach ()
@@ -949,7 +941,7 @@ if (streaming_spectrum_samples)
     wsjt_add_spectrum_test (jtty_equal_period_rows_${name} "jttyRowsEqualPeriodRows:${row}")
     wsjt_add_spectrum_test (jtty_near_jtty_spectrum_${name} "jttyRowsNearTheGuisJttySpectrum:${row}")
   endforeach ()
-  foreach (row "ft4" "ft4 apply off apply" "msk144" "fast JT9" "jtty")
+  foreach (row "ft4" "ft4 apply off apply" "msk144" "fast JT9" "jtty" "wspr")
     string (TOLOWER "${row}" name)
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${name}")
     wsjt_add_spectrum_test (equalized_${name} "equalizedRowsMatchTheGui:${row}")
@@ -963,7 +955,7 @@ if (streaming_spectrum_samples)
   wsjt_add_spectrum_test (equalized_decodes equalizedDecodesMatchTheFilteredInput)
   wsjt_add_spectrum_test (file_input_never_equalized fileInputIsNeverEqualized)
   foreach (row "ft8 apply" "ft8 apply without rows" "ft8 off" "ft8 measure" "msk144 apply" "msk144 off" "jt65jt9 off"
-      "jtty apply" "jtty off")
+      "jtty apply" "jtty off" "wspr apply")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (prepared_audio_${name} "preparedAudioMatchesTheGui:${row}")
   endforeach ()
@@ -983,7 +975,7 @@ if (streaming_spectrum_samples)
     wsjt_add_spectrum_test (keys_${name} "newKeysDeclineBadValues:${row}")
   endforeach ()
   foreach (row "ft8 file" "ft8-mtd file" "ft4 live" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 live"
-      "fst4 file" "fst4w file" "msk144 live" "jtty")
+      "fst4 file" "fst4w file" "msk144 live" "jtty" "wspr live")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (decodes_${name} "decodesUnchangedByRows:${row}")
     wsjt_add_spectrum_test (decodes_${name}_prepared_audio "decodesUnchangedByRows:${row} prepared_audio")
@@ -1121,6 +1113,64 @@ foreach (row IN LISTS streaming_echo_rows)
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_echo_environment}"
     TIMEOUT ${streaming_echo_timeout})
+endforeach ()
+
+# WSPR against wsprd, run as the GUI runs it (its depth options, -a and -f)
+# on the same audio: samples/WSPR/150426_0918.wav and periods mixed from the
+# codec's WSPR renders in noise of a fixed seed; the equalized row takes the
+# GUI's equalized samples from spectrum_gui_model.
+add_executable (test_streaming_wspr test_streaming_wspr.cpp)
+add_dependencies (test_streaming_wspr wsjt-codec wsprd spectrum_gui_model)
+target_link_libraries (test_streaming_wspr Qt5::Test)
+target_compile_definitions (test_streaming_wspr PRIVATE
+  WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
+  WSPRD_EXECUTABLE="$<TARGET_FILE:wsprd>"
+  SPECTRUM_GUI_MODEL="$<TARGET_FILE:spectrum_gui_model>")
+set (streaming_wspr_environment "QT_FORCE_STDERR_LOGGING=1")
+set (streaming_wspr_timeout 300)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (streaming_wspr_timeout 1200)
+  list (APPEND streaming_wspr_environment "QTEST_FUNCTION_TIMEOUT=1200000")
+endif ()
+if (WSJT_ENABLE_TSAN)
+  list (APPEND streaming_wspr_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()
+set (streaming_wspr_rows typeThreeResolvesAcrossPeriods typeThreeResolvesAcrossSessions
+  "hashClear:between periods" "hashClear:false keeps it" "hashClear:deletes the file"
+  "hashClear:before the first decode" readyListsWspr "oversizedFrameEndsTheSession:over capacity"
+  "oversizedFrameEndsTheSession:uint32 max" haltAsAValueConfigures cutShortPeriodDecodesWhatItHas
+  clientsIgnoringWsprFieldsStillWork equalizedDecodesMatchWsprd populatedWisdom depthsDecodeDifferently)
+set (streaming_wspr_cases mix dense close drift weak)
+# Source archives omit samples/.
+if (EXISTS "${CMAKE_SOURCE_DIR}/samples/WSPR/150426_0918.wav")
+  list (APPEND streaming_wspr_environment "WSJT_SAMPLES_DIR=${CMAKE_SOURCE_DIR}/samples")
+  list (APPEND streaming_wspr_cases golden)
+  list (APPEND streaming_wspr_rows decodeAgainIsRefused busyLinesFrameTheDecode commandLineStartsWspr
+    "periodRules:trperiod 60" "periodRules:trperiod 30 later" "periodRules:trperiod 120"
+    "periodRules:no trperiod" "periodRules:lower case" "periodRules:integer code")
+endif ()
+foreach (case IN LISTS streaming_wspr_cases)
+  foreach (depth 1 2 3)
+    list (APPEND streaming_wspr_rows "decodesMatchWsprd:${case} live depth ${depth}"
+      "decodesMatchWsprd:${case} file depth ${depth}" "linesRebuildWsprdsFiles:${case} depth ${depth}")
+  endforeach ()
+endforeach ()
+# QtTest exits 0 for a data tag it does not have: each row requires its PASS.
+foreach (row IN LISTS streaming_wspr_rows)
+  string (REGEX REPLACE "[^A-Za-z0-9]+" "_" name "${row}")
+  string (REPLACE ":" "\\(" pattern "${row}")
+  if (row MATCHES ":")
+    string (APPEND pattern "\\)")
+  else ()
+    string (APPEND pattern "\\(\\)")
+  endif ()
+  add_test (NAME test_streaming_wspr_${name} COMMAND test_streaming_wspr "${row}")
+  set_tests_properties (test_streaming_wspr_${name} PROPERTIES
+    LABELS "streaming;runtime"
+    ENVIRONMENT "${streaming_wspr_environment}"
+    TIMEOUT ${streaming_wspr_timeout}
+    PASS_REGULAR_EXPRESSION "PASS   : TestStreamingWspr::${pattern}"
+    FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
 endforeach ()
 
 # Side outputs and labels. Each side event against the file jt9

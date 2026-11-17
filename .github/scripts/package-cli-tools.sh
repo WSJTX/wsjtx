@@ -426,21 +426,21 @@ describe() {
   local writes="writes working files to its data directory (-a) and its temporary directory (-t), both the current directory by default; run it where it can write, or point -a and -t at writable directories."
   case "$1" in
     jt9)
-      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the stream codec without the shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files."
+      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the stream codec without the shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files and WSPR .c2 files."
       echo "jt9 ${writes}"
       ;;
     codec)
-      echo "wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files."
+      echo "wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files and WSPR .c2 files."
       echo "wsjt-codec ${writes}"
       echo "Its multithreaded FT8 decoder reads ALLCALL7.TXT, included here, from its read-only data directory (-r, default the current directory); point -r at this directory, where this README is."
       echo
       echo "doc/codec/ in the source code of this release documents how a client program drives wsjt-codec: https://github.com/WSJTX/wsjtx/tree/v${VERSION}/doc/codec"
       ;;
     wsprd)
-      echo "wsprd decodes WSPR from WAV files, and from framed PCM audio on standard input (-0)."
+      echo "wsprd decodes WSPR from WAV and .c2 files. wsjt-codec, in its own tarball, decodes WSPR on its stream and from files with -2."
       echo "wsprd writes working files to its data directory (-a, default the current directory) and stops if it cannot write there."
       echo
-      echo "doc/codec/ in the source code of this release documents how a client program drives wsprd -0: https://github.com/WSJTX/wsjtx/tree/v${VERSION}/doc/codec"
+      echo "doc/codec/ in the source code of this release documents how a client program drives wsjt-codec, WSPR included: https://github.com/WSJTX/wsjtx/tree/v${VERSION}/doc/codec"
       ;;
     utilities)
       echo "Utilities for testing decoders: wsprcode and encode77 encode messages; ft4sim, jt4sim, jt65sim, cwsim and sfoxsim write simulated signals to WAV files in the current directory, so run them where they can write."

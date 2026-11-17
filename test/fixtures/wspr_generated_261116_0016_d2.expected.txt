@@ -1,0 +1,2 @@
+0016 -29  0.2  14.097102  0  PJ4/W9XYZ 23 
+<DecodeFinished>
