@@ -490,12 +490,25 @@ int HRDTransceiver::get_dropdown (int dd)
   auto reply = send_command ("get dropdown-text {" + dd_name + "}");
   auto colon_index = reply.indexOf (':');
 
-  if (colon_index < 0 || reply.left (colon_index).trimmed () != dd_name)
+  QString selection;
+  if (colon_index >= 0)
+    {
+      if (reply.left (colon_index).trimmed () != dd_name)
+        {
+          return -1;
+        }
+      selection = reply.mid (colon_index + 1).trimmed ();
+    }
+  else if (dd == mode_A_dropdown_ || dd == mode_B_dropdown_)
+    {
+      // some HRD setups answer a mode query with just the selection
+      selection = reply.trimmed ();
+    }
+  else
     {
       return -1;
     }
-
-  return dropdowns_.value (dropdown_names_.value (dd)).indexOf (reply.mid (colon_index + 1).trimmed ());
+  return dropdowns_.value (dropdown_names_.value (dd)).indexOf (selection);
 }
 
 void HRDTransceiver::set_dropdown (int dd, int value)

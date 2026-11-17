@@ -33,6 +33,9 @@ namespace
       missing_split_off,
       unknown_mode,
       wrong_dropdown_name,
+      bare_mode_reply,
+      empty_mode_reply,
+      unlisted_bare_mode_reply,
       modes_only_cw
     };
 
@@ -45,6 +48,7 @@ namespace
       QStringList dropdowns;
       QMap<QString, QStringList> selections;
       QMap<QString, QString> values;
+      bool bare_replies {false};
     };
 
     void set_capabilities (Capabilities const& capabilities)
@@ -224,7 +228,8 @@ namespace
             {
               auto const selections = capabilities_.selections.value (name);
               if (command == "get dropdown-list {" + name + '}') return selections.join (',');
-              if (command == "get dropdown-text {" + name + '}') return name + ':' + capabilities_.values.value (name);
+              if (command == "get dropdown-text {" + name + '}')
+                return (capabilities_.bare_replies ? QString {} : name + ':') + capabilities_.values.value (name);
               auto wire_name = name;
               wire_name.replace (' ', '~');
               for (int i = 0; i < selections.size (); ++i)
@@ -266,11 +271,15 @@ namespace
               || Profile::missing_split_off == profile_) return "Main Mode,Split";
           if (Profile::modes_only_cw == profile_
               || Profile::unknown_mode == profile_
-              || Profile::wrong_dropdown_name == profile_) return "Main Mode";
+              || Profile::wrong_dropdown_name == profile_
+              || Profile::bare_mode_reply == profile_
+              || Profile::empty_mode_reply == profile_
+              || Profile::unlisted_bare_mode_reply == profile_) return "Main Mode";
           return {};
         }
       if ("get dropdown-list {Main Mode}" == command)
         {
+          if (Profile::bare_mode_reply == profile_) return "CW,USB";
           return Profile::unknown_mode == profile_ ? "CW,Custom" : "CW";
         }
       if ("get dropdown-list {Split}" == command)
@@ -289,6 +298,9 @@ namespace
         {
           if (Profile::unknown_mode == profile_) return "Main Mode:Custom";
           if (Profile::wrong_dropdown_name == profile_) return "Wrong Mode:CW";
+          if (Profile::bare_mode_reply == profile_) return "USB";
+          if (Profile::empty_mode_reply == profile_) return {};
+          if (Profile::unlisted_bare_mode_reply == profile_) return "LSB";
           return "Main Mode:CW";
         }
       if ("get dropdown-text {Split}" == command)
@@ -485,6 +497,12 @@ private slots:
       << int (ScriptedHRDServer::Profile::unknown_mode) << int (Transceiver::UNK);
     QTest::newRow ("wrong-dropdown-name")
       << int (ScriptedHRDServer::Profile::wrong_dropdown_name) << int (Transceiver::UNK);
+    QTest::newRow ("bare-mode-reply")
+      << int (ScriptedHRDServer::Profile::bare_mode_reply) << int (Transceiver::USB);
+    QTest::newRow ("empty-mode-reply")
+      << int (ScriptedHRDServer::Profile::empty_mode_reply) << int (Transceiver::UNK);
+    QTest::newRow ("unlisted-bare-mode-reply")
+      << int (ScriptedHRDServer::Profile::unlisted_bare_mode_reply) << int (Transceiver::UNK);
   }
 
   void toleratesIncompleteDropdowns ()
@@ -704,6 +722,28 @@ private slots:
     QVERIFY (failed_read > first_switch);
     QVERIFY (commands.lastIndexOf ("[1] " + restore) > failed_read);
     QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void bareRepliesAreAcceptedOnlyForModeDropdowns ()
+  {
+    for (bool const bare : {false, true})
+      {
+        HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+        ScriptedHRDServer::Capabilities capabilities;
+        capabilities.dropdowns = QStringList {"Main Mode", "Split"};
+        capabilities.selections["Main Mode"] = QStringList {"CW", "USB"};
+        capabilities.selections["Split"] = QStringList {"Off", "On"};
+        capabilities.values["Main Mode"] = "USB";
+        capabilities.values["Split"] = "On";
+        capabilities.bare_replies = bare;
+        fixture.server.set_capabilities (capabilities);
+        QVERIFY (fixture.start ());
+        QVERIFY (fixture.poll ());
+        QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::USB);
+        QCOMPARE (fixture.transceiver->state ().split (), !bare);
+        fixture.transceiver->stop ();
+        QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+      }
   }
 
   void rediscoversModeOrderAfterRestart ()
