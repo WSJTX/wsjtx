@@ -449,13 +449,16 @@ namespace EmeCabrillo
         auto const once = band + '|' + call + '|' + qso.grid;
         if (seen.contains (once))
           {
+            // A repeat scores nothing, but it stays in the entry: the checker
+            // cross-matches logs, and a QSO missing from ours counts against
+            // the station that logged it.
             qso.dupe = true;
             result.dupes << qso;
-            // still listed for its grid: the filled or typed one may be wrong
-            if (qso.filled || qso.entered || !qso.grid2.isEmpty ()) result.need_grid << qso;
-            continue;
           }
-        seen << once;
+        else
+          {
+            seen << once;
+          }
         // also when the logs disagree about the grid: the user settles it
         if (qso.filled || qso.entered || !qso.grid2.isEmpty ()) result.need_grid << qso;
         result.qsos << qso;
@@ -472,10 +475,13 @@ namespace EmeCabrillo
     Score result;
     QHash<QString, QSet<QString>> grids;
     QHash<QString, int> count;
+    int scored = 0;
     for (auto const& qso : qsos)
       {
+        if (qso.dupe) continue;         // in the entry, worth nothing
         grids[qso.band] << qso.grid;
         ++count[qso.band];
+        ++scored;
       }
     for (auto i = grids.cbegin (); i != grids.cend (); ++i)
       {
@@ -485,7 +491,7 @@ namespace EmeCabrillo
     std::sort (result.bands.begin (), result.bands.end (), [] (BandScore const& a, BandScore const& b) {
         return band_order (a.band) < band_order (b.band);
       });
-    result.points = 100 * qsos.size ();
+    result.points = 100 * scored;
     result.claimed = qint64 (result.points) * result.multipliers;
     return result;
   }

@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <QtTest>
 #include <QApplication>
 #include <QCheckBox>
@@ -266,10 +268,14 @@ void TestEmeCabrillo::review_points ()
   QVERIFY (in["G4CCH0900"].filled);
 
   QCOMPARE (t.modes, (QMap<QString, int> {{"MFSK", 6}, {"FT8", 1}, {"Q65", 1}}));
-  QVERIFY (!in.contains ("OK1KIR1100"));                // a dupe of the FT8 QSO
+  QVERIFY (in.contains ("OK1KIR1100"));                // in the entry
+  QVERIFY (in["OK1KIR1100"].dupe);                      // a repeat of the FT8 QSO, scored 0
   auto const no_ft8 = EmeCabrillo::select (records, weekend, "DL3WDG", "JN68", {}, fixes, false, {"MFSK", "Q65"});
   QCOMPARE (no_ft8.mode_out, 1);
-  QCOMPARE (no_ft8.qsos.size (), t.qsos.size ());       // the Q65 QSO counts instead
+  QCOMPARE (no_ft8.qsos.size (), t.qsos.size () - 1);   // the FT8 QSO goes entirely
+  QHash<QString, EmeCabrillo::Qso> kept;
+  for (auto const& qso : no_ft8.qsos) kept[qso.call + qso.time] = qso;
+  QVERIFY (!kept["OK1KIR1100"].dupe);                   // so the Q65 QSO counts instead
   QCOMPARE (EmeCabrillo::mode_name ({{"MODE", "ssb"}}), QString {"SSB"});
 
   EmeCabrillo::Header header;
@@ -495,13 +501,13 @@ void TestEmeCabrillo::dialog_keeps_typed_grids ()
   };
   {
     EmeCabrilloDialog dialog {&settings, adif, "DL3WDG", "JN68LM", weekend, directory.path ()};
-    QCOMPARE (dialog.selection ().qsos.size (), 2);                 // W5LUA EM13, K1JT
+    QCOMPARE (dialog.selection ().qsos.size (), 3);                 // W5LUA EM13, its dupe, K1JT
     QVERIFY (dialog.findChild<QLineEdit *> ("grid_W5LUA"));         // the dupe has a row
     auto msk = dialog.findChild<QCheckBox *> ("mode_MSK144");
     QVERIFY (msk);
     QCOMPARE (msk->text (), QString {"MSK144 (1)"});
     msk->setChecked (false);                                        // meteor scatter, not EME
-    QCOMPARE (dialog.selection ().qsos.size (), 1);
+    QCOMPARE (dialog.selection ().qsos.size (), 2);                 // the dupe is in the entry
     QCOMPARE (dialog.selection ().mode_out, 1);
     type (dialog, "W5LUA", "EM12");
     type (dialog, "G4CCH", "IO91");
@@ -682,15 +688,16 @@ void TestEmeCabrillo::band_and_mode_codes ()
 void TestEmeCabrillo::selects_the_entry ()
 {
   auto const s = EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), contest_days (), "dl3wdg", "JN68LM");
-  QCOMPARE (calls (s.qsos), (QStringList {"K1JT", "K1JT", "W5LUA", "OK1KIR", "PA3DZL", "W5LUA"}));
+  QCOMPARE (calls (s.qsos), (QStringList {"K1JT", "K1JT", "W5LUA", "OK1KIR", "PA3DZL", "K1JT", "W5LUA"}));
   QStringList bands, modes;
   for (auto const& qso : s.qsos) {bands << qso.band; modes << qso.mode;}
-  QCOMPARE (bands, (QStringList {"1.2G", "144", "1.2G", "1.2G", "50", "1.2G"}));
-  QCOMPARE (modes, (QStringList {"DG", "CW", "DG", "DG", "PH", "DG"}));
+  QCOMPARE (bands, (QStringList {"1.2G", "144", "1.2G", "1.2G", "50", "1.2G", "1.2G"}));
+  QCOMPARE (modes, (QStringList {"DG", "CW", "DG", "DG", "PH", "DG", "DG"}));
   QCOMPARE (s.qsos[3].grid, QString {"JO70"});          // from the QSO between the weekends
   QVERIFY (s.qsos[3].filled);
   QCOMPARE (s.dupes.size (), 1);
   QCOMPARE (s.dupes[0].time, QString {"0200"});
+  QVERIFY (s.qsos[5].dupe);                             // in the entry, scored below
   QCOMPARE (calls (s.no_grid), QStringList {"G4CCH"});
   QCOMPARE (calls (s.need_grid), (QStringList {"OK1KIR", "G4CCH"}));
   QCOMPARE (s.satellite, 1);
@@ -700,7 +707,7 @@ void TestEmeCabrillo::selects_the_entry ()
 
   auto const one = EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), contest_days (),
                                         "DL3WDG", "JN68", {"1.2G"});
-  QCOMPARE (one.qsos.size (), 4);
+  QCOMPARE (one.qsos.size (), 5);      // four scored, plus the dupe
   QCOMPARE (one.other, 2);
   QCOMPARE (one.bands, (QSet<QString> {"1.2G", "144", "50"}));   // still offered
   QVERIFY (EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), {}, "DL3WDG", "JN68").qsos.isEmpty ());
@@ -713,7 +720,7 @@ void TestEmeCabrillo::typed_grids ()
   fixes[EmeCabrillo::record_key (records[7])] = "io91";      // G4CCH
   fixes[EmeCabrillo::record_key (records[5])] = "JO60";      // OK1KIR: wins over the grid found
   auto const s = EmeCabrillo::select (records, contest_days (), "DL3WDG", "JN68", {}, fixes);
-  QCOMPARE (s.qsos.size (), 7);
+  QCOMPARE (s.qsos.size (), 8);        // seven scored, plus the dupe
   QVERIFY (s.no_grid.isEmpty ());
   QHash<QString, EmeCabrillo::Qso> by_call;
   for (auto const& qso : s.qsos) by_call[qso.call] = qso;
@@ -753,6 +760,16 @@ void TestEmeCabrillo::score_and_text ()
   QVERIFY (lines.contains ("CLAIMED-SCORE: 3600"));
   QVERIFY (lines.contains ("LOCATION: DX"));
   QVERIFY (lines.contains ("QSO:  1.2G DG 2026-10-31 0100 DL3WDG        JN68 K1JT          FN20"));
+
+  // A repeat goes in the entry, because the checker cross-matches logs and a
+  // QSO missing from ours counts against the station that logged it. It adds
+  // nothing to the score.
+  int qso_lines = 0;
+  for (auto const& line : lines) if (line.startsWith ("QSO:")) ++qso_lines;
+  QCOMPARE (qso_lines, int (s.qsos.size ()));           // the dupe is one of them
+  QVERIFY (std::any_of (lines.cbegin (), lines.cend (), [] (QString const& line) {
+        return line.startsWith ("QSO:") && line.contains (" 0200 ");}));
+  QCOMPARE (score.points, 100 * int (s.qsos.size () - 1));   // but is not scored
   for (auto const& line : lines) QVERIFY2 (!line.startsWith ("NAME"), qPrintable (line));
 
   auto const one = EmeCabrillo::select (EmeCabrillo::read_adif (contest_log ()), contest_days (),
@@ -793,14 +810,14 @@ void TestEmeCabrillo::dialog ()
   QVERIFY (dialog.findChild<QLineEdit *> ("grid_G4CCH")->styleSheet ().contains ("#ffd0d0"));
   type ("G4CCH", "io91ab");
   QVERIFY (dialog.selection ().no_grid.isEmpty ());
-  QCOMPARE (dialog.selection ().qsos.size (), 7);
+  QCOMPARE (dialog.selection ().qsos.size (), 8);                   // seven scored, plus a dupe
   QVERIFY (dialog.cabrillo_text ().contains ("G4CCH         IO91\n"));
 
   QCheckBox * box {nullptr};
   for (auto b : dialog.findChildren<QCheckBox *> ()) if (b->text () == "144") box = b;
   QVERIFY (box);
   box->setChecked (false);
-  QCOMPARE (dialog.selection ().qsos.size (), 6);
+  QCOMPARE (dialog.selection ().qsos.size (), 7);                   // the 144 band unticked
   QVERIFY (!dialog.cabrillo_text ().contains ("QSO:   144"));
 
   auto const out = directory.filePath ("DL3WDG_ARRL-EME_2026.log");
