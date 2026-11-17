@@ -29,6 +29,7 @@ program test_jtty_gap_merge
      stop 1
   endif
   write(*,'(a)') 'test_jtty_gap_merge: all checks passed'
+  deallocate(reference_pcm)
 
 contains
 

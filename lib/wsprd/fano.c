@@ -16,14 +16,6 @@
 #include <math.h>
 #include "fano.h"
 
-struct node {
-  unsigned long encstate;	// Encoder state of next node
-  long gamma;		        // Cumulative metric to this node
-  int metrics[4];		// Metrics indexed by all possible tx syms
-  int tm[2];		        // Sorted metrics for current hypotheses
-  int i;			// Current branch being tested
-};
-
 // Convolutional coding polynomials. All are rate 1/2, K=32
 #ifdef	NASA_STANDARD
 /* "NASA standard" code by Massey & Costello
@@ -84,7 +76,7 @@ int encode(
 /* Decode packet with the Fano algorithm.
  * Return 0 on success, -1 on timeout
  */
-int fano(
+int fano_with_workspace(
 	 unsigned int  *metric,	   // Final path metric (returned value)
 	 unsigned int  *cycles,	   // Cycle count (returned value)
 	 unsigned int  *maxnp,     // Progress before timeout (returned value)
@@ -93,22 +85,17 @@ int fano(
 	 unsigned int nbits,	   // Number of output bits
 	 int mettab[2][256],	   // Metric table, [sent sym][rx symbol]
 	 int delta,		   // Threshold adjust parameter
-	 unsigned int maxcycles)   // Decoding timeout in cycles per bit
+	 unsigned int maxcycles, struct fano_node *nodes)   // Decoding timeout in cycles per bit
 {
-  struct node *nodes;		   // First node
-  struct node *np;	           // Current node
-  struct node *lastnode;	   // Last node
-  struct node *tail;		   // First node of tail
+  struct fano_node *np;	           // Current node
+  struct fano_node *lastnode;	   // Last node
+  struct fano_node *tail;		   // First node of tail
   int t;			   // Threshold
   int  m0,m1;
   int ngamma;
   unsigned int lsym;
   unsigned int i;
 
-  if((nodes = (struct node *)malloc((nbits+1)*sizeof(struct node))) == NULL) {
-    printf("malloc failed\n");
-    return 0;
-  }
   lastnode = &nodes[nbits-1];
   tail = &nodes[nbits-31];
   *maxnp = 0;
@@ -233,7 +220,17 @@ int fano(
   }
   *cycles = i+1;
 
-  free(nodes);
   if(i >= maxcycles) return -1;	          // Decoder timed out
   return 0;		                  // Successful completion
+}
+
+int fano(unsigned int *metric, unsigned int *cycles, unsigned int *maxnp,
+         unsigned char *data, unsigned char *symbols, unsigned int nbits,
+         int mettab[2][256], int delta, unsigned int maxcycles)
+{
+    struct fano_node *nodes=malloc((nbits+1)*sizeof *nodes);
+    if (!nodes) return -2;
+    int status=fano_with_workspace(metric,cycles,maxnp,data,symbols,nbits,mettab,delta,maxcycles,nodes);
+    free(nodes);
+    return status;
 }

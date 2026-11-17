@@ -1,3 +1,7 @@
+add_executable (test_linrad_packet test_linrad_packet.cpp)
+target_link_libraries (test_linrad_packet Qt5::Test Qt5::Network)
+add_test (NAME test_linrad_packet COMMAND test_linrad_packet)
+
 add_executable (test_lotw_users
   test_lotw_users.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp

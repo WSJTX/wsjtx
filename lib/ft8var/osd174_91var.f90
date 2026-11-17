@@ -1,7 +1,24 @@
 subroutine osd174_91var(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
      progress_generation)
+  implicit none
+  integer*1 apmask(174),message77(77),cw(174)
+  integer ndeep,nhardmin,nthr
+  integer, intent(in) :: progress_generation
+  real llr(174),dmin
+  logical packed_used
+  call osd174_91var_core(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
+       progress_generation,.false.,packed_used)
+  return
+end subroutine osd174_91var
+
+subroutine osd174_91var_core(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
+     progress_generation,slow_pairs,packed_used)
 !
 ! An ordered-statistics decoder for the (174,91) code.
+!
+! slow_pairs selects the original pair table (boxit91var, fetchit91var) for the
+! second pre-processing rule; otherwise a packed table is used when ntau<=14.
+! packed_used reports whether the second rule used the packed table.
 !
 use ft8_mod1, only : first_osd,gen
 use decode_completion_module, only : write_decode_progress
@@ -16,9 +33,15 @@ integer*1 decoded(K)
 integer*1 message77(77)
 integer indx(N),progress_work
 integer, intent(in) :: progress_generation
+logical, intent(in) :: slow_pairs
+logical, intent(out) :: packed_used
 real llr(N),rx(N),absrx(N)
 include '/lib/ft8/ldpc_174_91_c_generator.f90'
 logical reset
+integer, parameter :: NPAIR=K*(K-1)/2, NTAUMAX=14
+integer ckey(K),pkey(NPAIR),head(0:2**NTAUMAX-1),nxt(NPAIR),pi1(NPAIR),pi2(NPAIR)
+integer e20,ekey
+logical lfast
 
 integer, DIMENSION(:,:), ALLOCATABLE :: indexes
 integer, DIMENSION(:), ALLOCATABLE :: fp
@@ -216,7 +239,94 @@ do iorder=1,nord
    enddo
 enddo
 
-if(npre2.eq.1) then
+! ntau is set only for ndeep>=3, so it is read only once npre2 is known to be 1.
+lfast=npre2.eq.1 .and. .not.slow_pairs
+if(lfast) lfast=ntau.le.NTAUMAX
+packed_used=lfast
+if(lfast) then
+! Second pre-processing rule with a packed pair table.  The first ntau parity
+! bits of a pair of columns are one integer key; the pairs sharing a key form a
+! chain in the order boxit91var would have stored them, and the search below
+! walks the chains the way fetchit91var does, including what it returns when the
+! same key is looked up again straight after (lastpat, inext).
+   do j=1,K
+      ckey(j)=0
+      do i=1,ntau
+         if(g2(K+i,j).eq.1) ckey(j)=ibset(ckey(j),ntau-i)
+      enddo
+   enddo
+   ntotal=0
+   do i1=K,1,-1
+      if(mod(i1,8).eq.0) call write_decode_progress(progress_generation)
+      do i2=i1-1,1,-1
+         ntotal=ntotal+1
+         pkey(ntotal)=ieor(ckey(i1),ckey(i2))
+         pi1(ntotal)=i1
+         pi2(ntotal)=i2
+      enddo
+   enddo
+   head(0:2**ntau-1)=0
+   do n1=ntotal,1,-1
+      nxt(n1)=head(pkey(n1))
+      head(pkey(n1))=n1
+   enddo
+   e20=0
+   do i=1,ntau
+      if(ieor(c0(K+i),hdec(K+i)).eq.1) e20=ibset(e20,ntau-i)
+   enddo
+   lastpat=-1
+   inext=0
+   misub(1:K-nord)=0
+   misub(K-nord+1:K)=1
+   iflag=K-nord+1
+   progress_work=0
+   do while(iflag.ge.0)
+      progress_work=progress_work+1
+      if(mod(progress_work,32).eq.0) call write_decode_progress(progress_generation)
+      ekey=e20
+      do j=1,K
+         if(misub(j).eq.1) ekey=ieor(ekey,ckey(j))
+      enddo
+      do i2=0,ntau
+         ipat=ekey
+         if(i2.gt.0) ipat=ieor(ipat,ishft(1,ntau-i2))
+         do
+            ip=head(ipat)
+            if(lastpat.ne.ipat .and. ip.gt.0) then
+               in1=pi1(ip)
+               in2=pi2(ip)
+               inext=nxt(ip)
+            elseif(lastpat.eq.ipat .and. inext.gt.0) then
+               in1=pi1(inext)
+               in2=pi2(inext)
+               inext=nxt(inext)
+            else
+               in1=-1
+               in2=-1
+               inext=0
+            endif
+            lastpat=ipat
+            if(in1.le.0 .or. in2.le.0) exit
+            mi=misub
+            mi(in1)=1
+            mi(in2)=1
+            if(sum(mi).lt.nord+npre1+npre2.or.any(iand(apmaskr(1:K),mi).eq.1)) exit
+            me=ieor(m0,mi)
+            call mrbencode91var(me,ce,g2,N,K)
+            nxor=ieor(ce,hdec)
+            dd=sum(nxor*absrx)
+            if( dd .lt. dmin ) then
+               dmin=dd
+               cw=ce
+               nhardmin=sum(nxor)
+            endif
+         enddo
+      enddo
+      call nextpat91var(misub,K,nord,iflag)
+   enddo
+endif
+
+if(npre2.eq.1 .and. .not.lfast) then
    allocate(indexes(5000,2), STAT = nAllocateStatus1)
    if (nAllocateStatus1 .ne. 0) STOP "Not enough memory"
    allocate(fp(0:525000), STAT = nAllocateStatus1)
@@ -293,7 +403,7 @@ message77=decoded(1:77)
 if(nbadcrc.eq.1) nhardmin=-nhardmin
 
 return
-end subroutine osd174_91var
+end subroutine osd174_91var_core
 
 subroutine mrbencode91var(me,codeword,g2,N,K)
 integer*1 me(K),codeword(N),g2(N,K)

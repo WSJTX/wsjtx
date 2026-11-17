@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[package]
+name = "codec_client"
+edition = "2021"
+rust-version = "1.79"
+license = "GPL-3.0-or-later"
+description = "A wsjt-codec client: decode a WAV file, replay one as live audio, or render a message"
+publish = false
+
+[dependencies]
+serde_json = "1.0.154"

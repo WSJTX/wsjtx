@@ -52,6 +52,7 @@ program test_map65_q65_handoff
   call expect_filter(2750, 0.5_real64)
   call expect_filter(3500, 0.0_real64)
 
+  deallocate(wave, reference)
   print '(a)', 'MAP65 Q65 sample handoff contracts passed.'
 
 contains

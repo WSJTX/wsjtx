@@ -6,11 +6,12 @@ extern "C" {
 #endif
 
 typedef void *decoder_engine_handle;
-enum { DECODER_ENGINE_ABI = 8, DECODER_MODE_JT4 = 4, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
+enum { DECODER_ENGINE_ABI = 10, DECODER_MODE_JT4 = 4, DECODER_MODE_FT4 = 5, DECODER_MODE_FT8 = 8,
        DECODER_MODE_JT9 = 9, DECODER_MODE_JT65 = 65, DECODER_MODE_Q65 = 66,
-       DECODER_MODE_FST4 = 240, DECODER_MODE_FST4W = 241 };
+       DECODER_MODE_FST4 = 240, DECODER_MODE_FST4W = 241, DECODER_MODE_WSPR = 243 };
 enum { DECODER_SUPPORT_FT8 = 1, DECODER_SUPPORT_FT4 = 2, DECODER_SUPPORT_JT9 = 4,
-       DECODER_SUPPORT_JT65 = 8, DECODER_SUPPORT_Q65 = 16, DECODER_SUPPORT_FST4 = 32, DECODER_SUPPORT_FST4W = 64, DECODER_SUPPORT_JT4 = 128 };
+       DECODER_SUPPORT_JT65 = 8, DECODER_SUPPORT_Q65 = 16, DECODER_SUPPORT_FST4 = 32,
+       DECODER_SUPPORT_FST4W = 64, DECODER_SUPPORT_JT4 = 128, DECODER_SUPPORT_WSPR = 256 };
 enum { DECODER_JT65_SYNC = 0, DECODER_JT65_MESSAGE = 1 };
 enum { DECODER_JT65_METHOD_NONE = 0, DECODER_JT65_METHOD_FEC = 1,
        DECODER_JT65_METHOD_DEEP_SEARCH = 2 };
@@ -123,7 +124,8 @@ typedef struct {
 } decoder_jt4_average_entry;
 
 /* Slow JT9A-H use one-minute periods; submode 0..7 selects A..H.
-   Decoding spectra are prepared internally, independently of display settings. */
+   Decoding spectra are prepared internally. low_sidelobes (0 or 1) applies the
+   Nuttall window the GUI uses for its Low sidelobes setting. */
 typedef struct {
   int32_t utc;
   int32_t receive_frequency_hz;
@@ -132,6 +134,7 @@ typedef struct {
   int32_t tolerance_hz;
   int32_t depth;
   int32_t submode;
+  int32_t low_sidelobes;
 } decoder_jt9_options;
 
 /* JT65A-C use one-minute periods; submode 0..2 selects A..C.
@@ -198,6 +201,29 @@ enum { DECODER_FST4W_CALL_CAPACITY = 100 };
 /* Known call/grid pairs are fixed-width, space-padded strings. */
 typedef struct { char call_grid[20]; } decoder_fst4w_call;
 
+enum { DECODER_WSPR_2 = 2, DECODER_WSPR_15 = 15 };
+/* Default matches unflagged wsprd. Fast/Normal/Deep match the GUI depth levels. */
+enum { DECODER_WSPR_DEFAULT = 0, DECODER_WSPR_FAST = 1,
+       DECODER_WSPR_NORMAL = 2, DECODER_WSPR_DEEP = 3 };
+enum { DECODER_WSPR_STANDARD = 1, DECODER_WSPR_COMPOUND = 2, DECODER_WSPR_HASHED = 3 };
+/* Search bounds are uncalibrated audio signal-center frequencies in Hz, with
+   0 <= low < high <= 6000. Preparation searches the fixed WSPR band around
+   1500 Hz (WSPR-2) or 1612.5 Hz (WSPR-15); bounds filter those candidates.
+   The candidate bands extend at most +/-150 Hz or +/-18.75 Hz respectively.
+   calibration_error_hz is indicated dial frequency minus actual frequency.
+   Results subtract that error from the estimated audio frequency. For legacy
+   compatibility admission adds the error to internal bounds on each pass;
+   WSPR-15 retains that addition in its eightfold compressed coordinates. */
+typedef struct {
+  int32_t waveform, effort;
+  float search_low_hz, search_high_hz, calibration_error_hz;
+} decoder_wspr_options;
+
+/* Copied, fixed-width, space-padded associations; a blank grid is unknown.
+   Calls contain 1..10 uppercase letters, digits, or slashes, fitting the
+   decoded message format. Invalid entries leave existing knowledge unchanged. */
+typedef struct { char call[12], grid[4]; } decoder_wspr_call;
+
 /* Only the options for mode are read. EARLY is an FT8 phase; other modes use
    NORMAL or REPEAT. Mode support is reported by supported_modes. */
 typedef struct {
@@ -210,6 +236,7 @@ typedef struct {
   decoder_q65_options q65;
   decoder_fst4_options fst4;
   decoder_jt4_options jt4;
+  decoder_wspr_options wspr;
 } decoder_attempt_request;
 
 /* Borrowed read-only mono signed PCM. Only sample_count samples are read.
@@ -224,6 +251,9 @@ typedef struct {
    120, or 300 seconds.
    FST4/FST4W accept up to period_seconds * 12000 samples, including
    periods of 900 and 1800 seconds.
+   WSPR accepts 1..1368000 samples for WSPR-2 or 1..10944000 for WSPR-15.
+   Sample zero is the beginning of the reception period. Its PCM, extent, rate
+   and waveform stay fixed until release; repeats restore the original residual.
    Short inputs are zero-padded. Release input before changing its identity or mode.
    Q65 caches preparation by input identity: its PCM and sample_count must remain
    unchanged until release; repeated attempts may change decoding options.
@@ -305,6 +335,18 @@ typedef struct {
   float fmid_hz, width_hz;
 } decoder_fst4_result;
 
+/* Call and locator are space-padded and governed by availability flags. Type 3
+   carries its hash even when unresolved. Frequency is the calibrated audio
+   signal center; drift is physical Hz change across the transmission, including
+   WSPR-15 scaling. waveform_start_seconds is relative to sample zero; DT is
+   that start minus the nominal one-second onset. */
+typedef struct {
+  int32_t message_type, has_call, has_hash15, hash15, hash_resolved;
+  int32_t has_locator, has_power, power_dbm;
+  float snr_db, drift_hz, waveform_start_seconds;
+  char call[12], locator[6];
+} decoder_wspr_result;
+
 /* dt_seconds retains the mode's operator-facing DT convention. Use the
    evidence's waveform_start_seconds for reconstruction when available.
    mode and variant select the result record; inactive records are zero.
@@ -328,6 +370,7 @@ typedef struct {
   decoder_q65_result q65;
   decoder_fst4_result fst4;
   decoder_jt4_result jt4;
+  decoder_wspr_result wspr;
 } decoder_observation;
 
 typedef struct {
@@ -347,7 +390,7 @@ int32_t decoder_engine_decode(decoder_engine_handle, const decoder_attempt_reque
                              void *, decoder_attempt_outcome *);
 /* Released input IDs may be reused for a new reception.
    Release retains JT4/JT65/Q65 averages and caller knowledge, including FST4W
-   call/grid history. Reset clears reception history while
+   call/grid history and WSPR associations. Reset clears reception history while
    retaining reusable capacity and plans. Incompatible mode configuration clears
    averages. Hosts clear JT65 averages when changing band or operating context. */
 int32_t decoder_engine_release_input(decoder_engine_handle, int64_t input_id);
@@ -380,6 +423,10 @@ int32_t decoder_engine_clear_q65_averages(decoder_engine_handle);
    convention above. FST4W depth 3 accepts CRC-free results only from this history. */
 int32_t decoder_engine_set_fst4w_calls(decoder_engine_handle, const decoder_fst4w_call *, int32_t count);
 int32_t decoder_engine_get_fst4w_calls(decoder_engine_handle, decoder_fst4w_call *, int32_t capacity, int32_t *count);
+/* Replaces copied WSPR knowledge; zero count clears it. Getter follows the
+   capacity/query convention above. Reset clears seeded and learned knowledge. */
+int32_t decoder_engine_set_wspr_calls(decoder_engine_handle, const decoder_wspr_call *, int32_t count);
+int32_t decoder_engine_get_wspr_calls(decoder_engine_handle, decoder_wspr_call *, int32_t capacity, int32_t *count);
 int32_t decoder_engine_destroy(decoder_engine_handle);
 
 #ifdef __cplusplus

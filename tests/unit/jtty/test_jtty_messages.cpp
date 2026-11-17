@@ -215,24 +215,6 @@ private slots:
     QCOMPARE (Jtty::nativeMacroTemplate (8), QString {"%E"});
   }
 
-  void savedDefaultMigrationIsExactAndNarrow ()
-  {
-    for (int functionKey : {2, 6, 8}) {
-      QCOMPARE (Jtty::migratedNativeMacroTemplate (
-                  functionKey, Jtty::legacyNativeMacroTemplate (functionKey)),
-                Jtty::nativeMacroTemplate (functionKey));
-    }
-
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (1, QString {"CQ %M CQ"}),
-              QString {"CQ %M CQ"});
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (2, QString {"%h 599 %n"}),
-              QString {"%h 599 %n"});
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (8, QString {" 599 %N "}),
-              QString {" 599 %N "});
-    QCOMPARE (Jtty::migratedNativeMacroTemplate (8, QString {"TEST 599 %N"}),
-              QString {"TEST 599 %N"});
-  }
-
   void noneProfileUsesLiveSerial ()
   {
     Jtty::NativeMacroContext const context {
@@ -1056,19 +1038,7 @@ private slots:
     QCOMPARE (Jtty::formatSnr (100), QString {"+100"});
   }
 
-  void ft8StyleTemplatesMatchSpec ()
-  {
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (1), QString {"%H %M %G"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (2), QString {"%H %M %R"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (3), QString {"%H %M R%R"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (4), QString {"%H %M RRR"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (5), QString {"%H %M 73"});
-    QCOMPARE (Jtty::ft8StyleMacroTemplate (6), QString {"CQ %M %G"});
-    QVERIFY (Jtty::ft8StyleMacroTemplate (7).isEmpty ());
-    QVERIFY (Jtty::ft8StyleMacroTemplate (8).isEmpty ());
-  }
-
-  void ft8StyleLiteralExpansionSubstitutesGridAndSnr ()
+  void literalExpansionSubstitutesGridAndSnr ()
   {
     // %G's own truncate-to-4 behavior for extended subsquare grids is covered
     // separately by configuredSubsquareProducesGrid4InBothNativeAndLiteralExpansion;
@@ -1077,26 +1047,14 @@ private slots:
     context.grid = QStringLiteral ("FN20");
     context.snr = -7;
 
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (1), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("%H %M %G"), context),
               QString {"W9XYZ K1ABC FN20"});
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (2), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("%H %M %R"), context),
               QString {"W9XYZ K1ABC -07"});
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (3), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("%H %M R%R"), context),
               QString {"W9XYZ K1ABC R-07"});
-    QCOMPARE (Jtty::expandLiteralMacro (Jtty::ft8StyleMacroTemplate (6), context),
+    QCOMPARE (Jtty::expandLiteralMacro (QStringLiteral ("CQ %M %G"), context),
               QString {"CQ K1ABC FN20"});
-  }
-
-  void messageStyleHelpersDistinguishContestAndFt8 ()
-  {
-    QCOMPARE (Jtty::messageStyleSettingsKey (Jtty::MessageStyle::Contest, 3),
-              QString {"JTTY_msg3"});
-    QCOMPARE (Jtty::messageStyleSettingsKey (Jtty::MessageStyle::Ft8, 3),
-              QString {"JTTY_FT8_msg3"});
-    QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Contest, 1),
-              Jtty::nativeMacroTemplate (1));
-    QCOMPARE (Jtty::messageStyleDefaultTemplate (Jtty::MessageStyle::Ft8, 1),
-              Jtty::ft8StyleMacroTemplate (1));
   }
 
   void fillerTextIsRecognizedStandalone ()
@@ -1106,6 +1064,49 @@ private slots:
     QVERIFY (!Jtty::isJttyFillerText (QString {}));
     QVERIFY (!Jtty::isJttyFillerText (QStringLiteral ("FOX")));
     QVERIFY (!Jtty::isJttyFillerText (QStringLiteral ("FOX <<<<<")));
+  }
+
+  void macroControlTokensAreStrippedAndReported ()
+  {
+    auto c = Jtty::parseMacroControl (QStringLiteral ("%[CQ %M CQ%]"));
+    QCOMPARE (c.text, QStringLiteral ("CQ %M CQ"));
+    QVERIFY (c.pttOn);
+    QVERIFY (c.pttOff);
+
+    c = Jtty::parseMacroControl (QStringLiteral ("%[%H DE %M "));
+    QCOMPARE (c.text, QStringLiteral ("%H DE %M"));
+    QVERIFY (c.pttOn);
+    QVERIFY (!c.pttOff);
+
+    c = Jtty::parseMacroControl (QStringLiteral ("BTU %H DE %M K%]"));
+    QCOMPARE (c.text, QStringLiteral ("BTU %H DE %M K"));
+    QVERIFY (!c.pttOn);
+    QVERIFY (c.pttOff);
+
+    c = Jtty::parseMacroControl (QStringLiteral ("599%]%[TU"));
+    QCOMPARE (c.text, QStringLiteral ("599 TU"));
+
+    c = Jtty::parseMacroControl (QStringLiteral ("%]"));
+    QVERIFY (c.text.isEmpty ());
+    QVERIFY (c.pttOff);
+
+    c = Jtty::parseMacroControl (QStringLiteral ("%H AGN?"));
+    QCOMPARE (c.text, QStringLiteral ("%H AGN?"));
+    QVERIFY (!c.pttOn);
+    QVERIFY (!c.pttOff);
+    QVERIFY (!c.logQso);
+
+    c = Jtty::parseMacroControl (QStringLiteral ("%[TU %M%L%]"));
+    QCOMPARE (c.text, QStringLiteral ("TU %M"));
+    QVERIFY (c.logQso);
+    QVERIFY (c.pttOn);
+    QVERIFY (c.pttOff);
+    QVERIFY (!c.startsNextQso ());
+
+    c = Jtty::parseMacroControl (QStringLiteral ("%[TU NOW %Q %E%L%]"));
+    QCOMPARE (c.text, QStringLiteral ("TU NOW %Q %E"));
+    QVERIFY (c.startsNextQso ());
+    QVERIFY (!Jtty::parseMacroControl (QStringLiteral ("%[%Q?%]")).startsNextQso ());
   }
 
   void fillerStripLeavesRealTextUnaffected ()
@@ -1130,6 +1131,50 @@ private slots:
   void fillerStripOfPureFillerIsEmpty ()
   {
     QVERIFY (Jtty::stripJttyFillerText (Jtty::jttyFillerText).isEmpty ());
+  }
+
+  void macroControlSeparatesPttFromText_data ()
+  {
+    QTest::addColumn<QString> ("macro");
+    QTest::addColumn<QString> ("text");
+    QTest::addColumn<bool> ("pttOn");
+    QTest::addColumn<bool> ("pttOff");
+
+    QTest::newRow ("cq") << "%[CQ %M CQ%]" << "CQ %M CQ" << true << true;
+    QTest::newRow ("tu-cq") << "%[%H TU CQ %M CQ%L%]" << "%H TU CQ %M CQ" << true << true;
+    QTest::newRow ("open-only") << "%[%H DE %M " << "%H DE %M" << true << false;
+    QTest::newRow ("close-only") << "...K%]" << "...K" << false << true;
+    QTest::newRow ("no-ptt") << "AGN?" << "AGN?" << false << false;
+    // Lower case is the token, not characters bound for the air.
+    QTest::newRow ("lowercase-log") << "%[TU %M%l%]" << "TU %M" << true << true;
+    QTest::newRow ("lowercase-tokens") << "%[%h %e%]" << "%H %E" << true << true;
+    // A percent not introducing a token is left alone.
+    QTest::newRow ("percent-literal") << "%[100% COPY%]" << "100% COPY" << true << true;
+    QTest::newRow ("percent-then-token") << "%[%%m%]" << "%%M" << true << true;
+  }
+
+  // pttOff decides both whether the over ends here and whether the commit that
+  // keys PTT carries EOM; the Chat sets rely on the close-only row.
+  void macroControlSeparatesPttFromText ()
+  {
+    QFETCH (QString, macro);
+    QFETCH (QString, text);
+    QFETCH (bool, pttOn);
+    QFETCH (bool, pttOff);
+
+    auto const control = Jtty::parseMacroControl (macro);
+    QCOMPARE (control.text, text);
+    QCOMPARE (control.pttOn, pttOn);
+    QCOMPARE (control.pttOff, pttOff);
+  }
+
+  // The hand-off macro is recognized however its tokens were typed.
+  void lowerCaseTokensStillStartTheNextQso ()
+  {
+    auto const control = Jtty::parseMacroControl (QStringLiteral ("%[TU NOW %q %E%l%]"));
+    QVERIFY (control.logQso);
+    QVERIFY (control.startsNextQso ());
+    QCOMPARE (control.text, QStringLiteral ("TU NOW %Q %E"));
   }
 };
 

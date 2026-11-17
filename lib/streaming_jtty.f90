@@ -18,10 +18,12 @@
 ! uncounted). Where a session begins in a transmission changes what decodes,
 ! as it does in the GUI. After each decoder step the session writes one
 ! jtty_update line per pending update, as the GUI takes them. Between its
-! session line and its last update only error lines, the replies to encode
-! requests, planning lines and, when the session began with a mode change, the
-! previous mode's remaining decode lines, its busy and pass_progress lines
-! among them, appear (JTTY decodes at once, without waiting for them); an
+! session line and its last update only error lines, the receive chain's rows
+! and rows_dropped lines (lib/streaming_emit.f90), the replies to encode
+! requests, planning lines
+! and, when the session began with a mode change, the previous mode's
+! remaining decode lines, its busy and pass_progress lines among them, appear
+! (JTTY decodes at once, without waiting for them); an
 ! odd_audio_frame error comes before the "ended" lines it causes. I is unique
 ! in the process, across sessions and mode changes, and the same on every
 ! update of one message. A message's last line is its "complete", "expired" or
@@ -46,14 +48,16 @@
 ! its last sample (jtty_rx_process_final), so a last frame that ends shortly
 ! before the session does still decodes.
 !
-! The decoder searches rxfreq +/- ntol, and two 300 Hz channels centred on
-! 1350 and 1650 Hz, each centre first moved into nfa..nfb and the channel
-! clipped to it (neither when nfa > nfb); with the default nfa and nfb, 1200
-! to 1800 Hz. Its 6 kHz complex signal keeps only 0 to 3000 Hz of the audio
-! (ana64a), so nothing whose lowest tone is above about 2950 Hz decodes, as
-! in the GUI. A configure that would leave rxfreq, ntol, nfa or nfb outside
-! 0 to 6000 Hz is declined (jtty_range_key): that is the range the keys
-! accept, not the band searched.
+! The decoder searches rxfreq +/- ntol, and fixed channels that tile
+! nfa..nfb: nint((nfb-nfa)/300) of them, 2 to 16, each widened by 10 Hz on
+! either side and clipped to nfa..nfb (none when nfa > nfb); with the
+! default nfa and nfb, 13 about 292 Hz apart. The GUI takes nfa and nfb
+! from the Wide Graph. The decoder's 6 kHz complex signal keeps only 0 to
+! 3000 Hz of the audio (ana64a), so nothing whose lowest tone is above
+! about 2950 Hz decodes, as in the GUI. A configure that would leave
+! rxfreq, ntol, nfa or nfb outside 0 to 6000 Hz is declined
+! (jtty_range_key): that is the range the keys accept, not the band
+! searched.
 !
 ! A decoder step that needs FFT sizes with no saved FFTW wisdom in -a measures
 ! them: up to tens of seconds on ARM Linux, during which the stream reads no
@@ -166,8 +170,10 @@
 ! instead of packed. A render of more than 600 s of audio is rejected
 ! too_long, with no key. A JTTY receiver decodes nothing whose lowest tone is
 ! above about 2950 Hz (above), though F may be up to 5000 Hz. A render holds
-! up audio for as long as it computes and its lines take to be read, and
-! decode lines for as long as its lines take to be read.
+! up audio for as long as it computes and its lines take to be read. It holds
+! up decode lines from its first line to its last, which includes rendering
+! every segment after the first, and, without the output queue or past 16 MiB
+! of lines waiting in it, until its lines are read.
 
 module streaming_jtty
   use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_float, c_double,  &
@@ -185,18 +191,25 @@ module streaming_jtty
   use jtty_filler, only: strip_filler_text
   use streaming_emit, only: streaming_emit_error, streaming_emit_error_code, &
        streaming_emit_json_escape, streaming_emit_line, streaming_emit_planning, &
-       streaming_emit_hold
+       streaming_emit_hold, streaming_emit_base64, streaming_emit_quiet,       &
+       streaming_emit_jtty_spectrum, streaming_emit_jtty_prepared_audio
   use streaming_apply, only: params_block
   use streaming_control, only: configure_fields, encode_request,               &
        parse_encode_request, parse_render_request
   use jtty_source_codec, only: jtty_source_atom, unpack_jtty_atom,             &
        render_jtty_atom, JTTY_ATOM_TEXT5
   use jtty_mod, only: MAX_FRAMES
+  use streaming_receive, only: receive
+  use spectrum_rows, only: wide_rows, wide_begin, wide_take, wide_row,         &
+       WIDE_BLOCK, WIDE_BINS, WIDE_DF
   implicit none
   private
 
   public :: jtty_audio, jtty_end, jtty_range_key, jtty_emit_range_error,      &
-       jtty_release, jtty_note_station, jtty_encode, jtty_measuring
+       jtty_release, jtty_note_station, jtty_encode, jtty_measuring,          &
+       jtty_spectrum_rows, jtty_prepared_audio
+  ! For JTTY review (lib/streaming_jtty_review.f90).
+  public :: jtty_emit_updates, jtty_step_done, jtty_current_session, jtty_fatal
   ! The reply lines and the station's call the slot modes' encode shares
   ! (lib/streaming_encode.f90).
   public :: encode_emit_rejected, encode_emit_pcm, encode_station_call
@@ -210,6 +223,12 @@ module streaming_jtty
   integer(c_int), save :: handle_ = 0
   integer,        save :: session_ = 0
   logical,        save :: session_open_ = .false.
+  integer(int64), save :: origin_ = 0                  ! the open session's first sample
+  ! The session whose spectrum rows rows_ makes, and the stream sample it
+  ! has been fed to.
+  integer,        save :: rows_session_ = 0
+  integer(int64), save :: rows_next_ = 0
+  type(wide_rows), save :: rows_
   ! The session's audio from stream sample pcm_base_ on.
   integer(int16), allocatable, save :: pcm_(:)
   integer(int64), save :: pcm_base_ = 0
@@ -307,13 +326,53 @@ contains
     call decode_available_(params, .false.)
   end subroutine jtty_audio
 
+  ! JTTY's spectrum rows for samples, the stream's from first_sample on, while
+  ! configure's spectrum is on; a session begins with them if none is open.
+  ! The rows start at the session's first sample, or at the first after
+  ! spectrum was off.
+  subroutine jtty_spectrum_rows(samples, first_sample)
+    integer(int16), intent(in) :: samples(:)
+    integer(int64), intent(in) :: first_sample
+    integer :: i, taken
+    logical :: ready
+    real :: power, peak, bins(WIDE_BINS)
+    if (.not. receive%spectrum .or. size(samples) .eq. 0) return
+    if (.not. session_open_) call begin_session_(first_sample)
+    if (rows_session_ .ne. session_ .or. rows_next_ .ne. first_sample)          &
+         call wide_begin(rows_)
+    rows_session_ = session_
+    i = 1
+    do while (i .le. size(samples))
+       call wide_take(rows_, samples(i:), taken, ready)
+       i = i + taken
+       if (ready) then
+          call wide_row(rows_, receive%low_sidelobes, power, peak, bins)
+          call streaming_emit_jtty_spectrum(int(session_, int64),                &
+               first_sample + i - 1 - WIDE_BLOCK, first_sample + i - 1, power,     &
+               peak, WIDE_DF, bins)
+       end if
+    end do
+    rows_next_ = first_sample + size(samples)
+  end subroutine jtty_spectrum_rows
+
+  ! The samples delivered, the stream's from first_sample on, as the session
+  ! decodes them, for configure's prepared_audio; a session begins with them
+  ! if none is open.
+  subroutine jtty_prepared_audio(samples, first_sample)
+    integer(int16), intent(in) :: samples(:)
+    integer(int64), intent(in) :: first_sample
+    if (size(samples) .eq. 0) return
+    if (.not. session_open_) call begin_session_(first_sample)
+    call streaming_emit_jtty_prepared_audio(int(session_, int64), first_sample, samples)
+  end subroutine jtty_prepared_audio
+
   ! params are the settings the session decoded with.
   subroutine jtty_end(params)
     type(params_block), intent(in) :: params
     if (.not. session_open_) return
     call decode_available_(params, .true.)
     call jtty_rx_end(handle_, UPDATE_RECEPTION_ENDED)
-    call emit_updates_()
+    call emit_updates_(handle_, session_)
     session_open_ = .false.
   end subroutine jtty_end
 
@@ -361,6 +420,7 @@ contains
        allocate(pcm_(65536))
     end if
     session_ = session_ + 1
+    origin_ = origin
     call jtty_rx_begin(handle_, int(session_, c_int64_t), origin, origin, NSPS)
     pcm_base_ = origin
     pcm_count_ = 0
@@ -422,7 +482,7 @@ contains
                real(params%ntol, c_float))
        end if
        call step_done_()
-       call emit_updates_()
+       call emit_updates_(handle_, session_)
        if (processed .lt. 0) call fatal_('required receive audio is unavailable')
        if (processed .eq. 0) return
     end do
@@ -450,7 +510,48 @@ contains
     planning_ = .false.
   end subroutine step_done_
 
-  subroutine emit_updates_()
+  ! The open session's number and first sample; session 0 when none is open.
+  ! begun: the sessions begun so far.
+  subroutine jtty_current_session(session, origin, begun)
+    integer,        intent(out)           :: session
+    integer(int64), intent(out)           :: origin
+    integer,        intent(out), optional :: begun
+    session = merge(session_, 0, session_open_)
+    origin = origin_
+    if (present(begun)) begun = session_
+  end subroutine jtty_current_session
+
+  ! A fatal error from outside this module (fatal_ above).
+  subroutine jtty_fatal(message)
+    character(len=*), intent(in) :: message
+    call fatal_(message)
+  end subroutine jtty_fatal
+
+  ! After a decoder step on any receive context: as after the live session's.
+  subroutine jtty_step_done()
+    call step_done_()
+  end subroutine jtty_step_done
+
+  ! emit_updates_ for a JTTY review's receive context.
+  subroutine jtty_emit_updates(handle, session, review, center, tolerance, found)
+    integer(c_int), intent(in)            :: handle
+    integer,        intent(in)            :: session
+    integer,        intent(in),  optional :: review
+    real,           intent(in),  optional :: center, tolerance
+    logical,        intent(out), optional :: found
+    call emit_updates_(handle, session, review, center, tolerance, found)
+  end subroutine jtty_emit_updates
+
+  ! The updates pending on receive context handle, as jtty_update lines of
+  ! session; with review, each marked as that jtty_review request's. found:
+  ! one of them is complete within tolerance of center (the GUI's picked
+  ! review stops there, widgets/mainwindow_jtty_receive.cpp).
+  subroutine emit_updates_(handle, session, review, center, tolerance, found)
+    integer(c_int), intent(in)            :: handle
+    integer,        intent(in)            :: session
+    integer,        intent(in),  optional :: review
+    real,           intent(in),  optional :: center, tolerance
+    logical,        intent(out), optional :: found
     character(kind=c_char) :: text(80 * UPDATE_CAPACITY)
     integer(c_int64_t) :: ids(UPDATE_CAPACITY)
     real(c_float) :: frequencies(UPDATE_CAPACITY)
@@ -459,10 +560,13 @@ contains
     integer :: gaps(MAX_DISPLAY_GAPS, UPDATE_CAPACITY), ngaps(UPDATE_CAPACITY)
     character(len=80) :: message, shown
     character(len=480) :: escaped
-    character(len=:), allocatable :: state, gap_list
+    character(len=:), allocatable :: state, gap_list, mark
     integer :: i, j, length, escaped_length, offset
+    mark = ''
+    if (present(review)) mark = '"review":' // itoa_(int(review, int64)) // ','
+    if (present(found)) found = .false.
     do
-       taken = jtty_rx_take_updates_with_gaps(handle_, UPDATE_CAPACITY, text, &
+       taken = jtty_rx_take_updates_with_gaps(handle, UPDATE_CAPACITY, text, &
             ids, frequencies, starts, latest, terminals, snrs, gaps, ngaps)
        do i = 1, taken
           do j = 1, 80
@@ -474,6 +578,9 @@ contains
              state = 'growing'
           case (UPDATE_COMPLETE)
              state = 'complete'
+             if (present(found) .and. present(center) .and. present(tolerance)) then
+                if (abs(frequencies(i) - center) .lt. tolerance) found = .true.
+             end if
           case (UPDATE_EXPIRED)
              state = 'expired'
           case (UPDATE_RECEPTION_ENDED)
@@ -494,8 +601,8 @@ contains
              gap_list = gap_list // itoa_(int(offset, int64))
           end do
           call streaming_emit_json_escape(shown(1:length), escaped, escaped_length)
-          call emit_line_('{"v":1,"t":"jtty_update","session":' //          &
-               itoa_(int(session_, int64)) // ',"id":' // itoa_(int(ids(i), int64)) // &
+          call emit_line_('{"v":1,"t":"jtty_update",' // mark // '"session":' // &
+               itoa_(int(session, int64)) // ',"id":' // itoa_(int(ids(i), int64)) // &
                ',"state":"' // state // '","freq":' //                       &
                json_real_(real(frequencies(i), real64), 3) //                &
                ',"snr":' // itoa_(int(snrs(i), int64)) //                    &
@@ -530,10 +637,13 @@ contains
 
   subroutine fatal_(message)
     character(len=*), intent(in) :: message
-    ! The writer lock is kept to the end: no line follows the error, and a
-    ! decode thread about to write waits on the lock while the program ends.
+    ! The lines queued go first. The writer lock is kept to the end: no line
+    ! follows the error, and a decode thread about to write waits on the lock
+    ! while the program ends.
+    call streaming_emit_quiet()
     call streaming_emit_hold(.true.)
     call streaming_emit_error(message)
+    call streaming_emit_quiet()
     write(error_unit, '(2a)') 'wsjt-codec: ', message
     stop 1
   end subroutine fatal_
@@ -734,8 +844,8 @@ contains
     do first = 1, size(samples), PCM_LINE
        call emit_line_('{"v":1,"t":"pcm","id":' // id // ',"seg":' //       &
             itoa_(int(seg, int64)) // ',"seq":' // itoa_(int(seq, int64)) //    &
-            ',"data":"' // base64_(samples(first:min(first + PCM_LINE - 1,    &
-            size(samples)))) // '"}')
+            ',"data":"' // streaming_emit_base64(samples(first:min(first +     &
+            PCM_LINE - 1, size(samples)))) // '"}')
        seq = seq + 1
     end do
   end subroutine encode_emit_pcm
@@ -857,50 +967,5 @@ contains
        text = 'false'
     end if
   end function json_bool_
-
-  ! samples as int16 little-endian bytes in base64 (RFC 4648 section 4).
-  function base64_(samples) result(text)
-    integer(c_int16_t), intent(in) :: samples(:)
-    character(len=:), allocatable :: text
-    character(len=*), parameter :: DIGITS =                                  &
-         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    integer :: nbytes, i, j, n, group, k
-
-    nbytes = 2 * size(samples)
-    allocate(character(len=4 * ((nbytes + 2) / 3)) :: text)
-    k = 0
-    do i = 0, nbytes - 1, 3
-       n = min(3, nbytes - i)
-       group = 0
-       do j = 0, 2
-          group = ishft(group, 8)
-          if (j .lt. n) group = ior(group, sample_byte_(i + j))
-       end do
-       do j = 0, 3
-          if (j .le. n) then
-             text(k + j + 1:k + j + 1) = DIGITS(iand(ishft(group, -6 * (3 - j)), 63) + 1: &
-                  iand(ishft(group, -6 * (3 - j)), 63) + 1)
-          else
-             text(k + j + 1:k + j + 1) = '='
-          end if
-       end do
-       k = k + 4
-    end do
-
-  contains
-
-    ! Byte b, from 0, of samples as int16 little-endian.
-    integer function sample_byte_(b)
-      integer, intent(in) :: b
-      integer :: value
-      value = int(samples(b / 2 + 1))
-      if (mod(b, 2) .eq. 0) then
-         sample_byte_ = iand(value, 255)
-      else
-         sample_byte_ = iand(ishft(value, -8), 255)
-      end if
-    end function sample_byte_
-
-  end function base64_
 
 end module streaming_jtty

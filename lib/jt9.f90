@@ -66,9 +66,9 @@ program jt9
        display_version = .false.,                                            &
        nexp_decode_set = .false.,                                             &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
-       lwidedxcsearch = .true.,                                           &
+       lwidedxcsearch = .true., low_sidelobes = .false.,                  &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
-  type (option) :: long_options(45) = [                                      &
+  type (option) :: long_options(46) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use native shared memory for sample data','NAME'), &
@@ -141,6 +141,8 @@ program jt9
         'Sub mode (mode-dependent A-H), default SUBMODE=A', 'SUBMODE'),      &
     option ('depth', .true., 'd',                                            &
         'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
+    option ('low-sidelobes', .false., 'l',                                  &
+        'Low-sidelobe (Nuttall) window on JT9 spectra when decoding files', ''), &
     option ('tx-jt9', .false., 'T',                                         &
         'Tx mode is JT9 (combined-mode streaming only)', ''),                &
     option ('my-call', .true., 'c', 'my callsign', 'CALL'),                  &
@@ -152,8 +154,9 @@ program jt9
         'FLAGS') ]
 
   type(dec_data), allocatable :: shared_data
-  character(len=12) :: mycall='K1ABC', hiscall='W9XYZ'
-  character(len=6) :: mygrid='', hisgrid='EN37'
+  ! No QSO partner unless -x/-g name one, as in WSJT-X: a partner adds AP decoding (FT8's a8 pass).
+  character(len=12) :: mycall='K1ABC', hiscall=''
+  character(len=6) :: mygrid='', hisgrid=''
   common/patience/npatience,nthreads
   common/decstats/ntry65a,ntry65b,n65a,n65b,num9,numfano
   data npatience/1/,nthreads/1/,wisfile/' '/
@@ -165,7 +168,7 @@ program jt9
   TRperiod=60.d0
 
   do
-     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqkTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:',   &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:',   &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -234,6 +237,8 @@ program jt9
            call require_integer('D', optarg(:arglen), ndecoderstart)
         case ('Z')
            lwidedxcsearch = .false.
+        case ('l')
+           low_sidelobes = .true.
         case ('q')
            lquiet=.true.
         case ('k')
@@ -486,6 +491,7 @@ program jt9
      args = cli_args_t(                                                    &
           flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,            &
           ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                      &
+          low_sidelobes=low_sidelobes,                                      &
           nexp_decode=nexp_decode, ncycles=ncycles,                         &
           nft8rxfsens=nft8rxfsens, nmt=nmt,                                 &
           nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,                 &

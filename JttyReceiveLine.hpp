@@ -33,7 +33,6 @@ public:
 
   struct Options {
     bool lowerCase {};
-    bool includeTime {};
   };
 
   // Removed history is never recreated by a delayed update of the same message.
@@ -185,10 +184,8 @@ private:
     QString text = presentation.blankSnrColumn
       ? Jtty::formatJttyTxLine (presentation.frequency, Jtty::wrapMessage (message))
       : Jtty::formatJttyDecodeLine (presentation.frequency, presentation.snr, Jtty::wrapMessage (message));
-    if (options.includeTime) {
-      auto const time = Jtty::jttyLineTimeLabel (presentation.startUtc);
-      if (!time.isEmpty ()) text.prepend (time + " ");
-    }
+    auto const time = Jtty::jttyLineTimeLabel (presentation.startUtc);
+    if (!time.isEmpty ()) text.prepend (time + " ");
     return text;
   }
 

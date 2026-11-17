@@ -61,6 +61,11 @@ QString HelpText::keyboardShortcuts()
 
 QString HelpText::specialMouseCommands()
 {
+#ifdef Q_OS_MAC
+    QString const q65PileupModifier {"Cmd"};   // Qt maps the Command key to ControlModifier on macOS
+#else
+    QString const q65PileupModifier {"Ctrl"};
+#endif
     return QCoreApplication::translate("MainWindow", R"(<table cellpadding=5>
   <tr>
     <th align="right">Click on</th>
@@ -105,7 +110,7 @@ QString HelpText::specialMouseCommands()
   <tr>
     <td align="right">Q65 Button:</td>
     <td><b>Click</b> to switch to Q65 Mode.<br/>
-        <b>Right-click</b> to switch to Q65 Pileup Mode.
+        <b>%1+right-click</b> to switch to Q65 Pileup Mode.
     </td>
   </tr>
   <tr>
@@ -172,7 +177,7 @@ QString HelpText::specialMouseCommands()
       <b>Right-click</b> to toggle FT8 DXpedition frequencies.
     </td>
   </tr>
-</table>)");
+</table>)").arg (q65PileupModifier);
 }
 
 QString HelpText::prefixes()

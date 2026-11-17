@@ -31,12 +31,12 @@ namespace
 std::shared_ptr<QsoCompletion> MainWindow::currentQsoCompletion ()
 {
   if (m_qsoCompletion && !m_qsoCompletion->matches (
-        m_hisCall, m_mode, m_currentBand, m_TRperiod)) endQsoRepeat (QsoRepeatEnd::Superseded);
+        m_hisCall, m_mode, nominalRxBand (), m_TRperiod)) endQsoRepeat (QsoRepeatEnd::Superseded);
   if (!m_qsoCompletion) {
     m_qsoCompletion = std::make_shared<QsoCompletion> ();
     m_qsoCompletion->call = m_hisCall;
     m_qsoCompletion->mode = m_mode;
-    m_qsoCompletion->band = m_currentBand;
+    m_qsoCompletion->band = nominalRxBand ();
     m_qsoCompletion->trPeriod = m_TRperiod;
   }
   return m_qsoCompletion;
@@ -51,7 +51,7 @@ bool MainWindow::repeatContextIsCurrent (std::shared_ptr<QsoCompletion> const& c
 {
   auto const signoff = m_mode == "Q65" && !send_rr73_for_tx4 () ? "RRR" : "RR73";
   return context && context == m_qsoCompletion
-    && context->matches (m_hisCall, m_mode, m_currentBand, m_TRperiod)
+    && context->matches (m_hisCall, m_mode, nominalRxBand (), m_TRperiod)
     && !m_tune && m_config.repeat_Tx () && m_ntx == 4
     && signoffPayload (m_currentMessage.split (' ', SkipEmptyParts), m_hisCall, m_baseCall, signoff)
     && signoffPayload (ui->tx4->text ().split (' ', SkipEmptyParts), m_hisCall, m_baseCall, signoff);
@@ -63,7 +63,7 @@ bool MainWindow::updateRepeatTransmission (QStringList const& words)
     && m_config.repeat_Tx () && m_auto && !m_tune && !m_hisCall.isEmpty ()
     && m_ntx == 4 && signoffPayload (words, m_hisCall, m_baseCall);
   if (m_qsoCompletion && (!m_qsoCompletion->matches (
-        m_hisCall, m_mode, m_currentBand, m_TRperiod)
+        m_hisCall, m_mode, nominalRxBand (), m_TRperiod)
       || (!eligible && (m_qsoCompletion->phase != QsoCompletion::Phase::Ordinary
           || (m_ntx <= 3 && m_qsoCompletion->logState != QsoCompletion::LogState::None)))))
     endQsoRepeat (QsoRepeatEnd::Superseded);
@@ -94,7 +94,7 @@ void MainWindow::applyPendingQsoClear (std::shared_ptr<QsoCompletion> const& con
   if (context != m_qsoCompletion || context->defersClear ()
       || context->phase == QsoCompletion::Phase::Cancelled
       || context->logState != QsoCompletion::LogState::Accepted
-      || !context->matches (m_hisCall, m_mode, m_currentBand, m_TRperiod)) return;
+      || !context->matches (m_hisCall, m_mode, nominalRxBand (), m_TRperiod)) return;
   bool const clearCall = context->clearDxPending;
   bool const clearGrid = context->clearGridPending;
   context->clearDxPending = false;
@@ -254,7 +254,7 @@ bool MainWindow::ownsQsoContact (QsoLogRequest const& request) const
 {
   auto const& context = request.context;
   return context == m_qsoCompletion
-    && context->matches (m_hisCall, m_mode, m_currentBand, m_TRperiod)
+    && context->matches (m_hisCall, m_mode, nominalRxBand (), m_TRperiod)
     && (!request.automatic || context->phase != QsoCompletion::Phase::Cancelled);
 }
 
@@ -273,8 +273,7 @@ void MainWindow::applyLogCompletionEffects (QsoLogRequest const& request)
     m_inQSOwith.clear ();
     if (ui->respondComboBox->isVisible () && autoRespondPolicy () != AutoRespondPolicy::None)
       m_autoRespondScores.reset ();
-    stopWRTimer.stop ();
-    stopWCTimer.stop ();
+    invalidateWaitRetries ();
   }
 }
 

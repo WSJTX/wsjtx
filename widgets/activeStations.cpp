@@ -5,12 +5,36 @@
 #include <QTextCharFormat>
 #include <QDateTime>
 #include <QDebug>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLocale>
+#include <QPushButton>
+#include <QToolButton>
+#include <QVBoxLayout>
+#include <QVector>
+#include <algorithm>
+#include <memory>
 
 #include "SettingsGroup.hpp"
 #include "qt_helpers.hpp"
+#include "DaysCalendar.hpp"
 #include "ui_activeStations.h"
 
 #include "moc_activeStations.cpp"
+
+namespace
+{
+  QVector<QDate> sortedDays (QSet<QDate> const& days)
+  {
+    return DaysCalendar::sorted (days);
+  }
+
+  // "2026-10-31, 2026-11-01" (ISO, oldest first), or "none".
+  QString daysText (QSet<QDate> const& days)
+  {
+    return DaysCalendar::text (days, QObject::tr ("none"));
+  }
+}
 
 ActiveStations::ActiveStations(QSettings * settings, QFont const& font, QWidget *parent) :
   QWidget(parent),
@@ -23,8 +47,8 @@ ActiveStations::ActiveStations(QSettings * settings, QFont const& font, QWidget 
   changeFont (font);
   read_settings ();
   setupUi(DisplayMode::Standard);
-  connect(ui->cbReadyOnly, SIGNAL(toggled(bool)), this, SLOT(on_cbReadyOnly_toggled(bool)));
-  connect(ui->cbWantedOnly, SIGNAL(toggled(bool)), this, SLOT(on_cbWantedOnly_toggled(bool)));
+  connect(ui->cbWantedDays, &QCheckBox::toggled, this, &ActiveStations::wantedDaysChanged);
+  connect(ui->pbWantedDays, &QToolButton::clicked, this, &ActiveStations::chooseWantedDays);
   connect(ui->RecentStationsPlainTextEdit, SIGNAL(cursorPositionChanged()), this, SLOT(on_textEdit_clicked()));
 }
 
@@ -68,6 +92,14 @@ void ActiveStations::read_settings ()
   ui->sbMaxAge->setValue(settings_->value("MaxAge",10).toInt());
   ui->cbReadyOnly->setChecked(settings_->value("ReadyOnly",false).toBool());
   ui->cbWantedOnly->setChecked(settings_->value("WantedOnly",false).toBool());
+  m_wantedDays.clear ();
+  for (auto const& text : settings_->value ("WantedDayList").toStringList ())
+    {
+      auto const day = QDate::fromString (text, Qt::ISODate);
+      if (day.isValid ()) m_wantedDays.insert (day);
+    }
+  ui->cbWantedDays->setChecked (settings_->value ("WantedDays", false).toBool ());
+  showWantedDays ();
 }
 
 void ActiveStations::write_settings ()
@@ -78,6 +110,10 @@ void ActiveStations::write_settings ()
   settings_->setValue("MaxAge",ui->sbMaxAge->value());
   settings_->setValue("ReadyOnly",ui->cbReadyOnly->isChecked());
   settings_->setValue("WantedOnly",ui->cbWantedOnly->isChecked());
+  settings_->setValue ("WantedDays", ui->cbWantedDays->isChecked ());
+  QStringList days;
+  for (auto const& day : sortedDays (m_wantedDays)) days << day.toString (Qt::ISODate);
+  settings_->setValue ("WantedDayList", days);
 }
 
 void ActiveStations::setupUi(DisplayMode mode) {
@@ -103,6 +139,9 @@ void ActiveStations::setupUi(DisplayMode mode) {
   ui->bandChanges->setVisible(standard);
   ui->cbReadyOnly->setVisible(numbered);
   ui->cbWantedOnly->setVisible(mode != DisplayMode::Q65Pileup);
+  // The chosen days only apply to the Q65 (QMAP) list's #, Wanted only and QSOs.
+  ui->cbWantedDays->setVisible(mode == DisplayMode::Q65);
+  ui->pbWantedDays->setVisible(mode == DisplayMode::Q65);
   ui->label_2->setVisible(standard);
   ui->label_3->setVisible(standard);
   ui->score->setVisible(standard);
@@ -214,6 +253,42 @@ void ActiveStations::on_cbWantedOnly_toggled(bool b)
 {
   m_bWantedOnly=b;
   emit activeStationsDisplay();
+}
+
+QSet<QDate> ActiveStations::wantedDays() const
+{
+  return ui->cbWantedDays->isChecked () ? m_wantedDays : QSet<QDate> {};
+}
+
+void ActiveStations::wantedDaysChanged()
+{
+  showWantedDays ();
+  emit activeStationsDisplay();
+}
+
+// The day button's text and tooltip: how many days are chosen, and which.
+void ActiveStations::showWantedDays()
+{
+  auto const n = m_wantedDays.size ();
+  ui->pbWantedDays->setText (n == 0 ? tr ("choose…") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
+  ui->pbWantedDays->setToolTip (tr ("Days (UTC) whose QSOs count as worked: %1. Click to change.")
+                                .arg (daysText (m_wantedDays)));
+  ui->pbWantedDays->setEnabled (ui->cbWantedDays->isChecked ());
+}
+
+// A month calendar under the day button: clicking a day adds it to or
+// removes it from the chosen days, at once.
+void ActiveStations::chooseWantedDays()
+{
+  DaysCalendar::show (ui->pbWantedDays, &m_wantedDays, [this] {
+      showWantedDays ();
+      emit activeStationsDisplay ();
+    }, tr ("No days chosen: every QSO counts."));
+}
+
+QSet<QDate> ActiveStations::chosenDays() const
+{
+  return m_wantedDays;
 }
 
 void ActiveStations::setRate(int n)

@@ -3,7 +3,8 @@ program test_streaming_control
   use streaming_control, only: parse_control_frame, configure_fields,       &
        control_type_error, CTRL_UNKNOWN, CTRL_CONFIGURE, CTRL_HALT,         &
        CTRL_PARSE_ERR, CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, &
-       MODE_JTTY, encode_request, parse_encode_request, parse_render_request
+       MODE_JTTY, encode_request, parse_encode_request, parse_render_request, &
+       REF_SPECTRUM_OFF, REF_SPECTRUM_MEASURE, REF_SPECTRUM_APPLY
   implicit none
 
   integer :: nfail = 0
@@ -159,6 +160,46 @@ program test_streaming_control
   call expect_nexp('{"t":"configure","q65_pileup":false,"contest_type":"q65_pileup"}', .true., 1, '')
   call expect_nexp('{"t":"configure","contest_type":"na_vhf"}', .true., 1, '')
   call expect_nexp('{"t":"configure","contest_type":"ww_digi"}', .true., 1, '')
+
+  ! The receive chain's keys: spectrum, low_sidelobes and ref_spectrum_clear
+  ! are booleans, ref_spectrum exactly "off", "measure" or "apply" (-1:
+  ! unset). spectrum_smoothing is no key: any value of it is ignored.
+  call expect_receive('{"t":"configure","spectrum":true,"low_sidelobes":false,' // &
+       '"ref_spectrum":"measure","ref_spectrum_clear":true}', &
+       [1, 0, REF_SPECTRUM_MEASURE, 1], '', '')
+  call expect_receive('{"t":"configure","ref_spectrum":"apply"}',             &
+       [-1, -1, REF_SPECTRUM_APPLY, -1], '', '')
+  call expect_receive('{"t":"configure","ref_spectrum":"off",' // &
+       '"ref_spectrum_clear":false}', [-1, -1, REF_SPECTRUM_OFF, 0], '', '')
+  call expect_receive('{"t":"configure","ref_spectrum":"\u0061pply"}',       &
+       [-1, -1, REF_SPECTRUM_APPLY, -1], '', '')
+  call expect_receive('{"t":"configure","spectrum":true,"spectrum_smoothing":"2"}', &
+       [1, -1, -1, -1], '', '')
+  call expect_receive('{"t":"configure","spectrum":1}', [-1, -1, -1, -1], 'spectrum', '')
+  call expect_receive('{"t":"configure","low_sidelobes":"true"}', [-1, -1, -1, -1], &
+       'low_sidelobes', '')
+  call expect_receive('{"t":"configure","ref_spectrum":2}', [-1, -1, -1, -1], &
+       'ref_spectrum', '')
+  call expect_receive('{"t":"configure","ref_spectrum_clear":"yes"}', [-1, -1, -1, -1], &
+       'ref_spectrum_clear', '')
+  call expect_receive('{"t":"configure","ref_spectrum":"Apply"}', [-1, -1, -1, -1], &
+       '', 'ref_spectrum')
+  call expect_receive('{"t":"configure","ref_spectrum":"apply "}', [-1, -1, -1, -1], &
+       '', 'ref_spectrum')
+  call expect_receive('{"t":"configure","ref_spectrum":"ap\x"}', [-1, -1, -1, -1], &
+       '', 'ref_spectrum')
+  ! prepared_audio is a boolean (-1: unset), beside the other receive keys.
+  call expect_prepared('{"t":"configure","prepared_audio":true}', 1, '')
+  call expect_prepared('{"t":"configure","prepared_audio":false,"spectrum":true}', 0, '')
+  call expect_prepared('{"t":"configure","spectrum":true}', -1, '')
+  call expect_prepared('{"t":"configure","prepared_audio":1}', -1, 'prepared_audio')
+  call expect_prepared('{"t":"configure","prepared_audio":"true"}', -1, 'prepared_audio')
+  ! fast is a boolean (-1: unset): fast JT9.
+  call expect_fast('{"t":"configure","mode":"JT9","fast":true}', 1, '')
+  call expect_fast('{"t":"configure","fast":false,"trperiod":60}', 0, '')
+  call expect_fast('{"t":"configure","mode":"JT9"}', -1, '')
+  call expect_fast('{"t":"configure","fast":1}', -1, 'fast')
+  call expect_fast('{"t":"configure","fast":"true"}', -1, 'fast')
 
   ! Conflicting depth keys are named by their wire keys.
   call expect_conflict('{"t":"configure","depth":3,"depth_level":2}', 'depth', 'depth alone')
@@ -417,6 +458,89 @@ contains
        nfail = nfail + 1
     end if
   end subroutine expect_flags
+
+  ! The receive chain's keys as parsed, spectrum, low_sidelobes, ref_spectrum
+  ! and ref_spectrum_clear (booleans 0 or 1; -1: unset), or the key a type
+  ! error names, or the key out of range.
+  subroutine expect_receive(frame, expected, bad_key, range_key)
+    character(len=*), intent(in) :: frame, bad_key, range_key
+    integer,          intent(in) :: expected(4)
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action, got(4)
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    got = -1
+    if (cfg%spectrum_set) got(1) = merge(1, 0, cfg%spectrum)
+    if (cfg%low_sidelobes_set) got(2) = merge(1, 0, cfg%low_sidelobes)
+    if (cfg%ref_spectrum_set) got(3) = cfg%ref_spectrum
+    if (cfg%ref_spectrum_clear_set) got(4) = merge(1, 0, cfg%ref_spectrum_clear)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.      &
+            all(got .eq. expected) .and.                                     &
+            (cfg%ref_spectrum_out_of_range .eqv. range_key .eq. 'ref_spectrum')
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_receive
+
+  ! prepared_audio as parsed (0 or 1; -1: unset), or the key a type error
+  ! names.
+  subroutine expect_prepared(frame, expected, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    integer,          intent(in) :: expected
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action, got
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    got = -1
+    if (cfg%prepared_audio_set) got = merge(1, 0, cfg%prepared_audio)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key .and. got .eq. -1
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and. got .eq. expected
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_prepared
+
+  ! fast as parsed (0 or 1; -1: unset), or the key a type error names.
+  subroutine expect_fast(frame, expected, bad_key)
+    character(len=*), intent(in) :: frame, bad_key
+    integer,          intent(in) :: expected
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action, got
+    logical :: good
+
+    call parse_control_frame(frame, action, cfg, terr)
+    got = -1
+    if (cfg%fast_set) got = merge(1, 0, cfg%fast)
+    if (len(bad_key) .gt. 0) then
+       good = terr%present .and. trim(terr%key) .eq. bad_key .and. got .eq. -1
+    else
+       good = action .eq. CTRL_CONFIGURE .and. .not. terr%present .and. got .eq. expected
+    end if
+    if (good) then
+       print '(a,a)', '  PASS  ', frame
+    else
+       print '(a,a)', '  FAIL  ', frame
+       nfail = nfail + 1
+    end if
+  end subroutine expect_fast
 
   ! aggressive as parsed, or the key a type error names.
   subroutine expect_aggressive(frame, set, value, bad_key)

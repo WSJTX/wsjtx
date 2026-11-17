@@ -25,7 +25,7 @@
 #define	POLY2	0xe4613c47
 
 //Decoder - returns 0 on success, -1 on timeout
-int jelinek(
+int jelinek_with_workspace(
             unsigned int *metric,	/* Final path metric (returned value) */
             unsigned int *cycles,	/* Cycle count (returned value) */
             unsigned char *data,	/* Decoded output data */
@@ -34,7 +34,7 @@ int jelinek(
             unsigned int stacksize,
             struct snode *stack,
             int mettab[2][256],	/* Metric table, [sent sym][rx symbol] */
-            unsigned int maxcycles)/* Decoding timeout in cycles per bit */
+            unsigned int maxcycles, unsigned int *buckets)/* Decoding timeout in cycles per bit */
 {
     
     // Compute branch metrics for each symbol pair
@@ -59,8 +59,7 @@ int jelinek(
     unsigned int nbuckets=1000;
     unsigned int low_bucket=nbuckets-1; //will be set on first run-through
     unsigned int high_bucket=0;
-    unsigned int *buckets, bucket;
-    buckets=malloc(nbuckets*sizeof(unsigned int));
+    unsigned int bucket;
     memset(buckets,0,nbuckets*sizeof(unsigned int));
     unsigned int ptr=1;
     unsigned int stackptr=1; //pointer values of 0 are reserved (they mean that a bucket is empty)
@@ -160,4 +159,12 @@ int jelinek(
         return -1;
     }
     return 0;		//success
+}
+
+int jelinek(unsigned int *metric, unsigned int *cycles, unsigned char *data,
+            unsigned char *symbols, unsigned int nbits, unsigned int stacksize,
+            struct snode *stack, int mettab[2][256], unsigned int maxcycles)
+{
+    unsigned int buckets[1000];
+    return jelinek_with_workspace(metric,cycles,data,symbols,nbits,stacksize,stack,mettab,maxcycles,buckets);
 }

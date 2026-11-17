@@ -585,6 +585,7 @@ void TCITransceiver::do_stop ()
   if (commander_)
   {
     if (inConnected) commander_->close(QWebSocketProtocol::CloseCodeNormal,"end");
+    inConnected = false;
     delete commander_, commander_ = nullptr;
     CAT_TRACE ("deleted commander & closed websocket & deleted:");
   }
@@ -1013,27 +1014,6 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
     m_tciSuccessfullyWrittenFrames += frames;
     emit_tci_playout_snapshot (false, m_state == Idle);
   }
-}
-
-void TCITransceiver::txAudioData(quint32 len, float * data)
-{
-  if (len % TciStream::DefaultChannels || (len && !data)) {
-    return;
-  }
-
-  TciStream::Header chrono {};
-  chrono.receiver = 0u;
-  chrono.sampleRate = audioSampleRate;
-  chrono.length = len;
-  QByteArray tx;
-  if (!TciStream::prepare_tx_audio_frame (&tx, chrono, TciStream::DefaultChannels)) {
-    return;
-  }
-
-  if (len) {
-    std::memcpy (TciStream::float_payload (&tx), data, len * sizeof (float));
-  }
-  commander_->sendBinaryMessage(tx);
 }
 
 void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples,
@@ -1747,6 +1727,7 @@ void TCITransceiver::do_modulator_start (TxEvidence::TxRequest const& request)
   m_bFastMode=request.fast_mode;
   m_TRperiod=request.tr_period_s;
   m_tuning=request.tuning;
+  m_silent=request.silent;
   m_cwId=request.cw_id;
   unsigned delay_ms=1000;
 
@@ -2080,6 +2061,7 @@ quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, quint32
 
 qint16 TCITransceiver::postProcessSample (qint16 sample) const
 {
+  if (m_silent) return 0;       // footswitch TX: operator supplies the modulation
   if (m_addNoise) {  // Test frame, we'll add noise
     qint32 s = m_fac * (gran () + sample * m_snr / 32768.0);
     if (s > std::numeric_limits<qint16>::max ()) {

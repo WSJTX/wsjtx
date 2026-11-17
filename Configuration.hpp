@@ -227,6 +227,12 @@ public:
   int watchdog () const;
   int tune_watchdog_time () const;
   bool tune_watchdog () const;
+
+  // Footswitch manual TX input on a serial port status line
+  bool footswitch_enabled () const;
+  QString footswitch_port () const;
+  int footswitch_pin () const;  // 0=CTS 1=DSR 2=DCD 3=RI
+  bool footswitch_port_clash () const; // footswitch port is also the CAT or PTT port
   bool TX_messages () const;
   bool split_mode () const;
   bool enable_VHF_features () const;
@@ -290,6 +296,9 @@ public:
   bool highlight_by_mode () const;
   bool best_sp_new_dxcc () const;
   bool best_sp_new_call_on_band () const;
+  // Full path of the ADIF log that receives new QSOs: wsjtx_log.adi in the
+  // data directory unless the user chose another (e.g. shared) location.
+  QString adif_log_file_path () const;
   QStringList const& supplemental_history_files () const;
   HistoryFolders const& supplemental_history_folders () const;
   void set_worked_before_status (QString const& status, QString const& errors);
@@ -404,6 +413,17 @@ public:
   Q_SLOT bool transceiver_frequency (Frequency, RigFrequencyChangePolicy::ChangeKind);
   bool request_frequency (RigFrequency::Request const&, RigFrequencyChangePolicy::ChangeKind);
   quint64 frequency_generation () const;
+  // True only when the open rig's reported ranges exclude this dial frequency
+  // (after station offset and calibration); false when no ranges are known or
+  // the user checked FreqCal's "Ignore range" box.
+  bool rig_cannot_tune (Frequency) const;
+  // True while a rig is configured but has not yet reported its ranges
+  // (opening, or restarting after Settings).
+  bool rig_ranges_pending () const;
+  bool rig_range_override () const;
+  void set_rig_range_override (bool);
+  // Tests only: the in-process "None" rig reports no ranges of its own.
+  void set_rig_tuning_ranges_for_test (RigFrequency::Ranges const&);
   void set_frequency_activity_provider (std::function<RigFrequencyChangePolicy::Activity ()>);
   Q_SIGNAL void frequency_result (RigFrequency::Result const&);
   Q_SIGNAL void frequency_observation (RigFrequency::Evidence const&);
@@ -535,6 +555,8 @@ public:
   Q_SIGNAL void tx_inhibit_command (QString const& controller, quint32 ttl_ms,
                                     QString const& station) const;
   Q_SIGNAL void tx_inhibit_invalid (quint64 count) const;
+  // CAT or PTT is about to be opened on the port the live footswitch uses
+  Q_SIGNAL void footswitch_port_needed () const;
   Q_SIGNAL void transceiver_closing (bool failed) const;
   Q_SIGNAL void leavingSettings (bool) const;
 

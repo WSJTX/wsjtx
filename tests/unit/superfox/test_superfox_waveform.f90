@@ -112,4 +112,5 @@ program test_superfox_waveform
      if(any(wave.ne.0)) error stop 'Invalid SuperFox tones produced audio'
   enddo
   print '(a,es14.6)', 'SuperFox waveform tests passed; maximum error ',maximum_error
+  deallocate(wave,pulse,steps)
 end program test_superfox_waveform

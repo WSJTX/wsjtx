@@ -300,11 +300,12 @@
 ! client that sends configures and requests to a session that decodes matches
 ! errors without an id by code, not by the request in flight. A request holds
 ! up a decode in three ways: a long reply's lines hold the decode's next line
-! until they are read; a render's first FFT plan can wait for a decoder's, or
-! a decoder's for it; and the stream reads no audio while it computes a
-! render, so on live audio a pass whose audio arrives meanwhile runs late,
-! and FT8's wall-clock stops can shorten it. A render takes from a fraction of
-! a second (FT8) to seconds (JT65, WSPR or FST4 at 48000 Hz).
+! until they are read (once the output queue runs, until they are queued, or
+! read while 16 MiB of lines wait); a render's first FFT plan can wait for a
+! decoder's, or a decoder's for it; and the stream reads no audio while it
+! computes a render, so on live audio a pass whose audio arrives meanwhile
+! runs late, and FT8's wall-clock stops can shorten it. A render takes from a
+! fraction of a second (FT8) to seconds (JT65, WSPR or FST4 at 48000 Hz).
 
 module streaming_encode
   use, intrinsic :: iso_c_binding, only: c_int16_t, c_int32_t, c_double, c_char, &

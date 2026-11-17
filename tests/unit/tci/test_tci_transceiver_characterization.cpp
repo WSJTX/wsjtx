@@ -10,6 +10,7 @@
 #include <QTest>
 #include <QSignalSpy>
 #include <QTimer>
+#include <QPointer>
 #include <QVector>
 
 #include "commons.h"
@@ -1680,23 +1681,70 @@ private slots:
     QVERIFY (harness.listen ());
     QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
     QSignalSpy results {&harness.rig (), &Transceiver::frequency_result};
+    struct WaitObservation
+    {
+      bool first_timeout {false};
+      bool completed {false};
+      bool observed {false};
+      bool within_remaining_budget {false};
+    };
+    auto const wait = std::make_shared<WaitObservation> ();
+    connect (&harness.rig (), &Transceiver::frequency_result, &harness.server (),
+      [wait] (Result const& result)
+      {
+        if (result.request.id == 502 && result.outcome == Outcome::Failed)
+          wait->completed = true;
+      });
+    int mismatches_processed = 0;
+    bool initial_wait_within_budget = false;
     harness.set_command_handler (
-      [&harness] (QString const& verb, QStringList const& args, int)
+      [&harness, &mismatches_processed, &initial_wait_within_budget, wait] (QString const& verb, QStringList const& args, int)
       {
         if (verb != QStringLiteral ("vfo")
             || args != QStringList {"0", "1", "14074500"}) return false;
+        auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+        auto * timer = rig.tci_timer2_;
+        initial_wait_within_budget = timer->isActive ()
+          && timer->interval () > 0 && timer->interval () <= 1000;
+        if (!initial_wait_within_budget) return true;
+        // An early wakeup must retain the operation's absolute deadline.
+        timer->setInterval (250);
+        auto * context = &harness.server ();
+        connect (timer, &QTimer::timeout, context,
+          [wait, context, timer = QPointer<QTimer> {timer}]
+          {
+            if (wait->first_timeout) return;
+            wait->first_timeout = true;
+            QTimer::singleShot (0, context, [wait, timer]
+              {
+                // Observe after the nested wait has either rearmed or completed.
+                wait->within_remaining_budget = wait->completed
+                  || (timer && timer->isActive () && timer->interval () > 0
+                      && timer->interval () <= 900);
+                wait->observed = true;
+              });
+          });
+        auto const timer_id = timer->timerId ();
+        auto const interval = timer->interval ();
         for (int i = 0; i < 30; ++i)
-          harness.server ().send_text_later (QStringLiteral ("vfo:0,1,14074499"), i * 50);
+          {
+            if (!QMetaObject::invokeMethod (&rig, "onMessageReceived", Qt::DirectConnection,
+                  Q_ARG (QString, QStringLiteral ("vfo:0,1,14074499")))) return true;
+            if (!timer->isActive () || timer->timerId () != timer_id
+                || timer->interval () != interval) return true;
+            ++mismatches_processed;
+          }
         return true;
       });
     auto state = state_from (harness);
     state.tx_frequency (14074500);
     state.split (true);
     state.frequency_request ({9, 502, Path::Tx, 14074500});
-    QElapsedTimer deadline;
-    deadline.start ();
     harness.set_now (state, 27);
-    QVERIFY2 (deadline.elapsed () < 1400, qPrintable (harness.diagnostics ()));
+    QVERIFY (initial_wait_within_budget);
+    QCOMPARE (mismatches_processed, 30);
+    QTRY_VERIFY_WITH_TIMEOUT (wait->observed, 10000);
+    QVERIFY (wait->within_remaining_budget);
     QVERIFY (results.size () >= 2);
     auto const result = qvariant_cast<Result> (results.last ().at (0));
     QCOMPARE (result.request.id, quint64 {502});

@@ -17,8 +17,9 @@
 namespace Jtty
 {
   // A content-free "keep transmitting" pattern (ordinary TEXT5-encoded text, nothing protocol-special) used to bridge a typing pause without PTT dropping/re-keying; '<' isn't used in normal chat text, so it's recognized and suppressed wherever JTTY text is displayed or logged.
+  // One block = one frame; longer filler delays typed text and PTT-off.
   inline QString const jttyFillerText =
-    QStringLiteral ("<<<<< <<<<<");
+    QStringLiteral ("<<<<<");
 
   inline bool isJttyFillerText (QString const& text)
   {
@@ -215,39 +216,52 @@ namespace Jtty
     return fromEncoder (Encoder::nativeFormTemplate (forms[functionKey - 1]));
   }
 
-  // Chat/QSO-style templates for JTTY's "FT8 style" message preset (as opposed
-  // to the contest-exchange-oriented templates above). F7/F8 are left blank.
-  inline QString ft8StyleMacroTemplate (int functionKey)
+  // %[ and %] turn PTT on and off, and %L logs the QSO. They apply to the whole
+  // macro wherever they appear: PTT off already sends everything queued first.
+  struct MacroControl
   {
-    static QString const templates[] {
-      QStringLiteral ("%H %M %G"),
-      QStringLiteral ("%H %M %R"),
-      QStringLiteral ("%H %M R%R"),
-      QStringLiteral ("%H %M RRR"),
-      QStringLiteral ("%H %M 73"),
-      QStringLiteral ("CQ %M %G"),
-      QString {},
-      QString {}
-    };
-    if (functionKey < 1 || functionKey > 8) return {};
-    return templates[functionKey - 1];
+    QString text;
+    bool pttOn {false};
+    bool pttOff {false};
+    bool logQso {false};
+
+    // With %Q and %L together ("TU NOW %Q %E%L"), the macro logs the current
+    // QSO and opens the next: its exchange takes the next serial number, and
+    // the next call becomes the DX call.
+    bool startsNextQso () const
+    {
+      return logQso && text.contains (QStringLiteral ("%Q"));
+    }
+  };
+
+  // Upper-cases a token's letter so a macro typed as %l means the token. Only
+  // macros: free text keeps %m as the two characters, which the N1MM and codec
+  // paths rely on (lib/jtty/JttyTransmitHost.cpp).
+  inline QString normalizeMacroTokens (QString macro)
+  {
+    static QString const tokenLetters {QStringLiteral ("MHQNEGRL")};
+    for (int i = 0; i + 1 < macro.size (); ++i) {
+      if (macro.at (i) != QLatin1Char ('%')) continue;
+      QChar const upper = macro.at (i + 1).toUpper ();
+      if (!tokenLetters.contains (upper)) continue;
+      macro[i + 1] = upper;
+      ++i;
+    }
+    return macro;
   }
 
-  enum class MessageStyle : qint8 { Contest = 0, Ft8 = 1 };
-
-  // QSettings key for one function key's template under the given style, so
-  // Contest- and FT8-style edits persist independently of each other.
-  inline QString messageStyleSettingsKey (MessageStyle style, int functionKey)
+  inline MacroControl parseMacroControl (QString macro)
   {
-    return style == MessageStyle::Ft8
-      ? QStringLiteral ("JTTY_FT8_msg%1").arg (functionKey)
-      : QStringLiteral ("JTTY_msg%1").arg (functionKey);
-  }
-
-  inline QString messageStyleDefaultTemplate (MessageStyle style, int functionKey)
-  {
-    return style == MessageStyle::Ft8
-      ? ft8StyleMacroTemplate (functionKey) : nativeMacroTemplate (functionKey);
+    macro = normalizeMacroTokens (std::move (macro));
+    MacroControl result;
+    result.pttOn = macro.contains (QStringLiteral ("%["));
+    result.pttOff = macro.contains (QStringLiteral ("%]"));
+    result.logQso = macro.contains (QStringLiteral ("%L"));
+    macro.replace (QStringLiteral ("%["), QStringLiteral (" "));
+    macro.replace (QStringLiteral ("%]"), QStringLiteral (" "));
+    macro.replace (QStringLiteral ("%L"), QStringLiteral (" "));
+    result.text = macro.simplified ();
+    return result;
   }
 
   inline QString formatSnr (int snr)
@@ -259,15 +273,6 @@ namespace Jtty
                                      NativeMacroContext const& context)
   {
     return fromEncoder (Encoder::expandLiteralMacro (toEncoder (macroTemplate), toEncoder (context)));
-  }
-
-  inline QString migratedNativeMacroTemplate (int functionKey, QString const& savedValue)
-  {
-    if ((functionKey == 2 || functionKey == 6 || functionKey == 8)
-        && savedValue == legacyNativeMacroTemplate (functionKey)) {
-      return nativeMacroTemplate (functionKey);
-    }
-    return savedValue;
   }
 
   inline bool isNativeCall (QString const& rawCall)

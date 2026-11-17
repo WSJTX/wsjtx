@@ -10,6 +10,11 @@ struct snode {
     unsigned int jpointer;
 };
 
+/* Bucket workspace contains 1000 entries. */
+int jelinek_with_workspace(unsigned int *, unsigned int *, unsigned char *,
+                           unsigned char *, unsigned int, unsigned int,
+                           struct snode *, int [2][256], unsigned int, unsigned int *);
+
 int jelinek(unsigned int *metric,
             unsigned int *cycles,
             unsigned char *data,

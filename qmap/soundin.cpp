@@ -1,5 +1,6 @@
 #include "soundin.h"
 #include "qmap_runtime_config.h"
+#include "Network/LinradPacket.hpp"
 #include <math.h>
 
 #ifdef Q_OS_WIN32
@@ -164,24 +165,15 @@ void SoundInThread::inputUDP()
                               141600 * (qmap_runtime::activeRateHz() / 96000.0));
 
   bool qe = quitExecution;
-  struct linradBuffer {
-    double cfreq;
-    int msec;
-    float userfreq;
-    int iptr;
-    quint16 iblk;
-    qint8 nrx;
-    char iusb;
-    double d8[512];                  //Up to 1024 i*2 IQ pairs (4096 bytes)
-  } b;
-  constexpr int header_bytes = 24;   //Bytes in the packet ahead of d8
+  LinradPacketBuffer<512> b;
+  bool warned_invalid_packet = false;
+  bool warned_unsupported_encoding = false;
 
   int ntr0=99;
   int k=0;
   int nsec;
   int ntr;
   int nhsym0=0;
-  int iz=174;
 
   // Main loop for input of UDP packets over the network:
   while (!qe) {
@@ -191,12 +183,12 @@ void SoundInThread::inputUDP()
 //      msleep(2);                  // Sleep if no packet available
       QObject().thread()->usleep(2000);
     } else {
-      // The packet length depends on the sender and on the sample rate: 1416 bytes
-      // (348 IQ pairs) at 96 kHz, more at the higher rates.
-      int nBytesRead = udpSocket->readDatagram((char *)&b,sizeof(b));
-      int payload_bytes = nBytesRead - header_bytes;
-      if (payload_bytes < 8) {
-        qDebug() << "UDP Read Error:" << nBytesRead;
+      int const iz = b.receive (*udpSocket, false);
+      if (!iz) {
+        if (!warned_invalid_packet) {
+          qWarning() << "Invalid Linrad UDP packet";
+          warned_invalid_packet = true;
+        }
         continue;
       }
 
@@ -213,13 +205,18 @@ void SoundInThread::inputUDP()
 
       ntr0=ntr;
 
+      // Keep period tracking active while unsupported audio is discarded.
+      if (b.nrx != 1 && b.nrx != -1) {
+        if (!warned_unsupported_encoding) {
+          qWarning() << "Unsupported Linrad encoding" << int (b.nrx)
+                     << "in QMAP; select single-channel Linrad output.";
+          warned_unsupported_encoding = true;
+        }
+        continue;
+      }
+
       if(m_monitoring) {
         m_nrx=b.nrx;
-        // Number of IQ pairs in this datagram, from its payload size
-        if(m_nrx == +1) iz=payload_bytes/4;                    //One RF channel, i*2 data (348 at 96 kHz)
-        if(m_nrx == -1 or m_nrx == +2) iz=payload_bytes/8;     //One Rf channel, r*4 data
-                                                               // or 2 RF channels, i*2 data
-        if(m_nrx == -2) iz=payload_bytes/16;                   // Two RF channels, r*4 data
 
         // If buffer will not overflow, move data into datcom_
         if ((k+iz) <= qmap_runtime::activeNsmax()) {

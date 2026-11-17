@@ -14,6 +14,7 @@
 #include <QSettings>
 #include <QtMath>
 #include "MessageBox.hpp"
+#include "JttyMacroEditor.hpp"
 #include "WaitFeaturePolicy.hpp"
 #include "commons.h"
 #include "echograph.h"
@@ -35,7 +36,6 @@ extern bool m_displayBand;
 extern bool wait_and_call;
 extern bool no_wait_and_call;
 extern bool no_a7_decodes;
-extern bool keep_frequency;
 extern bool keep_msk144_frequency;
 extern bool msk144qsy;
 extern bool keep_last_tx_label;
@@ -89,7 +89,8 @@ void MainWindow::on_monitorButton_clicked (bool checked)
           operatingFrequencyContext (), [this] (RigFrequency::Request const& request) {
             return dispatchNominalFrequency (request, FrequencyRequestOrigin::User, true);
           }, online);
-        applyOperatingFrequencyTransition (transition);
+        if (transition.restorationAccepted) m_pendingModeRetune.follow (m_operatingFrequency.snapshot ().rx);
+        synchronizeOperatingBandState ();
         applyMonitorEffects (true, transition.restorationAccepted);
       }
     else
@@ -125,25 +126,42 @@ void MainWindow::on_autoButton_clicked (bool checked)
   setAutoTxEnabled (checked, TxControlOrigin::Local);
 }
 
-void MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
+bool MainWindow::canEnableAutoTx (TxControlOrigin origin, TxEnableIntent intent) const
 {
-  if (checked && origin == TxControlOrigin::Automatic
-      && (m_pendingRigTune || rigTuneTimer.isActive ())) return;
+  if (origin == TxControlOrigin::Automatic
+      && (m_pendingRigTune || rigTuneTimer.isActive () || m_config.radio_mode_yielded ())) return false;
+  if (m_mode != "WSPR" && m_mode != "FST4W"
+      && (ui->tuneButton->isChecked () || m_tune || tuneButtonTimer.isActive ())) return false;
+  return !(ui->DX_Call_Button->isChecked () && m_specOp == SpecOp::HOUND && m_config.superFox ()
+           && !m_bDoubleClicked && intent != TxEnableIntent::DecodedSelection);
+}
+
+bool MainWindow::prepareAutoTxEnable (TxControlOrigin origin, TxEnableIntent intent)
+{
+  if (!canEnableAutoTx (origin, intent)) return false;
   cancelRigTune ();
-  if (checked && ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
-  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return; // not allowed while tuning
-  if (checked && ((origin == TxControlOrigin::Automatic && m_config.radio_mode_yielded ())
-                  || !m_config.prepare_radio_mode ()))
-    {
-      ui->autoButton->setChecked (false);
-      updateRadioModeStatus ();
-      return;
-    }
+  if (m_config.prepare_radio_mode ()) return true;
+  updateRadioModeStatus ();
+  return false;
+}
+
+bool MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin, TxEnableIntent intent)
+{
+  if (checked && !prepareAutoTxEnable (origin, intent)) {
+    ui->autoButton->setChecked (m_auto);
+    return false;
+  }
+  if (!checked) cancelRigTune ();
+  return installAutoTxEnabled (checked);
+}
+
+bool MainWindow::installAutoTxEnabled (bool checked)
+{
   ui->autoButton->setChecked (checked);
   m_config.transceiver_tune (false);  // reset rig tuning
-  stopWRTimer.stop();                                       // stop any Wait & Reply timeout
+  if (checked) cancelWaitRetry (true);
+  else invalidateWaitRetries ();
   if (!checked && ui->DX_Call_Button->isChecked()) {
-      stopWCTimer.stop();                                   // stop any Wait & Call timeout
       ui->DX_Call_Button->click ();                         // disable Wait & Call
       no_wait_and_call = false;                             // reset Wait & Call
   }
@@ -191,6 +209,7 @@ void MainWindow::setAutoTxEnabled (bool checked, TxControlOrigin origin)
   if(m_mode=="Echo") m_echoRunning=false;
   if (checked) setXIT (ui->TxFreqSpinBox->value ());
   check_button_color();
+  return true;
 }
 
 void MainWindow::on_stopButton_clicked()                       //stopButton
@@ -200,8 +219,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   m_loopall=false;
   finishReferenceSpectrumMeasurement(true);
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
+  invalidateWaitRetries ();
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
   if (ui->respondComboBox->isVisible() and autoRespondPolicy () != AutoRespondPolicy::None and !m_diskData) {
@@ -475,6 +493,8 @@ void MainWindow::on_ignoreButton_clicked()                    //Ignore button
 
 void MainWindow::on_DX_Call_Button_clicked (bool checked)
 {
+  cancelWaitRetry (false);
+  no_wait_and_call = false;
   WaitFeatureContext const waitContext {
     m_mode,
     m_specOp,
@@ -548,9 +568,8 @@ void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
       processBeaconActions (m_beaconTxController.tuneStarted (BeaconTx::TuneKind::Manual));
     }
   if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W")) ui->autoButton->click();   // stop any other transmission
-  stopWRTimer.stop();           // stop any Wait & Reply timeout
-  stopWCTimer.stop();           // stop any Wait & Call timeout
-  if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+  invalidateWaitRetries ();
+  if (checked && !m_footswitchTune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
       tuneATU_Timer.start (m_config.tune_watchdog_time()*1000); // tune watchdog
   }
   if (!checked) {
@@ -561,8 +580,9 @@ void MainWindow::setTuneEnabled (bool checked, TxControlOrigin origin)
   if (lastChecked == checked) return;
   lastChecked = checked;
   if (checked && m_tune==false) { // we're starting tuning so remember Tx and change pwr to Tune value
-    if (m_config.pwrBandTuneMemory ()) {
-      auto const& curBand = ui->bandComboBox->currentText();
+    m_footswitchPowerBypass = m_footswitchTune;
+    if (m_config.pwrBandTuneMemory () && !m_footswitchTune) {
+      auto const curBand = operatingBandName ();
       m_pwrBandTxMemory[curBand] = ui->outAttenuation->value(); // remember our Tx pwr
       m_PwrBandSetOK = false;
       if (m_pwrBandTuneMemory.contains(curBand)) {
@@ -595,8 +615,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   m_bAutoReply = false;         // ready for next
   m_maxPoints=-1;
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
+  invalidateWaitRetries ();
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
@@ -608,6 +627,7 @@ void MainWindow::reset_transmit_controls_after_stop ()
   ui->tuneButton->setChecked (false);
   ui->tuneButton->setText("Tune");
   m_tune=false;
+  m_footswitchTune=false;
   m_bTxTime=false;
   filtered = false;
   ignored = false;
@@ -798,8 +818,7 @@ void MainWindow::cancelAutomaticCQSelection ()
   pounce = false;
   m_autoRespondSelectionLatch.clear ();
   m_pounceSelectionTimer.stop ();
-  if (m_pounceWaitCallTimeout) stopWCTimer.stop ();
-  m_pounceWaitCallTimeout = false;
+  if (m_waitCallTimeoutOwner == WaitCallTimeoutOwner::Pounce) cancelWaitRetry (false);
 }
 
 MainWindow::CompetingCQSelection MainWindow::competingCQSelection () const
@@ -886,6 +905,11 @@ void MainWindow::setBestSPArmed (bool armed, QString const& feedback)
 
 void MainWindow::on_houndButton_clicked (bool checked)
 {
+  configureHound (checked, checked ? ModeEntry::RetunePolicy::Working : ModeEntry::RetunePolicy::Preserve);
+}
+
+void MainWindow::configureHound (bool checked, ModeEntry::RetunePolicy policy)
+{
   if (checked) {
     HoldTxFreqStatus = ui->cbHoldTxFreq->isChecked();  // save state of the Hold Tx Freq checkbox
     m_config.setSpecial_Hound();
@@ -894,11 +918,9 @@ void MainWindow::on_houndButton_clicked (bool checked)
     ui->txb1->setEnabled(true);
   } else {
     m_config.setSpecial_None();
-    keep_frequency = true;
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
   m_specOp=m_config.special_op_id();
-  on_actionFT8_triggered();
+  set_mode ("FT8", policy);
   check_button_color();
 }
 
@@ -933,8 +955,8 @@ void MainWindow::on_q65Button_clicked()
       m_q65PileupCopiedCallers.clear();
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
-      // Pileup mode starts QSOs with Tx2 and disables Tx1; restore the saved preference.
-      ui->tx1->setEnabled(m_tx1_enabled_preference);
+      // Pileup temporarily skips Tx1; the current callsign can require it on exit.
+      ui->tx1->setEnabled(elide_tx1_not_allowed () || m_tx1_enabled_preference);
       ui->txb1->setEnabled(true);
     }
     on_actionQ65_triggered();
@@ -1161,4 +1183,52 @@ void MainWindow::on_pbF7_clicked()
 void MainWindow::on_pbF8_clicked()
 {
   sendJttyFunctionKey(8);
+}
+
+void MainWindow::on_pbSF1_clicked()
+{
+  sendJttyFunctionKey(9);
+}
+
+void MainWindow::on_pbSF2_clicked()
+{
+  sendJttyFunctionKey(10);
+}
+
+void MainWindow::on_pbSF3_clicked()
+{
+  sendJttyFunctionKey(11);
+}
+
+void MainWindow::on_pbSF4_clicked()
+{
+  sendJttyFunctionKey(12);
+}
+
+void MainWindow::on_pbSF5_clicked()
+{
+  sendJttyFunctionKey(13);
+}
+
+void MainWindow::on_pbSF6_clicked()
+{
+  sendJttyFunctionKey(14);
+}
+
+void MainWindow::on_pbSF7_clicked()
+{
+  sendJttyFunctionKey(15);
+}
+
+void MainWindow::on_pbSF8_clicked()
+{
+  sendJttyFunctionKey(16);
+}
+
+void MainWindow::on_pbEditJttyMacros_clicked()
+{
+  JttyMacroEditor editor {m_jttyMacros, this};
+  if (editor.exec () != QDialog::Accepted) return;
+  m_jttyMacros = editor.library ();
+  refreshJttyMacroControls ();
 }

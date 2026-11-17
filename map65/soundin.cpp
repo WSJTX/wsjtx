@@ -1,5 +1,6 @@
 #include "soundin.h"
 #include "commons.h"
+#include "Network/LinradPacket.hpp"
 #include <math.h>
 #include <complex>
 #include "mainwindow.h"
@@ -371,23 +372,14 @@ void SoundInThread::inputUDP()
   udpSocket->setSocketOption (QUdpSocket::ReceiveBufferSizeSocketOption, 141600);
 
   bool qe = quitExecution;
-  struct linradBuffer {
-    double cfreq;
-    int msec;
-    float userfreq;
-    int iptr;
-    quint16 iblk;  //was quint16
-    qint8 nrx;
-    char iusb;
-    double d8[174];
-  } b;
+  LinradPacket b;
+  bool warned_invalid_packet = false;
 
   int ntr0=99;
   int k=0;
   int nsec;
   int ntr;
   Map65HalfSymbolScheduler spectrumScheduler;
-  int iz=174;
 
   // Main loop for input of UDP packets over the network:
   while (!qe) {
@@ -396,11 +388,14 @@ void SoundInThread::inputUDP()
     if (!udpSocket->hasPendingDatagrams()) {
       msleep(2);                  // Sleep if no packet available
     } else {
-      int nBytesRead = udpSocket->readDatagram(reinterpret_cast<char*>(&b), 1416);
-            if (nBytesRead != 1416) {
-                qDebug() << "UDP Read Error:" << nBytesRead;
-            }
-
+      int const iz = b.receive (*udpSocket);
+      if (!iz) {
+        if (!warned_invalid_packet) {
+          qWarning() << "Invalid Linrad UDP packet";
+          warned_invalid_packet = true;
+        }
+        continue;
+      }
 
       qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
       nsec = ms/1000;             // Time according to this computer
@@ -417,10 +412,6 @@ void SoundInThread::inputUDP()
 
       if(m_monitoring) {
         m_nrx=b.nrx;
-        if(m_nrx == +1) iz=348;                 //One RF channel, i*2 data
-        if(m_nrx == -1 or m_nrx == +2) iz=174;  //One Rf channel, r*4 data
-                                                // or 2 RF channels, i*2 data
-        if(m_nrx == -2) iz=87;                  // Two RF channels, r*4 data
 
         // If buffer will not overflow, move data into datcom_
         if ((k + iz) <= 60 * m_rate) {

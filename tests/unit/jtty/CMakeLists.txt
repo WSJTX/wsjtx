@@ -80,6 +80,15 @@ set_tests_properties (test_jtty_adjacent_decode PROPERTIES
   TIMEOUT 180
 )
 
+add_executable (test_jtty_wide_channel_search test_jtty_wide_channel_search.f90)
+target_include_directories (test_jtty_wide_channel_search PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_jtty_wide_channel_search)
+add_test (NAME test_jtty_wide_channel_search COMMAND test_jtty_wide_channel_search)
+set_tests_properties (test_jtty_wide_channel_search PROPERTIES
+  PASS_REGULAR_EXPRESSION "test_jtty_wide_channel_search: all checks passed"
+  TIMEOUT 180
+)
+
 add_executable (test_jtty_structured_decode
   test_jtty_structured_decode.f90
   jtty_cpp_n1mm_smoke.cpp)
@@ -159,6 +168,11 @@ add_executable (test_jtty_surface_ranges test_jtty_surface_ranges.f90)
 wsjt_link_common_fortran (test_jtty_surface_ranges)
 add_test (NAME test_jtty_surface_ranges COMMAND test_jtty_surface_ranges)
 set_tests_properties (test_jtty_surface_ranges PROPERTIES TIMEOUT 180)
+
+add_executable (test_jtty_surface_cache test_jtty_surface_cache.f90)
+wsjt_link_common_fortran (test_jtty_surface_cache)
+add_test (NAME test_jtty_surface_cache COMMAND test_jtty_surface_cache)
+set_tests_properties (test_jtty_surface_cache PROPERTIES TIMEOUT 180)
 
 add_executable (test_jtty_display_layout test_jtty_display_layout.f90)
 target_include_directories (test_jtty_display_layout PRIVATE ${CMAKE_BINARY_DIR})
@@ -272,6 +286,20 @@ target_link_libraries (test_jtty_live_entry PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_live_entry)
 add_test (NAME test_jtty_live_entry COMMAND test_jtty_live_entry)
 
+add_executable (test_jtty_key_router
+  test_jtty_key_router.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/JttyKeyRouter.cpp)
+target_link_libraries (test_jtty_key_router PRIVATE Qt5::Test Qt5::Widgets)
+add_test (NAME test_jtty_key_router COMMAND test_jtty_key_router)
+set_tests_properties (test_jtty_key_router PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable (test_jtty_macro_sets
+  test_jtty_macro_sets.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/JttyMacroSets.cpp)
+target_link_libraries (test_jtty_macro_sets PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_macro_sets)
+add_test (NAME test_jtty_macro_sets COMMAND test_jtty_macro_sets)
+
 add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
 target_link_libraries (test_jtty_n1mm PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_n1mm)
@@ -297,6 +325,10 @@ add_test (NAME test_jtty_tbcc_decoder COMMAND test_jtty_tbcc_decoder)
 add_executable (test_jtty_tbcc_code_profile test_jtty_tbcc_code_profile.f90)
 wsjt_link_common_fortran (test_jtty_tbcc_code_profile)
 add_test (NAME test_jtty_tbcc_code_profile COMMAND test_jtty_tbcc_code_profile)
+
+add_executable (test_jtty_frequency_mixer test_jtty_frequency_mixer.f90)
+wsjt_link_common_fortran (test_jtty_frequency_mixer)
+add_test (NAME test_jtty_frequency_mixer COMMAND test_jtty_frequency_mixer)
 
 add_executable (test_jtty_payload_correlators test_jtty_payload_correlators.f90)
 wsjt_link_common_fortran (test_jtty_payload_correlators)
@@ -325,7 +357,7 @@ wsjt_link_common_fortran (test_wsjt_codec_jtty)
 target_compile_definitions (test_wsjt_codec_jtty PRIVATE
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
   FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav"
-  JTTY_SAMPLE_WAV="${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
+  JTTY_SAMPLE_WAV="${CMAKE_SOURCE_DIR}/samples/JTTY/261105_101915_567.wav")
 add_dependencies (test_wsjt_codec_jtty wsjt-codec test_decoder_engine)
 if (WSJT_BUILD_UTILS)
   target_compile_definitions (test_wsjt_codec_jtty PRIVATE RJTTY_EXECUTABLE="$<TARGET_FILE:rjtty>")
@@ -341,7 +373,7 @@ if (WSJT_ENABLE_TSAN)
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 # It decodes the in-tree sample, which source archives omit.
-if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/JTTY/260807_134110.wav")
+if (NOT EXISTS "${CMAKE_SOURCE_DIR}/samples/JTTY/261105_101915_567.wav")
   set_tests_properties (test_wsjt_codec_jtty PROPERTIES DISABLED TRUE)
 endif ()
 

@@ -57,6 +57,7 @@ program test_qmap_q65_handoff
   call expect_filter(2750,0.5_real64)
   call expect_filter(3500,0.0_real64)
 
+  deallocate(desired,wave)
   print '(a)', 'QMAP Q65 sample handoff contracts passed.'
 
 contains

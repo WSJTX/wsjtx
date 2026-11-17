@@ -27,7 +27,7 @@ constexpr int Jt9DrainBytes = 4096;
 constexpr int Jt9ControlCapacityBytes = 262144;
 
 constexpr char ReadyLine[] =
-  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","JTTY"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1})";
+  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1})";
 constexpr char OddAudioFrameLine[] =
   R"({"v":1,"t":"error","code":"odd_audio_frame","detail":"audio frame length must contain whole int16 samples"})";
 constexpr char ControlFrameTooLargeLine[] =
@@ -703,23 +703,73 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
   }
 
-  // JT9 decodes only at 60 s: a configure that would leave it at another
-  // period is declined whole, and the FT8 audio after it decodes as FT8.
+  // JT9 without fast, JT4, JT65 and JT65+JT9 decode only at 60 s, and fast
+  // JT9 only at 5, 10, 15 or 30 s in submodes E to H: a configure that would
+  // leave the stream otherwise is declined whole, and the FT8 audio after it
+  // decodes as FT8.
   void wsjtCodecRefusesJt9AtOtherPeriods_data ()
   {
     QTest::addColumn<QJsonObject> ("refused");
-    QTest::newRow ("JT9 5 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 5}};
-    QTest::newRow ("JT9 10 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 10}};
-    QTest::newRow ("JT9 15 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}};
-    QTest::newRow ("JT9 15 s E") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}, {"submode", "E"}};
-    QTest::newRow ("JT9 30 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 30}};
+    QTest::addColumn<QString> ("key");
+    QTest::addColumn<QString> ("mode");
+    QTest::addColumn<QString> ("detail");
+    QString const jt9Rule {"trperiod must be 60 s in JT9"};
+    QString const fastRule {"trperiod must be 5, 10, 15 or 30 s in fast JT9"};
+    QString const submodeRule {"submode must be E to H in fast JT9"};
+    QString const fastKeyRule {"fast applies to JT9"};
+    QTest::newRow ("JT9 5 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 5}} << "trperiod" << "JT9" << jt9Rule;
+    QTest::newRow ("JT9 10 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 10}} << "trperiod" << "JT9" << jt9Rule;
+    QTest::newRow ("JT9 15 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}} << "trperiod" << "JT9" << jt9Rule;
+    QTest::newRow ("JT9 15 s E") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}, {"submode", "E"}}
+      << "trperiod" << "JT9" << jt9Rule;
+    QTest::newRow ("JT9 15 s E, fast false")
+      << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}, {"submode", "E"}, {"fast", false}}
+      << "trperiod" << "JT9" << jt9Rule;
+    QTest::newRow ("JT9 30 s") << QJsonObject {{"mode", "JT9"}, {"trperiod", 30}} << "trperiod" << "JT9" << jt9Rule;
     // Two faults: the period is checked first.
-    QTest::newRow ("JT9 15 s, bad utc") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}, {"utc", "25:61:00"}};
+    QTest::newRow ("JT9 15 s, bad utc") << QJsonObject {{"mode", "JT9"}, {"trperiod", 15}, {"utc", "25:61:00"}}
+      << "trperiod" << "JT9" << jt9Rule;
+    QTest::newRow ("JT4 15 s") << QJsonObject {{"mode", "JT4"}, {"trperiod", 15}}
+      << "trperiod" << "JT4" << "trperiod must be 60 s in JT4";
+    QTest::newRow ("JT4 30 s") << QJsonObject {{"mode", "JT4"}, {"trperiod", 30}}
+      << "trperiod" << "JT4" << "trperiod must be 60 s in JT4";
+    QTest::newRow ("JT65 30 s") << QJsonObject {{"mode", "JT65"}, {"trperiod", 30}}
+      << "trperiod" << "JT65" << "trperiod must be 60 s in JT65";
+    QTest::newRow ("JT65 120 s") << QJsonObject {{"mode", "JT65"}, {"trperiod", 120}}
+      << "trperiod" << "JT65" << "trperiod must be 60 s in JT65";
+    QTest::newRow ("JT65+JT9 30 s") << QJsonObject {{"mode", "JT65+JT9"}, {"trperiod", 30}}
+      << "trperiod" << "JT65+JT9" << "trperiod must be 60 s in JT65+JT9";
+    // A mode key without trperiod sets the mode's 60 s.
+    QTest::newRow ("fast JT9 60 s") << QJsonObject {{"mode", "JT9"}, {"fast", true}, {"submode", "E"}}
+      << "trperiod" << "JT9" << fastRule;
+    QTest::newRow ("fast JT9 20 s") << QJsonObject {{"mode", "JT9"}, {"fast", true}, {"submode", "E"}, {"trperiod", 20}}
+      << "trperiod" << "JT9" << fastRule;
+    QTest::newRow ("fast JT9 7.5 s")
+      << QJsonObject {{"mode", "JT9"}, {"fast", true}, {"submode", "H"}, {"trperiod", 7.5}}
+      << "trperiod" << "JT9" << fastRule;
+    QTest::newRow ("fast JT9 15 s A") << QJsonObject {{"mode", "JT9"}, {"fast", true}, {"trperiod", 15}}
+      << "submode" << "JT9" << submodeRule;
+    QTest::newRow ("fast JT9 15 s D")
+      << QJsonObject {{"mode", "JT9"}, {"fast", true}, {"submode", "D"}, {"trperiod", 15}}
+      << "submode" << "JT9" << submodeRule;
+    // Two faults: the period is checked first.
+    QTest::newRow ("fast JT9 60 s A") << QJsonObject {{"mode", "JT9"}, {"fast", true}}
+      << "trperiod" << "JT9" << fastRule;
+    QTest::newRow ("fast in FT8") << QJsonObject {{"fast", true}} << "fast" << "FT8" << fastKeyRule;
+    QTest::newRow ("fast in Q65")
+      << QJsonObject {{"mode", "Q65"}, {"fast", true}, {"submode", "E"}, {"trperiod", 15}}
+      << "fast" << "Q65" << fastKeyRule;
+    // Two faults: fast in another mode is checked first.
+    QTest::newRow ("fast in Q65 at 60 s") << QJsonObject {{"mode", "Q65"}, {"fast", true}, {"trperiod", 60}}
+      << "fast" << "Q65" << fastKeyRule;
   }
 
   void wsjtCodecRefusesJt9AtOtherPeriods ()
   {
     QFETCH (QJsonObject, refused);
+    QFETCH (QString, key);
+    QFETCH (QString, mode);
+    QFETCH (QString, detail);
     auto const result = runRecording (QString::fromUtf8 (FT8_ENGINE_WAV),
       configureFrame ({{"mode", "FT8"}, {"utc", "05:11:15"}}) + configureFrame (refused));
     verifyCompleted (result, 0);
@@ -727,9 +777,9 @@ private slots:
     auto const errors = eventsMatching (events.values, "error");
     QCOMPARE (errors.size (), 1);
     QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
-    QCOMPARE (errors.first ().value ("key").toString (), QString {"trperiod"});
-    QCOMPARE (errors.first ().value ("mode").toString (), QString {"JT9"});
-    QCOMPARE (errors.first ().value ("detail").toString (), QString {"trperiod must be 60 s in JT9"});
+    QCOMPARE (errors.first ().value ("key").toString (), key);
+    QCOMPARE (errors.first ().value ("mode").toString (), mode);
+    QCOMPARE (errors.first ().value ("detail").toString (), detail);
     bool found = false;
     for (auto const& decode : eventsMatching (events.values, "decode"))
       {
@@ -821,24 +871,34 @@ private slots:
       }
   }
 
-  // A session the command line starts in JT9 at a period other than 60 s
-  // gets the refusal in place of ready, and the codec exits with status 2.
+  // A session the command line starts in JT9, JT4, JT65 or JT65+JT9 at a
+  // period other than 60 s gets the refusal in place of ready, and the codec
+  // exits with status 2.
   void wsjtCodecRefusesJt9AtOtherPeriodsAtStart_data ()
   {
     QTest::addColumn<QStringList> ("options");
-    QTest::addColumn<bool> ("refused");
-    QTest::newRow ("-9 -p 10") << QStringList {"-9", "-p", "10"} << true;
-    QTest::newRow ("-9 -p 10 --stream") << QStringList {"-9", "-p", "10", "--stream"} << true;
-    QTest::newRow ("-9") << QStringList {"-9"} << false;
-    QTest::newRow ("-9 -p 60") << QStringList {"-9", "-p", "60"} << false;
+    QTest::addColumn<QString> ("refusedIn");
+    QTest::newRow ("-9 -p 10") << QStringList {"-9", "-p", "10"} << "JT9";
+    QTest::newRow ("-9 -p 10 --stream") << QStringList {"-9", "-p", "10", "--stream"} << "JT9";
+    QTest::newRow ("-9") << QStringList {"-9"} << QString {};
+    QTest::newRow ("-9 -p 60") << QStringList {"-9", "-p", "60"} << QString {};
+    QTest::newRow ("-4 -p 30") << QStringList {"-4", "-p", "30"} << "JT4";
+    QTest::newRow ("-4 -p 30 --stream") << QStringList {"-4", "-p", "30", "--stream"} << "JT4";
+    QTest::newRow ("-4") << QStringList {"-4"} << QString {};
+    QTest::newRow ("-6 -p 30") << QStringList {"-6", "-p", "30"} << "JT65";
+    QTest::newRow ("-6 -p 30 --stream") << QStringList {"-6", "-p", "30", "--stream"} << "JT65";
+    QTest::newRow ("-6") << QStringList {"-6"} << QString {};
+    QTest::newRow ("-6 -9 -p 30") << QStringList {"-6", "-9", "-p", "30"} << "JT65+JT9";
+    QTest::newRow ("-6 -9 -p 30 --stream") << QStringList {"-6", "-9", "-p", "30", "--stream"} << "JT65+JT9";
+    QTest::newRow ("-6 -9") << QStringList {"-6", "-9"} << QString {};
   }
 
   void wsjtCodecRefusesJt9AtOtherPeriodsAtStart ()
   {
     QFETCH (QStringList, options);
-    QFETCH (bool, refused);
+    QFETCH (QString, refusedIn);
     auto const result = runJt9 (sessionHeader () + silentAudioFrame (12000), options);
-    if (!refused)
+    if (refusedIn.isEmpty ())
       {
         verifyCompleted (result, 0);
         QVERIFY2 (streamOutput (result).startsWith (ndjson ({ReadyLine})), result.standardOutput.constData ());
@@ -846,9 +906,58 @@ private slots:
         return;
       }
     verifyCompleted (result, 2);
-    QCOMPARE (streamOutput (result), ndjson ({Jt9StartPeriodLine}));
-    QVERIFY2 (result.standardError.contains ("wsjt-codec: trperiod must be 60 s in JT9; the command line set it"),
-              result.standardError.constData ());
+    auto const rule = QString {"trperiod must be 60 s in %1; the command line set it"}.arg (refusedIn);
+    auto const line = QString {R"({"v":1,"t":"error","code":"configure_range_error","key":"trperiod",)"
+                               R"("mode":"%1","detail":"%2"})"}.arg (refusedIn, rule).toUtf8 ();
+    if ("JT9" == refusedIn) QCOMPARE (line, QByteArray {Jt9StartPeriodLine});
+    QCOMPARE (streamOutput (result), ndjson ({line.constData ()}));
+    QVERIFY2 (result.standardError.contains (("wsjt-codec: " + rule).toUtf8 ()), result.standardError.constData ());
+  }
+
+  // Fast JT9 at each of its periods and submodes is accepted.
+  void wsjtCodecAcceptsFastJt9_data ()
+  {
+    QTest::addColumn<int> ("trperiod");
+    QTest::addColumn<QString> ("submode");
+    for (int trperiod : {5, 10, 15, 30})
+      for (QString submode : {"E", "F", "G", "H"})
+        QTest::newRow (QString {"%1 s %2"}.arg (trperiod).arg (submode).toUtf8 ().constData ())
+          << trperiod << submode;
+  }
+
+  void wsjtCodecAcceptsFastJt9 ()
+  {
+    QFETCH (int, trperiod);
+    QFETCH (QString, submode);
+    auto const result = runJt9 (sessionHeader ()
+      + configureFrame ({{"mode", "JT9"}, {"fast", true}, {"submode", submode}, {"trperiod", trperiod}})
+      + controlFrame (R"({"t":"halt"})"));
+    verifyCompleted (result, 0);
+    QCOMPARE (eventsMatching (verifyEvents (result).values, "error").size (), 0);
+  }
+
+  // A frame that carries mode resets fast to false unless it carries fast
+  // too, as it resets trperiod to the mode's default; a declined frame
+  // changes nothing, so fast JT9 at 15 s takes the next submode.
+  void wsjtCodecModeKeyResetsFast ()
+  {
+    auto const result = runJt9 (sessionHeader ()
+      + configureFrame ({{"mode", "JT9"}, {"fast", true}, {"submode", "E"}, {"trperiod", 15}})
+      + configureFrame ({{"submode", "F"}})
+      + configureFrame ({{"mode", "JT9"}, {"trperiod", 15}})
+      + configureFrame ({{"submode", "G"}})
+      + configureFrame ({{"mode", "JT9"}, {"trperiod", 15}, {"fast", true}})
+      + configureFrame ({{"fast", false}})
+      + configureFrame ({{"fast", false}, {"trperiod", 60}})
+      + controlFrame (R"({"t":"halt"})"));
+    verifyCompleted (result, 0);
+    auto const errors = eventsMatching (verifyEvents (result).values, "error");
+    QCOMPARE (errors.size (), 2);
+    for (auto const& error : errors)
+      {
+        QCOMPARE (error.value ("key").toString (), QString {"trperiod"});
+        QCOMPARE (error.value ("detail").toString (), QString {"trperiod must be 60 s in JT9"});
+      }
   }
 
   void wsjtCodecWritesTheReadyLine ()
@@ -2218,6 +2327,41 @@ private slots:
         QVERIFY (!first.isEmpty ());
         for (auto const& message : first) QVERIFY2 (last.contains (message), qPrintable (message));
       }
+  }
+
+  void wsprdDecodesWaveform ()
+  {
+    auto const audio = wavSamples (QString::fromUtf8 (WSPR_ENGINE_WAV), 114 * 12000);
+    QCOMPARE (audio.size (), 2 * 114 * 12000);
+    auto const configure = QByteArray {
+      R"({"t":"configure","date":"260822","time":"1200","dialfreq":14.0956,"wspr_type":2})"};
+    auto const split = 57 * 12000 * 2;
+    auto const result = runWsprd (sessionHeader () + controlFrame (configure)
+      + frame (0x01u, audio.left (split)) + frame (0x01u, audio.mid (split))
+      + controlFrame (R"({"t":"halt"})"), 90000);
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    QCOMPARE (eventsMatching (events.values, "ready").size (), 1);
+    auto const decodes = eventsMatching (events.values, "decode");
+    QCOMPARE (decodes.size (), 1);
+    auto const decode = decodes.first ();
+    QCOMPARE (decode.value ("mode").toString (), QString {"WSPR"});
+    QCOMPARE (decode.value ("date").toString (), QString {"260822"});
+    QCOMPARE (decode.value ("time").toString (), QString {"1200"});
+    QCOMPARE (decode.value ("message").toString (), QString {"K1ABC FN42 33"});
+    auto const frequency = decode.value ("freq").toDouble (std::numeric_limits<double>::quiet_NaN ());
+    QVERIFY (std::isfinite (frequency) && std::abs (frequency - 14.097120) <= 0.000001);
+    auto const dt = decode.value ("dt").toDouble (std::numeric_limits<double>::quiet_NaN ());
+    QVERIFY (std::isfinite (dt) && std::abs (dt - 0.2) <= 0.1);
+    QVERIFY (decode.value ("snr").isDouble ());
+    QCOMPARE (decode.value ("drift").toInt (99), 0);
+    auto const completions = eventsMatching (events.values, "decode_finished");
+    QCOMPARE (completions.size (), 1);
+    QCOMPARE (completions.first ().value ("date").toString (), QString {"260822"});
+    QCOMPARE (completions.first ().value ("time").toString (), QString {"1200"});
+    QCOMPARE (events.values.first ().value ("t").toString (), QString {"ready"});
+    QCOMPARE (events.values.last ().value ("t").toString (), QString {"decode_finished"});
   }
 
   void wsprdRejectsOversizedFrames_data ()

@@ -351,13 +351,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="cbIncludeTime">
-        <property name="text">
-         <string>Include Time</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <spacer name="horizontalSpacer_9">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -369,6 +362,137 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QWidget" name="jttyQsoFieldsWidget" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_jttyQsoFields">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="labelJttyCall">
+           <property name="text">
+            <string>Call:</string>
+           </property>
+           <property name="buddy">
+            <cstring>jttyCallEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="jttyCallEntry">
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>120</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Callsign being worked (the same as DX Call). F10 jumps here; double-click a callsign in a decode pane to fill it.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_jttyQsoFields">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelJttySent">
+           <property name="text">
+            <string>Sent:</string>
+           </property>
+           <property name="buddy">
+            <cstring>jttySentEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="jttySentEntry">
+           <property name="minimumSize">
+            <size>
+             <width>120</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Exchange sent to this station, saved in the log. Filled in from the serial number or the contest exchange; edit it if needed.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_jttyQsoFields2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelJttyReceived">
+           <property name="text">
+            <string>Rcvd:</string>
+           </property>
+           <property name="buddy">
+            <cstring>jttyReceivedEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="jttyReceivedEntry">
+           <property name="minimumSize">
+            <size>
+             <width>160</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Exchange received from this station, saved in the log. Shift+double-click a word in a decode pane to add it.</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
       </item>
      </layout>
     </item>
@@ -1537,6 +1661,19 @@ When not checked you can view the calibration results.</string>
                       </property>
                       <property name="text">
                        <string>Measure</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="freqcal_range_check_box">
+                      <property name="toolTip">
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Calibration skips reference frequencies outside the range that the rig reports.&lt;br/&gt;Check this if your radio can tune outside that range, for example an SDR that uses another radio's model.&lt;br/&gt;Checking or clearing it restarts calibration at the first usable reference.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      </property>
+                      <property name="accessibleDescription">
+                       <string>Check this to use calibration references outside the range that the rig reports.</string>
+                      </property>
+                      <property name="text">
+                       <string>Ignore range</string>
                       </property>
                      </widget>
                     </item>
@@ -3805,82 +3942,58 @@ Double-click to reset to the standard 73 message</string>
                 <item>
                  <layout class="QGridLayout" name="gridLayout_15" columnstretch="1,1,1,1">
                   <item row="1" column="0">
-                   <widget class="QLineEdit" name="msg1">
+                   <widget class="QPushButton" name="pbSF1">
                     <property name="text">
-                     <string>CQ %M CQ</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F1</string>
                     </property>
                    </widget>
                   </item>
                   <item row="1" column="1">
-                   <widget class="QLineEdit" name="msg2">
+                   <widget class="QPushButton" name="pbSF2">
                     <property name="text">
-                     <string>%H 599 %N</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F2</string>
                     </property>
                    </widget>
                   </item>
                   <item row="1" column="2">
-                   <widget class="QLineEdit" name="msg3">
+                   <widget class="QPushButton" name="pbSF3">
                     <property name="text">
-                     <string>%H TU CQ %M CQ</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F3</string>
                     </property>
                    </widget>
                   </item>
                   <item row="1" column="3">
-                   <widget class="QLineEdit" name="msg4">
+                   <widget class="QPushButton" name="pbSF4">
                     <property name="text">
-                     <string>%M</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F4</string>
                     </property>
                    </widget>
                   </item>
                   <item row="3" column="0">
-                   <widget class="QLineEdit" name="msg5">
+                   <widget class="QPushButton" name="pbSF5">
                     <property name="text">
-                     <string>%H</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F5</string>
                     </property>
                    </widget>
                   </item>
                   <item row="3" column="1">
-                   <widget class="QLineEdit" name="msg6">
+                   <widget class="QPushButton" name="pbSF6">
                     <property name="text">
-                     <string>TU NOW %Q 599 %N</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F6</string>
                     </property>
                    </widget>
                   </item>
                   <item row="3" column="2">
-                   <widget class="QLineEdit" name="msg7">
+                   <widget class="QPushButton" name="pbSF7">
                     <property name="text">
-                     <string>%H AGN?</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F7</string>
                     </property>
                    </widget>
                   </item>
                   <item row="3" column="3">
-                   <widget class="QLineEdit" name="msg8">
+                   <widget class="QPushButton" name="pbSF8">
                     <property name="text">
-                     <string>599 %N</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <string>Shift+F8</string>
                     </property>
                    </widget>
                   </item>
@@ -3974,7 +4087,7 @@ Double-click to reset to the standard 73 message</string>
                <item row="0" column="0">
                 <widget class="QLabel" name="label_jttyStyle">
                  <property name="text">
-                  <string>Message style </string>
+                  <string>Macro set </string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -3984,18 +4097,24 @@ Double-click to reset to the standard 73 message</string>
                <item row="0" column="1">
                 <widget class="QComboBox" name="comboBoxJttyStyle">
                  <property name="toolTip">
-                  <string>Choose the F1-F8 message template set: Contest style (exchange-oriented) or FT8 style (chat-QSO-oriented).</string>
+                  <string>Choose the macro set for F1-F8 and Shift+F1-F8.</string>
                  </property>
-                 <item>
-                  <property name="text">
-                   <string>Contest</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>FT8</string>
-                  </property>
-                 </item>
+                </widget>
+               </item>
+               <item row="0" column="2" alignment="Qt::AlignLeft">
+                <widget class="QPushButton" name="pbEditJttyMacros">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="toolTip">
+                  <string>Edit the macros, their button labels, and the macro sets.</string>
+                 </property>
+                 <property name="text">
+                  <string>Edit macros...</string>
+                 </property>
                 </widget>
                </item>
                <item row="8" column="0">
@@ -4010,6 +4129,19 @@ Double-click to reset to the standard 73 message</string>
                   </size>
                  </property>
                 </spacer>
+               </item>
+               <item row="2" column="2" alignment="Qt::AlignLeft">
+                <widget class="QCheckBox" name="cbJttyEnterSends">
+                 <property name="toolTip">
+                  <string>Enter sends, as chosen for the macro set in Edit macros. Run: CQ, then call + exchange, then TU and log. S&amp;P: my call, then exchange, then TU and log. Chat: like Send message, sending the Tx box with PTT off or ending the over with PTT on.</string>
+                 </property>
+                 <property name="text">
+                  <string>Enter sends message</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
                </item>
                <item row="3" column="2">
                 <spacer name="horizontalSpacer_8">
@@ -4060,6 +4192,16 @@ Double-click to reset to the standard 73 message</string>
                </item>
                <item row="1" column="0">
                 <layout class="QVBoxLayout" name="verticalLayout_jttySend">
+                 <item>
+                  <widget class="QLabel" name="labelJttyPttState">
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
+                   </property>
+                   <property name="toolTip">
+                    <string>Transmit state. Rx: receiving. Tx: sending text. Diddle: PTT on, nothing to send. Tx → Rx: finishing what is queued, then back to receive. F9 turns PTT on and off; Esc stops immediately and clears the message.</string>
+                   </property>
+                  </widget>
+                 </item>
                  <item>
                   <widget class="QPushButton" name="pbSendMessage">
                    <property name="minimumSize">
@@ -4137,7 +4279,7 @@ Double-click to reset to the standard 73 message</string>
                 </widget>
                </item>
                <item row="2" column="1">
-                <widget class="QLineEdit" name="lineEdit">
+                <widget class="QLineEdit" name="jttyNextCallEntry">
                  <property name="maximumSize">
                   <size>
                    <width>100</width>
@@ -4145,7 +4287,7 @@ Double-click to reset to the standard 73 message</string>
                   </size>
                  </property>
                  <property name="toolTip">
-                  <string>Callsign to be worked next.</string>
+                  <string>Callsign to be worked next, sent by %Q. Ctrl+double-click a callsign in a decode pane to fill it. A macro with both %Q and %L (Run F6, TU NOW) logs the current QSO and makes this the new call.</string>
                  </property>
                 </widget>
                </item>
@@ -4866,7 +5008,7 @@ QLabel[oob=&quot;true&quot;] {
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Q65 mode.&lt;br&gt; Right-click to switch to Q65 Pileup mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Q65 mode.&lt;br&gt; Ctrl+right-click to switch to Q65 Pileup mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
              <property name="text">
               <string>Q65</string>
@@ -5149,7 +5291,9 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="actionErase_list_of_Q65_callers"/>
     <addaction name="reset_cabrillo_log_action"/>
     <addaction name="actionExport_Cabrillo_log"/>
+    <addaction name="actionExport_EME_Cabrillo_log"/>
     <addaction name="actionOpen_log_directory"/>
+    <addaction name="actionOpen_ADIF_log_folder"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
     <addaction name="separator"/>
@@ -5550,7 +5694,7 @@ QPushButton[state=&quot;ok&quot;] {
   </action>
   <action name="actionErase_wsjtx_log_adi">
    <property name="text">
-    <string>Erase wsjtx_log.adi</string>
+    <string>Erase ADIF log</string>
    </property>
   </action>
   <action name="actionErase_Tx_Log">
@@ -5600,6 +5744,14 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionOpen_log_directory">
    <property name="text">
     <string>Open log directory</string>
+   </property>
+  </action>
+  <action name="actionOpen_ADIF_log_folder">
+   <property name="text">
+    <string>Open ADIF log folder</string>
+   </property>
+   <property name="toolTip">
+    <string>Open the folder containing the ADIF log in use</string>
    </property>
   </action>
   <action name="actionJT4">
@@ -5812,6 +5964,14 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionExport_Cabrillo_log">
    <property name="text">
     <string>Export Cabrillo log ...</string>
+   </property>
+  </action>
+  <action name="actionExport_EME_Cabrillo_log">
+   <property name="text">
+    <string>Export ARRL EME Cabrillo log ...</string>
+   </property>
+   <property name="toolTip">
+    <string>Cabrillo log for the ARRL EME contest from the ADIF log (or several logs, merged): the QSOs on the chosen days, with both grid squares on every line</string>
    </property>
   </action>
   <action name="actionQSG_FST4">
@@ -6700,6 +6860,7 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>cbSWL</tabstop>
   <tabstop>pbBestSP</tabstop>
   <tabstop>measure_check_box</tabstop>
+  <tabstop>freqcal_range_check_box</tabstop>
   <tabstop>tabWidget</tabstop>
   <tabstop>txrb1</tabstop>
   <tabstop>txrb2</tabstop>

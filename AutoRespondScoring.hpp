@@ -13,23 +13,38 @@ public:
     m_minimumDb = std::numeric_limits<int>::max();
   }
 
+  bool wouldImproveDistance(int candidate) const
+  {
+    return candidate > m_maximumDistance;
+  }
+
+  bool wouldImproveMaximumDb(int candidate) const
+  {
+    return candidate > m_maximumDb;
+  }
+
+  bool wouldImproveMinimumDb(int candidate) const
+  {
+    return candidate < m_minimumDb;
+  }
+
   bool considerDistance(int candidate)
   {
-    if (candidate <= m_maximumDistance) return false;
+    if (!wouldImproveDistance(candidate)) return false;
     m_maximumDistance = candidate;
     return true;
   }
 
   bool considerMaximumDb(int candidate)
   {
-    if (candidate <= m_maximumDb) return false;
+    if (!wouldImproveMaximumDb(candidate)) return false;
     m_maximumDb = candidate;
     return true;
   }
 
   bool considerMinimumDb(int candidate)
   {
-    if (candidate >= m_minimumDb) return false;
+    if (!wouldImproveMinimumDb(candidate)) return false;
     m_minimumDb = candidate;
     return true;
   }

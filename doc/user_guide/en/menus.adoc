@@ -63,11 +63,42 @@ Stations* window displays the frequencies, SNRs, Q65 sub-modes, and
 Maidenhead locators for stations recently decoded by _QMAP_ over its
 full 90 kHz bandwidth. Stations using a 30-second sub-mode of Q65 are
 highlighted in yellow. You can limit the displayed list by checking
-the *Wanted only* and/or *CQ only* boxes. The total number of QSOs
-found in `wsjtx.log` is shown, for example to follow your progress
-in an EME contest.  
+the *Wanted only* and/or *CQ only* boxes; *Wanted* means not worked on
+the current band, optionally only counting QSOs made *on days* you
+choose (UTC), such as the days of a contest. *QSOs* shows the number
+of different stations worked on the current band, in any mode,
+according to the ADIF log and history sources (on the chosen days, if
+set), for example to follow your
+progress in an EME contest.  
 
 image::active_stations_QMAP.png[align="center"]
+
+*File | Export ARRL EME Cabrillo log ...* makes the Cabrillo log for an
+ARRL EME contest entry from your ADIF log. It takes the QSOs made on the
+contest days you choose and writes both stations' 4-character grid
+squares on every QSO line, as the rules require. The dialog shows the
+claimed score and the file as it will be saved.
+
+* *Contest days:* the first time, the days chosen in *Active Stations*
+  are suggested. After that the dialog keeps its own days, so preparing
+  the log never changes what *Active Stations* uses while you operate.
+* *Logs:* _WSJT-X_'s own ADIF log is used. *Add file...* adds another,
+  for example the log of a second PC; several logs are merged and a QSO
+  found in two of them counts once. The logs are only read.
+* *Bands* and *Modes:* untick any band you are not entering, and any
+  mode whose QSOs were not EME (the ADIF log holds everything you
+  worked on those days).
+* *Missing grids:* QSOs logged without a grid are listed so that you
+  can type the grids in. A grid known from another QSO with the same
+  station is filled in for you to check. What you type is remembered.
+* A station counts once per band from each grid it works from; repeats
+  are left out.
+* The 50-1296 MHz bands and the bands from 2.3 GHz up have their own
+  contest weekends. QSOs that seem to be on the other group's weekend
+  are pointed out, and a box lets you leave them out.
+
+Save the file and upload it at
+contests.arrl.org/arrlemescoresubmission.php.
 
 .SWL Mode
 

@@ -1,52 +1,260 @@
-Select *JTTY* from the *Mode* menu and use *File | Open* to select the
-sample file +...\save\samples\JTTY\260807_134110.wav+.
+JTTY is a keyboard-to-keyboard mode for RTTY-style contesting and
+rag-chewing. Unlike other WSJT modes it does not use timed T/R
+sequences: a transmission starts whenever you key up and lasts as long
+as you have something to send. Each transmission consists of one or
+more "`frames`", each about 1.9 s long. When nothing is being sent,
+_WSJT-X_ simply stays in receive (*Monitor*) mode.
 
-A weak JTTY signal should appear on the waterfall and decode as shown
-in the screen shot below. You may need to set or adjust certain
-waterfall controls to see the signal clearly. If you're an experienced
-RTTY operator, you might also want to listen to this WAV file by
-opening it in your favorite media player. This JTTY signal is weak
-enough that if it were standard 45.45 baud RTTY instead of JTTY,
-decoding would be marginal and error-prone. Decoding from a WAV file
-may seem nearly instantaneous, but in live operation you would see the
-message accumulating sequentially, as it arrives.
+Most JTTY operating can be done without taking your hands off the
+keyboard. If you are an experienced RTTY operator, much of what follows
+will feel familiar: function-key macros, a type-ahead buffer, a PTT
+toggle, and *Enter Sends Message* for contest QSOs.
 
+.Receiving
+
+- Select *JTTY* from the *Mode* menu and use *File | Open* to select
+the sample file +...\save\samples\JTTY\261105_101915_567.wav+.
+
+- A weak JTTY signal should appear on the waterfall and decode as shown
+in the screen shot below. You may need to adjust certain waterfall
+controls to see the signal clearly. If you are an experienced RTTY
+operator, you might also want to listen to this file in your favorite
+media player. The signal is weak enough that, as standard 45.45 baud
+RTTY, its copy would (at best) be marginal and error-prone.
 
 image::jtty.png[align="center",alt=JTTY decoding of weak signal]
 
-To test transmitting, enter a message into the field at bottom right,
-click *Send message*, and listen to the JTTY waveform's sound on your
-computer's speaker. Remember that unlike other WSJT modes, JTTY does
-not use timed T/R sequences. Transmissions can start at any time;
-otherwise _WSJT-X_ simply stays in receive or *Monitor* mode.
+The left (*All Decodes*) pane shows messages from all signals in the
+passband. The right (*QSO Frequency*) pane shows messages received
+within *F Tol* of the *Rx* frequency, together with your own
+transmissions. Each message starts on a new line with its UTC time.
+Decoding from a WAV file is nearly instantaneous, but in live operation
+you will see each message grow, one frame at a time, as it arrives.
 
-.JTTY Frames and Contest Messages
+- Click on the waterfall to move the Rx frequency to a signal, or set
+*Rx* directly. *F11* and *F12* move the Rx frequency down or up by 1
+Hz. *Shift+F11* and *Shift+F12* move Tx frequency down or up by 150
+Hz.
 
-Each JTTY transmission consists of one or more "`frames`". A frame has
-space for up to 5 arbitrary characters, but it can also convey many
-more characters by using the defined formats for special contest-style
-messages. Function keys F1-F8 (and the on-screen buttons with those
-same labels) can be programmed to send messages based on the entry
-fields below the buttons. Use the macros %M and %H as stand-ins for
-MyCall and HisCall, %E for the contest exchange (currently defined as
-"599 nnn", where nnn is the number in the "Serial Number" spinbox),
-and %Q for a queued callsign that woould be your next-in-line
-contact. For best efficiency, use the exact message forms outlined in
-the table below. As explicit examples the table uses K1ABC for MyCall,
-W9XYZ for HisCall, W7UVW for a queued callsign, and 107 for Serial
-Number. The final table column shows the number of JTTY frames that
-required for each example message.
+- Check *Lower case* if you find lower-case text easier to read.
+
+.Transmitting
+
+Text to be sent goes into the *Tx message* box at the bottom right of
+the main window. You don't need to click in the box first: when
+keyboard focus is not in an entry field such as *DX Call*, any
+letters, digits and punctuation you type will go to the end of the
+box.
+
+- Press *F9* to turn PTT on. Text in the box is sent at once, a frame
+at a time, and you can keep typing while it goes out. If the box runs
+empty while PTT is on, "`diddle`" frames keep the transmission going
+until you type more.
+
+- Press *F9* again to turn PTT off. Whatever is already in the box is
+sent first; then PTT drops. With PTT off you can type ahead: compose
+your next transmission while the other station is still sending, then
+press *F9* (or a macro key) to send it.
+
+- *Send message* sends what is in the box and then returns to receive,
+like pressing *F9* twice.
+
+- *Esc* stops a transmission immediately and clears the *Tx message*
+box.
+
+Text in the box changes appearance as a transmission progresses. Text
+you can still edit is plain. Text committed for transmission turns
+gray and can no longer be changed. Text already sent is highlighted in
+the same color as your transmissions in the *QSO Frequency* window, one
+frame at a time. When PTT drops, already-sent text is removed from the
+box, but anything you have typed ahead remains. A label below *Send
+message* shows the number of frames sent and the total required.
+
+A large indicator above *Send message* shows the transmitter state:
+*Tx* (red) while sending text, *Diddle* (orange) while PTT is on with
+nothing to send, *Tx -> Rx* (pink) while queued text finishes after
+you turn PTT off, and *Rx* (green) while monitoring. It is blank when
+*Monitor* is off.
+
+Each of your transmissions appears as one line in the *QSO Frequency*
+window, growing as each frame is sent, and is written to +ALL.TXT+ as
+one line when PTT drops. Diddle is not shown. After an *Esc*, the line
+shows exactly the frames that went out.
+
+TIP: To try transmitting without going on the air, put your radio in
+test mode, turn the output power to zero, or use a dummy load, and
+listen to the JTTY waveform with the radio's monitor function or the
+computer's speaker.
+
+.Function-Key Macros
+
+Function keys *F1* through *F8*, and *Shift+F1* through *Shift+F8*,
+send programmable macros. The same 16 macros appear as a 4×4 grid of
+buttons on the JTTY panel. Hover the mouse pointer over a button to
+see its macro. A macro key or button expands its macro content and
+appends the result to the *Tx message* box, so you see exactly what
+will be sent and can still edit it until it goes out. The following
+macro tokens are available:
+
+[width="80%",cols="1,6",options="header"]
+|===
+|Token |Meaning
+|%M |My call
+|%H |His call, from *DX Call*
+|%Q |The call in *Call next*
+|%E |The contest exchange (see below)
+|%N |The serial number
+|%G |My grid (four characters)
+|%R |Signal report for his call
+|%[ |Turn PTT on
+|%] |Send everything in the box, then turn PTT off
+|%L |Log the QSO and advance the serial number
+|===
+
+Either case works: *%h* and *%H* are the same token.
+
+A macro with neither *%[* nor *%]* just adds its text to the box. One
+with *%]* ends the over whether or not PTT was already on, so a macro
+such as *Chat*'s *Over* sends the box and returns to receive in a
+single keystroke. A macro using *%H* or *%L* is refused, with a warning
+on the status bar, if *DX Call* is empty; one using *%Q* is refused if
+*Call next* is empty. Nothing is logged and the serial number does not
+advance if the radio refuses to switch to the transmit mode.
+
+Macros are organized in sets. Choose a set from the drop-down list on
+the JTTY panel. Three sets are built in: *Run* and *S&P* for contests,
+and *Chat* for conversational QSOs. Click *Edit macros...* to change a
+macro or its button label, to create, rename or delete your own sets,
+or to restore a built-in set to its defaults.
+
+NOTE: Macros start afresh in this release. If you customized the JTTY
+function keys in an earlier version, those definitions are not carried
+over: the built-in sets above are installed instead. The older macros
+had no *%[* or *%]*, so they would not have keyed PTT in any case.
+
+The *Run* set's defaults are shown below, with K1ABC as MyCall, W9XYZ
+as HisCall, W7UVW as the next call, and 107 as the serial number. The
+last column gives the number of frames required for each message.
+JTTY has compact encodings for these standard contest forms, so for
+best efficiency keep to these message forms when writing your own
+macros.
 
 [source]
 ----
-F-Key  Macro Format     Transmitted message     Frames
-------------------------------------------------------
-F1     CQ %M CQ         CQ K1ABC CQ                1
-F2     %H %E            W9XYZ 599 107              2
-F3     %H TU CQ %M CQ   W9XYZ TU CQ K1ABC CQ       2
-F4     %M               K1ABC                      1
-F5     %H               W9XYZ                      1
-F6     TU NOW %Q %E     TU NOW W7UVW 599 108       2
-F7     %H AGN?          W9XYZ AGN?                 1
-F8     %E               599 107                    1
+F-Key  Macro                  Transmitted message     Frames
+------------------------------------------------------------
+F1     %[CQ %M CQ%]           CQ K1ABC CQ                1
+F2     %[%H %E%]              W9XYZ 107                  2
+F3     %[%H TU CQ %M CQ%L%]   W9XYZ TU CQ K1ABC CQ       2
+F4     %[%M%]                 K1ABC                      1
+F5     %[%H%]                 W9XYZ                      1
+F6     %[TU NOW %Q %E%L%]     TU NOW W7UVW 108           2
+F7     %[%H AGN?%]            W9XYZ AGN?                 1
+F8     %[%E%]                 107                        1
 ----
+
+The *S&P* set sends your call with *F1* and *F4*, the exchange with
+*F2* and *F8*, and *TU* followed by your call, logging the QSO, with
+*F3*. The *Chat* set's *F1* calls CQ, *F2* opens an over (`W9XYZ DE
+K1ABC`) and leaves PTT on for you to type, *F3* ends the over (`BTU
+W9XYZ DE K1ABC K`), and *F4* signs off.
+
+.Contest Operating
+
+The exchange sent by *%E* depends on the *Special operating activity*
+selected on the *Settings | Advanced* tab. With *ARRL RTTY Roundup*
+selected it is your state, province or serial number as entered there;
+with *ARRL Field Day* it is your class and section; otherwise it is the
+serial number shown on the JTTY panel.
+
+When the *Run* or *S&P* set is selected, three fields appear below the
+*QSO Frequency* window:
+
+- *Call* is the station you are working. It always shows the same
+callsign as *DX Call*, and you can type in either one. *F10* moves the
+keyboard focus to *Call*, selecting its contents so that typing
+replaces them.
+
+- *Sent* shows the exchange you are sending, and *Rcvd* holds the
+exchange you received. Both are logged by *%L*, and you can edit
+either one before logging. *Rcvd* is cleared when the call changes.
+
+Mouse shortcuts in the decode windows help you fill these fields:
+
+- Double-click a callsign to make it the *DX Call*.
+
+- Shift+double-click a word to add it to *Rcvd*.
+
+- Ctrl+double-click a callsign to put it in *Call next*.
+
+*%L* logs the QSO when its key is pressed, just as clicking *Log QSO*
+does, so the *Prompt me to log QSO* setting on the *Settings |
+Reporting* tab still applies. It then advances the serial number.
+
+*Enter Sends Message.* With *Enter sends message* checked, *Enter*
+sends whichever message comes next in a contest QSO, so you can work
+through a QSO with just *Enter*, *F10* and the keyboard. For the *Run*
+set, *Enter* sends *F1* (CQ) when *DX Call* is empty, then *F2* (call and
+exchange), then *F3* (TU and log). For the *S&P* set it sends *F4* (my
+call), then *F2* (exchange), then *F3* (TU and log). Pressing any
+macro key moves the sequence along in the same way, and entering a new
+call starts it again. *Enter* works from the *Tx message* box, from
+*Call*, *Sent*, *Rcvd* and *DX Call*, and from anywhere else that is not
+an entry field.
+
+The sequence applies only when you have nothing of your own waiting to
+go out. If the *Tx message* box holds text you typed, *Enter* sends
+just that text, in every set, and the contest sequence stays where it
+was. Send the next contest message with its own function key, or press
+*Enter* again once the box is empty.
+
+TIP: For a fast run, type or click the next station's call into *Call
+next* while you are still working the current one. *F6* (TU NOW) logs
+the current QSO, sends the exchange to the next station with the next
+serial number, and makes *Call next* the new *Call*, leaving *Enter*
+ready to send TU.
+
+.Rag-Chewing
+
+Select the *Chat* set for conversational QSOs. With *Enter sends
+message* checked, *Enter* in the *Tx message* box acts like *Send
+message*: with PTT off it sends what is in the box, and with PTT on it
+ends the over. Type ahead while the other station is sending, and turn
+PTT on with *F9* or a macro key when it is your turn.
+
+NOTE: With PTT on and nothing left to send, JTTY fills the gap with
+diddle so the other station keeps sync. After about a minute of
+unbroken diddle it drops PTT on its own and says so on the status bar,
+rather than leaving the transmitter keyed if you are called away. Press
+*F9* to go back on the air.
+
+*Ctrl+Up* and *Ctrl+Down* step back and forth through your last 20
+transmissions, replacing the unsent part of the *Tx message* box, so
+you can repeat or edit an earlier over. Stepping down past the most
+recent one brings back whatever you were typing.
+
+The text in both decode windows and the *Tx message* box uses the
+*Decoded Text Font* chosen on the *Settings | General* tab. In JTTY
+mode, *Ctrl+=* and *Ctrl+-* make it larger or smaller, and *Ctrl+0*
+restores it.
+
+.Keyboard Summary
+
+These keys work wherever the keyboard focus is in the main window or
+the *Wide Graph*.
+
+[width="80%",cols="2,5",options="header"]
+|===
+|Key |Action
+|F1 - F8, Shift+F1 - Shift+F8 |Send a macro
+|F9 |Turn PTT on or off
+|F10 |Go to *Call* (or *DX Call*)
+|Esc |Stop transmitting at once and clear the *Tx message* box
+|Enter |Send the next message (*Enter sends message* checked)
+|Backspace |Delete the last unsent character in the box, when the focus
+is not in an entry field
+|Ctrl+Up, Ctrl+Down |Recall earlier transmissions
+|F11, F12 |Move the Rx frequency down or up by 1 Hz
+|Shift+F11, Shift+F12 |Move the Tx frequency down or up by 150 Hz
+|Ctrl+=, Ctrl+-, Ctrl+0 |Larger, smaller or default font
+|===

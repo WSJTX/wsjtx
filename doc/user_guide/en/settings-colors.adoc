@@ -25,17 +25,43 @@ image::colors.png[align="center",alt="Colors Screen"]
 * Check *Include extra WAE entities* if you are interested in the
   extra entities defined for DARC WAE and CQ Marathon awards.
 
-* Worked-before status includes `wsjtx_log.adi` in your log directory.
-This is the writable primary log: new contacts logged in _WSJT-X_ are
-appended here. You can still replace this file with an ADIF export
-from your station logging application and click *Rescan ADIF Log*.
+* Worked-before status includes your _WSJT-X_ ADIF log, by default
+`wsjtx_log.adi` in your log directory. This is the writable primary log:
+new contacts logged in _WSJT-X_ are appended here. You can still replace
+this file with an ADIF export from your station logging application and
+click *Rescan ADIF Log*.
 
 * Click *History sources...* to add read-only history from ADIF exports.
 Use *Add files...* to select individual files or *Add folder...* to select
 a folder whose contents will be scanned. These sources contribute to
 worked-before highlighting without copying contacts into the primary log.
 _WSJT-X_ does not append to, rewrite, or erase these files. Removing a
-source from the list does not delete it.
+source from the list does not delete it. Read-only history files are
+rechecked every few seconds and reloaded when they change; files in added
+folders are not watched individually, but the folders are rescanned
+whenever a reload happens.
+
+* To let several _WSJT-X_ instances share one ADIF logbook, open *History
+sources...*, click *Change log...* and choose the same file in every
+instance. New contacts are appended with a lock file kept next to the log
+(so that folder must be writable), and each instance normally notices
+contacts logged by the others within a few seconds; a very large log or
+history folder can make that take longer. Use a log on a local disk, or on
+a network share that reports file sizes and modification times promptly.
+Click *Default log* to go back to `wsjtx_log.adi` in your log directory.
+*File | Open ADIF log folder* opens the folder holding the log in use, while
+*File | Open log directory* always opens the data directory.
+
+* Only the log you choose is read as the primary log. Contacts in
+`wsjtx_log.adi` stop counting for worked-before status unless you add that
+file as a history source, and other programs that read `wsjtx_log.adi`
+(for example a companion logging program) no longer see new contacts. A
+file that was a history source is removed from the list when you make it
+the primary log. The text log `wsjtx.log`, used when checking for
+duplicates, stays separate for each instance. Do not share a log with a
+_WSJT-X_ version that lacks this feature while both are running. An edit
+made inside an existing record, with no change in file size, is noticed
+only after a rescan.
 
 * Added folders include all `.adi` and `.adif` files directly inside them.
 Select a folder in the list and check *Include subfolders* to include files
@@ -61,20 +87,42 @@ is loaded only once. Empty folders are valid. Missing or inaccessible
 folders stay in the list and are reported as errors; reconnect or correct
 them and rescan.
 
-* If the primary log ends with an incomplete or invalid record, completed
-records before the error remain available and the scan reports incomplete
-history. The file is not repaired or rewritten. A supplemental source
-with an unrecoverable error contributes no records. The result distinguishes
-files loaded completely, primary files partially recovered, and failed files.
+* ADIF history loading keeps readable contact information when individual
+fields are damaged. An unreadable grid or date does not discard a readable
+callsign. A contact with an unknown band or mode can contribute to general
+worked-before status, but does not count as worked on a particular band or
+mode. Contacts without a readable callsign are skipped. Usable contacts from
+both the primary log and read-only history sources contribute to history.
+
+* The reader honors plausible field lengths: `<EOR>` and apparent contacts
+inside a comment remain comment text. When a length or descriptor is
+inconsistent, the reader attempts local recovery and continues at the next
+record boundary outside protected field data. Recovery is best effort. A
+wrong length that ends at an apparently valid boundary cannot always be
+distinguished from intentional field content and may hide contacts. Repeated
+callsigns without a record terminator retain only the first contact's earlier
+fields; fields from different contacts are not combined. Input files are
+never repaired or rewritten.
+
+* Completed scans with skipped or partially read contacts show *History
+loaded with warnings*. Details identify the original file line, field,
+readable callsign and outcome. The first 20 details per file are shown, with
+an exact count of additional warnings. Imported, partially imported and
+skipped input records are counted separately from unique worked-before
+entries. A malformed unused field need not lose any useful contact data.
+*Incomplete history* indicates an unfinished tail, unread remainder, or file
+or discovery failure. A final contact without its terminator is not imported.
+Small unfinished shared-log appends remain pending while the writer finishes;
+a full rescan can report an incomplete snapshot that a later change resolves.
 Empty files and files containing only whitespace supply empty history.
 
 * Previous file history remains in use only until the new load completes.
 If no file supplies usable history, previous file history is cleared.
 Contacts logged while loading remain available. Correct or remove a
-failed supplemental source, or correct the primary log, and rescan to
-restore complete history. An absent primary log is normal before the
-first contact is logged. Counts refer to unique worked-before entries,
-which may be fewer than the number of contacts.
+damaged history source or primary log, and rescan to restore complete
+history. An absent primary log is normal before the first contact is
+logged. Counts refer to unique worked-before entries, which may be fewer
+than the number of contacts.
 
 * An additional path that resolves to the primary log is marked *Same file
 as primary log*. It is scanned only once; new contacts still change that

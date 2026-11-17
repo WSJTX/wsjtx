@@ -445,11 +445,17 @@ if (UNIX)
   endif ()
 endif ()
 
+# The same C decoder objects serve the standalone host and both engine archives.
+# Keeping them with their Fortran callees avoids cyclic static-library links.
+add_library (wsjt_wspr OBJECT ${wspr_decoder_CSRCS})
+target_include_directories (wsjt_wspr PRIVATE ${FFTW3_INCLUDE_DIRS})
+
 # build Fortran library routines without and optionally with OpenMP support
 if (WSJT_BUILD_FORTRAN_NON_OPENMP)
   set (WSJT_FORTRAN_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR})
-  add_library (wsjt_fort STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
+  add_library (wsjt_fort STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS}
+    $<TARGET_OBJECTS:wsjt_wspr>)
   set_target_properties (wsjt_fort
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_MODULE_DIR}
@@ -462,7 +468,8 @@ endif ()
 if (WSJT_BUILD_FORTRAN_OPENMP)
   set (WSJT_FORTRAN_OPENMP_MODULE_DIR ${CMAKE_BINARY_DIR}/fortran_modules_omp)
   file (MAKE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
-  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS})
+  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS} ${wsjt_jtty_CXXSRCS}
+    $<TARGET_OBJECTS:wsjt_wspr>)
   set_target_properties (wsjt_fort_omp
     PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR}
@@ -549,6 +556,7 @@ generate_version_info (wsprd_VERSION_RESOURCES
 
 add_executable(wsprd
   ${wsprd_CSRCS}
+  $<TARGET_OBJECTS:wsjt_wspr>
   lib/indexx.f90
   lib/wsprd/osdwspr.f90
 )
@@ -728,6 +736,20 @@ if (WSJT_ENABLE_TESTS)
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
             -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/StreamOption
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_stream_option.cmake)
+  # Source archives omit samples/.
+  if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
+    add_test (NAME test_jt9_partner_default
+      COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9> -DWSJT_CODEC=$<TARGET_FILE:wsjt-codec>
+              -DSAMPLE=${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav
+              -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/PartnerDefault
+              -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_partner_default.cmake)
+    set_tests_properties (test_jt9_partner_default PROPERTIES
+      LABELS "decoder;ft8;integration" TIMEOUT 120)
+    if (WSJT_ENABLE_TSAN)
+      set_tests_properties (test_jt9_partner_default PROPERTIES
+        ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+    endif ()
+  endif ()
 
   if (EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120800.wav" AND
       EXISTS "${CMAKE_SOURCE_DIR}/samples/MSK144/181211_120500.wav")
@@ -787,6 +809,7 @@ if (WSJT_ENABLE_TESTS)
       endif ()
     endif ()
   endif ()
+  add_subdirectory (tests/integration/codec_examples)
 
   # Golden output is pinned to the required GNU/Linux x86-64 decoder path.
   if (EXISTS "${CMAKE_SOURCE_DIR}/samples" AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
@@ -1029,8 +1052,8 @@ add_executable (wsjt-codec ${wsjt_codec_FSRCS} ${wsjt_codec_VERSION_RESOURCES})
 target_compile_definitions (wsjt-codec PRIVATE JT9_PROGRAM_NAME=\"wsjt-codec\")
 # wsjt-codec shares jt9's Fortran module directory (fortran_modules_omp) so it
 # can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). Of its
-# own sources only streaming_decode.f90 is a module, a name no library module
-# has, so sharing the dir is collision-free.
+# own sources only streaming_decode.f90 and streaming_jtty_review.f90 are
+# modules, names no library module has, so sharing the dir is collision-free.
 if (WSJT_BUILD_FORTRAN_OPENMP)
   wsjt_link_fortran_openmp (wsjt-codec)
   if (WIN32)
@@ -1117,17 +1140,40 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_BUNDLE_DATA_FILES}
   )
 
+add_dependencies (wsjtx jt9 wsprd)
 wsjt_enable_qt_automoc (wsjtx)
 target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
 if (WSJT_ENABLE_TESTS)
-  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp)
+  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp WaitFeaturesApplicationTestController.cpp
+    OperatingBandApplicationTestController.cpp)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
   add_test (NAME test_wsjtx_best_sp
     COMMAND $<TARGET_FILE:wsjtx> --best-sp-test --rig-name CTEST-BEST-SP)
   set_tests_properties (test_wsjtx_best_sp PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_best_sp"
     LABELS "gui;ft4;integration"
+    PROCESSORS 1
+    TIMEOUT 30)
+  add_test (NAME test_wsjtx_wait_features
+    COMMAND $<TARGET_FILE:wsjtx> --wait-features-test --rig-name CTEST-WAIT-FEATURES)
+  set_tests_properties (test_wsjtx_wait_features PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_wait_features"
+    LABELS "gui;qso;integration"
+    PROCESSORS 1
+    TIMEOUT 30)
+  add_test (NAME test_wsjtx_operating_band
+    COMMAND $<TARGET_FILE:wsjtx> --operating-band-test --rig-name CTEST-OPERATING-BAND)
+  set_tests_properties (test_wsjtx_operating_band PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_operating_band"
+    LABELS "gui;frequency-control;integration"
+    PROCESSORS 1
+    TIMEOUT 60)
+  add_test (NAME test_wsjtx_operating_band_echo_startup
+    COMMAND $<TARGET_FILE:wsjtx> --operating-band-test --rig-name CTEST-OPERATING-BAND-ECHO)
+  set_tests_properties (test_wsjtx_operating_band_echo_startup PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_wsjtx_operating_band_echo_startup;WSJT_OPERATING_BAND_START_ECHO=1"
+    LABELS "gui;frequency-control;integration"
     PROCESSORS 1
     TIMEOUT 30)
 endif ()
@@ -1239,7 +1285,20 @@ if (WSJT_ENABLE_TESTS AND NOT WIN32)
   endforeach ()
 endif ()
 
-if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS AND NOT WIN32)
+if (WSJT_ENABLE_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSSCOMPILING)
+  add_test (NAME test_q65_submode_startup
+    COMMAND ${CMAKE_COMMAND}
+      -DAPPLICATION=$<TARGET_FILE:wsjtx>
+      -DWORK_DIR=${CMAKE_BINARY_DIR}/Testing/Q65Submode
+      -P ${CMAKE_SOURCE_DIR}/tests/integration/q65/test_submode_startup.cmake)
+  set_tests_properties (test_q65_submode_startup PROPERTIES TIMEOUT 30)
+  if (WSJT_ENABLE_TSAN)
+    set_tests_properties (test_q65_submode_startup PROPERTIES
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_gui_options}")
+  endif ()
+endif ()
+
+if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS)
   foreach (profile IN ITEMS automatic prompt disabled automatic-keep prompt-keep disabled-keep
       automatic-keep-call automatic-keep-grid)
     set (qso_test_root "${CMAKE_BINARY_DIR}/Testing/QsoCompletion/${profile}")

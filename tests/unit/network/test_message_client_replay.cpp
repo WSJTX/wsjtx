@@ -270,12 +270,19 @@ private Q_SLOTS:
     if (field == "uppercase-annotation") reply += " A1";
     if (field == "annotation-followed-by-content") reply += " a1 EXTRA";
     if (field == "embedded-question") reply = "CQ JA2XYZ? PM95";
+    CapturedLog log;
+    log.setSeverity (boost::log::trivial::debug);
     sendReply (receiver, field == "time" ? time.addSecs (15) : time,
                field == "snr" ? -11 : -12, field == "dt" ? 0.3f : 0.2f,
                field == "df" ? 1426 : 1425, field == "mode" ? "+" : "~", reply);
-    sendReply (receiver, time, -12, 0.2f, 1425, "~", sent);
+    QTRY_VERIFY_WITH_TIMEOUT (!replies.isEmpty () || log.text ().contains ("UDP Reply refused:"), 10000);
+    QCOMPARE (replies.size (), 0);
+    QVERIFY (log.text ().contains ("UDP Reply refused:"));
+    sendReply (receiver, time, -12, 0.2f, 1425, "~", sent, false, 0x02);
     QTRY_COMPARE (replies.size (), 1);
     QCOMPARE (replies.front ().at (5).toString (), sent);
+    QCOMPARE (replies.front ().at (6).toBool (), false);
+    QCOMPARE (replies.front ().at (7).value<quint8> (), quint8 {0x02});
   }
 
   void refusedReplyLogsOnlyAtDebug ()
@@ -422,17 +429,21 @@ private Q_SLOTS:
     client->decode (true, time, -12, 0.2f, 1425, "~", message, false, false);
     QTRY_COMPARE (receiver.datagrams ().size (), 1);
 
+    CapturedLog log;
+    log.setSeverity (boost::log::trivial::debug);
     sendReply (receiver, time, -12, 0.2f, 1425, "~", "CQ K1ABC FN43");
-    QTest::qWait (20);
+    QTRY_VERIFY_WITH_TIMEOUT (!replies.isEmpty () || log.text ().count ("UDP Reply refused:") == 1, 10000);
     QCOMPARE (replies.size (), 0);
+    QCOMPARE (log.text ().count ("UDP Reply refused:"), 1);
 
     sendReply (receiver, time, -12, 0.2f, 1425, "~", message);
     QTRY_COMPARE (replies.size (), 1);
 
     client->decodes_cleared ();
     sendReply (receiver, time, -12, 0.2f, 1425, "~", message);
-    QTest::qWait (20);
+    QTRY_VERIFY_WITH_TIMEOUT (replies.size () > 1 || log.text ().count ("UDP Reply refused:") == 2, 10000);
     QCOMPARE (replies.size (), 1);
+    QCOMPARE (log.text ().count ("UDP Reply refused:"), 2);
   }
 
   void replayIsDeferredPacedAndOrdered ()
@@ -530,7 +541,13 @@ private Q_SLOTS:
     auto client = makeClient (original_receiver.port ());
     discardInitialHeartbeat (original_receiver);
 
-    QSignalSpy first_batch {original_receiver.socket (), &QUdpSocket::readyRead};
+    QVector<int> batches;
+    QObject::connect (client.get (), &MessageClient::replay_batch_processed,
+                      [&] (int count) {
+                        batches.append (count);
+                        if (batches.size () == 1)
+                          client->set_server_port (new_receiver.port ());
+                      });
     QVERIFY (client->begin_replay ());
     for (int sequence = 0; sequence != 25; ++sequence)
       {
@@ -539,27 +556,32 @@ private Q_SLOTS:
     sendStatus (*client);
     client->end_replay ();
 
-    QVERIFY (first_batch.wait (1000));
-    QVERIFY (original_receiver.datagrams ().size () > 0);
-
-    // Cancel as soon as the first paced batch is observed. Packets already
-    // written to the OS before cancel can still arrive after the first
-    // readyRead, so settle the original socket before taking a baseline.
-    client->set_server_port (new_receiver.port ());
-    QTest::qWait (50);
-    QCoreApplication::processEvents ();
-    auto const delivered_after_cancel = original_receiver.datagrams ().size ();
-    QVERIFY (delivered_after_cancel > 0);
-    QVERIFY (delivered_after_cancel <= 10);
-
+    QTRY_COMPARE_WITH_TIMEOUT (batches.size (), 1, 10000);
+    QVERIFY (batches.front () > 0);
+    QVERIFY (batches.front () <= 10);
     sendDecode (*client, true, 25);
-
-    QTRY_COMPARE (new_receiver.datagrams ().size (), 2);
-    QTest::qWait (50);
-    QCOMPARE (original_receiver.datagrams ().size (), delivered_after_cancel);
+    QVERIFY (client->begin_replay ());
+    sendDecode (*client, false, 26);
+    client->end_replay ();
+    QTRY_COMPARE_WITH_TIMEOUT (batches.size (), 2, 10000);
+    QCOMPARE (batches.back (), 1);
+    QTRY_VERIFY_WITH_TIMEOUT (!original_receiver.datagrams ().isEmpty (), 10000);
+    QTRY_COMPARE_WITH_TIMEOUT (new_receiver.datagrams ().size (), 3, 10000);
     QCOMPARE (messageType (new_receiver.datagrams ().front ()), NetworkMessage::Heartbeat);
+    QCOMPARE (messageType (new_receiver.datagrams ()[1]), NetworkMessage::Decode);
+    QVERIFY (decodeIsNew (new_receiver.datagrams ()[1]));
     QCOMPARE (messageType (new_receiver.datagrams ().back ()), NetworkMessage::Decode);
-    QVERIFY (decodeIsNew (new_receiver.datagrams ().back ()));
+    QVERIFY (!decodeIsNew (new_receiver.datagrams ().back ()));
+    NetworkMessage::Reader decode {new_receiver.datagrams ().back ()};
+    bool is_new;
+    QTime time;
+    qint32 snr;
+    float delta_time;
+    quint32 delta_frequency;
+    QByteArray mode, message;
+    decode >> is_new >> time >> snr >> delta_time >> delta_frequency >> mode >> message;
+    QCOMPARE (message, QByteArray {"CQ TEST26 AA00"});
+    QVERIFY (original_receiver.datagrams ().size () <= batches.front ());
   }
 };
 

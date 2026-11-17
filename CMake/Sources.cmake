@@ -70,6 +70,9 @@ set (wsjt_qt_CXXSRCS
   Configuration.cpp
   logbook/logbook.cpp
   logbook/AdifQso.cpp
+  logbook/EmeCabrillo.cpp
+  widgets/DaysCalendar.cpp
+  widgets/EmeCabrilloDialog.cpp
   MultiSettings.cpp
   validators/MaidenheadLocatorValidator.cpp
   validators/CallsignValidator.cpp
@@ -138,6 +141,7 @@ set (wsjt_codec_FSRCS
   lib/jt9.f90
   lib/jt9a_stub.f90
   lib/streaming_decode.f90
+  lib/streaming_jtty_review.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # stdin helpers: Windows binary mode, terminal check
   lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
@@ -168,6 +172,9 @@ set (wsjtx_CXXSRCS
   widgets/TxDriveSlider.cpp
   widgets/plotter.cpp
   widgets/JttySpectrum.cpp
+  widgets/JttyKeyRouter.cpp
+  widgets/JttyMacroSets.cpp
+  widgets/JttyMacroEditor.cpp
   widgets/widegraph.cpp
   widgets/echograph.cpp
   widgets/echoplot.cpp
@@ -191,10 +198,15 @@ set (wsjtx_CXXSRCS
   DecoderProcessSupervisor.cpp
   ShmemDecoderBackend.cpp
   OperatingFrequency.cpp
+  FootswitchInput.cpp
+  OperatingBand.cpp
+  ModeEntry.cpp
   Ft8MtdDecodeCoordinator.cpp
   FastDecode.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
+  widgets/mainwindow_band.cpp
+  widgets/mainwindow_modes.cpp
   widgets/mainwindow_jtty.cpp
   widgets/mainwindow_jtty_receive.cpp
   JttyReceiveResultController.cpp
@@ -326,14 +338,21 @@ set (wsjt_FSRCS
   lib/jtty/jtty_tbcc_list_decoder.f90
   lib/jtty/tbcc.f90
   lib/jtty/jtty_tbcc_decoder.f90
+  lib/jtty/jtty_frequency_mixer.f90
   lib/jtty/jtty_payload_correlators.f90
   lib/jtty/jtty_fec_mod.f90
   lib/jtty/jttycom.f90
   lib/jtty/jtty_mdecode.f90
   lib/jtty/jtty_receive_context.f90
   lib/jtty/jtty_filler.f90
+  lib/spectrum_rows.f90
   lib/streaming_jtty.f90
   lib/streaming_encode.f90
+  lib/refspectrum.f90
+  lib/streaming_receive.f90
+  lib/streaming_freqcal.f90
+  lib/streaming_echo.f90
+  lib/streaming_side.f90
 
   # remaining non-module sources
   lib/addit.f90
@@ -515,7 +534,6 @@ set (wsjt_FSRCS
   lib/qra/q65/q65_loops.f90
   lib/qra/q65/q65_set_list.f90
   lib/qra/q65/q65_set_list2.f90
-  lib/refspectrum.f90
   lib/savec2.f90
   lib/save_echo_params.f90
   lib/sec0.f90
@@ -672,7 +690,6 @@ set (ka9q_CSRCS
   lib/ftrsd/encode_rs.c
   lib/ftrsd/init_rs.c
   )
-set_source_files_properties (${ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (qra_CSRCS
   lib/qra/qracodes/qra12_63_64_irr_b.c
@@ -692,6 +709,7 @@ set (wsjt_CSRCS
   lib/ft8var/ft8_tsan.c
   lib/ftrsd/ftrsdap.c
   lib/sgran.c
+  lib/stream_remove_file.c
   lib/golay24_table.c
   lib/gran.c
   lib/igray.c
@@ -734,14 +752,18 @@ set (wsprsim_CSRCS
   lib/wsprd/nhash.c
   )
 
-set (wsprd_CSRCS
-  lib/lookup3.c
-  lib/wsprd/wsprd.c
+set (wspr_decoder_CSRCS
+  lib/wsprd/wspr_decoder.c
   lib/wsprd/wsprsim_utils.c
   lib/wsprd/wsprd_utils.c
   lib/wsprd/fano.c
   lib/wsprd/jelinek.c
   lib/wsprd/tab.c
+  )
+
+set (wsprd_CSRCS
+  lib/lookup3.c
+  lib/wsprd/wsprd.c
   lib/wsprd/nhash.c
   lib/init_random_seed.c
   lib/wsprd/wsprd_stream.c
@@ -806,6 +828,7 @@ set (all_C_and_CXXSRCS
   ${wsjt_CSRCS}
   ${wsprsim_CSRCS}
   ${wsprd_CSRCS}
+  ${wspr_decoder_CSRCS}
   ${all_CXXSRCS}
   )
 

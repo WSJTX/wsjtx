@@ -1,5 +1,6 @@
 program test_jtty_tbcc_list_decoder
   use, intrinsic :: iso_fortran_env, only: int32, int64, real32, real64
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use jtty_tbcc_code_profiles, only: jtty_tbcc_code_profile, &
        JTTY_TBCC_PROFILE_1167_1545_80F
   use tbcc, only: tbcc_encode, encode_crc12
@@ -59,7 +60,7 @@ contains
       do tone = 0, 3
         correlations(tone, symbol) = scale(1.0_real32, -18)*cmplx( &
              real(modulo(17*tone + 11*symbol, 29) - 14, real32)/8.0_real32, &
-             real(modulo(7*tone + 19*symbol, 31) - 15, real32)/9.0_real32, real32)
+             real(modulo(7*tone + 19*symbol, 31) - 15, real32)/16.0_real32, real32)
       end do
     end do
     correlations(:, 13) = cmplx(scale(1.0_real32, 20), 0.0_real32, real32)
@@ -147,7 +148,7 @@ contains
          error stop 'TBCC list decoder tail-biting state mismatch'
     call jtty_tbcc_score_candidate(code, correlations, 4_int32, candidates(:, 1), &
          rescored_metric, closed)
-    if (.not.closed .or. rescored_metric /= clean_metrics(1) .or. &
+    if (.not.closed .or. .not.real_arrays_agree([rescored_metric],clean_metrics(1:1)) .or. &
          abs(clean_metrics(1) - 46.0_real64) > 1.0e-12_real64) &
          error stop 'TBCC list decoder final L2 block or clean rescore mismatch'
   end subroutine expect_noiseless_tailbiting_decode
@@ -409,26 +410,31 @@ contains
     complex(real32), intent(out) :: correlations(0:3, JTTY_TBCC_INFORMATION_BITS)
     integer(int32) :: symbol, tone
 
+    ! Dyadic components keep short coherent metrics exact so candidate ties
+    ! exercise survivor ordering independently of real32 expression evaluation.
     do symbol = 1, JTTY_TBCC_INFORMATION_BITS
       do tone = 0, 3
         correlations(tone, symbol) = cmplx( &
              real(modulo(17*tone + 11*symbol, 29) - 14, real32)/8.0_real32, &
-             real(modulo(7*tone + 19*symbol, 31) - 15, real32)/9.0_real32, real32)
+             real(modulo(7*tone + 19*symbol, 31) - 15, real32)/16.0_real32, real32)
       end do
     end do
   end subroutine make_pattern_correlations
 
   pure logical function real_arrays_agree(left, right) result(agree)
     real(real64), intent(in) :: left(:), right(:)
-    ! Coherent energies are evaluated in real32 before accumulation in real64.
-    real(real64), parameter :: relative_tolerance = 1.0e-6_real64
     integer(int32) :: element
+    ! These controlled fixtures allow a small real32-scale metric difference;
+    ! this is not a general error bound for cancellation in arbitrary inputs.
+    real(real64), parameter :: relative_error = 8.0_real64*real(epsilon(0.0_real32),real64)
 
     agree = size(left) == size(right)
     if (.not.agree) return
+    agree = all(ieee_is_finite(left)) .and. all(ieee_is_finite(right))
+    if (.not.agree) return
     do element = 1, size(left)
       if (left(element) == right(element)) cycle
-      if (abs(left(element)-right(element)) <= relative_tolerance* &
+      if (abs(left(element)-right(element)) <= relative_error* &
            max(1.0_real64, abs(left(element)), abs(right(element)))) cycle
       agree = .false.
       return
