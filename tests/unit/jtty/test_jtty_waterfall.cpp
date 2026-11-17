@@ -135,12 +135,16 @@ private slots:
       QVERIFY (rect.bottom () < 30 + CPlotter::callStripHeight);
     }
     QSignalSpy freq (&plotter, &CPlotter::setFreq1);
+    QSignalSpy clicked (&plotter, &CPlotter::jttyCallClicked);
     auto const rect = plotter.callLabelRect ("K1ABC");
     QMouseEvent click {QEvent::MouseButtonRelease, QPointF (rect.center ()),
                        Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
     plotter.mouseReleaseEvent (&click);
     QCOMPARE (freq.size (), 1);
     QCOMPARE (freq[0][0].toInt (), 500);          // that signal's frequency, not the pixel
+    QCOMPARE (clicked.size (), 1);                 // the call goes with it, for DX Call
+    QCOMPARE (clicked[0][0].toString (), QString ("K1ABC"));
+    QCOMPARE (clicked[0][1].toInt (), 500);
     plotter.setCallLabels ({});
     QVERIFY (plotter.shownCallLabels ().isEmpty ());
   }

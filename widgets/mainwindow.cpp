@@ -1631,6 +1631,14 @@ MainWindow::MainWindow(QDir const& temp_directory,
 
   connect(m_wideGraph.data (), SIGNAL(setFreq3(int,int)),this,
           SLOT(setFreq4(int,int)));
+  // JTTY: a click on a callsign label on the waterfall also sets DX Call, and
+  // (if the Wide Graph box asks for it) the Tx frequency
+  connect (m_wideGraph.data (), &WideGraph::jttyCallClicked, this,
+           [this] (QString const& call, int frequency, bool setTx) {
+             if (m_mode != "JTTY") return;
+             ui->dxCallEntry->setText (call);
+             if (setTx && ui->TxFreqSpinBox->isEnabled ()) ui->TxFreqSpinBox->setValue (frequency);
+           });
 
   updateDecodeControls ();
 

@@ -116,6 +116,7 @@ signals:
   void freezeDecode1(int n);
   void setFreq1(int rxFreq, int txFreq);
   void jttyDecodeAgainAtSample (quint64 reception, qint64 endSample);
+  void jttyCallClicked (QString const& call, int frequency);   // a click on a call label
 
 protected:
   //re-implemented widget event handlers

@@ -1473,13 +1473,14 @@ void MainWindow::updateJttyTestButton()
                               == QStringLiteral ("DL3WDG"));
 }
 
-// Four CQs in one over, each at its own audio frequency, so four stations
-// seem to be calling at once.
+// Five CQs in one over, each at its own audio frequency, so five stations
+// seem to be calling at once (the last two only 50 Hz apart).
 void MainWindow::on_pbJttyTest_clicked()
 {
   static struct {char const * text; int frequency;} const items[] {
     {"CQ DL3WDG CQ", 1000}, {"CQ K1ABC CQ", 1150},
-    {"CQ K2DEF CQ", 1300}, {"CQ DL3ABC CQ", 1540}};
+    {"CQ K2DEF CQ", 1300}, {"CQ DL3ABC CQ", 1540},
+    {"CQ K1JT CQ", 1590}};      // 50 Hz from DL3ABC: their labels overlap
   if (m_mode != "JTTY"
       || m_config.my_callsign ().trimmed ().toUpper () != QStringLiteral ("DL3WDG")) return;
   if (m_jttyLiveEntryArmed || m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ()) {

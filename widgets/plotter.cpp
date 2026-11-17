@@ -1075,6 +1075,7 @@ void CPlotter::mouseReleaseEvent (QMouseEvent * event)
       for (auto const& p : layoutCallLabels ()) {
         if (p.rect.adjusted (-2, 0, 2, 0).contains (event->pos ())) {
           newFreq = int (p.label.freq + 0.5f);
+          if (!shift) emit jttyCallClicked (p.label.call, newFreq);
           break;
         }
       }

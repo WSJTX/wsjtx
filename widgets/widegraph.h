@@ -75,6 +75,9 @@ signals:
   void setXIT2(int n);
   void setFreq3(int rxFreq, int txFreq);
   void jttyDecodeAgainAtSample (quint64 reception, qint64 endSample);
+  // A click on a callsign label: the call, its frequency, and whether the
+  // "Tx on call" box asks for the Tx frequency to follow.
+  void jttyCallClicked (QString const& call, int frequency, bool setTx);
 
 public slots:
   void wideFreezeDecode(int n);
@@ -98,6 +101,7 @@ private slots:
   void on_cbControls_toggled(bool b);
   void on_cbBars_toggled(bool b);
   void on_cbFreq_toggled(bool b);
+  void on_cbCallTx_toggled(bool b);
   void on_adjust_palette_push_button_clicked (bool);
   void on_gainSlider_valueChanged(int value);
   void on_zeroSlider_valueChanged(int value);

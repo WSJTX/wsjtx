@@ -67,6 +67,9 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
 
   connect (ui->widePlot, &CPlotter::jttyDecodeAgainAtSample,
            this, &WideGraph::jttyDecodeAgainAtSample);
+  connect (ui->widePlot, &CPlotter::jttyCallClicked, this, [this] (QString const& call, int frequency) {
+      emit jttyCallClicked (call, frequency, ui->cbCallTx->isChecked ());
+    });
 
   // labels expire on their own, whether or not anything new is decoded
   auto * callTimer = new QTimer {this};
@@ -95,6 +98,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->widePlot->setBars(m_bars);
     m_freq=m_settings->value("Freq",true).toBool();
     ui->cbFreq->setChecked(m_freq);
+    ui->cbCallTx->setChecked (m_settings->value ("CallClickSetsTx", false).toBool ());
     ui->widePlot->showFreq(m_freq);
     int n = m_settings->value("BinsPerPixel",5).toInt();
     m_bFlatten=m_settings->value("Flatten",true).toBool();
@@ -194,6 +198,7 @@ void WideGraph::saveSettings()                                           //saveS
   m_settings->setValue ("Timestamp",m_timestamp);
   m_settings->setValue ("Bars", m_bars);
   m_settings->setValue ("Freq", m_freq);
+  m_settings->setValue ("CallClickSetsTx", ui->cbCallTx->isChecked ());
   m_settings->setValue ("FminPerBand", m_fMinPerBand);
 }
 
@@ -579,6 +584,11 @@ void WideGraph::on_cbBars_toggled(bool b)
 {
   m_bars = b;
   ui->widePlot->setBars(m_bars);
+}
+
+void WideGraph::on_cbCallTx_toggled(bool)
+{
+  // read when a call label is clicked; saved with the other settings
 }
 
 void WideGraph::on_cbFreq_toggled(bool b)
