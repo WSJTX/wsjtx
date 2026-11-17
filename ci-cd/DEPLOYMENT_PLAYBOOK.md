@@ -61,7 +61,7 @@ The release pipeline requires this repository configuration. Each row links to i
 
 | Area | Requirement | Details |
 |------|-------------|---------|
-| Private branches | Rulesets on `develop` and `release/*` forbid force-push and deletion, so GitHub reports them as protected. Prepare Release Dependencies runs only from protected `develop` and requires the selected source branch to be protected. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection), [Prepared Linux release images](#prepared-linux-release-images) |
+| Private branches | Rulesets on `develop` and `release/*` forbid force-push and deletion, so GitHub reports them as protected; `develop`'s also takes changes only through approved pull requests. Prepare Release Dependencies runs only from protected `develop` and requires the selected source branch to be protected. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection), [Prepared Linux release images](#prepared-linux-release-images) |
 | Public refs | `v*` tags: no update or deletion, and only the source-promotion identity creates them. `master` and `release/*`: no force-push or deletion, and no other rule. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection) |
 | Private environments | `candidate-tagging` and `source-promotion` admit only `release/*`; `beta-automation` admits only `develop`. None has required reviewers, which would stall the [beta scheduler](#10-scheduled-beta-releases). | [Navigate to Secrets Settings](#navigate-to-secrets-settings) |
 | Secrets | `CROSS_REPO_TOKEN` only in `source-promotion`, with no repository-level copy. No `SIGNPATH_API_TOKEN` in `wsjtx-internal`. On `WSJTX/wsjtx`: `SIGNPATH_API_TOKEN` only in `windows-release-signing`; Apple credentials, when distribution signing is enabled, only in `apple-release-signing`. | [Verification: Credential Boundaries](#verification-credential-boundaries) |
@@ -752,19 +752,19 @@ gh pr create \
 
 ## 8. Phase 6: Test the CI Pipeline
 
-After the PR is merged (or if you pushed directly to a test branch), verify CI works.
+After the PR is merged, verify CI works.
 
 ### Step 1: Trigger a CI Run
 
-Push any small change to the target branch:
+Open a pull request with any small change; `develop` takes changes only through pull requests, and CI runs on each one:
 
 ```bash
-# If testing on a branch:
-git checkout develop  # or master
+git checkout -b test/ci-pipeline origin/develop
 echo "# CI test" >> README.md
 git add README.md
 git commit -m "test: trigger CI pipeline"
-git push
+git push -u origin test/ci-pipeline
+gh pr create --repo WSJTX/wsjtx-internal --base develop --title "test: trigger CI pipeline" --body "Checks CI. Close without merging."
 ```
 
 ### Step 2: Monitor the Run
@@ -811,11 +811,10 @@ Common first-run failures:
 | Windows build timeout (150 min) | Cold dependency caches on a slow runner, or test-suite growth | Re-run. Outside pull requests the first attempt saved its dependency caches and the re-run restores them; if the test step alone nears the budget, raise it |
 | "refusing to allow an OAuth App to create or update workflow" | This error can appear at PR merge time if the branch contains workflow files and was pushed with a deploy key | Push the branch using a PAT or via the GitHub web UI instead |
 
-### Step 5: Revert the Test Commit
+### Step 5: Close the Test PR
 
 ```bash
-git revert HEAD
-git push
+gh pr close test/ci-pipeline --repo WSJTX/wsjtx-internal --delete-branch
 ```
 
 ---
@@ -1141,7 +1140,7 @@ When modifying workflow files, keep in mind:
 
 ### Branch, Tag, and Environment Protection
 
-Protect `develop` with a ruleset that forbids force-push and deletion, and apply the team's normal CI and review policy to it. Protect `release/*` with rulesets that forbid force-push and deletion. Do not add a pull-request requirement: the release-bot App has no bypass, and its merge pushes would fail. Run the two helper workflows from the current `release/X.Y` tip. Promote Release Source rejects any workflow ref or SHA other than that tip. Prepare Release Candidate rejects any other SHA, and the `candidate-tagging` environment's `release/*` policy rejects other refs.
+Protect `develop` with a ruleset that forbids force-push and deletion and takes changes only through pull requests, each approved by someone other than its last pusher, with approvals dismissed when a push changes the diff; no workflow pushes to `develop`. Protect `release/*` with rulesets that forbid force-push and deletion. Do not add a pull-request requirement there: the release-bot App has no bypass, and its merge pushes would fail. Run the two helper workflows from the current `release/X.Y` tip. Promote Release Source rejects any workflow ref or SHA other than that tip. Prepare Release Candidate rejects any other SHA, and the `candidate-tagging` environment's `release/*` policy rejects other refs.
 
 On WSJTX/wsjtx, protect `v*` tags from updates and deletion, and limit creation to the source-promotion identity. Protect `master` and `release/*` from force-pushes and deletion only; promotion pushes them directly, so a pull-request or status-check requirement would block it.
 

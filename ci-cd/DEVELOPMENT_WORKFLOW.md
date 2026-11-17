@@ -202,9 +202,9 @@ Green checks cover the jobs selected for that run. A red X means something broke
 
 The team reviews the PR via GitHub. When approved, merge to `develop`. Prefer **"Create a merge commit"** to preserve history (not squash or rebase).
 
-### What if I want to push directly to develop?
+### Can I push directly to develop?
 
-For very small, obvious changes (typo fixes, comment updates), pushing directly to `develop` is acceptable. CI will still run on the push. But for anything substantive — new features, bug fixes, refactoring — use a PR so the team can see what's happening and CI validates it before it lands on `develop`.
+No. A repository ruleset takes changes to `develop` only through pull requests, typo fixes included, so every change gets a PR CI run. Each pull request needs an approving review from someone other than its last pusher, and a push that changes the diff dismisses earlier approvals. The ruleset does not require CI to pass.
 
 ---
 
@@ -603,9 +603,8 @@ Any team member can review any PR. For changes that affect specific areas:
 
 ### Approval and merge
 
-- At least one team member should review before merging
+- A PR into `develop` merges only after a team member other than its last pusher approves it; the ruleset enforces this, and a push that changes the diff dismisses earlier approvals
 - For significant changes (new features, architectural changes), wait for input from the relevant domain expert
-- The PR author should not merge their own PR without at least one approval
 - Use **"Create a merge commit"** (not squash or rebase) to preserve branch history
 
 ---
