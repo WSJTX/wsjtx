@@ -295,6 +295,23 @@ class RetryCutTest(SchedulerTestCase):
         self.assertIsNone(self.repo.merge)
         self.assertEqual(self.repo.pushed, [])
 
+    def test_a_pull_request_run_at_the_tip_is_no_result(self):
+        # Closing a PR out of the line starts a run at its tip that skips every job, and cancels one still running.
+        for conclusion in ("skipped", "cancelled", "failure"):
+            with self.subTest(conclusion=conclusion):
+                self.setUp()
+                self.internal.add(run(beta.CI, sha=TIP),
+                                  run(beta.CI, sha=TIP, conclusion=conclusion, event="pull_request",
+                                      created="2026-10-06T19:00:00Z"))
+                self.cut()
+                self.assertEqual(self.internal.dispatches, self.expected_candidate())
+                self.assertIsNone(self.repo.merge)
+                self.assertEqual(self.repo.pushed, [])
+        self.setUp()
+        self.internal.add(run(beta.CI, sha=TIP, status="in_progress", event="pull_request"))
+        self.assertEqual(self.stop().stage, "ci")
+        self.assertNothingDone()
+
     def test_retry_waits_while_the_tip_ci_runs(self):
         self.internal.add(run(beta.CI, sha=TIP, conclusion="failure"), run(beta.CI, sha=TIP, status="in_progress"))
         with self.assertRaisesRegex(beta.Skip, "still running"):
@@ -1400,6 +1417,24 @@ class WorkflowWiringTest(unittest.TestCase):
         names = re.findall(r"^  ([A-Za-z0-9_-]+):$", body, re.M)
         blocks = re.split(r"^  [A-Za-z0-9_-]+:$", body, flags=re.M)[1:]
         return dict(zip(names, blocks))
+
+    def test_tag_helper_takes_the_newest_ci_run_that_ran(self):
+        helper = (ROOT / ".github/workflows/release-tag-helper.yml").read_text()
+        query = re.search(r"ci\.yml/runs\?head_sha=.*?--jq '([^']+)'", helper, re.S).group(1)
+        runs = {"workflow_runs": [
+            {"id": 1, "event": "push", "conclusion": "success", "created_at": "2026-11-18T01:00:00Z"},
+            # Closing a PR out of the branch starts a run at its tip that skips every job, and cancels one running.
+            {"id": 2, "event": "pull_request", "conclusion": "cancelled", "created_at": "2026-11-18T02:00:00Z"},
+            {"id": 4, "event": "pull_request", "conclusion": "skipped", "created_at": "2026-11-18T02:30:00Z"},
+        ]}
+        newest = subprocess.run(["jq", "-c", query], input=json.dumps(runs), capture_output=True, text=True,
+                                check=True).stdout
+        self.assertEqual(json.loads(newest)["id"], 1)
+        runs["workflow_runs"].append({"id": 3, "event": "push", "conclusion": "failure",
+                                      "created_at": "2026-11-18T03:00:00Z"})
+        newest = subprocess.run(["jq", "-c", query], input=json.dumps(runs), capture_output=True, text=True,
+                                check=True).stdout
+        self.assertEqual(json.loads(newest)["id"], 3)
 
     def test_candidate_run_name_is_what_the_continuation_parses(self):
         helper = (ROOT / ".github/workflows/release-tag-helper.yml").read_text()

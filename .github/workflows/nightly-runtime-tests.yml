@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-name: Nightly Runtime Tests
+name: Nightly Tests
 
-# develop pushes and routine PRs leave out the CTest label `runtime`; this
-# workflow builds develop's tip each night and runs only those tests, skipping
-# a night when develop has not moved since a passing nightly
+# develop pushes and routine PRs leave out the CTest label `runtime` and build
+# only Linux. Each night this workflow builds develop's tip twice: Linux x86_64
+# running only the runtime tests, and Windows x86_64 running its whole suite.
+# It skips a night when develop has not moved since a passing nightly
 # (select_nightly_runtime.py). A night after a failed nightly retests the same
-# commit; a dispatch always runs the tests.
+# commit; a dispatch always runs the tests. A failed scheduled run opens or
+# updates the issue "Nightly tests failed on develop".
 on:
   schedule:
     - cron: "17 6 * * *"
@@ -38,7 +40,7 @@ jobs:
           echo "Derived version from release-state.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - id: select
-        name: Select nightly runtime tests
+        name: Select the nightly tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/scripts/select_nightly_runtime.py
@@ -65,3 +67,54 @@ jobs:
       build_packages: false
       runtime_tests: only
       artifact_retention_days: 7
+
+  # Routine CI never builds Windows, so a Windows-only break otherwise first
+  # shows in a beta candidate. Nothing reads this build's packages.
+  windows:
+    needs: [prepare]
+    if: needs.prepare.outputs.run_tests == 'true'
+    uses: ./.github/workflows/build-windows.yml
+    permissions:
+      contents: read
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.2"
+      artifact_retention_days: 1
+
+  # A scheduled run notifies no one, so a failure goes to an issue; a dispatch
+  # is watched by whoever started it.
+  report-failure:
+    name: Report a failed nightly
+    needs: [prepare, runtime, windows]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the nightly failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          PREPARE: ${{ needs.prepare.result }}
+          RUNTIME: ${{ needs.runtime.result }}
+          WINDOWS: ${{ needs.windows.result }}
+        run: |
+          set -euo pipefail
+          title="Nightly tests failed on develop"
+          failed=""
+          [[ "$PREPARE" == failure ]] && failed+=", prepare"
+          [[ "$RUNTIME" == failure ]] && failed+=", Linux x86_64 runtime tests"
+          [[ "$WINDOWS" == failure ]] && failed+=", Windows x86_64"
+          body="Nightly tests on develop at ${SHA:0:9} failed: $RUN_URL
+
+          Failed: ${failed#, }"
+          issue=$(gh issue list --state open --search "in:title \"$title\"" \
+                    --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [[ -n "$issue" ]]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

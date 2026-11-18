@@ -11,7 +11,10 @@ on:
     # a fresh run that includes the requested opt-in jobs (see the gates below).
     # Any other label skips `prepare`, so that run is skipped whole and cancels
     # nothing, except on PRs into or out of release/* (see `concurrency`).
-    types: [opened, synchronize, reopened, labeled]
+    # `closed` runs no jobs: its run joins the PR's concurrency group, so
+    # merging or closing a PR cancels the CI still running for it, except a
+    # run a sanitizer label started, which has its own group outside release PRs.
+    types: [opened, synchronize, reopened, labeled, closed]
   workflow_dispatch:
     inputs:
       recache:
@@ -61,8 +64,10 @@ jobs:
   prepare:
     # A `labeled` event runs only for a scope label, or on a PR into or out of
     # release/*; any other label skips the whole run at no cost. Keep the label
-    # list identical to select-ci-scope.sh's (test_ci_scope_policy.py).
+    # list identical to select-ci-scope.sh's (test_ci_scope_policy.py). A
+    # `closed` event skips the run; it exists only to cancel the PR's runs.
     if: >-
+      github.event.action != 'closed' &&
       (github.repository != 'WSJTX/wsjtx' ||
       github.event_name != 'push' ||
       !startsWith(github.ref, 'refs/heads/release/')) && (
