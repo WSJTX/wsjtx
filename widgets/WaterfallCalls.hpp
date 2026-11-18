@@ -30,6 +30,7 @@ namespace WaterfallCalls
     Kind kind {Kind::Other};
     qint64 id {};               // message id (JTTY), 0 when none
     qint64 heardMs {};          // last update
+    qint64 firstMs {};          // first time this message (call) was labelled
     qint64 untilMs {};          // gone after this time
   };
 
@@ -123,6 +124,8 @@ namespace WaterfallCalls
       label.kind = found.kind;
       label.id = id;
       label.heardMs = nowMs;
+      auto const old = entries_.constFind (id);
+      label.firstMs = old != entries_.constEnd () ? old->firstMs : nowMs;
       label.untilMs = nowMs + holdMs;
       entries_[id] = label;
       return true;
@@ -139,25 +142,32 @@ namespace WaterfallCalls
       return any;
     }
 
-    // Priority order: our call, our own transmission, CQs, the rest; the
-    // newest first in each. One label per call (the newest).
+    // Priority order: our call, our own transmission, CQs, the rest. One label
+    // per call (the newest decode). Within a kind the order is that of first
+    // appearance, so two labels that compete for the same place do not swap
+    // every time one of their messages is updated.
     QVector<Label> labels (qint64 nowMs)
     {
       expire (nowMs);
       QVector<Label> all;
       for (auto const& e : entries_) all.append (e);
       std::sort (all.begin (), all.end (), [] (Label const& a, Label const& b) {
-          if (a.kind != b.kind) return int (a.kind) < int (b.kind);
           if (a.heardMs != b.heardMs) return a.heardMs > b.heardMs;
           return a.id > b.id;
-        });
+        });                                         // newest first, for one per call
       QVector<Label> out;
-      QStringList seen;
+      QHash<QString, qint64> first;                 // a call's earliest appearance
       for (auto const& l : all) {
-        if (seen.contains (l.call)) continue;
-        seen << l.call;
-        out.append (l);
+        auto it = first.find (l.call);
+        if (it == first.end ()) {first.insert (l.call, l.firstMs); out.append (l);}
+        else if (l.firstMs < *it) *it = l.firstMs;
       }
+      for (auto& l : out) l.firstMs = first.value (l.call);
+      std::stable_sort (out.begin (), out.end (), [] (Label const& a, Label const& b) {
+          if (a.kind != b.kind) return int (a.kind) < int (b.kind);
+          if (a.firstMs != b.firstMs) return a.firstMs < b.firstMs;
+          return a.freq < b.freq;
+        });
       return out;
     }
 

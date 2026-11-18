@@ -118,6 +118,27 @@ private slots:
     QCOMPARE (labels[2].freq, 2000.f);                // the newest K1ABC
   }
 
+  void competingLabelsDoNotSwapWhenTheirMessagesAreUpdated ()
+  {
+    // two CQs 50 Hz apart: their labels overlap, one has to give way
+    Board board;
+    qint64 const t = 9000000;
+    board.update (1, "CQ DL3ABC CQ", 1540, false, "DL3WDG", t);
+    board.update (2, "CQ K1JT CQ", 1590, false, "DL3WDG", t + 10);
+    auto order = [&board] (qint64 now) {
+      QStringList calls;
+      for (auto const& l : board.labels (now)) calls << l.call;
+      return calls;
+    };
+    auto const first = order (t + 20);
+    QCOMPARE (first, (QStringList {"DL3ABC", "K1JT"}));
+    for (int i = 1; i <= 6; ++i) {                  // each message updated again and again
+      board.update (1 + (i & 1), i & 1 ? "CQ K1JT CQ" : "CQ DL3ABC CQ",
+                    i & 1 ? 1590 : 1540, false, "DL3WDG", t + 1000 * i);
+      QCOMPARE (order (t + 1000 * i + 1), first);
+    }
+  }
+
   void placementTwoRowsOverlapAndEdges ()
   {
     auto const x = [] (double f) {return f / 5.0;};    // 5 Hz per pixel
