@@ -99,6 +99,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   auto days_row = new QHBoxLayout;
   days_row->addWidget (new QLabel {tr ("Contest days"), this});
   days_button_ = new QToolButton {this};
+  days_button_->setToolTip (tr ("Choose the contest days"));
   connect (days_button_, &QToolButton::clicked, this, [this] {
       DaysCalendar::show (days_button_, &days_, [this] {
           Q_EMIT days_changed (days_);
@@ -447,7 +448,7 @@ void EmeCabrilloDialog::refresh ()
 {
   auto const n = days_.size ();
   days_button_->setText (n == 0 ? tr ("Choose days …") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
-  days_label_->setText (DaysCalendar::text (days_, tr ("(choose the contest days)")));
+  days_label_->setText (DaysCalendar::text (days_, QString {}));
 
   // bands with QSOs on the days; those unticked are left out
   auto const all = EmeCabrillo::select (log_, days_, my_call_, my_grid_, {}, fixes_);
