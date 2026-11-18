@@ -500,7 +500,7 @@ void CPlotter::setCallLabels (QVector<WaterfallCalls::Label> const& labels)
 QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
 {
   QFont font ("Arial");
-  font.setPointSize (9);
+  font.setPointSize (10);       // two rows in a 32 px strip
   font.setBold (true);
   QFontMetrics const fm {font};
   int const width = m_scale.width ();
@@ -541,7 +541,7 @@ void CPlotter::drawCallStrip (QPainter& painter)
   int const top = callStripTop ();
   painter.fillRect (0, top, m_scale.width (), callStripHeight, QColor (0x18, 0x18, 0x18));
   QFont font ("Arial");
-  font.setPointSize (9);
+  font.setPointSize (10);       // two rows in a 32 px strip
   font.setBold (true);
   painter.setFont (font);
   for (auto const& p : layoutCallLabels ()) {
