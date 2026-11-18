@@ -498,12 +498,26 @@ void EmeCabrilloDialog::refresh ()
         .arg (selection_.off_weekend.size ())
         .arg (off.mid (0, 6).join (", ") + (off.size () > 6 ? QString {" ..."} : QString {}));
     }
-  if (selection_.no_grid.size ())
+  QString notes_no_grid;
+  if (selection_.no_grid_or_report.size ())
     {
       QStringList calls;
-      for (auto const& qso : selection_.no_grid) calls << qso.call;
-      warnings << tr ("%1 QSO(s) need a grid to be properly scored: %2")
-        .arg (selection_.no_grid.size ()).arg (calls.join (", "));
+      for (auto const& qso : selection_.no_grid_or_report) calls << qso.call;
+      // ARRL refuse the whole log, not just these lines, when the column is
+      // empty, so this is worse than a QSO scoring less.
+      warnings << tr ("%1 QSO(s) have neither a grid nor a report, so ARRL will "
+                      "refuse the log: type a grid for %2")
+        .arg (selection_.no_grid_or_report.size ()).arg (calls.join (", "));
+    }
+  if (selection_.no_grid.size () > selection_.no_grid_or_report.size ())
+    {
+      QStringList calls;
+      for (auto const& qso : selection_.no_grid)
+        if (!qso.report.isEmpty ()) calls << qso.call;
+      notes_no_grid = tr ("%1 QSO(s) go out with the report in the grid column, "
+                          "for ARRL to work the grid out: %2. Type a grid to "
+                          "count it as a multiplier.")
+        .arg (calls.size ()).arg (calls.join (", "));
     }
   if (selection_.no_time.size ())
     warnings << tr ("%1 QSO(s) without a time left out: %2")
@@ -583,6 +597,7 @@ void EmeCabrilloDialog::refresh ()
   if (selection_.satellite) left_out << tr ("%1 satellite").arg (selection_.satellite);
   if (selection_.not_eme) left_out << tr ("%1 not EME (PROP_MODE)").arg (selection_.not_eme);
   if (selection_.mode_out) left_out << tr ("%1 in unticked modes").arg (selection_.mode_out);
+  if (!notes_no_grid.isEmpty ()) note_lines << escaped (notes_no_grid);
   if (left_out.size ()) note_lines << escaped (tr ("Left out: %1.").arg (left_out.join (", ")));
   if (selection_.dupes.size ())
     note_lines << escaped (tr ("%1 dupes in log (scored 0).").arg (selection_.dupes.size ()));

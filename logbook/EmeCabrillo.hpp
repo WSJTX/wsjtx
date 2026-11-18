@@ -98,6 +98,8 @@ namespace EmeCabrillo
     QString my_grid;
     QString call;
     QString grid;
+    QString report;             // RST_RCVD: the grid column holds it when no
+                                // grid is known, as ARRL's own examples do
     QString key;                // record_key ()
     bool filled {false};        // grid taken from another QSO with the call
     bool entered {false};       // grid typed in by the user
@@ -118,7 +120,9 @@ namespace EmeCabrillo
   {
     QVector<Qso> qsos;          // the entry, in time order
     QVector<Qso> dupes;         // worked before on the band from that grid
-    QVector<Qso> no_grid;       // no grid known: left out
+    QVector<Qso> no_grid;       // no grid known: the report goes in that column
+    QVector<Qso> no_grid_or_report;  // neither: ARRL refuse a log with the
+                                // column empty, so the operator must fill one in
     QVector<Qso> need_grid;     // logged without a grid, time order; also those
                                 // a filled or typed grid makes dupes, so that
                                 // the grid can still be corrected

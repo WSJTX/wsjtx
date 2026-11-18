@@ -433,6 +433,7 @@ namespace EmeCabrillo
             qso.grid = known.value (call);
             qso.filled = true;
           }
+        qso.report = ascii (record.value ("RST_RCVD").trimmed ()).simplified ();
         qso.op = record.value ("OPERATOR").trimmed ().toUpper ();
         auto const weekend_group = group_of_day.value (date);
         if (!weekend_group.isEmpty () && band_group (band) != weekend_group)
@@ -447,6 +448,7 @@ namespace EmeCabrillo
             // station that logged it. It scores a QSO but no multiplier, and
             // cannot be checked for repeats without a grid.
             result.no_grid << qso;
+            if (qso.report.isEmpty ()) result.no_grid_or_report << qso;
             result.need_grid << qso;
             result.qsos << qso;
             continue;
@@ -550,7 +552,8 @@ namespace EmeCabrillo
       {
         lines << QString {"QSO: %1 %2 %3 %4 %5 %6 %7 %8"}
           .arg (qso.band, 5).arg (qso.mode).arg (qso.date.toString (Qt::ISODate)).arg (qso.time)
-          .arg (qso.my_call, -13).arg (qso.my_grid).arg (qso.call, -13).arg (qso.grid);
+          .arg (qso.my_call, -13).arg (qso.my_grid).arg (qso.call, -13)
+          .arg (qso.grid.isEmpty () ? qso.report : qso.grid);
       }
     lines << "END-OF-LOG:";
     return ascii (lines.join ('\n') + '\n');    // Cabrillo is plain ASCII

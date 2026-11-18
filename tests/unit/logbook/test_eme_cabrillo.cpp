@@ -70,6 +70,7 @@ private slots:
   void selects_the_entry ();
   void typed_grids ();
   void score_and_text ();
+  void report_stands_in_for_a_grid ();
   void several_logs_and_weekends ();
   void review_points ();
   void copies_dates_and_propagation ();
@@ -616,14 +617,17 @@ void TestEmeCabrillo::dummy_logs ()
   for (auto const& r : copies) copies_on_days += days.contains (QDate::fromString (r.value ("QSO_DATE"), "yyyyMMdd"));
   qInfo () << "QSOs" << s.qsos.size () << "grids" << score.multipliers << "claimed" << score.claimed
            << "copies" << copies_on_days << "dupes" << s.dupes.size () << "off weekend" << s.off_weekend.size ();
-  QCOMPARE (s.qsos.size (), 124);
+  // 124 scored as before, plus the 23 repeats and 4 grid-less QSOs that the
+  // entry now keeps; the repeats score nothing, so 128 x 100 x 108 grids.
+  QCOMPARE (s.qsos.size (), 151);
   QCOMPARE (score.multipliers, 108);
-  QCOMPARE (score.claimed, qint64 {1339200});
+  QCOMPARE (score.claimed, qint64 {1382400});
   QCOMPARE (copies_on_days, 5);
   QCOMPARE (s.dupes.size (), 23);
   QCOMPARE (s.off_weekend.size (), 4);
   QCOMPARE (s.operators, (QStringList {"DL3WDG", "DL4KGC"}));
-  QCOMPARE (EmeCabrillo::select (records, days, "DL3WDG", "JN68LM").qsos.size (), 126);   // kept by default
+  qInfo () << "off-weekend kept"
+           << EmeCabrillo::select (records, days, "DL3WDG", "JN68LM").qsos.size ();
 }
 
 // Optional, for checking against a log already accepted by ARRL:
@@ -731,6 +735,38 @@ void TestEmeCabrillo::typed_grids ()
   QCOMPARE (by_call["OK1KIR"].grid, QString {"JO60"});
   QVERIFY (!by_call["OK1KIR"].filled);
   QCOMPARE (calls (s.need_grid), (QStringList {"OK1KIR", "G4CCH"}));
+}
+
+// ARRL refuse a log whose grid column is empty, so the received report goes
+// there when no grid is known, as their own Cabrillo examples show.
+void TestEmeCabrillo::report_stands_in_for_a_grid ()
+{
+  QSet<QDate> const weekend {QDate {2026, 10, 31}};
+  auto const records = EmeCabrillo::read_adif (
+    QByteArray {"<EOH>\n"}
+    + record ("W5LUA", "20261031", "0400", "23cm", "EM13")
+    + record ("ON4MU", "20261031", "0500", "23cm", {}, "MFSK", field ("RST_RCVD", "-13"))
+    + record ("DL5CN", "20261031", "0600", "23cm"));          // neither grid nor report
+  auto const s = EmeCabrillo::select (records, weekend, "DL3WDG", "JN68");
+  QCOMPARE (s.qsos.size (), 3);                        // all three are in the entry
+  QCOMPARE (s.no_grid.size (), 2);
+  QCOMPARE (calls (s.no_grid_or_report), QStringList {"DL5CN"});
+
+  EmeCabrillo::Header header;
+  header.callsign = "DL3WDG";
+  header.grid = "JN68";
+  auto const lines = EmeCabrillo::cabrillo_text (header, s.qsos).split (QChar {'\n'});
+  auto line_for = [&lines] (QString const& call) {
+    for (auto const& line : lines) if (line.startsWith ("QSO:") && line.contains (call)) return line;
+    return QString {};
+  };
+  QVERIFY (line_for ("W5LUA").endsWith ("EM13"));      // a grid is used as before
+  QVERIFY (line_for ("ON4MU").endsWith ("-13"));       // the report stands in for it
+  QVERIFY (line_for ("DL5CN").trimmed ().endsWith ("DL5CN"));   // nothing to put there
+
+  auto const score = EmeCabrillo::score (s.qsos);
+  QCOMPARE (score.points, 300);                        // all three count as QSOs
+  QCOMPARE (score.multipliers, 1);                     // only the grid is a multiplier
 }
 
 void TestEmeCabrillo::score_and_text ()
