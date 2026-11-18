@@ -48,7 +48,7 @@ class DecodeThreadLongPolicyTests(unittest.TestCase):
 
     def test_windows_leaves_them_out_in_release_builds(self):
         self.assertOneCtest(".github/workflows/build-windows.yml",
-                            '          ctest ${{ (' + RELEASE + ')' + EXCLUDE + ' ' + OUTPUTS + '\n')
+                            '          ctest --parallel 3 ${{ (' + RELEASE + ')' + EXCLUDE + ' ' + OUTPUTS + '\n')
 
     def test_armhf_always_leaves_them_out(self):
         self.assertOneCtest(".github/scripts/validate-linux-armhf-runtime.sh",

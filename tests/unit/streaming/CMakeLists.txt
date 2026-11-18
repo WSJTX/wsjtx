@@ -602,9 +602,9 @@ set_tests_properties (test_streaming_decode_thread_deadline_model PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
 # TIMING rows, the measurements and the rows whose time is mostly the slowest
 # decodes or a cold FFTW_MEASURE plan, register only with
-# WSJT_ENABLE_STREAM_TIMING_TESTS: routine CI runs the behaviour rows. Windows
-# runs its suite serially within its job limit, so without the option it runs
-# only the inline registrations below.
+# WSJT_ENABLE_STREAM_TIMING_TESTS: routine CI runs the behaviour rows. On
+# Windows this option also controls the threaded behaviour rows, which are
+# expensive on CI runners. The inline rows below still run in routine CI.
 # LONG rows, those that took 30 s or more on some CI platform when labelled,
 # carry the label decode-thread-long, which the slow legs and release builds
 # leave out (ci-cd/DEVELOPMENT_WORKFLOW.md, Test Failure Policy).
