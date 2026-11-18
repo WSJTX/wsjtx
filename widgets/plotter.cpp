@@ -552,9 +552,6 @@ void CPlotter::drawCallStrip (QPainter& painter)
     case WaterfallCalls::Kind::Cq: colour = QColor (0x5e, 0xe0, 0x5e); break;
     case WaterfallCalls::Kind::Other: break;
     }
-    painter.setPen (QPen (colour, 2));
-    // the extent of the signal: a thin bar at the top of the strip
-    painter.drawLine (XfromFreq (p.label.freq), top + 1, XfromFreq (p.label.freq + p.label.width), top + 1);
     painter.setPen (colour);
     painter.drawText (p.rect, Qt::AlignCenter, p.label.call);
   }
