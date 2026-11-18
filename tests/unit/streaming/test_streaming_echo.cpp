@@ -149,10 +149,12 @@ Run runCodec (QByteArray const& input, QString const& dataDir = {}, QStringList 
     int end;
     while ((end = pending.indexOf ('\n')) >= 0)
       {
-        auto const line = pending.left (end);
+        auto line = pending.left (end);
         pending.remove (0, end + 1);
-        r.out += line + '\n';
         r.longest = std::max (r.longest, int (line.size ()) + 1);
+        // gfortran ends each record in CR LF on Windows.
+        if (line.endsWith ('\r')) line.chop (1);
+        r.out += line + '\n';
         if (line.trimmed ().isEmpty ()) continue;
         r.events << QJsonDocument::fromJson (line).object ();
       }

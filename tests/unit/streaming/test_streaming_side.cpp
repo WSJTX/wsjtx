@@ -200,7 +200,8 @@ QStringList fileLines (QString const& path)
 {
   QFile file {path};
   if (!file.open (QIODevice::ReadOnly)) return {};
-  auto const bytes = file.readAll ();
+  // gfortran ends each record in CR LF on Windows.
+  auto const bytes = file.readAll ().replace ("\r\n", "\n");
   QStringList lines;
   for (auto const& line : bytes.split ('\n')) lines << QString::fromLatin1 (line);
   if (!lines.isEmpty () && lines.last ().isEmpty ()) lines.removeLast ();
