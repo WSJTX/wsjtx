@@ -561,6 +561,19 @@ image::eme_cabrillo_dialog.png[align="center",width=60%,alt="EME Cabrillo dialog
 * *Missing grids:* QSOs logged without a grid are listed so that you
   can type the grids in. A grid known from another QSO with the same
   station is filled in for you to check, and what you type is remembered.
+  A grid you supply counts toward your multipliers.
++
+A QSO you leave without a grid still goes into the log, with the report
+you received written in the grid column; ARRL work the grid out
+themselves. A QSO with neither a grid nor a report cannot be written
+that way, and ARRL will refuse the whole log rather than that one
+line, so the dialog marks those QSOs in red. Type a grid for each of
+them before saving.
+
+* *Repeats:* a station worked again on the same band from the same grid
+  scores nothing, but stays in the log. Leaving a QSO out could leave
+  the other station's record unmatched when ARRL check the logs against
+  each other, and there is no penalty for including it.
 
 * The 50-1296 MHz bands and the bands from 2.3 GHz up have their own
   contest weekends. QSOs that seem to be on the other group's weekend
