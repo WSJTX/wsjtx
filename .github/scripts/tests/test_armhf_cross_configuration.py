@@ -270,11 +270,16 @@ class ArmhfCrossConfigurationTests(unittest.TestCase):
 
         self.assertIn("RESOLVE_ARMHF=true", prepare)
         self.assertIn("inputs.armhf_image_tag", prepare)
+        armhf_image = prepare.split("      - id: armhf-image\n", 1)[1]
         self.assertIn(
-            "contains(github.event.pull_request.labels.*.name, 'full-ci')",
-            armhf_job,
+            "        if: steps.scope.outputs.full_ci == 'true'\n", armhf_image
         )
-        self.assertIn("github.event_name == 'workflow_dispatch'", armhf_job)
+        self.assertIn(
+            "full_ci: ${{ steps.scope.outputs.full_ci }}\n", prepare
+        )
+        self.assertIn(
+            "    if: needs.prepare.outputs.full_ci == 'true'\n", armhf_job
+        )
         self.assertIn('arch: \"armhf\"', armhf_job)
         self.assertIn(
             "image_tag: ${{ needs.prepare.outputs.armhf_image_tag }}",

@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <memory>
+#include <vector>
 
 #include <QDir>
 #include <QHostAddress>
@@ -33,6 +34,9 @@ namespace
       missing_split_off,
       unknown_mode,
       wrong_dropdown_name,
+      bare_mode_reply,
+      empty_mode_reply,
+      unlisted_bare_mode_reply,
       modes_only_cw
     };
 
@@ -45,6 +49,7 @@ namespace
       QStringList dropdowns;
       QMap<QString, QStringList> selections;
       QMap<QString, QString> values;
+      bool bare_replies {false};
     };
 
     void set_capabilities (Capabilities const& capabilities)
@@ -224,7 +229,8 @@ namespace
             {
               auto const selections = capabilities_.selections.value (name);
               if (command == "get dropdown-list {" + name + '}') return selections.join (',');
-              if (command == "get dropdown-text {" + name + '}') return name + ':' + capabilities_.values.value (name);
+              if (command == "get dropdown-text {" + name + '}')
+                return (capabilities_.bare_replies ? QString {} : name + ':') + capabilities_.values.value (name);
               auto wire_name = name;
               wire_name.replace (' ', '~');
               for (int i = 0; i < selections.size (); ++i)
@@ -266,11 +272,15 @@ namespace
               || Profile::missing_split_off == profile_) return "Main Mode,Split";
           if (Profile::modes_only_cw == profile_
               || Profile::unknown_mode == profile_
-              || Profile::wrong_dropdown_name == profile_) return "Main Mode";
+              || Profile::wrong_dropdown_name == profile_
+              || Profile::bare_mode_reply == profile_
+              || Profile::empty_mode_reply == profile_
+              || Profile::unlisted_bare_mode_reply == profile_) return "Main Mode";
           return {};
         }
       if ("get dropdown-list {Main Mode}" == command)
         {
+          if (Profile::bare_mode_reply == profile_) return "CW,USB";
           return Profile::unknown_mode == profile_ ? "CW,Custom" : "CW";
         }
       if ("get dropdown-list {Split}" == command)
@@ -289,6 +299,9 @@ namespace
         {
           if (Profile::unknown_mode == profile_) return "Main Mode:Custom";
           if (Profile::wrong_dropdown_name == profile_) return "Wrong Mode:CW";
+          if (Profile::bare_mode_reply == profile_) return "USB";
+          if (Profile::empty_mode_reply == profile_) return {};
+          if (Profile::unlisted_bare_mode_reply == profile_) return "LSB";
           return "Main Mode:CW";
         }
       if ("get dropdown-text {Split}" == command)
@@ -485,6 +498,12 @@ private slots:
       << int (ScriptedHRDServer::Profile::unknown_mode) << int (Transceiver::UNK);
     QTest::newRow ("wrong-dropdown-name")
       << int (ScriptedHRDServer::Profile::wrong_dropdown_name) << int (Transceiver::UNK);
+    QTest::newRow ("bare-mode-reply")
+      << int (ScriptedHRDServer::Profile::bare_mode_reply) << int (Transceiver::USB);
+    QTest::newRow ("empty-mode-reply")
+      << int (ScriptedHRDServer::Profile::empty_mode_reply) << int (Transceiver::UNK);
+    QTest::newRow ("unlisted-bare-mode-reply")
+      << int (ScriptedHRDServer::Profile::unlisted_bare_mode_reply) << int (Transceiver::UNK);
   }
 
   void toleratesIncompleteDropdowns ()
@@ -601,9 +620,16 @@ private slots:
       {
         QCOMPARE (writes.size (), readback.size () + 1);
         QCOMPARE (writes.front (), QString {"[1] set frequency-hz 10368100055"});
+        if (readback.size () == 2)
+          QCOMPARE (writes.at (1), QString {"[1] set frequency-hz 10368100051"});
         QCOMPARE (writes.back (), "[1] set frequency-hz " + original);
       }
-    QTRY_COMPARE_WITH_TIMEOUT (fixture.state.frequency (), quint64 (10368100000), 2500);
+    QElapsedTimer watchdog;
+    watchdog.start ();
+    while (fixture.state.frequency () != 10368100000 && fixture.failure.isEmpty () && watchdog.elapsed () < 5000)
+      QVERIFY (fixture.poll ());
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QCOMPARE (fixture.state.frequency (), quint64 (10368100000));
     QVERIFY (fixture.server.commands ().contains ("[1] get frequencies"));
     QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
   }
@@ -703,6 +729,85 @@ private slots:
     auto const failed_read = commands.indexOf ("[1] get frequency", first_switch);
     QVERIFY (failed_read > first_switch);
     QVERIFY (commands.lastIndexOf ("[1] " + restore) > failed_read);
+    QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+  }
+
+  void bareRepliesAreAcceptedOnlyForModeDropdowns ()
+  {
+    for (bool const bare : {false, true})
+      {
+        HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+        ScriptedHRDServer::Capabilities capabilities;
+        capabilities.dropdowns = QStringList {"Main Mode", "Split"};
+        capabilities.selections["Main Mode"] = QStringList {"CW", "USB"};
+        capabilities.selections["Split"] = QStringList {"Off", "On"};
+        capabilities.values["Main Mode"] = "USB";
+        capabilities.values["Split"] = "On";
+        capabilities.bare_replies = bare;
+        fixture.server.set_capabilities (capabilities);
+        QVERIFY (fixture.start ());
+        QVERIFY (fixture.poll ());
+        QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::USB);
+        QCOMPARE (fixture.transceiver->state ().split (), !bare);
+        fixture.transceiver->stop ();
+        QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
+      }
+  }
+
+  void ignoresModeReadbackWhileTransmitting ()
+  {
+    HRDFixture fixture {ScriptedHRDServer::Profile::normal};
+    ScriptedHRDServer::Capabilities capabilities;
+    capabilities.buttons = QStringList {"TX"};
+    capabilities.dropdowns = QStringList {"Mode"};
+    capabilities.selections["Mode"] = QStringList {"USB", "DATA-U"};
+    capabilities.values["Mode"] = "DATA-U";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.start ());
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::DIG_U);
+
+    // The fixture reports two VFOs by default, the case where the mode
+    // used to be read during transmit.
+    std::vector<Transceiver::ModeStatus> statuses;
+    QObject::connect (fixture.transceiver.get (), &Transceiver::mode_status,
+                      [&] (Transceiver::ModeStatus const& status, unsigned)
+                      {
+                        statuses.push_back (status);
+                      });
+
+    auto requested = fixture.transceiver->state ();
+    requested.ptt (true);
+    fixture.transceiver->set (requested, 3);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QVERIFY (fixture.transceiver->state ().ptt ());
+
+    // Some HRD setups report USB for DATA-U while transmitting.
+    capabilities.values["Mode"] = "USB";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::DIG_U);
+
+    requested.ptt (false);
+    fixture.transceiver->set (requested, 4);
+    capabilities.values["Mode"] = "DATA-U";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.poll ());
+    QVERIFY (!fixture.transceiver->state ().ptt ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::DIG_U);
+    for (auto const& status : statuses)
+      {
+        QVERIFY2 (Transceiver::ModeStatusKind::Preparing == status.kind
+                  || Transceiver::DIG_U == status.mode,
+                  "mode policy was told about a mode other than DIG_U");
+      }
+
+    // readback resumes after transmit
+    capabilities.values["Mode"] = "USB";
+    fixture.server.set_capabilities (capabilities);
+    QVERIFY (fixture.poll ());
+    QCOMPARE (fixture.transceiver->state ().mode (), Transceiver::USB);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
     QVERIFY2 (fixture.server.error ().isEmpty (), qPrintable (fixture.server.error ()));
   }
 

@@ -9,7 +9,12 @@ on:
     # that applying `full-ci`, `sanitizers`, or `thread-sanitizer` to an
     # already-open PR triggers
     # a fresh run that includes the requested opt-in jobs (see the gates below).
-    types: [opened, synchronize, reopened, labeled]
+    # Any other label skips `prepare`, so that run is skipped whole and cancels
+    # nothing, except on PRs into or out of release/* (see `concurrency`).
+    # `closed` runs no jobs: its run joins the PR's concurrency group, so
+    # merging or closing a PR cancels the CI still running for it, except a
+    # run a sanitizer label started, which has its own group outside release PRs.
+    types: [opened, synchronize, reopened, labeled, closed]
   workflow_dispatch:
     inputs:
       recache:
@@ -30,10 +35,19 @@ on:
 
 concurrency:
   # Develop pushes share one running slot and retain only the newest pending run.
-  # Manual runs and release-branch pushes remain independent.
+  # Manual runs and release-branch pushes remain independent. A PR's runs share
+  # its number, except a `labeled` event for any label but `full-ci`: it gets
+  # its own run_id, so applying `sanitizers` or `thread-sanitizer` starts a run
+  # beside a full run in progress, and any other label's run, which prepare.if
+  # skips, cancels nothing. On PRs into or out of release/* every event shares
+  # the PR number (test_ci_scope_policy.py).
   group: >-
     ${{ github.workflow }}-${{
-      github.event_name == 'pull_request' && github.event.pull_request.number ||
+      github.event_name == 'pull_request' && (
+        github.event.action != 'labeled' ||
+        github.event.label.name == 'full-ci' ||
+        startsWith(github.base_ref, 'release/') ||
+        startsWith(github.head_ref, 'release/')) && github.event.pull_request.number ||
       github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.ref ||
       github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -48,10 +62,19 @@ jobs:
   # optional fourth tweak segment (3.0.0.0 → 3.0.0) to match the 3-part
   # shape release.yml derives from build/v<X.Y.Z> tags.
   prepare:
+    # A `labeled` event runs only for a scope label, or on a PR into or out of
+    # release/*; any other label skips the whole run at no cost. Keep the label
+    # list identical to select-ci-scope.sh's (test_ci_scope_policy.py). A
+    # `closed` event skips the run; it exists only to cancel the PR's runs.
     if: >-
-      github.repository != 'WSJTX/wsjtx' ||
+      github.event.action != 'closed' &&
+      (github.repository != 'WSJTX/wsjtx' ||
       github.event_name != 'push' ||
-      !startsWith(github.ref, 'refs/heads/release/')
+      !startsWith(github.ref, 'refs/heads/release/')) && (
+        github.event.action != 'labeled' ||
+        contains(fromJSON('["full-ci","sanitizers","thread-sanitizer"]'), github.event.label.name) ||
+        startsWith(github.base_ref, 'release/') ||
+        startsWith(github.head_ref, 'release/'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -60,6 +83,10 @@ jobs:
       armhf_image_tag: ${{ steps.armhf-image.outputs.image_tag }}
       save_linux_ccache: ${{ steps.ccache-policy.outputs.save_ccache }}
       build_linux_packages: ${{ steps.packaging-policy.outputs.build_packages }}
+      full_ci: ${{ steps.scope.outputs.full_ci }}
+      asan: ${{ steps.scope.outputs.asan }}
+      tsan: ${{ steps.scope.outputs.tsan }}
+      runtime_tests: ${{ steps.scope.outputs.runtime_tests }}
     steps:
       - uses: actions/checkout@v7
       - name: Validate workflow job timeouts
@@ -71,6 +98,7 @@ jobs:
           .github/scripts/select-ccache-key-suffix.sh --self-test
           .github/scripts/select-linux-ccache-save.sh --self-test
           .github/scripts/select-linux-packaging.sh --self-test
+          .github/scripts/select-ci-scope.sh --self-test
           .github/scripts/test-linux-ccache-compiler-signature.sh
           .github/scripts/test-verify-linux-ci-image.sh
           python3 -m unittest discover -s .github/scripts/tests -p 'test_*.py'
@@ -80,6 +108,19 @@ jobs:
           VERSION=$(jq -r .version <<<"$STATE")
           echo "Derived version from release-state.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      # Which opt-in legs run and whether `linux` runs the runtime tests:
+      # full-ci counts on the event that applies it (or opens a PR carrying
+      # it), not on later pushes. See select-ci-scope.sh for the truth table.
+      - id: scope
+        name: Select CI scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          EVENT_LABEL: ${{ github.event.label.name }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: .github/scripts/select-ci-scope.sh
       # PRs can consume develop caches, so only trusted develop executions may
       # publish the Linux cache shared with later pull-request builds.
       - id: ccache-policy
@@ -95,7 +136,7 @@ jobs:
         name: Select Linux packaging policy
         env:
           EVENT_NAME: ${{ github.event_name }}
-          FULL_CI: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+          FULL_CI: ${{ steps.scope.outputs.full_ci }}
         run: .github/scripts/select-linux-packaging.sh
       - id: linux-image
         name: Resolve Linux CI image generation
@@ -104,9 +145,7 @@ jobs:
         run: .github/scripts/resolve-linux-ci-image-tag.py
       - id: armhf-image
         name: Resolve ARMHF CI image generation
-        if: >-
-          github.event_name == 'workflow_dispatch' ||
-          contains(github.event.pull_request.labels.*.name, 'full-ci')
+        if: steps.scope.outputs.full_ci == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REQUESTED_TAG: ${{ inputs.armhf_image_tag || '' }}
@@ -120,14 +159,21 @@ jobs:
 
   # Two-tier CI to conserve Actions minutes. The default path runs one Linux
   # x86_64 smoke leg; sanitizer and broader platform coverage are opt-in.
+  # The legs key on prepare's scope outputs (select-ci-scope.sh).
   #
   #   * Default (every push / PR to develop): Linux x86_64 only -- `linux`.
-  #   * ASan + UBSan: runs on PRs carrying `sanitizers` or `full-ci`.
+  #     Routine PRs and develop pushes skip its runtime-labelled tests;
+  #     nightly-runtime-tests.yml runs them on develop.
+  #   * ASan + UBSan: runs on PRs carrying `sanitizers`, and with full-ci.
   #   * TSan: runs only on PRs carrying `thread-sanitizer`.
-  #   * Opt-in matrix (`linux-arm`, `linux-armhf`, macos, macos-intel, windows): runs when a
-  #     PR carries the `full-ci` label, or when the workflow is started manually
-  #     ("Run workflow" / workflow_dispatch). Release builds are unaffected --
-  #     they run the full matrix via release.yml on build/v* tags.
+  #   * Opt-in matrix (`linux-arm`, `linux-armhf`, macos, macos-intel, windows): runs when
+  #     `full-ci` is applied to a PR, when a PR carrying it is opened or
+  #     reopened, or when the workflow is started manually ("Run workflow" /
+  #     workflow_dispatch). A later push to a PR that still carries `full-ci`
+  #     gets the default run; re-apply the label to repeat the full run. PRs
+  #     into or out of release/* run it whenever they carry the label. Release
+  #     builds are unaffected -- they run the full matrix via release.yml on
+  #     build/v* tags.
   #
   # Every non-prepare leg also `needs: linux`, so a break that fails
   # everywhere fails fast on the cheapest runner before any costly leg
@@ -136,9 +182,7 @@ jobs:
   macos:
     needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'full-ci')
+    if: needs.prepare.outputs.full_ci == 'true'
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -147,13 +191,12 @@ jobs:
       runner: "macos-15"
       deployment_target: "11.0"
       recache: ${{ inputs.recache || false }}
+      artifact_retention_days: 7
 
   macos-intel:
     needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'full-ci')
+    if: needs.prepare.outputs.full_ci == 'true'
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -162,6 +205,7 @@ jobs:
       runner: "macos-15-intel"
       deployment_target: "10.13"
       recache: ${{ inputs.recache || false }}
+      artifact_retention_days: 7
 
   linux:
     needs: [prepare]
@@ -174,16 +218,16 @@ jobs:
       allow_stale_image: true
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
-      validate_fortran_fallback: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+      validate_fortran_fallback: ${{ needs.prepare.outputs.full_ci == 'true' }}
       build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
+      runtime_tests: ${{ needs.prepare.outputs.runtime_tests }}
+      artifact_retention_days: 7
     secrets: inherit
 
   linux-sanitizers:
     name: Linux x86_64 ASan + UBSan
     needs: [prepare, linux]
-    if: >-
-      contains(github.event.pull_request.labels.*.name, 'full-ci') ||
-      contains(github.event.pull_request.labels.*.name, 'sanitizers')
+    if: needs.prepare.outputs.asan == 'true'
     uses: ./.github/workflows/build-linux-sanitizers.yml
     with:
       hamlib_branch: "4.7.2"
@@ -196,7 +240,7 @@ jobs:
   linux-tsan:
     name: Linux x86_64 TSan
     needs: [prepare, linux]
-    if: contains(github.event.pull_request.labels.*.name, 'thread-sanitizer')
+    if: needs.prepare.outputs.tsan == 'true'
     uses: ./.github/workflows/build-linux-sanitizers.yml
     with:
       hamlib_branch: "4.7.2"
@@ -207,9 +251,7 @@ jobs:
   linux-arm:
     needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'full-ci')
+    if: needs.prepare.outputs.full_ci == 'true'
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -220,6 +262,7 @@ jobs:
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
+      artifact_retention_days: 7
     secrets: inherit
 
   linux-armhf:
@@ -229,9 +272,7 @@ jobs:
       matrix:
         armhf_distro: [bookworm, trixie]
     # Opt-in only, like the other targets beyond Linux x86_64.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'full-ci')
+    if: needs.prepare.outputs.full_ci == 'true'
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -243,16 +284,37 @@ jobs:
       recache: ${{ inputs.recache || false }}
       save_ccache: ${{ needs.prepare.outputs.save_linux_ccache == 'true' }}
       build_packages: ${{ needs.prepare.outputs.build_linux_packages == 'true' }}
+      artifact_retention_days: 7
     secrets: inherit
 
   windows:
     needs: [prepare, linux]
     # Opt-in only -- see the two-tier note above.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'full-ci')
+    if: needs.prepare.outputs.full_ci == 'true'
     uses: ./.github/workflows/build-windows.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.2"
       recache: ${{ inputs.recache || false }}
+      artifact_retention_days: 7
+
+  # Each develop save adds a new SHA-keyed Linux ccache entry; this deletes the
+  # older entries of each configuration and keeps the newest. It is the only
+  # job with `actions: write`, and it never fails the run: the beta cut takes
+  # the newest successful develop push run.
+  prune-linux-ccache:
+    name: Prune superseded Linux ccache entries
+    needs: [prepare, linux, linux-arm, linux-armhf]
+    if: always() && !cancelled() && needs.prepare.outputs.save_linux_ccache == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prune superseded Linux ccache entries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/prune_linux_ccache.py --repository ${{ github.repository }} --ref refs/heads/develop --apply

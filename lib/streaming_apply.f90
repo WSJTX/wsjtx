@@ -21,7 +21,7 @@
 
 module streaming_apply
   use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
-       NPTS_C0_ARRAY_MAX, MODE_JTTY, MODE_ECHO, MODE_FREQCAL
+       NPTS_C0_ARRAY_MAX, MODE_JTTY, MODE_ECHO, MODE_FREQCAL, MODE_WSPR
   use jt9_params_init,   only: apply_per_mode_policy, standard_call
   use msk144_stream,     only: msk144_settings
 
@@ -61,6 +61,8 @@ contains
           case (5);   io_TRperiod = 7.5d0
           case (144); io_TRperiod = 30.d0
           case (MODE_ECHO); io_TRperiod = 3.d0
+          ! The GUI's WSPR is WSPR-2 only: m_TRperiod=120 (on_actionWSPR_triggered).
+          case (MODE_WSPR); io_TRperiod = 120.d0
           case default; io_TRperiod = 60.d0
           end select
           params%ntr = int(io_TRperiod)

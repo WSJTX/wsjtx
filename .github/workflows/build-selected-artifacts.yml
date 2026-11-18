@@ -115,7 +115,7 @@ jobs:
       hamlib_branch: "4.7.2"
       arch: "x86_64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
-      save_ccache: true
+      save_ccache: ${{ github.ref == 'refs/heads/develop' }}
       recache: ${{ inputs.recache }}
 
   linux-x64:
@@ -129,7 +129,7 @@ jobs:
       hamlib_branch: "4.7.2"
       arch: "x86_64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
-      save_ccache: true
+      save_ccache: ${{ github.ref == 'refs/heads/develop' }}
       recache: ${{ inputs.recache }}
 
   linux-arm64:
@@ -146,7 +146,7 @@ jobs:
       hamlib_branch: "4.7.2"
       arch: "aarch64"
       image_tag: ${{ needs.prepare.outputs.linux_image_tag }}
-      save_ccache: true
+      save_ccache: ${{ github.ref == 'refs/heads/develop' }}
       recache: ${{ inputs.recache }}
 
   macos-arm64:

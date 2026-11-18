@@ -64,8 +64,10 @@ jobs:
           python3 .github/scripts/release-linux-images.py validate \
             release-linux-images.json --check-remote
 
+          # A pull-request run tests a merge commit, not the tip; closing a PR out of the branch starts one at
+          # the tip that skips every job, and cancels one still running there.
           CI_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$EXPECTED_SHA&status=completed&per_page=20" \
-            --jq '.workflow_runs | sort_by(.created_at) | reverse | .[0]')
+            --jq '.workflow_runs | map(select(.event != "pull_request")) | sort_by(.created_at) | reverse | .[0]')
           if [ -z "$CI_RUN" ] || [ "$CI_RUN" = null ]; then
             echo "::error::No completed ci.yml run found for $EXPECTED_SHA"
             exit 1

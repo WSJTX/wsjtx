@@ -27,6 +27,11 @@ on:
         required: false
         type: boolean
         default: false
+      artifact_retention_days:
+        description: "Days to keep the package and binary artifacts; 0 keeps the repository default"
+        required: false
+        type: number
+        default: 0
     outputs:
       installer-artifact-id:
         description: "Installer artifact id, for the SignPath submit step"
@@ -68,6 +73,11 @@ on:
         required: false
         type: boolean
         default: true
+      artifact_retention_days:
+        description: "Days to keep the package and binary artifacts; 0 keeps the repository default"
+        required: false
+        type: number
+        default: 0
       release_channel:
         description: "Build release channel"
         required: false
@@ -117,6 +127,7 @@ jobs:
         shell: bash
         env:
           WSJTX_VERSION: ${{ inputs.version }}
+          ARTIFACT_RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
         run: .github/scripts/validate-ci-inputs.sh
 
       # Boost is source-built by build-windows-deps so the Windows 7 API floor
@@ -475,6 +486,7 @@ jobs:
         with:
           name: wsjtx-${{ inputs.version }}-windows-x86_64-installer
           path: wsjtx-build/wsjtx-${{ inputs.version }}-*.exe
+          retention-days: ${{ inputs.artifact_retention_days }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
@@ -484,6 +496,7 @@ jobs:
             wsjtx-build/jt9.exe
             wsjtx-build/wsprd.exe
             wsjtx-build/wsjtx.exe
+          retention-days: ${{ inputs.artifact_retention_days }}
 
       - name: Upload release tarballs
         uses: ./.github/actions/upload-release-tarballs
@@ -491,6 +504,7 @@ jobs:
           version: ${{ inputs.version }}
           target: windows-x86_64
           directory: release-tarballs
+          artifact_retention_days: ${{ inputs.artifact_retention_days }}
 
       - name: Summarize native caches
         if: always()

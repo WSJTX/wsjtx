@@ -60,7 +60,7 @@ public:
   int connection_count () const;
 
   void send_text (QString text);
-  bool send_binary (QByteArray const& data);
+  bool send_binary (QByteArray const& data, qint64 * accepted_bytes = nullptr);
   bool flush ();
   void send_text_later (QString text, int delay_ms);
   void close_client (QString const& reason = QStringLiteral ("simulator close"));

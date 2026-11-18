@@ -84,9 +84,13 @@ void TciSimServer::send_text (QString text)
   client_->sendTextMessage (text);
 }
 
-bool TciSimServer::send_binary (QByteArray const& data)
+bool TciSimServer::send_binary (QByteArray const& data, qint64 * accepted_bytes)
 {
-  return client_connected () && client_->sendBinaryMessage (data) == data.size ();
+  if (accepted_bytes) *accepted_bytes = 0;
+  if (!client_connected ()) return false;
+  auto const sent = client_->sendBinaryMessage (data);
+  if (accepted_bytes) *accepted_bytes = sent;
+  return sent == data.size ();
 }
 
 bool TciSimServer::flush ()

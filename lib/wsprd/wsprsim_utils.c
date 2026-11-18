@@ -164,11 +164,7 @@ void interleave(unsigned char *sym)
     }
 }
 
-int get_wspr_channel_symbols_verbose(char* rawmessage, char* hashtab, char* loctab, unsigned char* symbols, int printdata) {
-    int m=0, ntype=0;
-    long unsigned int n=0;
-    int i, j, ihash;
-    unsigned char pr3[162]=
+static const unsigned char pr3[162]=
     {1,1,0,0,0,0,0,0,1,0,0,0,1,1,1,0,0,0,1,0,
         0,1,0,1,1,1,1,0,0,0,0,0,0,0,1,0,0,1,0,1,
         0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,1,0,0,0,1,
@@ -178,6 +174,26 @@ int get_wspr_channel_symbols_verbose(char* rawmessage, char* hashtab, char* loct
         0,1,0,0,0,1,1,1,0,0,0,0,0,1,0,1,0,0,1,1,
         0,0,0,0,0,0,0,1,1,0,1,0,1,1,0,0,0,1,1,0,
         0,0};
+
+/* The channel symbols that carry an 11-byte packed message, tail included:
+   the convolutional code, interleaved, with the sync vector. */
+void wspr_channel_symbols_from_data(unsigned char const *data, unsigned char *symbols)
+{
+    unsigned int i, nbytes=11; // The message with tail is packed into almost 11 bytes.
+    unsigned char packed[11], channelbits[11*8*2]; /* 162 rounded up */
+    memcpy(packed,data,sizeof packed);
+    memset(channelbits,0,sizeof channelbits);
+    encode(channelbits,packed,nbytes);
+    interleave(channelbits);
+    for (i=0; i<162; i++) {
+        symbols[i]=2*channelbits[i]+pr3[i];
+    }
+}
+
+int get_wspr_channel_symbols_verbose(char* rawmessage, char* hashtab, char* loctab, unsigned char* symbols, int printdata) {
+    int m=0, ntype=0;
+    long unsigned int n=0;
+    int i, j, ihash;
     int nu[10]={0,-1,1,0,-1,2,1,0,-1,1};
     char *callsign, *grid, *powstr;
     char grid4[5], message[23];
@@ -295,17 +311,7 @@ int get_wspr_channel_symbols_verbose(char* rawmessage, char* hashtab, char* loct
     unpk_(check_data,hashtab,loctab,check_call_loc_pow,check_callsign);
 //    printf("Will decode as: %s\n",check_call_loc_pow);
  
-    unsigned int nbytes=11; // The message with tail is packed into almost 11 bytes.
-    unsigned char channelbits[nbytes*8*2]; /* 162 rounded up */
-    memset(channelbits,0,sizeof(char)*nbytes*8*2);
-    
-    encode(channelbits,data,nbytes);
-    
-    interleave(channelbits);
-
-    for (i=0; i<162; i++) {
-        symbols[i]=2*channelbits[i]+pr3[i];
-    }
+    wspr_channel_symbols_from_data(data,symbols);
 
     return 1;
 }

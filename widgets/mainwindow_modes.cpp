@@ -33,6 +33,7 @@ void MainWindow::requestModeChange (ModeEntry::Request request, std::function<vo
   while (auto operation = m_modeEntries.takeNext ())
     {
       m_modeSetupActive = true;
+      m_modeSetupMode = operation->request.mode;
       auto const configured = configureMode (operation->request.mode);
       if (configured)
         {
@@ -42,6 +43,7 @@ void MainWindow::requestModeChange (ModeEntry::Request request, std::function<vo
       auto const continuation = m_modeSetupContinuations.take (operation->identity);
       if (configured && continuation) continuation ();
       m_modeSetupActive = false;
+      m_modeSetupMode.clear ();
       if (configured) completeModeFrequencyChange (*operation);
       m_modeEntries.finish (operation->identity);
     }

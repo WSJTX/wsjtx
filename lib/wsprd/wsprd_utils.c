@@ -379,7 +379,9 @@ int wsprd_interpret(signed char *message, char *hashtab, char *loctab,
             int nu=ndbm%10;
             if( nu == 0 || nu == 3 || nu == 7 || nu == 10 ) { //make sure power is OK
                 ihash=nhash(callsign,strlen(callsign),(uint32_t)146);
-                if( !store_hash_call(ihash, callsign, hashtab) ) return 1;
+                // A compound call carries no grid: the slot's old one, another
+                // station's after a hash collision, goes with the old call.
+                if( !store_hash_entry(ihash, callsign, "", hashtab, loctab) ) return 1;
             } else noprint=1;
         }
     } else if ( ntype < 0 ) {

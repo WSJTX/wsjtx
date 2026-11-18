@@ -15,6 +15,10 @@ REPOSITORY = pathlib.Path(__file__).resolve().parents[3]
 RELEASE = ("startsWith(github.ref, 'refs/tags/') || "
            "(startsWith(github.ref, 'refs/heads/release/') && github.event_name != 'push')")
 EXCLUDE = " && '-LE decode-thread-long' || '' }}"
+# Outside release builds, Linux selects the runtime label instead (test_build_input_policy.py).
+LINUX_EXCLUDE = (" && '-LE decode-thread-long'"
+                 " || inputs.runtime_tests == 'exclude' && '-LE ^runtime$'"
+                 " || inputs.runtime_tests == 'only' && '-L ^runtime$' || '' }}")
 OUTPUTS = "--output-on-failure --output-junit ctest-results.xml"
 
 
@@ -32,7 +36,7 @@ class DecodeThreadLongPolicyTests(unittest.TestCase):
         self.assertOneCtest(".github/actions/build-linux-payload/action.yml",
                             '      run: >-\n'
                             '        xvfb-run -a -s "-screen 0 1280x1024x24" ctest --parallel 3\n'
-                            '        ${{ (' + RELEASE + ')' + EXCLUDE + '\n'
+                            '        ${{ (' + RELEASE + ')' + LINUX_EXCLUDE + '\n'
                             '        ' + OUTPUTS + '\n')
 
     def test_macos_intel_always_and_both_macos_in_release_builds(self):

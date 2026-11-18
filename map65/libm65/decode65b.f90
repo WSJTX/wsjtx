@@ -62,12 +62,6 @@ subroutine decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,  &
      decoded='                      '
   endif
 
-  ! TEMP diagnostic 2026-09-10 for the false-JT65-decode investigation.
-  call dbg('decode65b: extract() done, ncount=' // itoa(ncount) // ' nkv=' // itoa(nkv) // &
-           ' hard_decoded="' // trim(decoded) // '" nqd=' // itoa(nqd) // ' flip=' // itoa(nint(flip)) // &
-           ' ndepth=' // itoa(ndepth) // &
-           ' will_run_deep65=' // itoa(merge(1,0, ndepth.ge.1 .and. (nqd.eq.1 .or. flip.eq.1.0))))
-
   qual=0.
   if(ndepth.ge.1 .and. (nqd.eq.1 .or. flip.eq.1.0)) then
      call deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,deepmsg,qual,mrs,mrs2)

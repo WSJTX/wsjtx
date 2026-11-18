@@ -48,7 +48,11 @@ public Q_SLOTS:
 private:
   friend class TestSoundOutput;
 
-  bool checkStream () const;
+  bool checkStream (bool startup = false);
+  bool reportStreamError (QAudio::Error, bool startup = false);
+  void logStartupFailure (char const * phase, QAudioFormat const&, QAudio::State,
+                          QAudio::Error, QString const& diagnostic = {}) const;
+  bool isCurrentStream (TxEvidence::TxPlaybackContext, qint64 sequence) const;
   TxEvidence::TxRawPlayoutSnapshot makeRawTxPlayoutSnapshot (bool startEvent = false) const;
   void publishRawTxPlayoutSnapshot (bool startEvent = false) const;
   void publishUnavailableTxPlayoutSnapshot (bool startEvent, QString const& diagnostic) const;
@@ -64,6 +68,9 @@ private:
   qreal m_volume;
   TxEvidence::TxPlaybackContext m_context;
   qint64 m_backendStartSequence;
+  qint64 m_startingSequence {0};
+  QAudio::Error m_startupError {QAudio::NoError};
+  QAudio::Error m_deferredStartupError {QAudio::NoError};
 };
 
 #endif

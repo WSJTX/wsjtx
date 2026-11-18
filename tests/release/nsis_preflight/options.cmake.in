@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+set (WSJTX_NSIS_PREFLIGHT_SCRIPT "@SOURCE_DIR@/CMake/NSIS/GeneratePreflight.cmake")
+set (CMAKE_COMMAND "@CMAKE_COMMAND@")
+set (WSJTX_NSIS_LAUNCHER "@CMAKE_CURRENT_BINARY_DIR@/fixture_launcher.exe")
+string (REPLACE "/" "\\" WSJTX_NSIS_LAUNCHER "${WSJTX_NSIS_LAUNCHER}")
+if ("@LATE_CONFLICT@")
+  set (CPACK_NSIS_EXTRA_PREINSTALL_COMMANDS [=[
+    System::Call 'kernel32::OpenEventW(i 2, i 0, w "Local\@FIXTURE_ID@-ready") p .r0'
+    System::Call 'kernel32::SetEvent(p r0)'
+    System::Call 'kernel32::CloseHandle(p r0)'
+    System::Call 'kernel32::OpenEventW(i 0x100000, i 0, w "Local\@FIXTURE_ID@-continue") p .r0'
+    System::Call 'kernel32::WaitForSingleObject(p r0, i 30000) i .r1'
+    System::Call 'kernel32::CloseHandle(p r0)'
+    StrCmp $1 0 +2
+      Abort "The test did not release the post-preflight barrier."
+]=])
+endif ()

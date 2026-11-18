@@ -3,32 +3,28 @@ name: Refresh Build Caches
 on:
   push:
     branches: [develop]
+    # Only a file hashed into a dependency-cache key, or a Linux CI image input,
+    # starts a push run (test_warmer_trigger_policy.py). Other build and
+    # workflow edits wait for the Monday schedule, even when they change a value
+    # a dependency key carries. After changing hamlib_branch, a macOS runner or
+    # deployment_target (literals in the workflows that call the builds, such
+    # as ci.yml, release.yml and this one; `rg -n
+    # 'hamlib_branch|deployment_target|runner:' .github/workflows` lists every
+    # one), dispatch this workflow with targets=macos, and for hamlib_branch also targets=windows; after
+    # changing build-windows.yml's MSYS2 packages or WSJT_WINDOWS_API_FLOOR,
+    # with targets=windows.
     paths:
-      - ".github/workflows/ci.yml"
-      - ".github/workflows/release.yml"
-      - ".github/workflows/build-linux.yml"
-      - ".github/workflows/build-linux-sanitizers.yml"
-      - ".github/workflows/warm-dependency-caches.yml"
-      - ".github/actions/build-linux-payload/**"
-      - ".github/actions/build-linux-sanitizers/**"
-      - ".github/scripts/verify-sanitizer-instrumentation.py"
-      - "CMakeLists.txt"
-      - "CMake/**"
-      - "tests/CMakeLists.txt"
-      - "tests/**/CMakeLists.txt"
       - ".github/images/linux-ci/**"
       - ".github/scripts/linux-ci-image-config.sh"
       - ".github/scripts/linux-ci-image-fingerprint.sh"
       - ".github/scripts/linux-ci-image-inputs.sh"
       - ".github/scripts/linux-ccache-compiler-signature.sh"
-      - ".github/scripts/select-ccache-key-suffix.sh"
       - ".github/scripts/fftw-version.sh"
       - ".github/scripts/boost-version.sh"
       - ".github/scripts/build-fftw.sh"
       - ".github/scripts/build-fftw-smoke-linux.sh"
       - "tests/dependencies/test_fftw_runtime.c"
       - ".github/scripts/install-fftw-windows.sh"
-      - ".github/scripts/select-linux-ccache-save.sh"
       - ".github/scripts/run-apt-get.sh"
       - ".github/scripts/build-pfunit-linux.sh"
       - ".github/scripts/build-hamlib-linux.sh"
@@ -42,8 +38,13 @@ on:
       - ".github/scripts/build-hamlib-tsan-linux.sh"
       - ".github/scripts/verify-linux-ci-image.sh"
       - ".github/scripts/verify-tsan-deps-linux.sh"
-      - ".github/workflows/build-macos.yml"
-      - ".github/workflows/build-windows.yml"
+      - ".github/scripts/armhf-ci-image-config.sh"
+      - ".github/scripts/armhf-toolchain-config.sh"
+      - ".github/scripts/build-armhf-toolchain-smoke.sh"
+      - ".github/scripts/build-hamlib-armhf-cross.sh"
+      - ".github/scripts/normalize-armhf-sysroot-symlinks.sh"
+      - ".github/scripts/verify-armhf-ci-image.sh"
+      - ".github/scripts/write-armhf-ci-manifest.sh"
       - ".github/actions/warm-macos-deps/**"
       - ".github/actions/build-windows-deps/**"
       - ".github/patches/hamlib-funcube-windows-hid.patch"
@@ -52,12 +53,8 @@ on:
       - ".github/scripts/tests/test_hamlib_precise_time.c"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
-      - ".github/scripts/*armhf*"
-      - ".github/cmake/armhf-toolchain.cmake"
-      - ".github/scripts/linux-artifact-validation.sh"
       - ".github/scripts/install-*-macos*.sh"
       - ".github/scripts/macos-qt-cache-key.sh"
-      - ".github/scripts/verify-macos-*.sh"
   schedule:
     - cron: "23 10 * * 1"
     - cron: "17 9 1 * *"
@@ -240,27 +237,10 @@ jobs:
                   .github/scripts/boost-log-queue.patch)
                     enable_cache_all
                     ;;
-                  .github/workflows/ci.yml|.github/workflows/release.yml|.github/workflows/warm-dependency-caches.yml|.github/scripts/select-ccache-key-suffix.sh)
-                    enable_cache_all
-                    ;;
-                  .github/workflows/build-linux.yml|.github/actions/build-linux-payload/*|.github/scripts/select-linux-ccache-save.sh)
-                    linux_arm64=true
-                    linux_armhf=true
-                    ;;
-                  .github/scripts/build-linux-armhf-cross.sh|.github/scripts/audit-armhf-cross-build.sh|.github/cmake/armhf-toolchain.cmake|.github/scripts/linux-artifact-validation.sh)
-                    linux_armhf=true
-                    ;;
-                  CMakeLists.txt|CMake/*|tests/CMakeLists.txt|tests/*/CMakeLists.txt)
-                    linux_armhf=true
-                    linux_asan_ubsan=true
-                    ;;
-                  .github/workflows/build-linux-sanitizers.yml|.github/actions/build-linux-sanitizers/*|.github/scripts/verify-sanitizer-instrumentation.py)
-                    linux_asan_ubsan=true
-                    ;;
-                  .github/workflows/build-windows.yml|.github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/scripts/install-fftw-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/patches/hamlib-windows-precise-time.patch|.github/scripts/tests/test_hamlib_funcube_patch.py|.github/scripts/tests/test_hamlib_precise_time.c)
+                  .github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/scripts/install-fftw-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/patches/hamlib-windows-precise-time.patch|.github/scripts/tests/test_hamlib_funcube_patch.py|.github/scripts/tests/test_hamlib_precise_time.c)
                     windows=true
                     ;;
-                  .github/workflows/build-macos.yml|.github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh|.github/scripts/verify-macos-*.sh)
+                  .github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh)
                     macos_arm64=true
                     macos_x86_64=true
                     ;;
@@ -458,6 +438,7 @@ jobs:
       hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
       arch: aarch64
       save_ccache: true
+      artifact_retention_days: 1
 
   warm-linux-armhf-ccache:
     needs: detect
@@ -486,6 +467,7 @@ jobs:
       allow_stale_image: false
       recache: false
       save_ccache: true
+      artifact_retention_days: 1
 
   warm-linux-asan-ubsan-ccache:
     needs: detect
@@ -557,6 +539,7 @@ jobs:
       version: ${{ needs.detect.outputs.version }}
       hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
       save_ccache: true
+      artifact_retention_days: 1
 
   warm-macos-arm64-deps:
     concurrency:
@@ -606,6 +589,7 @@ jobs:
       runner: macos-15
       deployment_target: "11.0"
       save_ccache: true
+      artifact_retention_days: 1
 
   warm-macos-x86_64-ccache:
     concurrency:
@@ -621,6 +605,38 @@ jobs:
       runner: macos-15-intel
       deployment_target: "10.13"
       save_ccache: true
+      artifact_retention_days: 1
+
+  # Keeps the newest develop entry per Linux ccache configuration. Pruning is
+  # housekeeping, so its failure must not fail the warmer. Only an image
+  # refresh saves a Linux x86_64 entry here, so the prune skips its check that
+  # develop CI's save for this commit landed.
+  prune-linux-ccache:
+    needs:
+      - detect
+      - refresh-linux-images
+      - refresh-tsan-image
+      - warm-linux-arm64-ccache
+      - warm-linux-armhf-ccache
+      - warm-linux-asan-ubsan-ccache
+    if: always() && !cancelled() && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prune superseded Linux ccache entries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python3 .github/scripts/prune_linux_ccache.py
+          --repository ${{ github.repository }}
+          --ref refs/heads/develop
+          --apply
+          --skip-sha-check
 
   summary:
     if: always()
@@ -639,6 +655,7 @@ jobs:
       - warm-macos-x86_64-deps
       - warm-macos-arm64-ccache
       - warm-macos-x86_64-ccache
+      - prune-linux-ccache
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

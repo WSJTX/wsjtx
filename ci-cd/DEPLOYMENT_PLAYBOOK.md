@@ -61,7 +61,7 @@ The release pipeline requires this repository configuration. Each row links to i
 
 | Area | Requirement | Details |
 |------|-------------|---------|
-| Private branches | Rulesets on `develop` and `release/*` forbid force-push and deletion, so GitHub reports them as protected. Prepare Release Dependencies runs only from protected `develop` and requires the selected source branch to be protected. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection), [Prepared Linux release images](#prepared-linux-release-images) |
+| Private branches | Rulesets on `develop` and `release/*` forbid force-push and deletion, so GitHub reports them as protected; `develop`'s also takes changes only through approved pull requests. Prepare Release Dependencies runs only from protected `develop` and requires the selected source branch to be protected. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection), [Prepared Linux release images](#prepared-linux-release-images) |
 | Public refs | `v*` tags: no update or deletion, and only the source-promotion identity creates them. `master` and `release/*`: no force-push or deletion, and no other rule. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection) |
 | Private environments | `candidate-tagging` and `source-promotion` admit only `release/*`; `beta-automation` admits only `develop`. None has required reviewers, which would stall the [beta scheduler](#10-scheduled-beta-releases). | [Navigate to Secrets Settings](#navigate-to-secrets-settings) |
 | Secrets | `CROSS_REPO_TOKEN` only in `source-promotion`, with no repository-level copy. No `SIGNPATH_API_TOKEN` in `wsjtx-internal`. On `WSJTX/wsjtx`: `SIGNPATH_API_TOKEN` only in `windows-release-signing`; Apple credentials, when distribution signing is enabled, only in `apple-release-signing`. | [Verification: Credential Boundaries](#verification-credential-boundaries) |
@@ -100,8 +100,17 @@ Every promotion, beta included, creates or fast-forwards public `release/X.Y`, s
 ```
 .github/workflows/
 ├── ci.yml                       ← Orchestrator. Triggers on develop and release/**.
-│                                    Linux x86_64 is the default path; full-ci or a
-│                                    manual run selects broader platform coverage.
+│                                    Linux x86_64 is the default path; applying
+│                                    full-ci or a manual run selects broader
+│                                    platform coverage.
+│
+├── nightly-runtime-tests.yml    ← Nightly Tests: cron 06:17 UTC +
+│                                    workflow_dispatch. Builds develop twice: the
+│                                    Linux x86_64 runtime tests and the whole
+│                                    Windows x86_64 suite; a scheduled run skips
+│                                    when develop has not moved since a passing
+│                                    nightly, and a failed one opens or updates
+│                                    an issue.
 │
 ├── build-macos.yml              ← Reusable workflow (workflow_call).
 │                                    macOS build (arm64 or x86_64); Developer ID
@@ -160,12 +169,25 @@ Every promotion, beta included, creates or fast-forwards public `release/X.Y`, s
 
 **On pushes and pull requests to private `develop` or `release/**`:**
 ```
-Push or pull request
+Push, pull request, or a CI label applied to a pull request
   └─→ ci.yml triggers
        ├─→ validate workflow policy and release-state.txt
-       └─→ build/test Linux x86_64 by default
-            └─→ full-ci or manual selection adds other platforms
+       └─→ build/test Linux x86_64 by default; develop pushes and routine PRs skip the runtime tests
+            └─→ applying full-ci, or a manual run, adds the other platforms
 ```
+
+Applying `full-ci` starts one full run, and later pushes to the pull request get the default run. Applying `sanitizers` or `thread-sanitizer` starts a separate run that cancels no other run, and applying any other label starts a run that skips every job and cancels nothing. A pull request to or from a `release/` branch keeps the earlier behaviour: any label starts a run, and its runs stay full while it carries `full-ci` ([CI runs automatically](DEVELOPMENT_WORKFLOW.md#6-ci-runs-automatically)). Merging or closing a pull request cancels its runs still in progress, except, outside `release/` pull requests, one that a sanitizer label started.
+
+**Each night on private `develop`:**
+```
+Nightly Tests, 06:17 UTC
+  └─→ skips when develop has not moved since the newest scheduled run, and that run passed
+       ├─→ builds Linux x86_64 and runs only the runtime tests
+       ├─→ builds Windows x86_64 and runs its whole suite
+       └─→ a failed scheduled run opens or updates the issue "Nightly tests failed on develop"
+```
+
+A green `develop` push does not cover the runtime tests, so the newest green `develop` that a beta cut takes may fail them. The cut's push CI on `release/X.Y` runs them before the candidate, and the nightly reports a break on `develop` within a day; a night after a failed nightly retests the same commit ([Test Failure Policy](DEVELOPMENT_WORKFLOW.md#test-failure-policy)).
 
 **For an RC or GA release:**
 ```
@@ -734,19 +756,19 @@ gh pr create \
 
 ## 8. Phase 6: Test the CI Pipeline
 
-After the PR is merged (or if you pushed directly to a test branch), verify CI works.
+After the PR is merged, verify CI works.
 
 ### Step 1: Trigger a CI Run
 
-Push any small change to the target branch:
+Open a pull request with any small change; `develop` takes changes only through pull requests, and CI runs on each one:
 
 ```bash
-# If testing on a branch:
-git checkout develop  # or master
+git checkout -b test/ci-pipeline origin/develop
 echo "# CI test" >> README.md
 git add README.md
 git commit -m "test: trigger CI pipeline"
-git push
+git push -u origin test/ci-pipeline
+gh pr create --repo WSJTX/wsjtx-internal --base develop --title "test: trigger CI pipeline" --body "Checks CI. Close without merging."
 ```
 
 ### Step 2: Monitor the Run
@@ -761,7 +783,7 @@ gh run list --repo WSJTX/wsjtx-internal --limit 5
 
 ### Step 3: Check the Selected Platforms
 
-An ordinary push runs the default Linux x86_64 check. Before a candidate, apply the `full-ci` label to a PR or manually dispatch full CI and confirm all six target builds. Expected times, with no cache and with caches restored:
+An ordinary push runs the default Linux x86_64 check. Before a candidate, apply the `full-ci` label to a PR, which starts one full run (later pushes get the default check), or manually dispatch full CI, and confirm all six target builds. Expected times, with no cache and with caches restored:
 
 | Platform | First Run | Cached Run |
 |----------|-----------|------------|
@@ -793,11 +815,10 @@ Common first-run failures:
 | Windows build timeout (150 min) | Cold dependency caches on a slow runner, or test-suite growth | Re-run. Outside pull requests the first attempt saved its dependency caches and the re-run restores them; if the test step alone nears the budget, raise it |
 | "refusing to allow an OAuth App to create or update workflow" | This error can appear at PR merge time if the branch contains workflow files and was pushed with a deploy key | Push the branch using a PAT or via the GitHub web UI instead |
 
-### Step 5: Revert the Test Commit
+### Step 5: Close the Test PR
 
 ```bash
-git revert HEAD
-git push
+gh pr close test/ci-pipeline --repo WSJTX/wsjtx-internal --delete-branch
 ```
 
 ---
@@ -1029,7 +1050,7 @@ The next cut finds `build/vX.Y.Z-beta1` missing and cuts `beta1` at the tip ([st
 
 Most stop messages name the action to take. Re-running a failed run that the App started resumes the chain through the continuation. For a CI, candidate, or promotion run the `release/X.Y` tip must be unmoved: the continuation ignores runs at an older commit, and candidate and promotion runs also check the tip. For other stops, fix the cause, then dispatch Scheduled Beta Cut on `develop`. Never move or recreate a tag; see [Step 6](#step-6-recover-safely).
 
-When a candidate fails after pushing its tag, or a public build fails, land the fix on `develop` before the next cut, and confirm it on the failing target with `full-ci` or a dispatched CI run. A newer green `develop` commit without the fix spends N+1 too.
+When a candidate fails after pushing its tag, or a public build fails, land the fix on `develop` before the next cut, and confirm it first by dispatching the failing target's build on the fix branch, for example `gh workflow run build-selected-artifacts.yml --ref <branch> -f targets=macos-x64` ([commands for each target](DEVELOPMENT_WORKFLOW.md#12-quick-reference)). A newer green `develop` commit without the fix spends N+1 too.
 
 A fixes stop ([state machine](#state-machine) step 4) clears only when the listed commits are reachable from `develop`. Landing the same fix on `develop` or reverting the commit on the line does not clear it, and the rulesets forbid removing the commit. To clear it, merge the `release/X.Y` tip (`origin/release/X.Y`) into `develop` with the [history-bridge](#public-branch-history-and-ga-line-policy) steps: keep `develop`'s `release-state.txt`, drop `release-linux-images.json`, run the bridge's tree check, and land the reviewed PR as a merge commit. A squash or rebase merge leaves the commit unreachable from `develop`, and the stop stays. When the next cut merges `develop`, it rewrites both files on the line.
 
@@ -1071,7 +1092,11 @@ git diff HEAD^ -- release-state.txt
 
 ### Hamlib Updates
 
-If the team moves to a new Hamlib version, update `hamlib_branch` in both `ci.yml` and `release.yml`. The Hamlib cache will automatically invalidate because the cache key includes the branch name.
+If the team moves to a new Hamlib version:
+
+1. Update every `hamlib_branch` pin (`rg -n 'hamlib_branch:' .github/workflows`), and the `hamlib_branch` input default and its fallback in the `detect` step of `warm-dependency-caches.yml`.
+2. Update `LINUX_HAMLIB_REF` and `LINUX_HAMLIB_COMMIT` in `.github/scripts/linux-ci-image-config.sh`, and `TSAN_HAMLIB_REF`, `TSAN_HAMLIB_COMMIT` and `TSAN_HAMLIB_PATCH_COMMIT` (the patch cherry-picked onto the TSan Hamlib build) in `.github/scripts/tsan-linux-deps-config.sh`. The Linux and TSan builds take Hamlib from the CI images and check the image's Hamlib ref against `hamlib_branch`.
+3. Once the change is on `develop`, dispatch Refresh Build Caches with `-f targets=macos` and again with `-f targets=windows` ([Cache Management](#cache-management)). The macOS and Windows Hamlib cache keys include the branch, so they miss after the change, and the push starts the warmer only for the Linux CI images.
 
 ### Cache Management
 
@@ -1087,16 +1112,39 @@ gh api -X DELETE repos/WSJTX/wsjtx-internal/actions/caches/<CACHE_ID>
 
 Or go to: Repo → Actions → Caches (left sidebar)
 
+Linux compiler caches are pruned automatically. After the Linux builds of a `develop` push, and in each Refresh Build Caches run on `develop`, `.github/scripts/prune_linux_ccache.py` deletes every `ccache-linux-*` cache on `develop` except the newest of each configuration (the key up to its commit SHA). It never deletes a configuration's newest entry, so a failed save leaves the previous one in use, and a failed prune does not fail the run. Pull requests save no Linux compiler cache, and Build Selected Artifacts saves one only when dispatched on `develop`.
+
+When more than 20 entries are due for deletion, the script deletes none and logs its plan with an error; the prune job fails and the run still passes. To prune by hand, read the plan from a dry run, then apply it with `--max-deletions` set to the planned count it prints (`planned=<N>`):
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" python3 .github/scripts/prune_linux_ccache.py --repository WSJTX/wsjtx-internal --ref refs/heads/develop
+GITHUB_TOKEN="$(gh auth token)" python3 .github/scripts/prune_linux_ccache.py --repository WSJTX/wsjtx-internal --ref refs/heads/develop --apply --max-deletions <N>
+```
+
+Before saving its compiler cache, the ASan + UBSan build deletes its build tree, evicts every object the build did not use, and trims the rest to the profile's cap (`ccache_max_size` in `.github/actions/build-linux-sanitizers/action.yml`), so the save fits on the runner's disk. The cap applies only to that trim, not to the build.
+
+Refresh Build Caches (`warm-dependency-caches.yml`) runs every Monday for every platform's caches, on the first of each month to refresh Linux CI images 30 or more days old, on dispatch, and on a push to `develop` that changes a file in its `paths` list. That list holds only files hashed into dependency-cache keys and Linux CI image inputs, so a push that changes only workflow or CMake files does not start it, even when it changes a value a dependency key carries. After changing `hamlib_branch`, a macOS `runner`, or a `deployment_target` (literals in the workflows that call the builds, such as `ci.yml`, `release.yml` and `warm-dependency-caches.yml`; `rg -n 'hamlib_branch|deployment_target|runner:' .github/workflows` lists every one), dispatch it for macOS, and for `hamlib_branch` also for Windows (the push of a Hamlib bump already refreshes the Linux CI images):
+
+```bash
+gh workflow run warm-dependency-caches.yml --repo WSJTX/wsjtx-internal --ref develop -f targets=macos
+gh workflow run warm-dependency-caches.yml --repo WSJTX/wsjtx-internal --ref develop -f targets=windows
+```
+
+After changing `build-windows.yml`'s MSYS2 package list or `WSJT_WINDOWS_API_FLOOR`, dispatch it for Windows:
+
+```bash
+gh workflow run warm-dependency-caches.yml --repo WSJTX/wsjtx-internal --ref develop -f targets=windows
+```
+
 ### Workflow File Updates
 
 When modifying workflow files, keep in mind:
-- Changes to `build-*.yml` invalidate the Hamlib cache for that platform (cache key includes the workflow file hash).
-- Changes to `ci.yml` or `release.yml` do **not** invalidate caches (they're just orchestrators).
+- No cache key hashes a workflow file. Dependency keys carry each dependency's version and build inputs (architecture, runner, deployment target, Hamlib branch, Windows API floor) and hash its build scripts and patches; Linux dependencies are built into the CI images. A workflow edit changes a dependency key only through one of those inputs, such as `hamlib_branch` in `ci.yml` and `release.yml` or `WSJT_WINDOWS_API_FLOOR` in `build-windows.yml`.
 - Reusable workflows (`workflow_call`) cannot be tested from fork PRs — they must be on the same repo.
 
 ### Branch, Tag, and Environment Protection
 
-Protect `develop` with a ruleset that forbids force-push and deletion, and apply the team's normal CI and review policy to it. Protect `release/*` with rulesets that forbid force-push and deletion. Do not add a pull-request requirement: the release-bot App has no bypass, and its merge pushes would fail. Run the two helper workflows from the current `release/X.Y` tip. Promote Release Source rejects any workflow ref or SHA other than that tip. Prepare Release Candidate rejects any other SHA, and the `candidate-tagging` environment's `release/*` policy rejects other refs.
+Protect `develop` with a ruleset that forbids force-push and deletion and takes changes only through pull requests, each approved by someone other than its last pusher, with approvals dismissed when a push changes the diff; no workflow pushes to `develop`. Protect `release/*` with rulesets that forbid force-push and deletion. Do not add a pull-request requirement there: the release-bot App has no bypass, and its merge pushes would fail. Run the two helper workflows from the current `release/X.Y` tip. Promote Release Source rejects any workflow ref or SHA other than that tip. Prepare Release Candidate rejects any other SHA, and the `candidate-tagging` environment's `release/*` policy rejects other refs.
 
 On WSJTX/wsjtx, protect `v*` tags from updates and deletion, and limit creation to the source-promotion identity. Protect `master` and `release/*` from force-pushes and deletion only; promotion pushes them directly, so a pull-request or status-check requirement would block it.
 
@@ -1200,7 +1248,7 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal --env source-promotio
 **Diagnosis:** Check the cache step output in the workflow run. Look for "Cache not found" vs "Cache restored."
 
 **Common causes:**
-- Cache key changed (workflow file was modified)
+- Cache key changed (a version, build script, patch, or build input changed; see [Workflow File Updates](#workflow-file-updates))
 - Cache was evicted (GitHub evicts caches after 7 days of no access, or when the repo exceeds 10 GB of cache storage)
 - The `actions/cache` action version changed behavior
 

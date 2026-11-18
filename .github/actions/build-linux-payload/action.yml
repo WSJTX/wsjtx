@@ -47,6 +47,14 @@ inputs:
     description: "Allow a previously promoted image when a dependency refresh changed the recipe"
     required: false
     default: "false"
+  runtime_tests:
+    description: "Tests labelled runtime: include, exclude, or only; release builds ignore it"
+    required: false
+    default: "include"
+  artifact_retention_days:
+    description: "Days to keep the package and binary artifacts; 0 keeps the repository default"
+    required: false
+    default: "0"
 
 runs:
   using: "composite"
@@ -60,6 +68,8 @@ runs:
         WSJT_PRERELEASE_NUMBER: ${{ inputs.prerelease_number }}
         ARCH: ${{ inputs.arch }}
         VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
+        RUNTIME_TESTS: ${{ inputs.runtime_tests }}
+        ARTIFACT_RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
       run: .github/scripts/validate-ci-inputs.sh
 
     - name: Verify Linux CI image
@@ -229,12 +239,14 @@ runs:
           -j$(nproc)
 
     # Release builds leave out the long decode-thread rows (ci-cd/DEVELOPMENT_WORKFLOW.md, Test Failure Policy).
+    # Otherwise runtime_tests keeps, drops, or alone runs the tests labelled runtime.
+    # One expression emits at most one label filter: two -LE flags would AND their patterns.
     - name: Run tests
       id: ctest
       shell: bash
       run: >-
         xvfb-run -a -s "-screen 0 1280x1024x24" ctest --parallel 3
-        ${{ (startsWith(github.ref, 'refs/tags/') || (startsWith(github.ref, 'refs/heads/release/') && github.event_name != 'push')) && '-LE decode-thread-long' || '' }}
+        ${{ (startsWith(github.ref, 'refs/tags/') || (startsWith(github.ref, 'refs/heads/release/') && github.event_name != 'push')) && '-LE decode-thread-long' || inputs.runtime_tests == 'exclude' && '-LE ^runtime$' || inputs.runtime_tests == 'only' && '-L ^runtime$' || '' }}
         --output-on-failure --output-junit ctest-results.xml
       working-directory: wsjtx-build
       env:
@@ -302,6 +314,7 @@ runs:
         path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}.deb
         if-no-files-found: error
         compression-level: 0
+        retention-days: ${{ inputs.artifact_retention_days }}
 
     # RPM builds via the same CPack scaffolding the .deb step above
     # uses. CMakeLists.txt:2014-2026 already auto-detects rpmbuild and
@@ -338,6 +351,7 @@ runs:
         path: wsjtx-build/*.rpm
         if-no-files-found: error
         compression-level: 0
+        retention-days: ${{ inputs.artifact_retention_days }}
 
     - name: Install to AppDir
       if: inputs.build_packages == 'true'
@@ -479,6 +493,7 @@ runs:
         path: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}.AppImage
         if-no-files-found: error
         compression-level: 0
+        retention-days: ${{ inputs.artifact_retention_days }}
 
     - name: Upload build artifacts
       if: inputs.build_packages == 'true'
@@ -489,6 +504,7 @@ runs:
           wsjtx-build/jt9
           wsjtx-build/wsprd
           wsjtx-build/wsjtx
+        retention-days: ${{ inputs.artifact_retention_days }}
 
     # linuxdeploy.AppImage is the pinned copy the AppImage step downloaded
     # and checked.
@@ -530,6 +546,7 @@ runs:
         version: ${{ inputs.version }}
         target: linux-${{ inputs.arch }}
         directory: release-tarballs
+        artifact_retention_days: ${{ inputs.artifact_retention_days }}
 
     - name: Report suppressed ccache save
       if: inputs.save_ccache == 'true' && steps.image.outputs.recipe_match != 'true'

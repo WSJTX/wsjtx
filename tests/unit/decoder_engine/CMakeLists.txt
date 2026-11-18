@@ -292,9 +292,6 @@ target_include_directories (test_decoder_engine_wspr PRIVATE ${CMAKE_SOURCE_DIR}
 wsjt_link_common_fortran (test_decoder_engine_wspr)
 add_test (NAME test_decoder_engine_wspr COMMAND test_decoder_engine_wspr)
 set_tests_properties (test_decoder_engine_wspr PROPERTIES TIMEOUT 180 LABELS "decoder;wspr")
-add_test (NAME prepare_wspr_engine_wav COMMAND test_decoder_engine_wspr --write-wav
-  ${CMAKE_CURRENT_BINARY_DIR}/wspr-engine.wav "K1ABC FN42 33" 2 1520 1.2)
-set_tests_properties (prepare_wspr_engine_wav PROPERTIES FIXTURES_SETUP wspr_engine_wav TIMEOUT 30)
 if (TARGET wsjt_fort_omp AND TARGET wsjt_fort)
   add_executable (test_decoder_engine_wspr_omp test_decoder_engine_wspr.c)
   set_target_properties (test_decoder_engine_wspr_omp PROPERTIES LINKER_LANGUAGE CXX)
@@ -305,14 +302,28 @@ if (TARGET wsjt_fort_omp AND TARGET wsjt_fort)
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2")
 endif ()
 
-add_test (NAME test_wspr_engine_cli COMMAND ${CMAKE_COMMAND}
-  "-DENGINE=$<TARGET_FILE:test_decoder_engine_wspr>"
-  "-DWSPRD=$<TARGET_FILE:wsprd>"
-  "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/wspr-cli"
-  -P ${CMAKE_SOURCE_DIR}/tests/integration/wsprd/verify_engine.cmake)
 set (wspr_cli_timeout 240)
 if (WSJT_ENABLE_ASAN_UBSAN OR WSJT_ENABLE_TSAN)
   set (wspr_cli_timeout 600)
 endif ()
-set_tests_properties (test_wspr_engine_cli PROPERTIES
+foreach (variant IN ITEMS 2 15)
+  add_test (NAME test_wspr_engine_cli_${variant} COMMAND ${CMAKE_COMMAND}
+    "-DENGINE=$<TARGET_FILE:test_decoder_engine_wspr>"
+    "-DWSPRD=$<TARGET_FILE:wsprd>"
+    "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/wspr-cli-${variant}"
+    "-DVARIANT=${variant}"
+    -P ${CMAKE_SOURCE_DIR}/tests/integration/wsprd/verify_engine.cmake)
+  set_tests_properties (test_wspr_engine_cli_${variant} PROPERTIES
+    TIMEOUT ${wspr_cli_timeout} LABELS "decoder;wspr;integration")
+endforeach ()
+add_test (NAME test_wspr_engine_effort COMMAND ${CMAKE_COMMAND}
+  "-DENGINE=$<TARGET_FILE:test_decoder_engine_wspr>"
+  "-DAUDIO=$<TARGET_FILE:wspr_test_audio>"
+  "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/wspr-effort"
+  -P ${CMAKE_SOURCE_DIR}/tests/integration/wsprd/verify_engine_effort.cmake)
+set_tests_properties (test_wspr_engine_effort PROPERTIES
   TIMEOUT ${wspr_cli_timeout} LABELS "decoder;wspr;integration")
+if (WSJT_ENABLE_TSAN)
+  set_tests_properties (test_wspr_engine_effort PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+endif ()

@@ -221,7 +221,9 @@ typedef struct {
 
 /* Copied, fixed-width, space-padded associations; a blank grid is unknown.
    Calls contain 1..10 uppercase letters, digits, or slashes, fitting the
-   decoded message format. Invalid entries leave existing knowledge unchanged. */
+   decoded message format; a grid is blank or four Maidenhead characters
+   (AA00 to RR99); only spaces or NULs follow either. Invalid entries leave
+   existing knowledge unchanged. */
 typedef struct { char call[12], grid[4]; } decoder_wspr_call;
 
 /* Only the options for mode are read. EARLY is an FT8 phase; other modes use
@@ -268,7 +270,8 @@ typedef struct {
 /* waveform_start_seconds places sample zero of the reference waveform in
    the identified input, before any engine cropping, and may be negative.
    It is an estimate, not a record of a subsequent subtraction refinement.
-   frequency_hz is the reference waveform's tone-zero frequency.
+   frequency_hz is the reference waveform's tone-zero frequency, except for
+   WSPR, whose is the signal center (decoder_wspr_result).
 
    FT8: 79 GFSK symbols, 1920 samples/symbol at 12 kHz, BT=2; the
    gen_ft8wave template includes its edge ramps within those 79 symbols.
