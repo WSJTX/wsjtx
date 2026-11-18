@@ -111,16 +111,36 @@ private slots:
     return l;
   }
 
-  void callStripSitsBetweenScaleAndWaterfall ()
+  void callStripSitsOnTheDividerAboveTheSpectrum ()
   {
     TestablePlotter plotter;
-    QCOMPARE (plotter.waterfallTop (), 30 + CPlotter::callStripHeight);
+    plotter.resize (1500, 400);
+    plotter.SetPercent2DScreen (30);               // WSJT-X's default: spectrum = 30 %
+    QCoreApplication::processEvents ();
+    QCOMPARE (plotter.waterfallTop (), 30);        // the strip does not move the waterfall
+    int const spectrumTop = 400 - 400 * 30 / 100;
+    QCOMPARE (plotter.callStripTop () + CPlotter::callStripHeight, spectrumTop);
+    plotter.SetPercent2DScreen (0);                // no spectrum: just above the controls
+    QCoreApplication::processEvents ();
+    QVERIFY (plotter.callStripTop () + CPlotter::callStripHeight >= 400 - 2);
+    QVERIFY (plotter.callStripTop () + CPlotter::callStripHeight <= 400);
     plotter.setMode ("FT8");
-    QCOMPARE (plotter.waterfallTop (), 30);        // other modes: no strip
-    plotter.setMode ("JTTY");
-    QCOMPARE (plotter.waterfallTop (), 30 + CPlotter::callStripHeight);
+    QCOMPARE (plotter.waterfallTop (), 30);
   }
 
+  void aDoubleClickInTheStripDoesNotDecodeTheRowsUnderIt ()
+  {
+    TestablePlotter plotter;
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("K1ABC", 500)});
+    QSignalSpy again (&plotter, &CPlotter::jttyDecodeAgainAtSample);
+    auto const rect = plotter.callLabelRect ("K1ABC");
+    QMouseEvent twice {QEvent::MouseButtonDblClick, QPointF (rect.center ()),
+                       Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
+    plotter.mouseDoubleClickEvent (&twice);
+    QCOMPARE (again.size (), 0);
+  }
   void labelsAreShownInTheStripAndClickSelectsTheirSignal ()
   {
     TestablePlotter plotter;
@@ -131,8 +151,8 @@ private slots:
     QCOMPARE (plotter.shownCallLabels (), (QStringList {"DL3WDG", "K1ABC", "K2DEF"}));
     for (auto const& call : plotter.shownCallLabels ()) {
       auto const rect = plotter.callLabelRect (call);
-      QVERIFY (rect.top () >= 30);
-      QVERIFY (rect.bottom () < 30 + CPlotter::callStripHeight);
+      QVERIFY (rect.top () >= plotter.callStripTop ());
+      QVERIFY (rect.bottom () < plotter.callStripTop () + CPlotter::callStripHeight);
     }
     QSignalSpy freq (&plotter, &CPlotter::setFreq1);
     QSignalSpy clicked (&plotter, &CPlotter::jttyCallClicked);

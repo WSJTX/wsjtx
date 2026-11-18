@@ -475,7 +475,12 @@ void CPlotter::drawJttyLabels (QPainter& painter, bool newestOnly)
 
 int CPlotter::waterfallTop () const
 {
-  return 30 + (hasCallStrip () ? callStripHeight : 0);
+  return 30;
+}
+
+int CPlotter::callStripTop () const
+{
+  return std::max (30, m_h1 - callStripHeight);     // m_h1: where the spectrum starts
 }
 
 void CPlotter::setCallLabels (QVector<WaterfallCalls::Label> const& labels)
@@ -510,7 +515,7 @@ QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
     auto const& label = m_callLabels[p.index];
     int const w = fm.horizontalAdvance (label.call);
     int const x = int (p.xCentre) - w / 2;
-    out.append ({label, QRect (x, 30 + p.row * rowHeight, w, rowHeight), int (p.xCentre)});
+    out.append ({label, QRect (x, callStripTop () + p.row * rowHeight, w, rowHeight), int (p.xCentre)});
   }
   return out;
 }
@@ -533,7 +538,8 @@ QRect CPlotter::callLabelRect (QString const& call) const
 void CPlotter::drawCallStrip (QPainter& painter)
 {
   painter.save ();
-  painter.fillRect (0, 30, m_scale.width (), callStripHeight, QColor (0x18, 0x18, 0x18));
+  int const top = callStripTop ();
+  painter.fillRect (0, top, m_scale.width (), callStripHeight, QColor (0x18, 0x18, 0x18));
   QFont font ("Arial");
   font.setPointSize (9);
   font.setBold (true);
@@ -548,7 +554,7 @@ void CPlotter::drawCallStrip (QPainter& painter)
     }
     painter.setPen (QPen (colour, 2));
     // the extent of the signal: a thin bar at the top of the strip
-    painter.drawLine (XfromFreq (p.label.freq), 31, XfromFreq (p.label.freq + p.label.width), 31);
+    painter.drawLine (XfromFreq (p.label.freq), top + 1, XfromFreq (p.label.freq + p.label.width), top + 1);
     painter.setPen (colour);
     painter.drawText (p.rect, Qt::AlignCenter, p.label.call);
   }
@@ -1107,7 +1113,9 @@ void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
   if (leftbutton and m_mode=="JTTY" and !ctrl) {
     int const row = event->y() - waterfallTop();
-    if (row >= 0 && row < m_jttyRows.size ()) {
+    bool const inStrip = hasCallStrip () && event->y () >= callStripTop ()
+      && event->y () < callStripTop () + callStripHeight;     // the strip covers those rows
+    if (!inStrip && row >= 0 && row < m_jttyRows.size ()) {
       auto const& audio = m_jttyRows[row].audio;
       if (audio.hasAudio ()) emit jttyDecodeAgainAtSample (audio.reception, audio.endSample);
     }

@@ -105,12 +105,16 @@ public:
   void setJttySpectrum (std::array<float, JttySpectrumFrame::BinCount> const& cumulative,
                         std::array<float, JttySpectrumFrame::BinCount> const& linearAverage);
 
-  // JTTY: the callsign strip between the frequency scale and the waterfall.
+  // JTTY: the callsign strip above the spectrum.
   static constexpr int callStripHeight = 32;
   void setCallLabels (QVector<WaterfallCalls::Label> const& labels);
   QStringList shownCallLabels () const;               // placed, in priority order
   QRect callLabelRect (QString const& call) const;    // in widget coordinates
   int  waterfallTop () const;                         // y of the first waterfall row
+  // y of the top of the strip: on the lower edge of the waterfall, just above
+  // the spectrum (or above the controls when the spectrum is 0 %). The
+  // waterfall keeps its place; the strip covers its oldest rows.
+  int  callStripTop () const;
 
 signals:
   void freezeDecode1(int n);
