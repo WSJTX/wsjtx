@@ -225,7 +225,9 @@ class Scheduler:
         version = line.prerelease()
         self.notes.append(f"`{candidate_tag(version)}` does not exist, so {version} is retried under the same number.")
         self.check_fixes_on_develop(line)
-        runs = self.internal.runs(CI, head_sha=line.tip)
+        # A pull-request run tests a merge commit, not the tip. Closing a PR out of the line starts one at the
+        # tip that skips every job, and cancels one still running there.
+        runs = [run for run in self.internal.runs(CI, head_sha=line.tip) if run.get("event") != "pull_request"]
         if any(in_flight(run) for run in runs):
             raise self.wait("ci", runs, f"CI for {line.branch} at {line.tip} is still running; {version} waits for it.")
         ci = newest(runs)

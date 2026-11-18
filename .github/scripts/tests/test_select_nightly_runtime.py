@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Nightly Runtime Tests: when the selector tests a commit, and what the workflow runs."""
+"""Nightly Tests: when the selector tests a commit, and what the workflow runs."""
 
 import importlib.util
 import io
@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -190,9 +191,10 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('  schedule:\n    - cron: "17 6 * * *"\n  workflow_dispatch:\n', WORKFLOW)
         self.assertIn("concurrency:\n  group: nightly-runtime-tests\n  cancel-in-progress: false\n", WORKFLOW)
 
-    def test_reads_only(self):
+    def test_reads_only_except_the_failure_report(self):
         self.assertIn("permissions:\n  contents: read\n  packages: read\n  actions: read\n", WORKFLOW)
-        self.assertNotIn(": write", WORKFLOW)
+        self.assertEqual(re.findall(r"^ *[a-z-]+: write$", WORKFLOW, re.MULTILINE), ["      issues: write"])
+        self.assertIn("    permissions:\n      issues: write\n", job(WORKFLOW, "report-failure"))
 
     def test_runs_only_in_the_project_repository(self):
         prepare = job(WORKFLOW, "prepare")
@@ -228,6 +230,120 @@ class WorkflowTests(unittest.TestCase):
             with self.subTest(line=line):
                 self.assertIn(f"\n      {line}\n", runtime)
         self.assertNotIn("save_ccache", runtime)
+
+    def test_windows_job_builds_and_runs_the_whole_suite_when_the_runtime_job_does(self):
+        windows = job(WORKFLOW, "windows")
+        self.assertIn("    needs: [prepare]\n", windows)
+        self.assertIn("    if: needs.prepare.outputs.run_tests == 'true'\n", windows)
+        self.assertIn("    uses: ./.github/workflows/build-windows.yml\n", windows)
+        self.assertIn("    permissions:\n      contents: read\n    with:\n", windows)
+        for line in (
+            "version: ${{ needs.prepare.outputs.version }}",
+            'hamlib_branch: "4.7.2"',
+            "artifact_retention_days: 1",
+        ):
+            with self.subTest(line=line):
+                self.assertIn(f"\n      {line}\n", windows)
+        # The nightly saves no compiler cache (build-windows.yml still refreshes its dependency caches on a
+        # miss outside pull requests) and selects no tests: Windows runs every test.
+        for absent in ("save_ccache", "recache", "cold_build", "runtime_tests"):
+            with self.subTest(absent=absent):
+                self.assertNotIn(absent, windows)
+
+    def test_a_failed_scheduled_run_opens_or_updates_one_issue(self):
+        report = job(WORKFLOW, "report-failure")
+        self.assertIn("    needs: [prepare, runtime, windows]\n", report)
+        self.assertIn("    if: failure() && github.event_name == 'schedule'\n", report)
+        self.assertIn('title="Nightly tests failed on develop"', report)
+        for result in ("PREPARE: ${{ needs.prepare.result }}", "RUNTIME: ${{ needs.runtime.result }}",
+                       "WINDOWS: ${{ needs.windows.result }}"):
+            with self.subTest(result=result):
+                self.assertIn(f"          {result}\n", report)
+        self.assertIn('gh issue comment "$issue" --body "$body"', report)
+        self.assertIn('gh issue create --title "$title" --body "$body"', report)
+
+
+def report_script() -> str:
+    report = job(WORKFLOW, "report-failure")
+    script = []
+    for line in report.split("        run: |\n", 1)[1].splitlines():
+        if line.startswith("          "):
+            script.append(line[10:])
+        elif line.strip():
+            break
+        else:
+            script.append("")
+    return "\n".join(script) + "\n"
+
+
+# Logs each call's arguments, NUL-separated and ended by a record separator, so a multi-line body survives.
+FAKE_GH = """#!/bin/bash
+{ printf '%s\\0' "$@"; printf '\\036'; } >> "$GH_LOG"
+if [ "$1 $2" = "issue list" ]; then
+  [ -n "${FAKE_GH_FAIL:-}" ] && exit 1
+  printf '%s' "${FAKE_OPEN_ISSUE:-}"
+fi
+"""
+
+
+class ReportScriptTests(unittest.TestCase):
+    TITLE = "Nightly tests failed on develop"
+
+    def report(self, open_issue="", fail=False, prepare="success", runtime="success", windows="success"):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = pathlib.Path(directory)
+            gh = directory / "gh"
+            gh.write_text(FAKE_GH)
+            gh.chmod(0o755)
+            script = directory / "report.sh"
+            script.write_text(report_script())
+            log = directory / "log"
+            log.write_text("")
+            env = {"PATH": f"{directory}:/usr/bin:/bin", "GH_LOG": str(log), "FAKE_OPEN_ISSUE": open_issue,
+                   "GH_TOKEN": "token", "GH_REPO": "WSJTX/wsjtx-internal", "RUN_URL": "https://example.invalid/runs/7",
+                   "SHA": HEAD, "PREPARE": prepare, "RUNTIME": runtime, "WINDOWS": windows}
+            if fail:
+                env["FAKE_GH_FAIL"] = "1"
+            # GitHub runs a step's script with bash -eo pipefail.
+            result = subprocess.run(["bash", "-eo", "pipefail", str(script)], env=env, capture_output=True, text=True)
+            calls = [call.split("\0")[:-1] for call in log.read_text().split("\036") if call]
+            return result.returncode, calls
+
+    def test_lists_open_issues_with_the_exact_title(self):
+        _, calls = self.report(windows="failure")
+        self.assertEqual(calls[0], ["issue", "list", "--state", "open", "--search", f'in:title "{self.TITLE}"',
+                                    "--json", "number,title", "--jq",
+                                    f'.[] | select(.title == "{self.TITLE}") | .number'])
+
+    def test_opens_the_issue_when_none_is_open(self):
+        status, calls = self.report(windows="failure")
+        self.assertEqual(status, 0)
+        self.assertEqual(calls[1], ["issue", "create", "--title", self.TITLE, "--body",
+                                    f"Nightly tests on develop at {HEAD[:9]} failed: https://example.invalid/runs/7"
+                                    "\n\nFailed: Windows x86_64"])
+
+    def test_comments_on_the_open_issue(self):
+        status, calls = self.report(open_issue="900", runtime="failure")
+        self.assertEqual(status, 0)
+        self.assertEqual(calls[1][:4], ["issue", "comment", "900", "--body"])
+        self.assertTrue(calls[1][4].endswith("\n\nFailed: Linux x86_64 runtime tests"))
+        self.assertEqual(len(calls), 2)
+
+    def test_names_every_failed_job(self):
+        for results, named in (
+            (dict(prepare="failure", runtime="skipped", windows="skipped"), "prepare"),
+            (dict(runtime="failure", windows="failure"), "Linux x86_64 runtime tests, Windows x86_64"),
+            (dict(runtime="cancelled", windows="failure"), "Windows x86_64"),
+        ):
+            with self.subTest(**results):
+                status, calls = self.report(**results)
+                self.assertEqual(status, 0)
+                self.assertTrue(calls[-1][-1].endswith(f"\n\nFailed: {named}"), calls[-1][-1])
+
+    def test_a_failed_lookup_fails_the_step_and_opens_nothing(self):
+        status, calls = self.report(fail=True, windows="failure")
+        self.assertNotEqual(status, 0)
+        self.assertEqual([call[:2] for call in calls], [["issue", "list"]])
 
 
 if __name__ == "__main__":

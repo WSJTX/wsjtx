@@ -104,11 +104,13 @@ Every promotion, beta included, creates or fast-forwards public `release/X.Y`, s
 │                                    full-ci or a manual run selects broader
 │                                    platform coverage.
 │
-├── nightly-runtime-tests.yml    ← Nightly Runtime Tests: cron 06:17 UTC +
-│                                    workflow_dispatch. Builds develop and runs only
-│                                    the Linux x86_64 runtime tests; a scheduled run
-│                                    skips when develop has not moved since a
-│                                    passing nightly.
+├── nightly-runtime-tests.yml    ← Nightly Tests: cron 06:17 UTC +
+│                                    workflow_dispatch. Builds develop twice: the
+│                                    Linux x86_64 runtime tests and the whole
+│                                    Windows x86_64 suite; a scheduled run skips
+│                                    when develop has not moved since a passing
+│                                    nightly, and a failed one opens or updates
+│                                    an issue.
 │
 ├── build-macos.yml              ← Reusable workflow (workflow_call).
 │                                    macOS build (arm64 or x86_64); Developer ID
@@ -174,13 +176,15 @@ Push, pull request, or a CI label applied to a pull request
             └─→ applying full-ci, or a manual run, adds the other platforms
 ```
 
-Applying `full-ci` starts one full run, and later pushes to the pull request get the default run. Applying `sanitizers` or `thread-sanitizer` starts a separate run that cancels no other run, and applying any other label starts a run that skips every job and cancels nothing. A pull request to or from a `release/` branch keeps the earlier behaviour: any label starts a run, and its runs stay full while it carries `full-ci` ([CI runs automatically](DEVELOPMENT_WORKFLOW.md#6-ci-runs-automatically)).
+Applying `full-ci` starts one full run, and later pushes to the pull request get the default run. Applying `sanitizers` or `thread-sanitizer` starts a separate run that cancels no other run, and applying any other label starts a run that skips every job and cancels nothing. A pull request to or from a `release/` branch keeps the earlier behaviour: any label starts a run, and its runs stay full while it carries `full-ci` ([CI runs automatically](DEVELOPMENT_WORKFLOW.md#6-ci-runs-automatically)). Merging or closing a pull request cancels its runs still in progress, except, outside `release/` pull requests, one that a sanitizer label started.
 
 **Each night on private `develop`:**
 ```
-Nightly Runtime Tests, 06:17 UTC
+Nightly Tests, 06:17 UTC
   └─→ skips when develop has not moved since the newest scheduled run, and that run passed
-       └─→ builds Linux x86_64 and runs only the runtime tests
+       ├─→ builds Linux x86_64 and runs only the runtime tests
+       ├─→ builds Windows x86_64 and runs its whole suite
+       └─→ a failed scheduled run opens or updates the issue "Nightly tests failed on develop"
 ```
 
 A green `develop` push does not cover the runtime tests, so the newest green `develop` that a beta cut takes may fail them. The cut's push CI on `release/X.Y` runs them before the candidate, and the nightly reports a break on `develop` within a day; a night after a failed nightly retests the same commit ([Test Failure Policy](DEVELOPMENT_WORKFLOW.md#test-failure-policy)).

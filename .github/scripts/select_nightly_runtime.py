@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Decide whether Nightly Runtime Tests tests this commit.
+"""Decide whether Nightly Tests tests this commit.
 
 A scheduled run skips only when the newest completed scheduled run that
 succeeded or failed tested the same commit and succeeded, so an unmoved
@@ -87,7 +87,7 @@ class GitHub:
 
 
 def summary(decision: Decision, head_sha: str, server: str, repository: str) -> str:
-    lines = ["## Nightly runtime tests", ""]
+    lines = ["## Nightly tests", ""]
     lines.append(f"{'Testing' if decision.run else 'Skipping'} `{head_sha}`: {decision.reason}.")
     if decision.previous is not None:
         previous_sha = decision.previous.get("head_sha", "")

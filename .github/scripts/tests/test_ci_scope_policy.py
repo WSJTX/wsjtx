@@ -198,6 +198,10 @@ class CiScopePolicyTests(unittest.TestCase):
             ("synchronize", pr("synchronize"), True, 852),
             ("opened", pr("opened"), True, 852),
             ("reopened", pr("reopened"), True, 852),
+            # Merging or closing a PR runs nothing and cancels the PR's runs.
+            ("closed", pr("closed"), False, 852),
+            ("release PR closed", pr("closed", base_ref="release/3.2"), False, 852),
+            ("closed with full-ci as its last label", pr("closed", "full-ci"), False, 852),
             ("release PR, other label", pr("labeled", "documentation", base_ref="release/3.2"), True, 852),
             ("release PR, sanitizers applied", pr("labeled", "sanitizers", base_ref="release/3.2"), True, 852),
             ("PR out of release, other label", pr("labeled", "documentation", head_ref="release/3.2"), True, 852),
@@ -211,6 +215,17 @@ class CiScopePolicyTests(unittest.TestCase):
             with self.subTest(name):
                 self.assertEqual(bool(evaluate(prepare_if(), context)), runs)
                 self.assertEqual(evaluate(concurrency_group(), context), group)
+
+    def test_closing_a_pr_cancels_its_runs_and_runs_no_job(self):
+        self.assertIn("\n    types: [opened, synchronize, reopened, labeled, closed]\n", CI)
+        # The closed run skips prepare, and every other job needs it; prune-linux-ccache runs on always()
+        # but keys on prepare's save_linux_ccache output, which a skipped prepare leaves empty.
+        jobs = re.findall(r"^  ([A-Za-z0-9_-]+):\n", CI.split("\njobs:\n", 1)[1], re.MULTILINE)
+        for name in jobs:
+            if name == "prepare":
+                continue
+            with self.subTest(job=name):
+                self.assertRegex(job(name), r"\n    needs: \[prepare[,\]]")
 
     def test_only_pull_request_runs_cancel_the_run_in_progress(self):
         line = re.findall(r"^  cancel-in-progress: (.+)$", CI, re.MULTILINE)
