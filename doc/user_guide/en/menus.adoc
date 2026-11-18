@@ -43,6 +43,7 @@ in this guide; additional details for others are included below.
 
 image::view-menu.png[align="left",alt="View Menu"]
 
+[[ACTIVE_STATIONS]]
 .Active Stations
 
 *Active Stations* is a window with two distinct purposes. The first
@@ -69,9 +70,21 @@ choose (UTC), such as the days of a contest. The button beside *On
 days* is greyed out until you check the box; it then reads *Choose
 days ...*, and clicking it opens a calendar in which you click each
 day to add or remove it. *QSOs* shows the number of different stations
-worked on the current band, in any mode, according to the ADIF log and
-history sources (on the chosen days, if set), for example to follow
-your progress in an EME contest.
+worked on the current band, in any mode, according to the ADIF log
+(`wsjtx_log.adi`) and any history sources set in *Settings | Colors*
+(on the chosen days, if set), for example to follow your progress in
+an EME contest. For a contest held over two weekends, choose the
+contest days of both weekends: stations you worked on this band before
+the contest, or between the weekends, are then wanted again, without
+starting a new log. See <<EME_CABRILLO,ARRL EME contest log>> for
+making the contest log itself.
+
+A *#* at the right edge of the list marks a callsign you have not yet
+worked, as described above. An asterisk +*+ marks a station whose most recent
+transmission contains `CQ`, `RR73`, or `73`, so the sender is
+presumably ready to start another QSO. *Max Age* limits how long a
+station stays listed. With focus on the main window, *Alt+A* clears
+*Active Stations* and starts over.
 
 image::active_stations_QMAP.png[align="center",width=411]
 

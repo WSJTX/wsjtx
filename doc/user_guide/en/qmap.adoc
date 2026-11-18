@@ -25,7 +25,8 @@ image::qmap_all.png[align="center",alt="QMAP main window"]
 
 If _WSJT-X_ is also active and in Q65 mode, information from _QMAP_
 decodes will appear in the _WSJT-X_ *Active Stations* window sorted
-by received frequency:
+by received frequency (see <<ACTIVE_STATIONS,Active Stations>> for
+a full description of the window and its controls).
 
 image::active_stations_QMAP.png[align="center",width=50%,alt="Active Stations"]
 
@@ -35,25 +36,6 @@ _WSJT-X_ will generate the appropriate messages and set the dial
 frequency to that station's suggested calling frequency,
 *Fsked*. Double-clicking will also activate *Enable Tx* so you can
 call the station right away.
-
-The symbol *#* at the right edge of *Active Stations* marks a callsign
-decoded by _QMAP_ that you have not yet worked on the current band, in
-any mode, according to your ADIF log (`wsjtx_log.adi` and any history
-sources set in *Settings | Colors*). Check *On days*; the button
-beside it, greyed out until then, reads *Choose days …* until you
-have picked a day. Click it to choose days (UTC) in a calendar; only QSOs
-made on those days then count. For a contest held over two weekends, choose
-the contest days of both weekends: stations you worked on this band
-before the contest, or between the weekends, are then wanted again,
-without starting a new log. This feature is a convenience for tracking EME
-initials or contest QSOs; see <<EME_CABRILLO,ARRL EME contest log>>
-for making the contest log. An
-asterisk +*+ marks a station whose most recent transmission contains
-`CQ`, `RR73`, or `73`, so the sender is presumably ready to start
-another QSO. Use the *Wanted only* and *CQ only* checkboxes and *Max
-Age* spinner to narrow the list of stations as desired. With focus on
-the _WSJT-X_ main window you can press *Alt+A* to clear *Active
-Stations* and start over.
 
 ////
 Ideas that might be used later, elsewhere:

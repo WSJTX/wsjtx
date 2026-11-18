@@ -544,15 +544,15 @@ uploading.
 
 image::eme_cabrillo_dialog.png[align="center",width=60%,alt="EME Cabrillo dialog"]
 
-* Click on *Choose days ...* to open a calendar, then click on day
-  numbers to add or remove them. The dialog keeps its own selected
-  days, so preparing the log does not change what *Active Stations*
-  uses while you operate.
-
 * *Logs:* _WSJT-X_'s own ADIF log is the normal source of QSOs
   worked. *Add file...* can be used to add another source, for example
   the log kept on a second computer in a multi-op station. The ADIF
-  logs are not themselves modified in any way.
+  logs will not be modified in any way.
+
+* Click on the button to the right of *Contest days* to open a
+  calendar, then click on day numbers to add or remove them. The
+  dialog keeps its own selected days, so preparing the log does not
+  change what *Active Stations* uses while you operate.
 
 * *Bands* and *Modes:* untick any band you are not entering and any
   mode whose QSOs were not EME (the ADIF log probably holds everything
@@ -560,24 +560,17 @@ image::eme_cabrillo_dialog.png[align="center",width=60%,alt="EME Cabrillo dialog
 
 * *Missing grids:* QSOs logged without a grid are listed so that you
   can type the grids in. A grid known from another QSO with the same
-  station is filled in for you to check, and what you type is remembered.
-  A grid you supply counts toward your multipliers.
-+
-A QSO you leave without a grid still goes into the log, with the report
-you received written in the grid column; ARRL work the grid out
-themselves. A QSO with neither a grid nor a report cannot be written
-that way, and ARRL will refuse the whole log rather than that one
-line, so the dialog marks those QSOs in red. Type a grid for each of
-them before saving.
+  station is filled in for you to check, and what you type is
+  remembered.  A QSO you leave without a grid still goes into the log,
+  with the report you received written in the grid column; ARRL log
+  checking will supply and credit the grid.
 
-* *Repeats:* a station worked again on the same band from the same grid
-  scores nothing, but stays in the log. Leaving a QSO out could leave
-  the other station's record unmatched when ARRL check the logs against
-  each other, and there is no penalty for including it.
+* *Dupes:* a station worked again on the same band from the same grid
+  scores nothing, but stays in the log to facilitate log checking.
 
-* The 50-1296 MHz bands and the bands from 2.3 GHz up have their own
-  contest weekends. QSOs that seem to be on the other group's weekend
-  are pointed out, and a box lets you leave them out.
+* Bands 50-1296 MHz and 2.3 GHz and up have their own contest
+  weekends. QSOs that seem to be on the other group's weekend are
+  pointed out, and a box lets you leave them out.
 
 Save the file and upload it to ARRL as you normally would for your
 contest entry.

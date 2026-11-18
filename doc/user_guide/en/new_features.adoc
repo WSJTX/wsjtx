@@ -34,6 +34,23 @@ interval. Decodes with this bit set are flagged with "#" in the
 decoded text window and in the Active Stations window. Everything
 needed is exchanged over the air; no internet connection is required.
 
+- *File | Export ARRL EME Cabrillo log ...* builds an
+uploadable Cabrillo filem your ADIF log by selecting QSOs made on the
+contest days you choose. It can merge logs from more than one
+computer, understands the separate contest weekends for the 50-1296
+MHz and 2.3 GHz-and-up band groups, lets you fill in grids that were
+not already logged, and shows your claimed score beside the file as it
+will be saved. See <<EME_CABRILLO,ARRL EME contest log>>.
+
+- *Active Stations* window in Q65 mode now offers features for
+counting QSOs in the ADIF log on the current band and on particular
+days, such as the days of a contest.
+
+- *Worked-before history* can be read from whole folders of ADIF
+files, in addition to your own log, and several _WSJT-X_ instances can
+share one log. *File | Open ADIF log folder* opens the folder holding
+your log.
+
 - *Raspberry Pi* and other ARM-based computers: pre-built 32-bit
 (armhf) as well as 64-bit (aarch64) packages are available. Projects
 such as DigiPi, which runs _WSJT-X_ on the Pi Zero 2 W, can install
@@ -49,6 +66,14 @@ wildcards (*) and exclusions (!).
 - *TX Inhibit* for multi-op contesting: with a UDP connection, an
 external controller can block _WSJT-X_ from transmitting when another
 transmitter is active on the same band.
+
+- *Audio over a network:* _WSJT-X_ can optionally take its receive
+audio from, and send its transmit audio to, a net-audio server,
+instead of a local sound card.
+
+- *T/R switching from a serial port input* allows a footswitch or
+external controller wired to a serial port to switch the WSJT-X
+T/R status and assert PTT.
 
 - *WSPR* and *FST4W* now upload spots to `wsprnet.eu` as a backup.
 Queued spots are preserved across retries when WSPRnet is slow or
@@ -66,6 +91,10 @@ focus handling are improved. Dialogs are laid out responsively rather
 than clipping controls on constrained window sizes or large
 accessibility fonts. Decode panes and the startup splash screen are
 properly named for use with assistive technology.
+
+- `wsjt-codec` is a new companion program that offers _WSJT-X_'s
+decoders and encoders to other software over a documented stream
+interface, replacing the earlier `jt9stream`.
 
 - *German*, *Polish*, and *Ukrainian* translations of the user
 interface have been added, and the *Spanish* translation updated.
