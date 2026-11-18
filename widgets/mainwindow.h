@@ -1114,6 +1114,7 @@ private:
   ModeEntry::Queue m_modeEntries;
   // Setup callbacks must not publish or apply frequency effects against provisional controls.
   bool m_modeSetupActive {false};
+  QString m_modeSetupMode;
   ModeEntry::PendingRetune m_pendingModeRetune;
   QMap<quint64, std::function<void()>> m_modeSetupContinuations;
   std::optional<QString> m_renderedBand;
