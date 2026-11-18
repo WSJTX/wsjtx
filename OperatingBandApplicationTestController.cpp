@@ -556,6 +556,30 @@ bool OperatingBandApplicationTestController::modeEntry ()
   if (!require (!window_->m_monitoring && window_->processedOperatingBand () == "6m",
                 "An external Echo band change did not stop Monitor.")) return false;
 
+  window_->ui->actionFT8->trigger ();
+  if (!require (window_->m_config.enable_VHF_features (), "Submode restore needs the VHF features.")) return false;
+  auto const saved_jt9_submode = window_->m_settings->value ("SubMode", 0);
+  auto const saved_jt65_submode = window_->m_settings->value ("SubMode_JT65", 0);
+  window_->m_settings->setValue ("SubMode", 1);
+  window_->m_settings->setValue ("SubMode_JT65", 0);
+  for (auto const& mode : {QStringLiteral ("FreqCal"), QStringLiteral ("JT65")})
+    {
+      // Start from submode A so that restoring the saved submode emits valueChanged.
+      window_->ui->actionFT8->trigger ();
+      window_->ui->sbSubmode->setValue (0);
+      (mode == "FreqCal" ? window_->ui->actionFreqCal : window_->ui->actionJT65)->trigger ();
+      if (!waitUntil ([&] {return !window_->m_modeEntries.active ();},
+                      "A mode entry with a saved JT9 submode did not finish.")) return false;
+      if (!require (mode == window_->m_mode,
+                    "Entering " + mode + " with saved JT9 submode B ended in another mode.")) return false;
+      if (mode == "FreqCal" && !require (1 == window_->ui->sbSubmode->value (),
+                                         "FreqCal entry did not restore the saved JT9 submode.")) return false;
+    }
+  window_->m_settings->setValue ("SubMode", saved_jt9_submode);
+  window_->m_settings->setValue ("SubMode_JT65", saved_jt65_submode);
+  window_->ui->actionFT8->trigger ();
+  window_->ui->sbSubmode->setValue (0);
+
   frequencies->frequency_list ({item (10000000, Modes::FreqCal), item (15000000, Modes::FreqCal)});
   window_->ui->actionFT8->trigger ();
   if (!setFrequency (14998500)) return false;

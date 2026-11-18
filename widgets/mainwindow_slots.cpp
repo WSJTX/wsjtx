@@ -721,9 +721,12 @@ void MainWindow::on_cbFast9_clicked(bool b)
   if(m_mode=="JT9") {
     m_bFast9=b;
 //    ui->cbAutoSeq->setVisible(b);
-    blocked=true;   // needed to prevent a loop
-    on_actionJT9_triggered();
-    QTimer::singleShot (50, [=] {blocked = false;});   // needed to prevent a loop
+    // FreqCal and JT65 run setupJT9 first; a JT9 request queued from there would replace them.
+    if (!(m_modeSetupActive && (m_modeSetupMode == "FreqCal" || m_modeSetupMode == "JT65"))) {
+      blocked=true;   // needed to prevent a loop
+      on_actionJT9_triggered();
+      QTimer::singleShot (50, [=] {blocked = false;});   // needed to prevent a loop
+    }
     QTimer::singleShot (200, [=] {
       if(m_mode=="JT9") m_settings->setValue("JT9_Fast",m_bFast9);
     });
