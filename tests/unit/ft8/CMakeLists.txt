@@ -56,6 +56,10 @@ wsjt_link_common_fortran (test_ft8var_subtract_lowpass)
 add_test (NAME test_ft8var_subtract_lowpass COMMAND test_ft8var_subtract_lowpass)
 set_tests_properties (test_ft8var_subtract_lowpass PROPERTIES TIMEOUT 120)
 
+add_executable (test_osd174_91_distance test_osd174_91_distance.f90)
+wsjt_link_common_fortran (test_osd174_91_distance)
+add_test (NAME test_osd174_91_distance COMMAND test_osd174_91_distance)
+
 add_executable (test_osd174_91_fast
   test_osd174_91_fast.f90)
 wsjt_link_common_fortran (test_osd174_91_fast)
