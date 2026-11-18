@@ -21,7 +21,7 @@ namespace
   public:
     StartupLogCapture ()
       : m_stream {boost::make_shared<std::ostringstream> ()}
-      , m_sink {boost::make_shared<Sink> ()}
+      , m_sink {new Sink}
     {
       m_sink->locked_backend ()->add_stream (m_stream);
       m_sink->set_formatter (boost::log::expressions::stream << boost::log::expressions::smessage);
