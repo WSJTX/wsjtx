@@ -33,7 +33,7 @@ subroutine osd240_101_owned(work,llr,k,apmask,ndeep,message101,cw,nhardmin,dmin)
    integer indx(N)
    real llr(N),rx(N),absrx(N)
 
-   logical reset
+   logical reset,systematic
 
    call work%ensure()
    genmrb(1:k,1:N)=>work%matrix(1:k*N)
@@ -99,11 +99,10 @@ subroutine osd240_101_owned(work,llr,k,apmask,ndeep,message101,cw,nhardmin,dmin)
 
 ! Do gaussian elimination to create a generator matrix with the most reliable
 ! received bits in positions 1:k in order of decreasing reliability (more or less).
-   do id=1,k ! diagonal element indices
+   systematic=.true.
+   pivot_rows: do id=1,k
       do icol=id,k+20  ! The 20 is ad hoc - beware
-         iflag=0
          if( genmrb(id,icol) .eq. 1 ) then
-            iflag=1
             if( icol .ne. id ) then ! reorder column
                do jscratch=1,k
                   temp(jscratch)=genmrb(jscratch,id)
@@ -121,10 +120,11 @@ subroutine osd240_101_owned(work,llr,k,apmask,ndeep,message101,cw,nhardmin,dmin)
                   enddo
                endif
             enddo
-            exit
+            cycle pivot_rows
          endif
       enddo
-   enddo
+      systematic=.false.
+   enddo pivot_rows
 
    do iscratch=1,k
       do jscratch=1,N
@@ -239,7 +239,9 @@ subroutine osd240_101_owned(work,llr,k,apmask,ndeep,message101,cw,nhardmin,dmin)
             if(nd1kpt .le. ntheta) then
                call mrbencode101(me,ce,g2,N,k)
                nxor=ieor(ce,hdec)
-               if(n1.eq.iflag) then
+               if(.not.systematic) then
+                  dd=sum(nxor*absrx)
+               elseif(n1.eq.iflag) then
                   dd=d1+sum(e2sub*absrx(k+1:N))
                else
                   dd=d1+ieor(ce(n1),hdec(n1))*absrx(n1)+sum(e2*absrx(k+1:N))
