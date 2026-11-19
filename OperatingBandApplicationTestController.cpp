@@ -412,6 +412,17 @@ bool OperatingBandApplicationTestController::editorRequests ()
   {
     QScopedValueRollback<bool> tci_audio {window_->m_tci_audio, true};
     QScopedValueRollback<bool> initial_error {window_->m_first_error, true};
+    if (!require (window_->operatingBand ().isEmpty (), "Test expected an OOB dial before TCI monitoring.")) return false;
+    if (!require (!window_->m_config.transceiver_audio_commanded (),
+                  "TCI audio was already on before the monitor start.")) return false;
+    window_->monitor (true);
+    if (!require (window_->m_first_error, "TCI monitor start at an OOB dial reported a rig failure.")) return false;
+    if (!require (window_->m_config.transceiver_audio_commanded (),
+                  "TCI monitor start at an OOB dial did not turn audio on.")) return false;
+    window_->monitor (false);
+    if (!require (window_->m_first_error, "TCI monitor stop at an OOB dial reported a rig failure.")) return false;
+    if (!require (!window_->m_config.transceiver_audio_commanded (),
+                  "TCI monitor stop at an OOB dial did not turn audio off.")) return false;
     if (!require (window_->operatingBand ().isEmpty ()
                   && window_->requestBandChange (14074000, MainWindow::FrequencyRequestOrigin::User)
                   && window_->m_operatingFrequency.rx () == 14074000 && window_->m_monitoring

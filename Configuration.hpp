@@ -580,6 +580,9 @@ public slots:
 
 private:
   friend class TestConfigurationRadio;
+  friend class OperatingBandApplicationTestController;
+  // Audio state last commanded to the rig (for tests).
+  bool transceiver_audio_commanded () const;
   class impl;
   pimpl<impl> m_;
 };
