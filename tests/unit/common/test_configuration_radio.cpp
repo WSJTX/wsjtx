@@ -194,7 +194,7 @@ class TestConfigurationRadio final : public QObject
   Configuration::impl& dialog () { return *configuration_->m_; }
   Ui::configuration_dialog& ui () { return *dialog ().ui_; }
 
-  bool openFrequencySession ()
+  bool openFrequencySession (bool testCat = false)
   {
     auto& session = *session_;
     ui ().rig_combo_box->setCurrentText ("TCI Client RX1");
@@ -203,15 +203,20 @@ class TestConfigurationRadio final : public QObject
     ui ().split_rig_radio_button->setChecked (true);
     ui ().tci_audio_check_box->setChecked (false);
     ui ().CAT_poll_interval_spin_box->setValue (0);
-    dialog ().rig_params_ = dialog ().gather_rig_data ();
-    dialog ().rig_is_dummy_ = false;
-    if (!dialog ().open_rig ()) return false;
+    if (testCat)
+      ui ().test_CAT_push_button->click ();
+    else
+      {
+        dialog ().rig_params_ = dialog ().gather_rig_data ();
+        dialog ().rig_is_dummy_ = false;
+        if (!dialog ().open_rig ()) return false;
+      }
     session.frequency.setConnectionGeneration (configuration_->frequency_generation ());
     return session.server.wait_for ([&] { return session.previous.online || !session.failures.isEmpty (); }, 7000)
       && session.previous.online && session.failures.isEmpty ();
   }
 
-  bool openPttTestWithLatchedYield ()
+  bool openPttTestWithLatchedYield (bool testCat = false)
   {
     dialog ().data_mode_ = Configuration::data_mode_data;
     ui ().mode_data_radio_button->setChecked (true);
@@ -223,7 +228,7 @@ class TestConfigurationRadio final : public QObject
     dialog ().radio_mode_policy_.prepare (dialog ().transceiver_command_number_);
     dialog ().handle_mode_status ({Transceiver::CW, Transceiver::ModeStatusKind::Observed},
       dialog ().transceiver_command_number_);
-    if (!s.server.listen () || !openFrequencySession ()) return false;
+    if (!s.server.listen () || !openFrequencySession (testCat)) return false;
     dialog ().have_rig_ = true;
     dialog ().rig_changed_ = false;
     return configuration_->radio_mode_yielded () && !configuration_->radio_mode_ready ()
@@ -921,9 +926,25 @@ private slots:
     QVERIFY (!s.wrongThread);
   }
 
+  void testPttPreparesModeBeforeKeying_data ()
+  {
+    QTest::addColumn<bool> ("testCat");
+    QTest::newRow ("configured rig") << false;
+    QTest::newRow ("Test CAT with None saved") << true;
+  }
+
   void testPttPreparesModeBeforeKeying ()
   {
-    QVERIFY (openPttTestWithLatchedYield ());
+    QFETCH (bool, testCat);
+    if (testCat)
+      {
+        ui ().rig_combo_box->setCurrentText (TransceiverFactory::basic_transceiver_name_);
+        ui ().PTT_VOX_radio_button->setChecked (true);
+        dialog ().accept ();
+        QCOMPARE (dialog ().result (), int (QDialog::Accepted));
+      }
+    QVERIFY (openPttTestWithLatchedYield (testCat));
+    if (testCat) QCOMPARE (configuration_->rig_name (), QString {"None"});
     auto& s = *session_;
     auto const dial = s.appliedRx;
     auto const writes = s.modeWrites ();

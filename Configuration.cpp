@@ -749,12 +749,16 @@ private:
   bool split_mode () const
   {
     auto const& params = operating_rig_params ();
-    return (WSJT_RIG_NONE_CAN_SPLIT || params.rig_name != TransceiverFactory::basic_transceiver_name_)
+    return (WSJT_RIG_NONE_CAN_SPLIT || !operating_rig_is_dummy ())
       && params.split_mode != TransceiverFactory::split_mode_none;
   }
   TransceiverFactory::ParameterPack const& operating_rig_params () const
   {
     return rig_active_ ? opened_rig_params_ : rig_params_;
+  }
+  bool operating_rig_is_dummy () const
+  {
+    return operating_rig_params ().rig_name == TransceiverFactory::basic_transceiver_name_;
   }
   MODE configured_mode () const;
   void send_transceiver (MODE = Transceiver::UNK);
@@ -1621,7 +1625,7 @@ bool Configuration::prepare_radio_mode ()
 
 bool Configuration::radio_mode_ready () const
 {
-  return m_->configured_mode () == Transceiver::UNK || m_->rig_is_dummy_
+  return m_->configured_mode () == Transceiver::UNK || m_->operating_rig_is_dummy ()
     || m_->radio_mode_policy_.ready ();
 }
 
@@ -7669,7 +7673,7 @@ bool Configuration::impl::prepare_radio_mode ()
   auto const desired = configured_mode ();
   radio_mode_policy_.configure (desired);
   notify_mode_control (previous);
-  if (desired == Transceiver::UNK || rig_is_dummy_) return true;
+  if (desired == Transceiver::UNK || operating_rig_is_dummy ()) return true;
   if (radio_mode_policy_.state () == RadioModePolicy::State::Preparing) return true;
   if (radio_mode_policy_.ready () && radio_mode_policy_.has_prepared ()
       && cached_rig_state_.mode () == desired) return true;
