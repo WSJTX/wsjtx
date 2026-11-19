@@ -51,7 +51,7 @@ private:
     QString holder;
   };
 
-  void apply_requested_state () noexcept;
+  void apply_requested_state (MODE receive_mode = UNK) noexcept;
   void emit_status ();
   void expire_holds ();
   QString holder_summary () const;
