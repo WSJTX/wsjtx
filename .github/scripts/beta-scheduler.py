@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from datetime import datetime, timedelta, timezone
 import importlib.util
 import io
 import json
@@ -51,6 +52,7 @@ IMAGE_PACKAGES = (
     image_tags.ARMHF_TRIXIE_PACKAGE,
 )
 CI = "ci.yml"
+NIGHTLY = "nightly-runtime-tests.yml"
 CANDIDATE = "release-tag-helper.yml"
 PROMOTION = "promote-release.yml"
 PREPARATION = "prepare-release-dependencies.yml"
@@ -63,6 +65,12 @@ NORMAL_IMAGES_JOB = "build-normal"
 CANDIDATE_TITLE = re.compile(r"Prepare Release Candidate build/v(?P<version>\S+) \((?P<operation>validate|create)\)")
 PREPARATION_TITLE = re.compile(r"Prepare Release Dependencies (?P<source>\S+) (?P<generation>\S+)")
 GENERATION_TAG = re.compile(r"validated-build-\d{8}-(?P<run>\d+)-(?P<attempt>\d+)")
+# Nightly Tests counts only runs that succeeded or failed, as select_nightly_runtime.py does.
+COUNTED_CONCLUSIONS = ("success", "failure")
+# Wednesday and Thursday (datetime.weekday()), so a restart publishes neither on a weekend nor near Tuesday's cut.
+RESTART_DAYS = {2, 3}
+# The continuation starts within minutes of the run it follows; a longer gap means it was lost.
+LOST_AFTER = timedelta(minutes=15)
 
 
 class Skip(Exception):
@@ -76,6 +84,14 @@ class Stop(Exception):
         super().__init__(reason)
         self.stage = stage
         self.link = link
+
+
+class Undispatched(Stop):
+    """A run the next stage should follow succeeded, but that stage was never dispatched."""
+
+    def __init__(self, stage: str, reason: str, run: dict) -> None:
+        super().__init__(stage, reason, run.get("html_url"))
+        self.run = run
 
 
 class Spent(Exception):
@@ -113,6 +129,22 @@ def in_flight(run: dict) -> bool:
 
 def run_order(run: dict) -> tuple[str, int]:
     return run.get("created_at") or "", run.get("id") or 0
+
+
+def nightly_order(run: dict) -> tuple[str, int]:
+    # A re-run keeps its run's created_at; run_started_at is when its latest attempt started.
+    return run.get("run_started_at") or run.get("created_at") or "", run.get("id") or 0
+
+
+def counted(run: dict) -> bool:
+    return run.get("status") == "completed" and run.get("conclusion") in COUNTED_CONCLUSIONS
+
+
+def finished_before(run: dict, moment: datetime) -> bool:
+    # A completed run's updated_at is when it finished; the API reports no completion time for runs.
+    updated = run.get("updated_at")
+    return (not in_flight(run) and bool(updated)
+            and datetime.fromisoformat(updated.replace("Z", "+00:00")) < moment)
 
 
 def newest(runs: list[dict]) -> dict | None:
@@ -213,21 +245,83 @@ class Scheduler:
         outcome = self.unpublished(line, tag_sha)
         if not isinstance(outcome, Spent):
             raise outcome
-        self.notes.append(str(outcome))
-        result = self.advance(line, spent=outcome)
-        if outcome.stage == "publication":
+        return self.move_on(line, outcome)
+
+    def move_on(self, line: Line, spent: Spent, quiet: bool = False) -> str:
+        self.notes.append(str(spent))
+        result = self.advance(line, spent=spent, quiet=quiet)
+        if spent.stage == "publication":
             # The continuation never sees the public repository's runs, so this spend alerts by itself.
-            self.notices.append((outcome.stage, f"{outcome} {result} Do not re-run its public build: it would publish "
-                                                f"{line.prerelease()} after the line has moved on.", outcome.link))
+            self.notices.append((spent.stage, f"{spent} {result} Do not re-run its public build: it would publish "
+                                              f"{line.prerelease()} after the line has moved on.", spent.link))
         return result
+
+    def restart(self, weekday: int, now: datetime) -> str:
+        """After a passing Nightly Tests run, move a failed beta on without waiting for Tuesday's cut."""
+        if weekday not in RESTART_DAYS:
+            raise Skip("A restart acts only on Wednesday or Thursday (UTC); nothing to do.")
+        self.repository.sync()
+        line = self.beta_line()
+        version = line.prerelease()
+        tag_sha = self.repository.tag(candidate_tag(version))
+        if tag_sha is None:
+            return self.restart_untagged(line, now)
+        public_tag = f"v{version}"
+        if self.public.release_published(public_tag):
+            raise Skip(f"`{public_tag}` is published; nothing failed, so the restart has nothing to do.")
+        outcome = self.unpublished(line, tag_sha)
+        if not isinstance(outcome, Spent):
+            if (isinstance(outcome, Undispatched) and self.started_by_bot(outcome.run)
+                    and finished_before(outcome.run, now - LOST_AFTER)):
+                raise outcome
+            raise Skip(f"Nothing is spent, so the restart leaves {version} as it is: {outcome}")
+        previous = line.prerelease(line.number - 1)
+        if line.number > 1 and not self.public.release_published(f"v{previous}"):
+            raise Skip(f"{outcome} {previous} was not published either, so after two spent numbers the restart "
+                       "stands down; the next scheduled cut moves on.")
+        return self.move_on(line, outcome, quiet=True)
+
+    def restart_untagged(self, line: Line, now: datetime) -> str:
+        version = line.prerelease()
+        self.check_fixes_on_develop(line)
+        runs = self.tip_ci_runs(line)
+        if not runs or any(in_flight(run) for run in runs):
+            raise Skip(f"CI for {line.branch} at {line.tip} has not finished, so the restart leaves {version} as "
+                       "it is.")
+        ci = newest(runs)
+        # A line the App cut has the App's push CI at its tip; a person's later dispatched CI there does not change
+        # who started it, and the continuation follows only the App's run.
+        pushed = [run for run in runs if run.get("event") == "push" and self.started_by_bot(run)]
+        if ci.get("conclusion") != "success":
+            if not pushed:
+                raise Skip(f"CI for {line.branch} at {line.tip} concluded {ci.get('conclusion')}, but a person started "
+                           f"the line, so the restart leaves {version} to the next scheduled cut.")
+            return self.recut(line, ci, quiet=True)
+        tag = candidate_tag(version)
+        started = [run for run in self.candidate_runs(line) if run.get("head_sha") == line.tip]
+        lost = newest([run for run in pushed
+                       if run.get("conclusion") == "success" and finished_before(run, now - LOST_AFTER)])
+        if lost is not None and not started:
+            raise Stop("ci", f"CI for the {version} cut at {line.tip} succeeded more than 15 minutes ago, but no "
+                             f"candidate run for `{tag}` started there, so its continuation was lost. Dispatch "
+                             "Scheduled Beta Cut to dispatch the candidate.", lost.get("html_url"))
+        # A restart never dispatches a candidate: that is the continuation's step, or the next scheduled cut's.
+        raise Skip(f"`{tag}` does not exist and CI for {line.branch} at {line.tip} succeeded, so the restart leaves "
+                   f"{version} to the continuation or the next scheduled cut.")
+
+    def started_by_bot(self, run: dict) -> bool:
+        return (run.get("actor") or {}).get("login") == self.bot_login
+
+    def tip_ci_runs(self, line: Line) -> list[dict]:
+        # A pull-request run tests a merge commit, not the tip. Closing a PR out of the line starts one at the
+        # tip that skips every job, and cancels one still running there.
+        return [run for run in self.internal.runs(CI, head_sha=line.tip) if run.get("event") != "pull_request"]
 
     def retry(self, line: Line) -> str:
         version = line.prerelease()
         self.notes.append(f"`{candidate_tag(version)}` does not exist, so {version} is retried under the same number.")
         self.check_fixes_on_develop(line)
-        # A pull-request run tests a merge commit, not the tip. Closing a PR out of the line starts one at the
-        # tip that skips every job, and cancels one still running there.
-        runs = [run for run in self.internal.runs(CI, head_sha=line.tip) if run.get("event") != "pull_request"]
+        runs = self.tip_ci_runs(line)
         if any(in_flight(run) for run in runs):
             raise self.wait("ci", runs, f"CI for {line.branch} at {line.tip} is still running; {version} waits for it.")
         ci = newest(runs)
@@ -242,19 +336,23 @@ class Scheduler:
 
     def wait(self, stage: str, runs: list[dict], reason: str) -> Exception:
         running = [run for run in runs if in_flight(run)]
-        # The continuation follows only runs the App started, and the weekly cut would otherwise wait a week.
+        # The continuation follows only runs the App started, the restart resumes none of these runs, and the
+        # weekly cut would otherwise wait a week.
         if any((run.get("actor") or {}).get("login") == self.bot_login for run in running):
             return Skip(reason)
         return Stop(stage, f"{reason} Nothing resumes the cut when that run finishes, so dispatch Scheduled Beta Cut "
                            "after it does.", running[0].get("html_url"))
 
-    def recut(self, line: Line, ci: dict) -> str:
+    def recut(self, line: Line, ci: dict, quiet: bool = False) -> str:
         version = line.prerelease()
         failed = f"CI for {line.branch} at {line.tip} concluded {ci.get('conclusion')}"
-        target = self.newest_green_develop()
+        target = self.newest_tested_develop()
         if target is None or self.repository.is_ancestor(target, line.tip):
-            raise Stop("ci", f"{failed}, and develop has no newer green commit to cut {version} from. Re-run the CI "
-                             "if the failure is transient.", ci.get("html_url"))
+            reason = (f"{failed}, and develop has no newer commit that passed CI and Nightly Tests to cut {version} "
+                      "from. Re-run the CI if the failure is transient.")
+            if quiet:
+                raise Skip(reason)
+            raise Stop("ci", reason, ci.get("html_url"))
         self.notes.append(f"{failed}, so {version} is cut again from develop {target}.")
         lock, lock_note = self.lock_for(line, target)
         commit = self.commit_cut(line, line.number, target, lock, lock_note)
@@ -297,9 +395,9 @@ class Scheduler:
                          f"BETA {line.number + 1}.", failed.get("html_url"))
         promotion = promoted or newest(stages["promotion"])
         if promotion is None:
-            return Stop("promotion", f"The candidate for {version} succeeded, but Promote Release Source was not "
-                                     f"dispatched. Dispatch it with operation=promote and candidate run "
-                                     f"{candidate.get('id')}.", candidate.get("html_url"))
+            return Undispatched("promotion", f"The candidate for {version} succeeded, but Promote Release Source was "
+                                             f"not dispatched. Dispatch it with operation=promote and candidate run "
+                                             f"{candidate.get('id')}.", candidate)
         if promotion.get("conclusion") != "success":
             return Stop("promotion", f"Promote Release Source for {version} concluded {promotion.get('conclusion')}.",
                         promotion.get("html_url"))
@@ -314,11 +412,14 @@ class Scheduler:
         return Stop("publication", f"The public release run for `{public_tag}` succeeded, but the release is not "
                                    "published.", publication.get("html_url"))
 
-    def advance(self, line: Line, spent: Spent | None = None) -> str:
+    def advance(self, line: Line, spent: Spent | None = None, quiet: bool = False) -> str:
         number = line.number + 1
-        target = self.newest_green_develop()
+        target = self.newest_tested_develop()
         if target is None:
-            raise Stop("develop", "No commit on develop has a successful push CI run.")
+            reason = "No commit on develop has passed CI and Nightly Tests."
+            if quiet:
+                raise Skip(reason)
+            raise Stop("develop", reason)
         if self.repository.is_ancestor(target, line.tip):
             if spent is not None:
                 action = "; land the fix on develop."
@@ -326,22 +427,59 @@ class Scheduler:
                     action = (f". Until a cut moves on, a re-run of the public build that succeeds still publishes "
                               f"{line.prerelease()}: re-run the public build if its failure was transient, otherwise "
                               "land the fix on develop.")
-                raise Stop(spent.stage, f"{spent} develop has no newer green commit to cut "
-                                        f"{line.prerelease(number)} from{action}", spent.link)
-            raise Skip(f"develop has not moved: its newest green commit {target} is already in {line.branch}.")
+                reason = (f"{spent} develop has no newer commit that passed CI and Nightly Tests to cut "
+                          f"{line.prerelease(number)} from{action}")
+                if quiet:
+                    raise Skip(reason)
+                raise Stop(spent.stage, reason, spent.link)
+            raise Skip(f"develop has not moved: its newest commit that passed CI and Nightly Tests, {target}, is "
+                       f"already in {line.branch}.")
         self.check_fixes_on_develop(line)
         lock, lock_note = self.lock_for(line, target)
         commit = self.commit_cut(line, number, target, lock, lock_note)
         return f"Pushed {commit} to {line.branch}: develop {target} as {line.prerelease(number)}."
 
-    def newest_green_develop(self) -> str | None:
+    def newest_tested_develop(self) -> str | None:
+        """The newest develop commit whose push CI and newest counted Nightly Tests run both succeeded."""
         develop = self.repository.develop()
-        runs = self.internal.runs(CI, branch="develop", event="push", status="success")
-        for run in sorted(runs, key=run_order, reverse=True):
-            sha = run.get("head_sha", "")
-            if self.repository.contains(sha) and self.repository.is_ancestor(sha, develop):
-                self.notes.append(f"Newest green develop commit: {sha}.")
-                return sha
+        nightlies = self.internal.runs(NIGHTLY, branch="develop")
+        # Commits newest first by their nightlies' creation, which a re-run keeps, so re-running an older commit's
+        # nightly does not move that commit ahead of newer ones.
+        commits: dict[str, list[dict]] = {}
+        for nightly in sorted(nightlies, key=run_order, reverse=True):
+            commits.setdefault(nightly.get("head_sha", ""), []).append(nightly)
+        latest = next((max(results, key=nightly_order) for results in
+                       ([run for run in own if counted(run)] for own in commits.values()) if results), None)
+        if latest is not None and latest.get("conclusion") != "success":
+            self.notes.append(f"The newest Nightly Tests result on develop is a failure at {latest.get('head_sha')}: "
+                              f"{latest.get('html_url')}.")
+        for sha, own in commits.items():
+            # At one commit, the run whose latest attempt started last decides.
+            own = sorted(own, key=nightly_order, reverse=True)
+            # A run reports only its latest attempt, so a re-run that neither succeeded nor failed hides the result
+            # of the attempt before it.
+            if (own[0].get("run_attempt") or 1) > 1 and not counted(own[0]):
+                continue
+            result = next((run for run in own if counted(run)), None)
+            if result is None or result.get("conclusion") != "success":
+                continue
+            if not (self.repository.contains(sha) and self.repository.is_ancestor(sha, develop)):
+                continue
+            runs = self.internal.runs(CI, branch="develop", event="push", head_sha=sha)
+            ci = newest([run for run in runs if run.get("conclusion") == "success"])
+            if ci is None:
+                if not runs:
+                    state = "has no push CI run"
+                elif any(in_flight(run) for run in runs):
+                    state = "its push CI is still running"
+                else:
+                    state = f"its push CI concluded {newest(runs).get('conclusion')}"
+                self.notes.append(f"Passed over develop {sha}: it passed Nightly Tests ({result.get('html_url')}), "
+                                  f"but {state}.")
+                continue
+            self.notes.append(f"Newest develop commit that passed CI and Nightly Tests: {sha} (Nightly Tests "
+                              f"{result.get('html_url')}, CI {ci.get('html_url')}).")
+            return sha
         return None
 
     def check_fixes_on_develop(self, line: Line) -> None:
@@ -363,8 +501,8 @@ class Scheduler:
         if wanted is None:
             raise RuntimeError(f"develop commit {target} is missing from the checkout")
         if set(wanted) != set(images.IMAGES):
-            raise Skip(f"Newest green develop commit {target} predates dual-distro ARMHF images; "
-                       "wait for CI to pass on a commit with Bookworm and Trixie support.")
+            raise Skip(f"Newest develop commit that passed CI and Nightly Tests, {target}, predates dual-distro ARMHF "
+                       "images; wait for CI and Nightly Tests to pass on a commit with Bookworm and Trixie support.")
         current = self.repository.read(line.tip, LOCK_FILE)
         if current is not None and lock_recipes(current) == wanted:
             self.notes.append(f"Linux image lock: kept; develop's recipe fingerprints match {line.branch}'s lock.")
@@ -439,9 +577,9 @@ class Scheduler:
         tip = self.repository.develop()
         if self.recipes(tip) != wanted:
             # The preparation verifies the images against develop's tip, not against the commit being cut.
-            raise Stop("lock", f"develop's tip {tip} has other Linux image recipes than its newest green commit, so "
-                               f"a preparation of {generation} would fail. Dispatch Scheduled Beta Cut once the tip's "
-                               "CI has passed.")
+            raise Stop("lock", f"develop's tip {tip} has other Linux image recipes than its newest commit that passed "
+                               f"CI and Nightly Tests, so a preparation of {generation} would fail. Dispatch Scheduled "
+                               "Beta Cut once the tip has passed CI and Nightly Tests.")
         self.internal.dispatch(PREPARATION, "develop", {"source_branch": "develop", "generation": generation})
         raise Skip(f"Dispatched Prepare Release Dependencies for {generation}; a later run commits its lock "
                    "in the cut.")
@@ -490,7 +628,9 @@ class Scheduler:
         if workflow == (f".github/workflows/{CI}", "push"):
             if conclusion != "success":
                 raise Stop("ci", f"CI for the {version} cut concluded {conclusion}. Re-run it if the failure is "
-                                 "transient.", run.get("html_url"))
+                                 f"transient; otherwise {version} is cut again from a newer develop commit that passes "
+                                 "CI and Nightly Tests, by a Wednesday or Thursday restart or by the next scheduled "
+                                 "cut.", run.get("html_url"))
             if self.repository.tag(tag) is not None:
                 raise Skip(f"`{tag}` already exists; nothing to do.")
             if any(in_flight(candidate) for candidate in self.candidate_runs(line)):
@@ -500,11 +640,14 @@ class Scheduler:
         if candidate_run and candidate_of(run) == (version, "create"):
             if conclusion != "success":
                 if self.repository.tag(tag) is None:
-                    after = f"the next scheduled cut retries {version}"
+                    otherwise = f"otherwise the next scheduled cut retries {version}"
                 else:
-                    after = f"the next scheduled cut moves on to BETA {line.number + 1}, because build tags never move"
+                    unless = f" (unless BETA {line.number - 1} was also spent)" if line.number > 1 else ""
+                    otherwise = (f"otherwise, because build tags never move, BETA {line.number + 1} comes from the "
+                                 f"next develop commit that passes CI and Nightly Tests, by a Wednesday or Thursday "
+                                 f"restart{unless} or by the next Tuesday cut")
                 raise Stop("candidate", f"The candidate run for `{tag}` concluded {conclusion}. Re-run it if the "
-                                        f"failure is transient; otherwise {after}.", run.get("html_url"))
+                                        f"failure is transient; {otherwise}.", run.get("html_url"))
             tag_sha = self.repository.tag(tag)
             if tag_sha != line.tip:
                 raise Stop("candidate", f"The candidate run succeeded, but `{tag}` resolves to {tag_sha or 'nothing'} "
@@ -798,6 +941,7 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("cut", help="apply one step of the beta state machine")
     commands.add_parser("continue", help="continue after the workflow run in GITHUB_EVENT_PATH")
+    commands.add_parser("restart", help="move a failed beta on after a passing Nightly Tests run")
     alert_parser = commands.add_parser("alert", help="record a failure on the tracking issue")
     alert_parser.add_argument("--stage", required=True)
     alert_parser.add_argument("--reason", required=True)
@@ -818,6 +962,9 @@ def main(argv: list[str] | None = None) -> int:
         schedulers.append(scheduler)
         if args.command == "cut":
             return scheduler.cut()
+        if args.command == "restart":
+            now = datetime.now(timezone.utc)
+            return scheduler.restart(now.weekday(), now)
         event = json.loads(Path(env["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
         return scheduler.continue_after(event["workflow_run"])
 

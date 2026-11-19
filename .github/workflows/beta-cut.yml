@@ -4,11 +4,16 @@ on:
   schedule:
     - cron: "0 20 * * 2"
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Nightly Tests"]
+    types: [completed]
+    branches: [develop]
 
 permissions: {}
 
 jobs:
   gate:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -18,7 +23,12 @@ jobs:
         id: gate
         env:
           BETA_AUTOMATION: ${{ vars.BETA_AUTOMATION }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          if [ "$EVENT_NAME" = workflow_run ] && ! [[ "$(date -u +%u)" =~ ^[34]$ ]]; then
+            echo "Nightly Tests passed on develop, but a restart acts only on Wednesday or Thursday (UTC). Nothing was done." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           if [ "$BETA_AUTOMATION" = enabled ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
@@ -31,6 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: beta-automation
+    env:
+      COMMAND: ${{ github.event_name == 'workflow_run' && 'restart' || 'cut' }}
     # Shared with the continuation, so only one scheduler step acts at a time.
     concurrency:
       group: beta-scheduler
@@ -61,9 +73,9 @@ jobs:
           RELEASE_BOT_SLUG: ${{ steps.app-token.outputs.app-slug }}
           GITHUB_TOKEN: ${{ github.token }}
           PUBLIC_READ_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/beta-scheduler.py cut
+        run: python3 .github/scripts/beta-scheduler.py "$COMMAND"
       - name: Record an unreported failure
         if: failure() && steps.scheduler.outputs.alerted != 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/beta-scheduler.py alert --stage cut --reason "The beta-cut job failed, or could not post its alert; see the job summary."
+        run: python3 .github/scripts/beta-scheduler.py alert --stage "$COMMAND" --reason "The beta-cut job failed, or could not post its alert; see the job summary."

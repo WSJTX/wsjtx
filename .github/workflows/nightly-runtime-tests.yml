@@ -1,13 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 name: Nightly Tests
 
-# develop pushes and routine PRs leave out the CTest label `runtime` and build
-# only Linux. Each night this workflow builds develop's tip twice: Linux x86_64
-# running only the runtime tests, and Windows x86_64 running its whole suite.
-# It skips a night when develop has not moved since a passing nightly
-# (select_nightly_runtime.py). A night after a failed nightly retests the same
-# commit; a dispatch always runs the tests. A failed scheduled run opens or
-# updates the issue "Nightly tests failed on develop".
+# develop pushes and routine PRs leave out the CTest label `runtime` and build only Linux. Each night this workflow builds develop's tip twice: Linux x86_64 running only the runtime tests, and Windows x86_64 running its whole suite.
+# A scheduled run skips when the newest run that passed or failed, scheduled or dispatched, passed at the same commit (select_nightly_runtime.py). A night after a failed run retests the same commit; a dispatch always runs the tests. A failed scheduled run opens or updates the issue "Nightly tests failed on develop".
+# beta-scheduler.py reads this workflow's runs by file name, and beta-cut.yml follows it by its name: every beta cut takes a develop commit whose newest counted run here passed, and a successful run on develop can restart a failed beta.
 on:
   schedule:
     - cron: "17 6 * * *"
