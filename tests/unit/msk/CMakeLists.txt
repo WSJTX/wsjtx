@@ -39,3 +39,7 @@ if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_msk144_training_file PROPERTIES
     ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
+
+add_executable (test_osd128_90_distance test_osd128_90_distance.f90)
+wsjt_link_common_fortran (test_osd128_90_distance)
+add_test (NAME test_osd128_90_distance COMMAND test_osd128_90_distance)

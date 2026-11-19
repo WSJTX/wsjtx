@@ -17,7 +17,7 @@ subroutine osd128_90(llr,apmask,ndeep,message77,cw,nhardmin,dmin)
 
   include "ldpc_128_90_generator.f90"
 
-  logical first,reset
+  logical first,reset,systematic
   data first/.true./
   save first,gen
 
@@ -64,11 +64,10 @@ subroutine osd128_90(llr,apmask,ndeep,message77,cw,nhardmin,dmin)
 
 ! Do gaussian elimination to create a generator matrix with the most reliable
 ! received bits in positions 1:K in order of decreasing reliability (more or less). 
-  do id=1,K ! diagonal element indices 
+  systematic=.true.
+  pivot_rows: do id=1,K
      do icol=id,K+20  ! The 20 is ad hoc - beware
-        iflag=0
         if( genmrb(id,icol) .eq. 1 ) then
-           iflag=1
            if( icol .ne. id ) then ! reorder column
               temp(1:K)=genmrb(1:K,id)
               genmrb(1:K,id)=genmrb(1:K,icol)
@@ -82,10 +81,11 @@ subroutine osd128_90(llr,apmask,ndeep,message77,cw,nhardmin,dmin)
                  genmrb(ii,1:N)=ieor(genmrb(ii,1:N),genmrb(id,1:N))
               endif
            enddo
-           exit
+           cycle pivot_rows
         endif
      enddo
-  enddo
+     systematic=.false.
+  enddo pivot_rows
 
   g2=transpose(genmrb)
 
@@ -176,7 +176,9 @@ subroutine osd128_90(llr,apmask,ndeep,message77,cw,nhardmin,dmin)
            if(nd1Kpt .le. ntheta) then
               call mrbencode90(me,ce,g2,N,K)
               nxor=ieor(ce,hdec)
-              if(n1.eq.iflag) then
+              if(.not.systematic) then
+                 dd=sum(nxor*absrx)
+              elseif(n1.eq.iflag) then
                  dd=d1+sum(e2sub*absrx(K+1:N))
               else
                  dd=d1+ieor(ce(n1),hdec(n1))*absrx(n1)+sum(e2*absrx(K+1:N))
