@@ -375,7 +375,9 @@ namespace
               auto const value = args.size () == 2 ? args.at (1) : args.value (0);
               if (value == "true" || value == "false") split_state_ = value == "true";
             }
-          if (command_handler_ && command_handler_ (verb, args, generation)) continue;
+          // A handler may cancel its scenario while processing this command.
+          auto const handler = command_handler_;
+          if (handler && handler (verb, args, generation)) continue;
           acknowledge (verb, args);
         }
     }
@@ -423,6 +425,51 @@ namespace
     State state_;
     bool tearing_down_ {false};
     bool split_state_ {false};
+  };
+
+  class ScopedRigScenario
+  {
+  public:
+    explicit ScopedRigScenario (RigHarness& harness)
+      : harness_ {harness}, rig_ {&harness.rig ()}, context_ {new QObject}
+    {}
+    ~ScopedRigScenario () {cancel ();}
+    ScopedRigScenario (ScopedRigScenario const&) = delete;
+    ScopedRigScenario& operator= (ScopedRigScenario const&) = delete;
+
+    void set_command_handler (CommandHandler handler)
+    {
+      if (!context_) return;
+      harness_.set_command_handler (
+        [rig = rig_, handler = std::move (handler)] (QString const& verb, QStringList const& args, int generation) {
+          return rig && handler (verb, args, generation);
+        });
+    }
+
+    void later (int milliseconds, std::function<void ()> callback)
+    {
+      if (!context_) return;
+      auto * timer = new QTimer {context_.get ()};
+      timer->setSingleShot (true);
+      QObject::connect (timer, &QTimer::timeout, context_.get (),
+        [rig = rig_, timer, callback = std::move (callback)] {
+          timer->deleteLater ();
+          if (rig) callback ();
+        });
+      timer->start (milliseconds);
+    }
+
+    void cancel ()
+    {
+      if (!context_) return;
+      harness_.set_command_handler ({});
+      context_.reset ();
+    }
+
+  private:
+    RigHarness& harness_;
+    QPointer<Transceiver> rig_;
+    std::unique_ptr<QObject> context_;
   };
 
   State state_from (RigHarness const& harness)
@@ -1363,6 +1410,55 @@ private slots:
     QCOMPARE (attempts_after_wait, attempts_after_failure);
   }
 
+  void scoped_scenario_cancels_script_before_shutdown_data ()
+  {
+    QTest::addColumn<bool> ("explicit_cancel");
+    QTest::addColumn<int> ("delay");
+    QTest::newRow ("cancel-queued") << true << 0;
+    QTest::newRow ("scope-exit-queued") << false << 0;
+    QTest::newRow ("cancel-delayed") << true << 60000;
+    QTest::newRow ("scope-exit-delayed") << false << 60000;
+  }
+
+  void scoped_scenario_cancels_script_before_shutdown ()
+  {
+    QFETCH (bool, explicit_cancel);
+    QFETCH (int, delay);
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto calls = std::make_shared<int> (0);
+    std::weak_ptr<int> script_lifetime;
+    {
+      ScopedRigScenario scenario {harness};
+      auto script = std::make_shared<int> (0);
+      script_lifetime = script;
+      scenario.set_command_handler ([script, calls] (QString const&, QStringList const&, int) {
+        ++*calls;
+        return true;
+      });
+      scenario.later (delay, [script, calls] {++*calls;});
+      script.reset ();
+      QVERIFY (!script_lifetime.expired ());
+      if (explicit_cancel) {
+        scenario.cancel ();
+        QVERIFY (script_lifetime.expired ());
+        auto late_script = std::make_shared<int> (0);
+        script_lifetime = late_script;
+        scenario.later (delay, [late_script, calls] {++*calls;});
+        scenario.set_command_handler ([late_script, calls] (QString const&, QStringList const&, int) {
+          ++*calls;
+          return true;
+        });
+        late_script.reset ();
+        QVERIFY (script_lifetime.expired ());
+      }
+    }
+    QVERIFY (script_lifetime.expired ());
+    QVERIFY2 (harness.stop (), qPrintable (harness.diagnostics ()));
+    QCOMPARE (*calls, 0);
+  }
+
   void stale_split_report_does_not_complete_preparation_data ()
   {
     QTest::addColumn<bool> ("matching_reply");
@@ -1384,8 +1480,9 @@ private slots:
       bool premature_ptt {false};
     };
     auto reports = std::make_shared<Reports> ();
-    harness.set_command_handler (
-      [&harness, reports, matching_reply] (QString const& verb, QStringList const& args, int)
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler (
+      [&harness, &scenario, reports, matching_reply] (QString const& verb, QStringList const& args, int)
       {
         if (verb == "split_enable" && args == QStringList {"0"}) return true;
         if (verb == "split_enable" && args == QStringList {"0", "true"})
@@ -1394,7 +1491,7 @@ private slots:
               &harness.rig (), "onMessageReceived", Qt::DirectConnection,
               Q_ARG (QString, QStringLiteral ("split_enable:0,false;")));
             if (matching_reply)
-              QTimer::singleShot (0, &harness.rig (), [rig = &harness.rig (), reports] {
+              scenario.later (0, [rig = &harness.rig (), reports] {
                 reports->matching_delivered = QMetaObject::invokeMethod (
                   rig, "onMessageReceived", Qt::DirectConnection,
                   Q_ARG (QString, QStringLiteral ("split_enable:0,true;")));
@@ -1451,7 +1548,8 @@ private slots:
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     struct Reports {int setters {0}; int queries {0}; bool last_value {false};};
     auto reports = std::make_shared<Reports> ();
-    harness.set_command_handler ([reports] (QString const& verb, QStringList const& args, int) {
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler ([reports] (QString const& verb, QStringList const& args, int) {
       if (verb != "split_enable") return false;
       if (args.size () == 2) {
         ++reports->setters;
@@ -1494,12 +1592,13 @@ private slots:
     rig.last_sent_split_ = false;
     struct Reports {bool query {false}; bool ptt {false};};
     auto reports = std::make_shared<Reports> ();
-    harness.set_command_handler ([&rig, reports] (QString const& verb, QStringList const& args, int) {
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler ([&rig, &scenario, reports] (QString const& verb, QStringList const& args, int) {
       if (verb == "trx" && args == QStringList {"0", "true"}) reports->ptt = true;
       if (verb != "split_enable") return false;
       if (args == QStringList {"0"}) {
         reports->query = true;
-        QTimer::singleShot (0, &rig, [&rig] {
+        scenario.later (0, [&rig] {
           rig.tci_timer5_->stop ();
           QMetaObject::invokeMethod (rig.tci_timer5_, "timeout", Qt::DirectConnection);
         });
@@ -1514,7 +1613,7 @@ private slots:
     QVERIFY (reports->query);
     QVERIFY (harness.failure_count () > 0);
     QVERIFY (!reports->ptt);
-    harness.set_command_handler ({});
+    scenario.cancel ();
   }
 
   void split_wait_requires_fresh_valid_converged_report_data ()
@@ -1541,7 +1640,8 @@ private slots:
     auto const serial = rig.split_report_serial_;
     rig.requested_split_ = true;
     rig.split_ = true;
-    harness.set_command_handler ([&rig, reports, reply] (QString const& verb, QStringList const& args, int) {
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler ([&rig, &scenario, reports, reply] (QString const& verb, QStringList const& args, int) {
       if (verb != "split_enable") return false;
       if (args != QStringList {"0"}) return true;
       reports->query = true;
@@ -1554,7 +1654,7 @@ private slots:
       if (reply == 2) deliver (QStringLiteral ("split_enable:0,invalid;"));
       if (reply == 3 || reply == 4) deliver (QStringLiteral ("split_enable:0,true;split_enable:0,false;"));
       if (reply != 1)
-        QTimer::singleShot (0, &rig, [&rig, reports, reply, timer] {
+        scenario.later (0, [&rig, reports, reply, timer] {
           reports->same_timer = rig.tci_timer5_->isActive () && rig.tci_timer5_->timerId () == timer;
           if (reply >= 5) {
             auto match = [&rig] {
@@ -1586,7 +1686,7 @@ private slots:
     if (reply <= 0 || reply == 2) QCOMPARE (rig.split_report_serial_, serial);
     QVERIFY (!rig.busy_split_);
     QVERIFY (!rig.tci_timer5_->isActive ());
-    harness.set_command_handler ({});
+    scenario.cancel ();
   }
 
   void split_wait_reentry_and_lifecycle_data ()
@@ -1607,11 +1707,12 @@ private slots:
     auto entered = std::make_shared<bool> (false);
     auto nested = std::make_shared<TCITransceiver::SplitWait> (TCITransceiver::SplitWait::Timeout);
     rig.requested_split_ = true;
-    harness.set_command_handler ([&rig, entered, nested, action] (QString const& verb, QStringList const& args, int) {
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler ([&rig, &scenario, entered, nested, action] (QString const& verb, QStringList const& args, int) {
       if (verb != "split_enable") return false;
       if (args == QStringList {"0"} && !*entered) {
         *entered = true;
-        QTimer::singleShot (0, &rig, [&rig, nested, action] {
+        scenario.later (0, [&rig, nested, action] {
           if (action == 0) {
             *nested = rig.rig_split ();
             QMetaObject::invokeMethod (&rig, "onMessageReceived", Qt::DirectConnection,
@@ -1635,7 +1736,7 @@ private slots:
       QVERIFY (rig.last_sent_split_ && !*rig.last_sent_split_);
       rig.busy_split_ = false;
     }
-    harness.set_command_handler ({});
+    scenario.cancel ();
     if (action == 2) {
       QVERIFY (commands.text ().contains ("TCI Command Sent: split_enable:false;"));
       QVERIFY (commands.text ().contains ("TCI Command Sent: split_enable:0,false;"));
@@ -1661,12 +1762,13 @@ private slots:
       int corrections {0};
     };
     auto reports = std::make_shared<Reports> ();
-    harness.set_command_handler (
-      [&rig, reports] (QString const& verb, QStringList const& args, int) {
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler (
+      [&rig, &scenario, reports] (QString const& verb, QStringList const& args, int) {
         if (verb == "trx" && args == QStringList {"0", "true"})
           {
             reports->ptt_wait_seen = rig.busy_PTT_ && rig.tci_loop3_->isRunning ();
-            QTimer::singleShot (0, &rig, [reports] {
+            scenario.later (0, [reports] {
               reports->checkpoint_ran = true;
               reports->nested_parser_wait = reports->parsing;
             });
@@ -1699,7 +1801,8 @@ private slots:
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     struct Reports {int corrections {0}; int barriers {0};};
     auto reports = std::make_shared<Reports> ();
-    harness.set_command_handler (
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler (
       [reports] (QString const& verb, QStringList const& args, int) {
         if (verb == "split_enable" && args == QStringList {"0", "false"})
           {
@@ -1747,8 +1850,9 @@ private slots:
       bool ptt_before_prerequisites {false};
     };
     auto const acknowledgements = std::make_shared<AcknowledgementState> ();
-    harness.set_command_handler (
-      [&harness, acknowledgements] (QString const& verb,
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler (
+      [&harness, &scenario, acknowledgements] (QString const& verb,
                                    QStringList const& args, int)
       {
         if (verb == "split_enable" && args == QStringList {"0"}) return true;
@@ -1759,8 +1863,8 @@ private slots:
                 && !acknowledgements->split_sent)
               {
                 acknowledgements->split_scheduled = true;
-                QTimer::singleShot (
-                  25, &harness.server (),
+                scenario.later (
+                  25,
                   [&harness, acknowledgements]
                   {
                     acknowledgements->split_sent = true;
@@ -1777,8 +1881,8 @@ private slots:
                 && !acknowledgements->tx_vfo_sent)
               {
                 acknowledgements->tx_vfo_scheduled = true;
-                QTimer::singleShot (
-                  25, &harness.server (),
+                scenario.later (
+                  25,
                   [&harness, acknowledgements]
                   {
                     acknowledgements->tx_vfo_sent = true;
