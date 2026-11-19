@@ -1759,6 +1759,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   if(m_mode=="MSK144") {
     if (m_tci_audio) {
       QTimer::singleShot (5000, this, [=] {
+        if (m_transmitting || m_tune) return;
         Q_EMIT m_config.transceiver_trfrequency(1000.0);
       });
     } else {
@@ -1767,6 +1768,7 @@ MainWindow::MainWindow(QDir const& temp_directory,
   } else {
     if (m_tci_audio) {
       QTimer::singleShot (5000, this, [=] {
+        if (m_transmitting || m_tune) return;
         Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_operatingFrequency.audioOffset ());
       });
     } else {

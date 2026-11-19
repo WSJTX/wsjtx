@@ -1598,6 +1598,11 @@ void Configuration::transceiver_ptt (bool on)
   m_->transceiver_ptt (on);
 }
 
+bool Configuration::transceiver_audio_commanded () const
+{
+  return m_->cached_rig_state_.audio ();
+}
+
 void Configuration::transceiver_audio (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
