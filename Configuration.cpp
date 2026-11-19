@@ -748,9 +748,13 @@ private:
   void initialize_models (QList<QSerialPortInfo> const * ports = nullptr);
   bool split_mode () const
   {
-    return
-      (WSJT_RIG_NONE_CAN_SPLIT || !rig_is_dummy_) &&
-      (rig_params_.split_mode != TransceiverFactory::split_mode_none);
+    auto const& params = operating_rig_params ();
+    return (WSJT_RIG_NONE_CAN_SPLIT || params.rig_name != TransceiverFactory::basic_transceiver_name_)
+      && params.split_mode != TransceiverFactory::split_mode_none;
+  }
+  TransceiverFactory::ParameterPack const& operating_rig_params () const
+  {
+    return rig_active_ ? opened_rig_params_ : rig_params_;
   }
   MODE configured_mode () const;
   void send_transceiver (MODE = Transceiver::UNK);
@@ -1377,11 +1381,12 @@ QString Configuration::footswitch_port () const {return m_->footswitch_port_;}
 int Configuration::footswitch_pin () const {return m_->footswitch_pin_;}
 bool Configuration::footswitch_port_clash () const
 {
+  auto const& params = m_->operating_rig_params ();
   auto const serial_CAT = TransceiverFactory::Capabilities::serial
-    == m_->transceiver_factory_.CAT_port_type (m_->rig_params_.rig_name);
+    == m_->transceiver_factory_.CAT_port_type (params.rig_name);
   return impl::footswitch_port_clashes (m_->footswitch_port_,
-                                        serial_CAT ? m_->rig_params_.serial_port : QString {},
-                                        m_->rig_params_.ptt_type, m_->rig_params_.ptt_port);
+                                        serial_CAT ? params.serial_port : QString {},
+                                        params.ptt_type, params.ptt_port);
 }
 bool Configuration::TX_messages () const {return m_->TX_messages_;}
 bool Configuration::enable_VHF_features () const {return m_->enable_VHF_features_;}
@@ -4865,6 +4870,7 @@ void Configuration::impl::accept ()
           warn_tx_inhibit_restart_blocked ();
           return;
         }
+      // Keep Settings open if the changed rig parameters cannot be applied.
       if (!open_rig ()) return;
     }
 
@@ -7574,11 +7580,10 @@ bool Configuration::impl::open_rig (bool force)
           connect (p, &Transceiver::finished, p, &Transceiver::deleteLater, Qt::QueuedConnection);
 
           ui_->test_CAT_push_button->setStyleSheet ({});
+          opened_rig_params_ = rig_data;
           rig_active_ = true;
           LOG_TRACE ("emitting startup_transceiver");
           Q_EMIT start_transceiver (++transceiver_command_number_); // start rig on its thread
-          if(is_tci_) rig_params_ = gather_rig_data ();
-          opened_rig_params_ = rig_data;
           result = true;
         }
       catch (std::exception const& e)

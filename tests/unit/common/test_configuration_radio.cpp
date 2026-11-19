@@ -415,6 +415,98 @@ private slots:
     else QVERIFY (configuration_->frequency_generation () != generation);
   }
 
+  void acceptingDefaultPortsKeepsSerialRigOffline ()
+  {
+    auto& d = dialog ();
+    d.rig_params_.poll_interval = 1;
+    d.rig_params_.serial_port.clear ();
+    d.rig_params_.ptt_port.clear ();
+    ui ().PTT_port_combo_box->insertItem (0, "/dev/test-default-ptt");
+    d.initialize_models ();
+    auto expected = d.rig_params_;
+    expected.serial_port = ui ().CAT_port_combo_box->itemText (0);
+    expected.ptt_port = "/dev/test-default-ptt";
+    QVERIFY (!expected.serial_port.isEmpty ());
+    QVERIFY (d.gather_rig_data () == expected);
+    QVERIFY (!d.rig_active_);
+    auto const generation = configuration_->frequency_generation ();
+    d.accept ();
+    QCOMPARE (d.result (), int (QDialog::Accepted));
+    QCOMPARE (configuration_->frequency_generation (), generation);
+    QVERIFY (!d.rig_active_);
+  }
+
+  void testCatReopensUnchangedConnection ()
+  {
+    auto& d = dialog ();
+    auto& rigs = const_cast<TransceiverFactory::Transceivers&> (d.transceiver_factory_.supported_transceivers ());
+    auto const dummy = rigs.value (TransceiverFactory::basic_transceiver_name_);
+    auto const name = QStringLiteral ("Test CAT dummy");
+    rigs.insert (name, dummy);
+    ui ().rig_combo_box->addItem (name, dummy.model_number_);
+    ui ().rig_combo_box->setCurrentText (name);
+    ui ().PTT_VOX_radio_button->setChecked (true);
+    QVERIFY (configuration_->transceiver_online ());
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+    auto const generation = configuration_->frequency_generation ();
+    ui ().test_CAT_push_button->click ();
+    QVERIFY (configuration_->frequency_generation () != generation);
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+  }
+
+  void testCatRestoresOriginalConnection_data ()
+  {
+    QTest::addColumn<bool> ("cancel");
+    QTest::newRow ("cancel while testing alternate") << true;
+    QTest::newRow ("select original and accept") << false;
+  }
+
+  void testCatRestoresOriginalConnection ()
+  {
+    QFETCH (bool, cancel);
+    session_.reset (new FrequencySession {*configuration_});
+    auto& original = session_->server;
+    QVERIFY (original.listen ());
+    QVERIFY (openFrequencySession ());
+    auto const originalPort = ui ().CAT_port_combo_box->currentText ();
+    TciSimServer alternate;
+    QVERIFY (alternate.listen ());
+    connect (&alternate, &TciSimServer::client_arrived, &alternate, [&] (int) {
+      for (auto const& message : TciSimScript::greeting_messages (TciSimGreeting::Thetis))
+        alternate.send_text (message);
+    });
+    auto& d = dialog ();
+    QVERIFY (configuration_->split_mode ());
+    bool alternateSplit = true;
+    bool tested = false;
+    QTimer::singleShot (0, &d, [&] {
+      ui ().split_none_radio_button->setChecked (true);
+      ui ().CAT_port_combo_box->setEditText (QString {"127.0.0.1:%1"}.arg (alternate.port ()));
+      ui ().test_CAT_push_button->click ();
+      tested = alternate.wait_for ([&] {
+        return alternate.client_connected () && original.client_disconnected () && d.cached_rig_state_.online ();
+      }, 8000);
+      alternateSplit = configuration_->split_mode ();
+      if (cancel || !tested) d.reject ();
+      else
+        {
+          ui ().split_rig_radio_button->setChecked (true);
+          ui ().CAT_port_combo_box->setEditText (originalPort);
+          d.accept ();
+        }
+    });
+    auto const result = configuration_->exec ();
+    QVERIFY (tested);
+    QVERIFY (!alternateSplit);
+    QCOMPARE (result, int (cancel ? QDialog::Rejected : QDialog::Accepted));
+    QCOMPARE (ui ().CAT_port_combo_box->currentText (), originalPort);
+    QVERIFY (configuration_->split_mode ());
+    QVERIFY (original.wait_for ([&] {
+      return original.connection_count () == 2 && original.client_connected ()
+        && alternate.client_disconnected () && d.cached_rig_state_.online ();
+    }, 8000));
+  }
+
   void acceptingChangedRigOpensSelectedRig ()
   {
     auto& d = dialog ();
