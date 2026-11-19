@@ -1309,8 +1309,8 @@ TCITransceiver::SplitWait TCITransceiver::wait_for_split (bool desired, quint64 
       split_wait_active_ = false;
       return SplitWait::Aborted;
     }
-    if (split_wait_expired_) {result = SplitWait::Timeout; break;}
     if (split_report_serial_ > report && split_ == desired) {result = SplitWait::Observed; break;}
+    if (split_wait_expired_) {result = SplitWait::Timeout; break;}
     wait_exec (tci_loop5_);
   }
   tci_timer5_->stop ();

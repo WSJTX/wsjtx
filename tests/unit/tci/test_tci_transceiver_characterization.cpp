@@ -1525,6 +1525,8 @@ private slots:
     QTest::newRow ("invalid-boolean") << 2;
     QTest::newRow ("contradictory-frame-then-match") << 3;
     QTest::newRow ("contradictory-frame-timeout") << 4;
+    QTest::newRow ("expiry-then-match") << 5;
+    QTest::newRow ("match-then-expiry") << 6;
   }
 
   void split_wait_requires_fresh_valid_converged_report ()
@@ -1550,11 +1552,23 @@ private slots:
       };
       if (reply == 1) deliver (QStringLiteral ("split_enable:0,true;"));
       if (reply == 2) deliver (QStringLiteral ("split_enable:0,invalid;"));
-      if (reply >= 3) deliver (QStringLiteral ("split_enable:0,true;split_enable:0,false;"));
+      if (reply == 3 || reply == 4) deliver (QStringLiteral ("split_enable:0,true;split_enable:0,false;"));
       if (reply != 1)
         QTimer::singleShot (0, &rig, [&rig, reports, reply, timer] {
           reports->same_timer = rig.tci_timer5_->isActive () && rig.tci_timer5_->timerId () == timer;
-          if (reply == 3)
+          if (reply >= 5) {
+            auto match = [&rig] {
+              QMetaObject::invokeMethod (&rig, "onMessageReceived", Qt::DirectConnection,
+                Q_ARG (QString, QStringLiteral ("split_enable:0,true;")));
+            };
+            auto expire = [&rig] {
+              rig.tci_timer5_->stop ();
+              QMetaObject::invokeMethod (rig.tci_timer5_, "timeout", Qt::DirectConnection);
+            };
+            // Both callbacks complete before the waiting stack resumes.
+            if (reply == 5) {expire (); match ();}
+            else {match (); expire ();}
+          } else if (reply == 3)
             QMetaObject::invokeMethod (&rig, "onMessageReceived", Qt::DirectConnection,
               Q_ARG (QString, QStringLiteral ("split_enable:0,true;")));
           else {
@@ -1567,7 +1581,7 @@ private slots:
     auto const result = rig.rig_split ();
     QVERIFY (reports->query);
     QVERIFY (reports->busy);
-    QCOMPARE (result, reply == 1 || reply == 3 ? TCITransceiver::SplitWait::Observed : TCITransceiver::SplitWait::Timeout);
+    QCOMPARE (result, reply == 1 || reply == 3 || reply >= 5 ? TCITransceiver::SplitWait::Observed : TCITransceiver::SplitWait::Timeout);
     if (reply != 1) QVERIFY (reports->same_timer);
     if (reply <= 0 || reply == 2) QCOMPARE (rig.split_report_serial_, serial);
     QVERIFY (!rig.busy_split_);
