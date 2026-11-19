@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Scheduled beta state machine, continuation, alerts, git mechanics and workflow wiring."""
+from datetime import datetime, timezone
 import importlib.util
 import io
 import itertools
@@ -57,12 +58,14 @@ def lock(recipes=RECIPES, generation="validated-build-20260929-600-1"):
 
 
 def run(workflow, *, status="completed", conclusion="success", sha=TIP, branch=LINE, event="push", title=None,
-        created="2026-10-06T18:00:00Z", actor=BOT, triggering_actor=None, run_id=None):
+        created="2026-10-06T18:00:00Z", started=None, updated=None, attempt=1, actor=BOT, triggering_actor=None,
+        run_id=None):
     run_id = next(RUN_IDS) if run_id is None else run_id
     return {
         "id": run_id, "path": f".github/workflows/{workflow}", "status": status,
         "conclusion": conclusion if status == "completed" else None, "head_sha": sha, "head_branch": branch,
-        "event": event, "display_title": title or workflow, "created_at": created,
+        "event": event, "display_title": title or workflow, "created_at": created, "updated_at": updated or created,
+        "run_started_at": started or created, "run_attempt": attempt,
         "actor": {"login": actor, "type": "Bot" if actor.endswith("[bot]") else "User"},
         "triggering_actor": {"login": triggering_actor or actor},
         "html_url": f"https://example.invalid/runs/{run_id}",
@@ -72,6 +75,13 @@ def run(workflow, *, status="completed", conclusion="success", sha=TIP, branch=L
 def candidate(version="3.3.0-beta2", operation="create", **fields):
     fields.setdefault("event", "workflow_dispatch")
     return run(beta.CANDIDATE, title=f"Prepare Release Candidate build/v{version} ({operation})", **fields)
+
+
+def nightly(sha, conclusion="success", **fields):
+    fields.setdefault("event", "schedule")
+    fields.setdefault("branch", "develop")
+    fields.setdefault("actor", "k1jt")
+    return run(beta.NIGHTLY, sha=sha, conclusion=conclusion, **fields)
 
 
 def preparation(generation, **fields):
@@ -203,7 +213,8 @@ class FakePackages:
 
 
 class SchedulerTestCase(unittest.TestCase):
-    """A published beta2 on release/3.3; develop moved to a green commit with unchanged recipes."""
+    """A published beta2 on release/3.3; develop moved to a commit that passed CI and Nightly Tests, with unchanged
+    recipes."""
 
     def setUp(self):
         self.build()
@@ -226,7 +237,8 @@ class SchedulerTestCase(unittest.TestCase):
             beta.Commit(TIP, BOT_EMAIL, ("CMakeLists.txt", STATE)),
             beta.Commit("3" * 40, MAINTAINER, (LOCK, STATE)),
         ]
-        self.internal.add(run(beta.CI, sha=GREEN, branch="develop", created="2026-10-06T10:00:00Z", actor="k1jt"))
+        self.internal.add(run(beta.CI, sha=GREEN, branch="develop", created="2026-10-06T10:00:00Z", actor="k1jt"),
+                          nightly(GREEN, created="2026-10-06T10:17:00Z"))
 
     def cut(self):
         return beta.Scheduler(self.repo, self.internal, self.public, self.packages,
@@ -334,7 +346,7 @@ class RetryCutTest(SchedulerTestCase):
         failed = run(beta.CI, sha=TIP, conclusion="failure", created="2026-10-06T19:00:00Z")
         for name, setup in (
             ("develop already merged", lambda: self.repo.ancestors.add((GREEN, TIP))),
-            ("no green develop", lambda: self.internal.workflow_runs.update({beta.CI: []})),
+            ("no tested develop commit", lambda: self.internal.workflow_runs.update({beta.CI: []})),
         ):
             with self.subTest(name=name):
                 self.setUp()
@@ -598,12 +610,11 @@ class NextCutTest(SchedulerTestCase):
         self.cut()
         self.assertEqual(self.repo.synced, [False])
 
-    def test_green_runs_for_commits_not_on_develop_or_not_fetched_are_passed_over(self):
+    def test_tested_commits_not_on_develop_or_not_fetched_are_passed_over(self):
         not_on_develop, not_fetched = "9" * 40, "8" * 40
-        self.internal.add(
-            run(beta.CI, sha=not_on_develop, branch="develop", created="2026-10-06T12:00:00Z"),
-            run(beta.CI, sha=not_fetched, branch="develop", created="2026-10-06T11:00:00Z"),
-        )
+        for sha, created in ((not_on_develop, "2026-10-06T12:00:00Z"), (not_fetched, "2026-10-06T11:00:00Z")):
+            self.internal.add(run(beta.CI, sha=sha, branch="develop", created=created), nightly(sha, created=created))
+            self.repo.recipes[sha] = dict(RECIPES)
         self.repo.ancestors.add((not_fetched, DEVELOP))
         self.repo.absent.add(not_fetched)
         self.cut()
@@ -624,6 +635,158 @@ class NextCutTest(SchedulerTestCase):
     def test_no_green_develop_stops(self):
         self.internal.workflow_runs[beta.CI] = [run(beta.CI, sha=GREEN, branch="develop", conclusion="failure")]
         self.assertEqual(self.stop().stage, "develop")
+        self.assertNothingDone()
+
+
+class TestedDevelopTest(SchedulerTestCase):
+    """The cut takes the newest develop commit whose push CI and newest counted Nightly Tests run succeeded."""
+
+    NEWER = "9" * 40
+
+    def setUp(self):
+        super().setUp()
+        self.repo.ancestors.add((self.NEWER, DEVELOP))
+        self.repo.recipes[self.NEWER] = dict(RECIPES)
+
+    def newer_ci(self, **fields):
+        fields.setdefault("branch", "develop")
+        fields.setdefault("created", "2026-10-06T11:00:00Z")
+        return run(beta.CI, sha=self.NEWER, **fields)
+
+    def picked(self, *runs):
+        self.internal.add(*runs)
+        self.scheduler = beta.Scheduler(self.repo, self.internal, self.public, self.packages,
+                                        bot_login=BOT, bot_email=BOT_EMAIL)
+        self.scheduler.cut()
+        return self.repo.merge[1]
+
+    def test_a_newer_commit_that_only_passed_ci_is_not_cut(self):
+        # beta7: the cut took a commit whose first nightly had not run, and Windows failed on it.
+        for name, runs in (
+            ("no nightly", ()),
+            ("nightly running", (nightly(self.NEWER, status="in_progress", created="2026-10-06T12:00:00Z"),)),
+        ):
+            with self.subTest(name=name):
+                self.setUp()
+                self.assertEqual(self.picked(self.newer_ci(), *runs), GREEN)
+                self.assertTrue(any(f"Newest develop commit that passed CI and Nightly Tests: {GREEN}" in note
+                                    for note in self.scheduler.notes))
+
+    def test_the_newest_counted_nightly_at_a_commit_decides(self):
+        for name, results, expected in (
+            ("failed after passing", (("schedule", "success"), ("schedule", "failure")), GREEN),
+            ("dispatched failure after a scheduled pass", (("schedule", "success"), ("workflow_dispatch", "failure")),
+             GREEN),
+            ("cancelled after failing", (("schedule", "failure"), ("schedule", "cancelled")), GREEN),
+            ("passed after failing", (("schedule", "failure"), ("workflow_dispatch", "success")), self.NEWER),
+            ("cancelled after passing", (("schedule", "success"), ("schedule", "cancelled")), self.NEWER),
+            ("skipped after passing", (("schedule", "success"), ("schedule", "skipped")), self.NEWER),
+            ("timed out after passing", (("schedule", "success"), ("schedule", "timed_out")), self.NEWER),
+        ):
+            with self.subTest(name=name):
+                self.setUp()
+                runs = [nightly(self.NEWER, conclusion, event=event, created=f"2026-10-06T1{hour}:00:00Z")
+                        for hour, (event, conclusion) in enumerate(results, start=2)]
+                self.assertEqual(self.picked(self.newer_ci(), *runs), expected)
+
+    def test_a_failed_newest_nightly_is_named(self):
+        failed = nightly(self.NEWER, "failure", created="2026-10-06T12:00:00Z")
+        self.assertEqual(self.picked(self.newer_ci(), failed), GREEN)
+        self.assertIn(f"The newest Nightly Tests result on develop is a failure at {self.NEWER}: "
+                      f"{failed['html_url']}.", self.scheduler.notes)
+
+    def test_an_unfinished_rerun_hides_the_older_pass_at_its_commit(self):
+        # The API reports a run's latest attempt only, so the failure a re-run replaces is not visible.
+        for status, conclusion, attempt, expected in (
+            ("in_progress", None, 2, GREEN),
+            ("queued", None, 3, GREEN),
+            ("completed", "cancelled", 2, GREEN),
+            ("completed", "skipped", 2, GREEN),
+            ("completed", "failure", 2, GREEN),
+            ("completed", "success", 2, self.NEWER),
+            # A first attempt still running is a new night, not a re-run; the pass before it stands.
+            ("in_progress", None, 1, self.NEWER),
+        ):
+            with self.subTest(status=status, conclusion=conclusion, attempt=attempt):
+                self.setUp()
+                passed = nightly(self.NEWER, created="2026-10-06T11:30:00Z")
+                latest = nightly(self.NEWER, conclusion, status=status, attempt=attempt,
+                                 created="2026-10-06T12:00:00Z")
+                self.assertEqual(self.picked(self.newer_ci(), passed, latest), expected)
+
+    def test_dispatched_nightlies_on_develop_count_and_other_branches_do_not(self):
+        self.assertEqual(self.picked(self.newer_ci(), nightly(self.NEWER, event="workflow_dispatch",
+                                                              created="2026-10-06T12:00:00Z")), self.NEWER)
+        self.setUp()
+        for event in ("schedule", "workflow_dispatch"):
+            self.internal.add(nightly(self.NEWER, event=event, branch="topic", created="2026-10-06T12:00:00Z"))
+        self.assertEqual(self.picked(self.newer_ci()), GREEN)
+
+    def test_a_nightly_passed_commit_without_successful_push_ci_on_develop_is_passed_over_and_named(self):
+        for name, ci, state in (
+            ("cancelled by a later push", (self.newer_ci(conclusion="cancelled"),), "its push CI concluded cancelled"),
+            ("failed", (self.newer_ci(conclusion="failure"),), "its push CI concluded failure"),
+            ("running", (self.newer_ci(status="in_progress"),), "its push CI is still running"),
+            ("never ran", (), "has no push CI run"),
+            ("green only as a pull request", (self.newer_ci(event="pull_request"),), "has no push CI run"),
+            ("green only off develop", (self.newer_ci(branch="topic"),), "has no push CI run"),
+        ):
+            with self.subTest(name=name):
+                self.setUp()
+                passed = nightly(self.NEWER, created="2026-10-06T12:00:00Z")
+                self.assertEqual(self.picked(passed, *ci), GREEN)
+                self.assertIn(f"Passed over develop {self.NEWER}: it passed Nightly Tests ({passed['html_url']}), "
+                              f"but {state}.", self.scheduler.notes)
+
+    def test_nightlies_are_ordered_by_creation_time_not_list_order(self):
+        self.assertEqual(self.picked(self.newer_ci(), nightly(self.NEWER, created="2026-10-06T12:00:00Z")),
+                         self.NEWER)
+        self.setUp()
+        self.internal.workflow_runs[beta.NIGHTLY] = [
+            nightly(self.NEWER, created="2026-10-06T12:00:00Z"),
+            nightly(self.NEWER, "failure", created="2026-10-06T13:00:00Z"),
+            nightly(GREEN, created="2026-10-06T10:17:00Z"),
+        ]
+        self.assertEqual(self.picked(self.newer_ci()), GREEN)
+
+    def test_a_rerun_of_an_older_commits_nightly_does_not_move_that_commit_ahead(self):
+        # Commits are ordered by their nightlies' creation, which a re-run keeps.
+        self.internal.workflow_runs[beta.NIGHTLY] = [
+            nightly(GREEN, attempt=2, created="2026-10-06T10:17:00Z", started="2026-10-06T14:00:00Z")]
+        self.assertEqual(self.picked(self.newer_ci(), nightly(self.NEWER, created="2026-10-06T12:00:00Z")),
+                         self.NEWER)
+
+    def test_the_failure_note_follows_the_newest_commit_not_a_later_rerun_of_an_older_one(self):
+        for green, newer, expected, noted in (("failure", "success", self.NEWER, False),
+                                              ("success", "failure", GREEN, True)):
+            with self.subTest(green=green):
+                self.setUp()
+                self.internal.workflow_runs[beta.NIGHTLY] = [
+                    nightly(GREEN, green, attempt=2, created="2026-10-06T10:17:00Z", started="2026-10-06T14:00:00Z")]
+                newest_run = nightly(self.NEWER, newer, created="2026-10-06T12:00:00Z")
+                self.assertEqual(self.picked(self.newer_ci(), newest_run), expected)
+                notes = [note for note in self.scheduler.notes if "newest Nightly Tests result" in note]
+                self.assertEqual(notes, [f"The newest Nightly Tests result on develop is a failure at {self.NEWER}: "
+                                         f"{newest_run['html_url']}."] if noted else [])
+
+    def test_a_rerun_is_ordered_by_its_latest_attempts_start_not_its_creation(self):
+        # A re-run keeps its run's created_at, so at one commit a re-run of an older run can be the newest result.
+        for rerun, other, expected in (("failure", "success", GREEN), ("success", "failure", self.NEWER)):
+            with self.subTest(rerun=rerun):
+                self.setUp()
+                again = nightly(self.NEWER, rerun, attempt=2, created="2026-10-06T12:00:00Z",
+                                started="2026-10-06T15:00:00Z")
+                dispatched = nightly(self.NEWER, other, event="workflow_dispatch", created="2026-10-06T13:00:00Z")
+                self.assertEqual(self.picked(self.newer_ci(), again, dispatched), expected)
+                failed = [note for note in self.scheduler.notes if "newest Nightly Tests result" in note]
+                self.assertEqual(failed, [f"The newest Nightly Tests result on develop is a failure at {self.NEWER}: "
+                                          f"{again['html_url']}."] if rerun == "failure" else [])
+
+    def test_no_tested_commit_stops_the_cut(self):
+        self.internal.workflow_runs[beta.NIGHTLY] = [nightly(GREEN, "failure")]
+        stop = self.stop()
+        self.assertEqual(stop.stage, "develop")
+        self.assertIn("No commit on develop has passed CI and Nightly Tests.", str(stop))
         self.assertNothingDone()
 
 
@@ -959,6 +1122,9 @@ class ContinueTest(SchedulerTestCase):
         failed = run(beta.CI, conclusion="failure")
         stop = self.stopped(failed)
         self.assertEqual((stop.stage, stop.link), ("ci", failed["html_url"]))
+        self.assertIn("Re-run it if the failure is transient; otherwise 3.3.0-beta3 is cut again from a newer develop "
+                      "commit that passes CI and Nightly Tests, by a Wednesday or Thursday restart or by the next "
+                      "scheduled cut.", str(stop))
 
     def test_existing_candidate_tag_is_not_created_again(self):
         self.repo.tags["build/v3.3.0-beta3"] = TIP
@@ -972,13 +1138,18 @@ class ContinueTest(SchedulerTestCase):
             "version": "3.3.0-beta3", "candidate_run_id": str(done["id"]), "operation": "promote",
         })])
 
-    def test_failed_candidate_alerts_that_a_rerun_resumes_or_the_next_cut_moves_on(self):
-        self.repo.tags["build/v3.3.0-beta3"] = TIP
-        failed = candidate("3.3.0-beta3", conclusion="failure")
-        stop = self.stopped(failed)
-        self.assertEqual((stop.stage, stop.link), ("candidate", failed["html_url"]))
-        self.assertIn("Re-run it if the failure is transient", str(stop))
-        self.assertIn("moves on to BETA 4", str(stop))
+    def test_failed_candidate_alerts_that_a_rerun_resumes_or_a_restart_or_the_next_cut_moves_on(self):
+        for number, unless in ((3, " (unless BETA 2 was also spent)"), (1, "")):
+            with self.subTest(number=number):
+                self.setUp()
+                self.repo.files[(TIP, STATE)] = state(number=number)
+                self.repo.tags[f"build/v3.3.0-beta{number}"] = TIP
+                failed = candidate(f"3.3.0-beta{number}", conclusion="failure")
+                stop = self.stopped(failed)
+                self.assertEqual((stop.stage, stop.link), ("candidate", failed["html_url"]))
+                self.assertIn("Re-run it if the failure is transient; otherwise, because build tags never move, "
+                              f"BETA {number + 1} comes from the next develop commit that passes CI and Nightly Tests, "
+                              f"by a Wednesday or Thursday restart{unless} or by the next Tuesday cut.", str(stop))
 
     def test_candidate_refused_before_its_tag_alerts_that_the_next_cut_retries_the_number(self):
         failed = candidate("3.3.0-beta3", conclusion="failure")
@@ -1037,6 +1208,258 @@ class ContinueTest(SchedulerTestCase):
         self.assertEqual((stop.stage, stop.link), ("lock", failed["html_url"]))
 
 
+NOW = datetime(2026, 11, 18, 7, 30, tzinfo=timezone.utc)
+WEDNESDAY = NOW.weekday()
+LONG_AGO = "2026-11-18T07:10:00Z"
+FIFTEEN_MINUTES_AGO = "2026-11-18T07:15:00Z"
+JUST_NOW = "2026-11-18T07:20:00Z"
+
+
+class RestartTest(SchedulerTestCase):
+    """After a passing Nightly Tests run: beta2 on release/3.3, beta1 published, develop at a newer tested commit."""
+
+    def setUp(self):
+        super().setUp()
+        self.public.published.add("v3.3.0-beta1")
+
+    def restart(self, weekday=WEDNESDAY, now=NOW):
+        self.scheduler = beta.Scheduler(self.repo, self.internal, self.public, self.packages,
+                                        bot_login=BOT, bot_email=BOT_EMAIL)
+        return self.scheduler.restart(weekday, now)
+
+    def skipped(self, **arguments):
+        with self.assertRaises(beta.Skip) as raised:
+            self.restart(**arguments)
+        self.assertNothingDone()
+        self.assertEqual(self.scheduler.notices, [])
+        return str(raised.exception)
+
+    def stopped(self, **arguments):
+        with self.assertRaises(beta.Stop) as raised:
+            self.restart(**arguments)
+        self.assertEqual(self.internal.dispatches, [])
+        return raised.exception
+
+    def spend_publication(self):
+        self.public.published.discard("v3.3.0-beta2")
+        failed = run(beta.PUBLICATION, branch="v3.3.0-beta2", conclusion="failure")
+        self.internal.add(run(beta.CI, sha=TIP), candidate(), run(beta.PROMOTION, event="workflow_dispatch"))
+        self.public.add(failed)
+        return failed
+
+    def spend_candidate(self, number=2):
+        self.repo.files[(TIP, STATE)] = state(number=number)
+        self.repo.tags[f"build/v3.3.0-beta{number}"] = TIP
+        self.public.published.discard(f"v3.3.0-beta{number}")
+        failed = candidate(f"3.3.0-beta{number}", conclusion="failure")
+        self.internal.add(run(beta.CI, sha=TIP), failed)
+        return failed
+
+    def untag(self, *runs):
+        del self.repo.tags["build/v3.3.0-beta2"]
+        self.public.published.discard("v3.3.0-beta2")
+        self.internal.add(*runs)
+
+    def assertCut(self, number, result):
+        self.assertEqual(self.repo.merge, (TIP, GREEN))
+        self.assertEqual(self.repo.written[STATE], beta.render_state("3.3.0", number).encode())
+        self.assertEqual(self.repo.pushed, [(CUT, LINE)])
+        self.assertEqual(self.internal.dispatches, [])
+        self.assertIn(f"3.3.0-beta{number}", result)
+
+    def test_a_spent_candidate_moves_on_to_the_next_number(self):
+        for number in (2, 1):
+            with self.subTest(number=number):
+                self.setUp()
+                if number == 1:
+                    self.public.published.clear()
+                self.spend_candidate(number)
+                self.assertCut(number + 1, self.restart())
+                self.assertEqual(self.repo.synced, [False])
+                # The continuation alerted on the failed candidate; moving on posts nothing more.
+                self.assertEqual(self.scheduler.notices, [])
+
+    def test_a_spend_at_publication_moves_on_and_posts_one_notice(self):
+        failed = self.spend_publication()
+        result = self.restart()
+        self.assertCut(3, result)
+        self.assertEqual(len(self.scheduler.notices), 1)
+        stage, reason, link = self.scheduler.notices[0]
+        self.assertEqual((stage, link), ("publication", failed["html_url"]))
+        self.assertIn("3.3.0-beta2 is spent", reason)
+        self.assertIn(result, reason)
+        self.assertIn("Do not re-run its public build", reason)
+
+    def test_a_published_beta_is_left_alone(self):
+        self.assertIn("`v3.3.0-beta2` is published; nothing failed", self.skipped())
+
+    def test_waits_quietly_when_develop_has_not_moved_or_no_commit_is_tested(self):
+        for failure, spend in (
+            ("spent candidate", self.spend_candidate),
+            # The notice of a number spent at publication goes out only when the restart moves on.
+            ("spent at publication", self.spend_publication),
+            ("failed cut CI", lambda: self.untag(run(beta.CI, sha=TIP, conclusion="failure"))),
+        ):
+            for name, setup in (
+                ("develop has not moved", lambda: self.repo.ancestors.add((GREEN, TIP))),
+                ("no tested commit", lambda: self.internal.workflow_runs.update({beta.NIGHTLY: []})),
+            ):
+                with self.subTest(failure=failure, name=name):
+                    self.setUp()
+                    spend()
+                    setup()
+                    self.assertIn("passed CI and Nightly Tests", self.skipped())
+
+    def test_unfinished_or_unspent_runs_are_left_as_they_are(self):
+        ci, promoted = run(beta.CI, sha=TIP), run(beta.PROMOTION, event="workflow_dispatch")
+        public = lambda **fields: run(beta.PUBLICATION, branch="v3.3.0-beta2", actor="KJ5HST", **fields)
+        for name, internal, published in (
+            ("CI the App started is running", (run(beta.CI, sha=TIP, status="in_progress"),), ()),
+            ("CI a person started is running", (run(beta.CI, sha=TIP, status="in_progress", actor="k1jt"),), ()),
+            ("a candidate a person started is running", (ci, candidate(status="in_progress", actor="k1jt")), ()),
+            ("a promotion a person started is running",
+             (ci, candidate(), run(beta.PROMOTION, event="workflow_dispatch", status="queued", actor="k1jt")), ()),
+            ("no candidate run", (ci,), ()),
+            ("a failed promotion", (ci, candidate(), run(beta.PROMOTION, event="workflow_dispatch",
+                                                         conclusion="failure")), ()),
+            ("no public run", (ci, candidate(), promoted), ()),
+            ("the public run is running", (ci, candidate(), promoted), (public(status="in_progress"),)),
+            ("the public run succeeded unpublished", (ci, candidate(), promoted), (public(),)),
+        ):
+            with self.subTest(name=name):
+                self.build()
+                self.public.published.clear()
+                self.public.published.add("v3.3.0-beta1")
+                self.internal.add(*internal)
+                self.public.add(*published)
+                self.assertIn("Nothing is spent, so the restart leaves 3.3.0-beta2 as it is", self.skipped())
+
+    def test_a_lost_continuation_alerts_and_a_healthy_gap_waits(self):
+        for name, ci, candidates, alerts in (
+            ("tip CI passed long ago, no candidate", run(beta.CI, sha=TIP, updated=LONG_AGO), (), True),
+            ("tip CI passed exactly 15 minutes ago", run(beta.CI, sha=TIP, updated=FIFTEEN_MINUTES_AGO), (), False),
+            ("tip CI passed just now", run(beta.CI, sha=TIP, updated=JUST_NOW), (), False),
+            ("a person started the line", run(beta.CI, sha=TIP, updated=LONG_AGO, actor="k1jt"), (), False),
+            ("candidate running", run(beta.CI, sha=TIP, updated=LONG_AGO), (candidate(status="in_progress"),), False),
+            ("candidate failed", run(beta.CI, sha=TIP, updated=LONG_AGO), (candidate(conclusion="failure"),), False),
+            ("no tip CI", None, (), False),
+        ):
+            with self.subTest(name=name):
+                self.build()
+                self.untag(*filter(None, (ci, *candidates)))
+                if alerts:
+                    stop = self.stopped()
+                    self.assertEqual((stop.stage, stop.link), ("ci", ci["html_url"]))
+                    self.assertIn("so its continuation was lost", str(stop))
+                    self.assertNothingDone()
+                else:
+                    self.assertIn("has not finished" if ci is None else "succeeded, so the restart leaves 3.3.0-beta2",
+                                  self.skipped())
+        with self.subTest(name="a person's later dispatched CI at the tip"):
+            self.build()
+            pushed = run(beta.CI, sha=TIP, updated=LONG_AGO)
+            self.untag(pushed, run(beta.CI, sha=TIP, event="workflow_dispatch", actor="k1jt",
+                                   created="2026-11-18T07:15:00Z", updated=JUST_NOW))
+            stop = self.stopped()
+            self.assertEqual((stop.stage, stop.link), ("ci", pushed["html_url"]))
+            self.assertIn("so its continuation was lost", str(stop))
+        for name, ran, alerts in (
+            ("candidate passed long ago, no promotion", candidate(updated=LONG_AGO), True),
+            ("candidate passed exactly 15 minutes ago", candidate(updated=FIFTEEN_MINUTES_AGO), False),
+            ("candidate passed just now", candidate(updated=JUST_NOW), False),
+            ("a person's candidate", candidate(updated=LONG_AGO, actor="k1jt"), False),
+        ):
+            with self.subTest(name=name):
+                self.build()
+                self.public.published.discard("v3.3.0-beta2")
+                self.internal.add(run(beta.CI, sha=TIP), ran)
+                if alerts:
+                    stop = self.stopped()
+                    self.assertEqual((stop.stage, stop.link), ("promotion", ran["html_url"]))
+                    self.assertIn("Promote Release Source was not dispatched", str(stop))
+                    self.assertNothingDone()
+                else:
+                    self.assertIn("Nothing is spent", self.skipped())
+
+    def test_stands_down_after_two_spent_numbers(self):
+        self.public.published.clear()
+        self.spend_candidate(3)
+        self.assertIn("stands down", self.skipped())
+        self.build()
+        self.public.published.add("v3.3.0-beta2")
+        self.spend_candidate(3)
+        self.assertCut(4, self.restart())
+
+    def test_acts_only_on_wednesday_and_thursday_and_reads_nothing_on_other_days(self):
+        for weekday in range(7):
+            with self.subTest(weekday=weekday):
+                self.setUp()
+                self.spend_candidate()
+                if weekday in (2, 3):
+                    self.assertCut(3, self.restart(weekday))
+                else:
+                    self.assertIn("only on Wednesday or Thursday", self.skipped(weekday=weekday))
+                    self.assertEqual((self.repo.synced, self.internal.queries, self.public.queries), ([], [], []))
+
+    def test_failed_cut_ci_is_cut_again_unless_the_line_holds_a_fix(self):
+        self.untag(run(beta.CI, sha=TIP, conclusion="failure"))
+        self.assertCut(2, self.restart())
+        self.build()
+        self.untag(run(beta.CI, sha=TIP, conclusion="failure"))
+        self.repo.missing.append(beta.Commit("4" * 40, MAINTAINER, ("main.cpp",)))
+        stop = self.stopped()
+        self.assertEqual(stop.stage, "fixes")
+        self.assertNothingDone()
+
+    def test_failed_ci_on_a_line_a_person_started_is_left_to_the_next_cut(self):
+        self.untag(run(beta.CI, sha=TIP, conclusion="failure", actor="k1jt"))
+        self.assertIn(f"CI for {LINE} at {TIP} concluded failure, but a person started the line, so the restart "
+                      "leaves 3.3.0-beta2 to the next scheduled cut.", self.skipped())
+        # A person's re-run of the App's failed CI keeps the App as the run's actor, so the line is cut again.
+        self.build()
+        self.untag(run(beta.CI, sha=TIP, conclusion="failure", triggering_actor="k1jt"))
+        self.assertCut(2, self.restart())
+        # A person's dispatched CI at the tip of a line the App cut leaves the line the App's.
+        self.build()
+        self.untag(run(beta.CI, sha=TIP, conclusion="failure"),
+                   run(beta.CI, sha=TIP, conclusion="failure", event="workflow_dispatch", actor="k1jt",
+                       created="2026-10-06T19:00:00Z"))
+        self.assertCut(2, self.restart())
+
+    def test_never_dispatches_a_candidate_before_the_tag(self):
+        for actor, updated in ((BOT, JUST_NOW), (BOT, LONG_AGO), ("k1jt", LONG_AGO)):
+            with self.subTest(actor=actor, updated=updated):
+                self.build()
+                self.untag(run(beta.CI, sha=TIP, actor=actor, updated=updated))
+                with self.assertRaises((beta.Skip, beta.Stop)):
+                    self.restart()
+                self.assertNothingDone()
+
+    def test_a_stop_while_acting_or_reading_the_line_alerts(self):
+        def failed_cut_ci():
+            # Later than spend_candidate()'s successful CI at the tip, so the failure is the newest run.
+            self.untag(run(beta.CI, sha=TIP, conclusion="failure", created="2026-10-06T19:00:00Z"))
+
+        for name, setup, stage in (
+            ("merge conflict", lambda: setattr(self.repo, "conflicts", ["CMakeLists.txt"]), "merge"),
+            ("merge conflict in a re-cut", lambda: (failed_cut_ci(), setattr(self.repo, "conflicts", ["a.cpp"])),
+             "merge"),
+            ("lock that fails validation", lambda: setattr(self.repo, "validation_error", "Stale recipe"), "lock"),
+            ("rejected push", lambda: setattr(self.repo, "push_error", "non-fast-forward"), "merge"),
+            ("two BETA lines", lambda: (self.repo.heads.update({"release/3.4": "6" * 40}),
+                                        self.repo.files.update({("6" * 40, STATE): state(version="3.4.0")})), "line"),
+            ("invalid BETA state", lambda: self.repo.files.update(
+                {(TIP, STATE): b"version=3.3.0\nchannel=BETA\nprerelease=2\nrevision=$Format:%H$\n"}), "line"),
+        ):
+            with self.subTest(name=name):
+                self.build()
+                self.public.published.add("v3.3.0-beta1")
+                self.spend_candidate()
+                setup()
+                self.assertEqual(self.stopped().stage, stage)
+                self.assertEqual(self.repo.pushed, [])
+
+
 class StepReportTest(unittest.TestCase):
     def outcome(self, action):
         return beta.run_step("cut", action, ["Beta line: release/3.3."])
@@ -1080,18 +1503,40 @@ class EntryPointTest(unittest.TestCase):
         self.assertEqual((proceed.bot_login, proceed.bot_email), (BOT, None))
         self.assertEqual(cut.public.repository, beta.PUBLIC_REPOSITORY)
 
-    def main(self, outcome, notices=()):
+    def test_restart_builds_the_full_scheduler_and_reads_the_utc_clock(self):
+        with patch.object(beta.GitHub, "user_id", lambda github, login: 41):
+            restart = beta.build_scheduler("restart", self.ENV, [])
+        self.assertEqual((restart.bot_login, restart.bot_email), (BOT, BOT_EMAIL))
+        self.assertEqual(restart.public.repository, beta.PUBLIC_REPOSITORY)
+        self.assertIsNotNone(restart.packages)
+        zones, calls = [], []
+
+        class Clock:
+            @staticmethod
+            def now(tz=None):
+                zones.append(tz)
+                return NOW
+
+        with patch.object(beta, "datetime", Clock):
+            status, posted, output, summary = self.main(
+                lambda weekday, now: calls.append((weekday, now)) or "Pushed c to release/3.3.", command="restart")
+        self.assertEqual(zones, [timezone.utc])
+        self.assertEqual(calls, [(WEDNESDAY, NOW)])
+        self.assertEqual((status, posted, output), (0, [], ""))
+        self.assertIn("## Scheduled beta: restart", summary)
+
+    def main(self, outcome, notices=(), command="cut"):
         posted = []
         with tempfile.TemporaryDirectory() as directory:
             output, summary = Path(directory, "output"), Path(directory, "summary")
             output.touch()
             env = {**self.ENV, "GITHUB_OUTPUT": str(output), "GITHUB_STEP_SUMMARY": str(summary)}
-            scheduler = SimpleNamespace(cut=outcome, notices=list(notices))
+            scheduler = SimpleNamespace(**{command: outcome}, notices=list(notices))
             with patch.dict(os.environ, env), \
                     patch.object(beta, "build_scheduler", lambda command, environ, notes: scheduler), \
                     patch.object(beta.Alerts, "post", lambda alerts, *alert: posted.append(alert)), \
                     patch("sys.stdout", io.StringIO()):
-                status = beta.main(["cut"])
+                status = beta.main([command])
             return status, posted, output.read_text(), summary.read_text()
 
     def test_a_stop_is_posted_once_and_recorded_so_the_fallback_alert_stays_silent(self):
@@ -1465,9 +1910,76 @@ class WorkflowWiringTest(unittest.TestCase):
             # Neither a manual dispatch nor always() may bypass the pause.
             self.assertRegex(jobs[acting[0]], r"\n    if: needs\.gate\.outputs\.enabled == 'true'\n")
 
-    def test_beta_cut_runs_weekly_on_tuesday_at_2000_utc_and_on_dispatch(self):
+    def test_beta_cut_runs_on_tuesday_at_2000_utc_on_dispatch_and_after_nightly_tests_on_develop(self):
         triggers = re.search(r"^on:\n((?:  .*\n)+)", self.CUT, re.M).group(1)
-        self.assertEqual(triggers, '  schedule:\n    - cron: "0 20 * * 2"\n  workflow_dispatch:\n')
+        self.assertEqual(triggers, '  schedule:\n    - cron: "0 20 * * 2"\n  workflow_dispatch:\n'
+                                   '  workflow_run:\n    workflows: ["Nightly Tests"]\n    types: [completed]\n'
+                                   '    branches: [develop]\n')
+        # workflow_run follows a workflow by its name; the scheduler reads the same workflow's runs by file.
+        followed = json.loads(re.search(r"^    workflows: (.+)$", triggers, re.M).group(1))
+        nightly = (ROOT / ".github/workflows" / beta.NIGHTLY).read_text()
+        self.assertEqual(followed, [re.search(r"^name: (.+)$", nightly, re.M).group(1)])
+
+    def gate_script(self):
+        script = []
+        for line in self.jobs(self.CUT)["gate"].split("        run: |\n", 1)[1].splitlines():
+            if line.startswith("          "):
+                script.append(line[10:])
+            elif line.strip():
+                break
+            else:
+                script.append("")
+        return "\n".join(script) + "\n"
+
+    def test_a_restart_passes_the_gate_only_after_a_passing_nightly_on_wednesday_or_thursday(self):
+        gate = self.jobs(self.CUT)["gate"]
+        self.assertIn("\n    if: github.event_name != 'workflow_run' || "
+                      "github.event.workflow_run.conclusion == 'success'\n", gate)
+        self.assertIn("          EVENT_NAME: ${{ github.event_name }}\n", gate)
+        # The weekday check exits before the BETA_AUTOMATION test, so that test stays as the pause test reads it.
+        self.assertIn(
+            '          if [ "$EVENT_NAME" = workflow_run ] && ! [[ "$(date -u +%u)" =~ ^[34]$ ]]; then\n'
+            '            echo "Nightly Tests passed on develop, but a restart acts only on Wednesday or Thursday '
+            '(UTC). Nothing was done." >> "$GITHUB_STEP_SUMMARY"\n'
+            '            exit 0\n'
+            '          fi\n'
+            '          if [ "$BETA_AUTOMATION" = enabled ]; then\n', gate)
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            (directory / "date").write_text('#!/bin/bash\n[ "$*" = "-u +%u" ] || exit 9\necho "$FAKE_UTC_DAY"\n')
+            (directory / "date").chmod(0o755)
+            (directory / "gate.sh").write_text(self.gate_script())
+            # The pause holds for every event and day: only BETA_AUTOMATION=enabled exactly passes the gate.
+            for automation in ("enabled", None, "disabled", "Enabled"):
+                for event in ("workflow_run", "schedule", "workflow_dispatch"):
+                    for day in range(1, 8):
+                        with self.subTest(automation=automation, event=event, day=day):
+                            output, summary = directory / "output", directory / "summary"
+                            output.write_text("")
+                            summary.write_text("")
+                            env = {"PATH": f"{directory}:/usr/bin:/bin", "FAKE_UTC_DAY": str(day),
+                                   "EVENT_NAME": event, "GITHUB_OUTPUT": str(output),
+                                   "GITHUB_STEP_SUMMARY": str(summary)}
+                            if automation is not None:
+                                env["BETA_AUTOMATION"] = automation
+                            result = subprocess.run(["bash", "-e", str(directory / "gate.sh")], env=env,
+                                                    capture_output=True, text=True)
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            reached = event != "workflow_run" or day in (3, 4)
+                            acts = reached and automation == "enabled"
+                            self.assertEqual(output.read_text(), "enabled=true\n" if acts else "")
+                            text = summary.read_text()
+                            self.assertEqual("only on Wednesday or Thursday" in text, not reached)
+                            paused = (f"Scheduled betas are paused: BETA_AUTOMATION is '{automation or '<unset>'}', "
+                                      "not 'enabled'. Nothing was done.")
+                            self.assertEqual(paused in text, reached and not acts)
+
+    def test_a_nightly_run_restarts_and_every_other_event_cuts(self):
+        cut = self.jobs(self.CUT)["cut"]
+        self.assertIn("\n    env:\n      COMMAND: ${{ github.event_name == 'workflow_run' && 'restart' || 'cut' }}\n",
+                      cut)
+        self.assertIn('        run: python3 .github/scripts/beta-scheduler.py "$COMMAND"\n', cut)
+        self.assertIn('        run: python3 .github/scripts/beta-scheduler.py alert --stage "$COMMAND" --reason ', cut)
 
     def test_cut_and_continuation_act_one_at_a_time(self):
         for workflow in (self.CUT, self.CONTINUE):
