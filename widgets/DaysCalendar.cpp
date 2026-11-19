@@ -53,9 +53,16 @@ namespace DaysCalendar
     auto grid = new QGridLayout;
     grid->setSpacing (2);
     QLocale const english {QLocale::English};
+    // Day names stay English, but the week starts where this machine's locale
+    // says: Sunday in the US, Monday in much of Europe. Qt numbers days
+    // 1 (Monday) to 7 (Sunday).
+    int const week_start = QLocale::system ().firstDayOfWeek ();
+    auto const day_number = [week_start] (int column) {
+      return (week_start - 1 + column) % 7 + 1;
+    };
     for (int column = 0; column < 7; ++column)
       {
-        auto name = new QLabel {english.dayName (column + 1, QLocale::ShortFormat).left (2), popup};
+        auto name = new QLabel {english.dayName (day_number (column), QLocale::ShortFormat).left (2), popup};
         name->setAlignment (Qt::AlignCenter);
         grid->addWidget (name, 0, column);
       }
@@ -90,7 +97,7 @@ namespace DaysCalendar
 
     auto refresh = [=] {
       title->setText (english.toString (*month, "MMMM yyyy"));
-      auto const first = month->addDays (1 - month->dayOfWeek ());
+      auto const first = month->addDays (-((month->dayOfWeek () - week_start + 7) % 7));
       for (int i = 0; i < cells.size (); ++i)
         {
           auto const day = first.addDays (i);

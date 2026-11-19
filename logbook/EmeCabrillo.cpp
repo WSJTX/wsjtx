@@ -433,6 +433,7 @@ namespace EmeCabrillo
             qso.grid = known.value (call);
             qso.filled = true;
           }
+        qso.report = ascii (record.value ("RST_RCVD").trimmed ()).simplified ();
         qso.op = record.value ("OPERATOR").trimmed ().toUpper ();
         auto const weekend_group = group_of_day.value (date);
         if (!weekend_group.isEmpty () && band_group (band) != weekend_group)
@@ -442,20 +443,29 @@ namespace EmeCabrillo
           }
         if (qso.grid.isEmpty ())
           {
+            // In the entry even so: ARRL fill the grid in, which CW operators
+            // rely on, and a QSO missing from our log counts against the
+            // station that logged it. It scores a QSO but no multiplier, and
+            // cannot be checked for repeats without a grid.
             result.no_grid << qso;
+            if (qso.report.isEmpty ()) result.no_grid_or_report << qso;
             result.need_grid << qso;
+            result.qsos << qso;
             continue;
           }
         auto const once = band + '|' + call + '|' + qso.grid;
         if (seen.contains (once))
           {
+            // A repeat scores nothing, but it stays in the entry: the checker
+            // cross-matches logs, and a QSO missing from ours counts against
+            // the station that logged it.
             qso.dupe = true;
             result.dupes << qso;
-            // still listed for its grid: the filled or typed one may be wrong
-            if (qso.filled || qso.entered || !qso.grid2.isEmpty ()) result.need_grid << qso;
-            continue;
           }
-        seen << once;
+        else
+          {
+            seen << once;
+          }
         // also when the logs disagree about the grid: the user settles it
         if (qso.filled || qso.entered || !qso.grid2.isEmpty ()) result.need_grid << qso;
         result.qsos << qso;
@@ -472,10 +482,13 @@ namespace EmeCabrillo
     Score result;
     QHash<QString, QSet<QString>> grids;
     QHash<QString, int> count;
+    int scored = 0;
     for (auto const& qso : qsos)
       {
-        grids[qso.band] << qso.grid;
+        if (qso.dupe) continue;         // in the entry, worth nothing
+        if (!qso.grid.isEmpty ()) grids[qso.band] << qso.grid;   // no grid, no multiplier
         ++count[qso.band];
+        ++scored;
       }
     for (auto i = grids.cbegin (); i != grids.cend (); ++i)
       {
@@ -485,7 +498,7 @@ namespace EmeCabrillo
     std::sort (result.bands.begin (), result.bands.end (), [] (BandScore const& a, BandScore const& b) {
         return band_order (a.band) < band_order (b.band);
       });
-    result.points = 100 * qsos.size ();
+    result.points = 100 * scored;
     result.claimed = qint64 (result.points) * result.multipliers;
     return result;
   }
@@ -539,7 +552,8 @@ namespace EmeCabrillo
       {
         lines << QString {"QSO: %1 %2 %3 %4 %5 %6 %7 %8"}
           .arg (qso.band, 5).arg (qso.mode).arg (qso.date.toString (Qt::ISODate)).arg (qso.time)
-          .arg (qso.my_call, -13).arg (qso.my_grid).arg (qso.call, -13).arg (qso.grid);
+          .arg (qso.my_call, -13).arg (qso.my_grid).arg (qso.call, -13)
+          .arg (qso.grid.isEmpty () ? qso.report : qso.grid);
       }
     lines << "END-OF-LOG:";
     return ascii (lines.join ('\n') + '\n');    // Cabrillo is plain ASCII
