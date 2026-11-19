@@ -1582,6 +1582,49 @@ private slots:
     QCOMPARE (rig.state ().split (), desired);
   }
 
+  void split_disconnect_fails_frequency_request_data ()
+  {
+    QTest::addColumn<bool> ("desired");
+    QTest::newRow ("enable") << true;
+    QTest::newRow ("disable") << false;
+  }
+
+  void split_disconnect_fails_frequency_request ()
+  {
+    using namespace RigFrequency;
+    QFETCH (bool, desired);
+    RigHarness harness;
+    QVERIFY (harness.listen ());
+    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    rig.split_ = !desired;
+    rig.update_split (!desired);
+    QSignalSpy results {&rig, &Transceiver::frequency_result};
+    bool query_seen {false};
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler ([&harness, &query_seen] (QString const& verb, QStringList const& args, int) {
+      if (verb != "split_enable") return false;
+      if (args == QStringList {"0"}) {
+        query_seen = true;
+        harness.server ().close_client ();
+      }
+      return true;
+    });
+    auto requested = state_from (harness);
+    auto const target = desired ? Frequency {14076000} : Frequency {0};
+    requested.tx_frequency (target);
+    requested.split (desired);
+    requested.frequency_request ({10, 503, Path::Tx, target});
+    harness.set_now (requested, 32);
+    QVERIFY (query_seen);
+    QVERIFY (!rig.inConnected);
+    QVERIFY (!results.isEmpty ());
+    auto const result = qvariant_cast<Result> (results.last ().at (0));
+    QCOMPARE (result.request.id, quint64 {503});
+    QCOMPARE (result.outcome, Outcome::Failed);
+    QCOMPARE (harness.failure_count (), 1);
+  }
+
   void silent_split_confirmation_prevents_ptt ()
   {
     RigHarness harness;

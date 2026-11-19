@@ -1274,6 +1274,7 @@ void TCITransceiver::send_split (bool enabled, bool indexed)
 
 bool TCITransceiver::split_preparation_required () const
 {
+  // A matching report can precede our own outstanding opposite-state command.
   return requested_split_ != split_
     || (last_sent_split_ && *last_sent_split_ != requested_split_);
 }
@@ -1582,7 +1583,10 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
         auto const session = split_session_;
         auto const result = rig_split ();
         if (result == SplitWait::Aborted) {
-          if (session == split_session_ && !error_.isEmpty ()) throw error {error_};
+          if (session == split_session_) {
+            if (!error_.isEmpty ()) throw error {error_};
+            if (tci_Ready && !inConnected) throw error {tr ("TCI connection closed")};
+          }
           return;
         }
         if (result == SplitWait::Reentered) {defer_frequency (RigFrequency::Path::Tx); return;}
@@ -1631,7 +1635,10 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
         auto const session = split_session_;
         auto const result = rig_split ();
         if (result == SplitWait::Aborted) {
-          if (session == split_session_ && !error_.isEmpty ()) throw error {error_};
+          if (session == split_session_) {
+            if (!error_.isEmpty ()) throw error {error_};
+            if (tci_Ready && !inConnected) throw error {tr ("TCI connection closed")};
+          }
           return;
         }
         if (result == SplitWait::Reentered) {defer_frequency (RigFrequency::Path::Tx); return;}
