@@ -3,6 +3,9 @@
 #include <QTemporaryDir>
 #include <QSemaphore>
 #include <atomic>
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/trivial.hpp>
 #include "OperatingFrequency.hpp"
 #include "TciSimServer.hpp"
 #include "TciSimScript.hpp"
@@ -2356,6 +2359,8 @@ private slots:
 
 int main (int argc, char ** argv)
 {
+  if (!qEnvironmentVariableIsSet ("WSJTX_TEST_RIG_TRACE"))
+    boost::log::core::get ()->set_filter (boost::log::trivial::severity >= boost::log::trivial::warning);
   RadioTestApplication application {argc, argv};
   // The platform is loaded; loopback CAT and synthetic audio need no device plugins.
   QCoreApplication::setLibraryPaths ({});
