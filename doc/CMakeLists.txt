@@ -80,6 +80,7 @@ set (UG_IMGS
   images/audiostep1.png
   images/audiostep2.png
   images/auto-seq.png
+  images/band_hopping.png
   images/bandbutton1.png
   images/bandbutton2.png
   images/bandbutton3.png
@@ -98,9 +99,11 @@ set (UG_IMGS
   images/Echo_1296.png
   images/Echo_controls.png
   images/echo-graph-controls.png
+  images/eme_cabrillo_dialog.png
   images/EME_Deep_0.png
   images/EME_Deep_1.png
   images/EME_Deep_2.png
+  images/fast-graph-controls.png
   images/file-menu.png
   images/filters1.png
   images/filters2.png
@@ -111,8 +114,10 @@ set (UG_IMGS
   images/FreqCal.png
   images/FreqCal_Graph.png
   images/FreqCal_Results.png
+  images/FST4-1.png
   images/FST4_center.png
   images/FST4_Decoding_Limits.png
+  images/FST4W-1.png
   images/FST4W_RoundRobin.png
   images/ft4_decodes.png
   images/ft4_waterfall.png
@@ -128,9 +133,13 @@ set (UG_IMGS
   images/letter-s.png
   images/log-qso.png
   images/logging-options.png
+  images/LoTW_TLS_error.png
   images/MacAppMenu.png
   images/main-ui.png
   images/main-ui-controls.png
+  images/Main_Window_es.png
+  images/Main_Window_ja.png
+  images/map65_icon.png
   images/mc1.png
   images/mc2.png
   images/mc3.png
@@ -144,15 +153,18 @@ set (UG_IMGS
   images/MSK144.png
   images/new-msg-box.png
   images/psk-reporter.png
+  images/psk-reporter_2.png
   images/Q65-60A_EME_6m.png
   images/Q65_6m_ionoscatter.png
   images/qmap_all.png
+  images/qmap_icon.png
   images/r3666-config-screen-80.png
   images/r3666-main-ui-80.png
   images/r4148-txmac-ui.png
   images/RadioTab.png
   images/reporting.png
   images/rig_tuning.png
+  images/Rx_pct_MSK144.png
   images/save-menu.png
   images/searchcalls.png
   images/settings-advanced.png
@@ -182,6 +194,7 @@ set (UG_IMGS
   images/wgfeatures1.png
   images/wgfeatures2.png
   images/wide-graph-controls.png
+  images/wsjtx_icon.png
   images/WSPR_1a.png
   images/WSPR_2.png
   images/WSPR_WideGraphControls.png
