@@ -1051,7 +1051,8 @@ private:
   int voice_;
 
   TransceiverFactory::ParameterPack rig_params_;
-  TransceiverFactory::ParameterPack saved_rig_params_;
+  TransceiverFactory::ParameterPack presented_rig_params_;
+  TransceiverFactory::ParameterPack opened_rig_params_;
   TransceiverFactory::Capabilities::PortType last_port_type_;
   bool rig_is_dummy_;
   RigFrequency::Ranges rig_tuning_ranges_;
@@ -3647,6 +3648,7 @@ void Configuration::impl::initialize_models (QList<QSerialPortInfo> const * port
   normalize_rig_selections (true, ports);
   initializing_models_ = false;
   set_rig_invariants ();
+  presented_rig_params_ = gather_rig_data ();
 }
 
 void Configuration::impl::done (int r)
@@ -4780,9 +4782,6 @@ int Configuration::impl::exec ()
   next_macros_.setStringList (macros_.stringList ());
 
   have_rig_ = rig_active_;	// record that we started with a rig open
-  saved_rig_params_ = rig_params_; // used to detect changes that
-                                   // require the Transceiver to be
-                                   // re-opened
   rig_changed_ = false;
 
   // pick up USB serial adapters plugged in since the dialog was last shown
@@ -4857,22 +4856,16 @@ void Configuration::impl::accept ()
       return;			// not accepting
     }
 
-  // extract all rig related configuration parameters into temporary
-  // structure for checking if the rig needs re-opening without
-  // actually updating our live state
-  auto temp_rig_params = gather_rig_data ();
-
-  // open_rig() uses values from models so we use it to validate the
-  // Transceiver settings before agreeing to accept the configuration
-  if (temp_rig_params != rig_params_
-      && tx_inhibit_blocks_rig_restart (temp_rig_params, false))
+  auto const temp_rig_params = gather_rig_data ();
+  // Port and polling controls can display defaults absent from the saved profile.
+  if (temp_rig_params != (rig_active_ ? opened_rig_params_ : presented_rig_params_))
     {
-      warn_tx_inhibit_restart_blocked ();
-      return;
-    }
-  if (temp_rig_params != rig_params_ && !open_rig ())
-    {
-      return;			// not accepting
+      if (tx_inhibit_blocks_rig_restart (temp_rig_params, false))
+        {
+          warn_tx_inhibit_restart_blocked ();
+          return;
+        }
+      if (!open_rig ()) return;
     }
 
   QDialog::accept();            // do this before accessing custom
@@ -7585,6 +7578,7 @@ bool Configuration::impl::open_rig (bool force)
           LOG_TRACE ("emitting startup_transceiver");
           Q_EMIT start_transceiver (++transceiver_command_number_); // start rig on its thread
           if(is_tci_) rig_params_ = gather_rig_data ();
+          opened_rig_params_ = rig_data;
           result = true;
         }
       catch (std::exception const& e)
@@ -7592,7 +7586,6 @@ bool Configuration::impl::open_rig (bool force)
           handle_transceiver_failure (e.what ());
         }
 
-      saved_rig_params_ = rig_data;
       rig_changed_ = true;
     }
   else
@@ -7605,7 +7598,7 @@ bool Configuration::impl::open_rig (bool force)
 bool Configuration::impl::rig_restart_required (
   TransceiverFactory::ParameterPack const& rig_data, bool force) const
 {
-  return force || !rig_active_ || rig_data != saved_rig_params_;
+  return force || !rig_active_ || rig_data != opened_rig_params_;
 }
 
 bool Configuration::impl::tx_inhibit_blocks_rig_restart (

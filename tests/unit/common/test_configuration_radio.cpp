@@ -236,7 +236,7 @@ class TestConfigurationRadio final : public QObject
     d.data_mode_ = Configuration::data_mode_data;
     ui ().mode_data_radio_button->setChecked (true);
     d.show ();
-    d.rig_params_ = d.saved_rig_params_ = d.gather_rig_data ();
+    d.rig_params_ = d.opened_rig_params_ = d.gather_rig_data ();
     d.rig_active_ = d.have_rig_ = true;
     d.rig_changed_ = d.rig_is_dummy_ = false;
     Transceiver::TransceiverState observed;
@@ -374,6 +374,58 @@ private slots:
     configuration_.reset ();
     session_.reset ();
     settings_.reset ();
+  }
+
+  void acceptingUnrelatedSettingsPreservesRigConnection_data ()
+  {
+    QTest::addColumn<bool> ("online");
+    QTest::newRow ("offline") << false;
+    QTest::newRow ("online") << true;
+  }
+
+  void acceptingUnrelatedSettingsPreservesRigConnection ()
+  {
+    QFETCH (bool, online);
+    auto& d = dialog ();
+    d.rig_params_.rig_name = TransceiverFactory::basic_transceiver_name_;
+    d.rig_params_.ptt_type = TransceiverFactory::PTT_method_VOX;
+    d.rig_params_.poll_interval = 0;
+    d.initialize_models ();
+    QCOMPARE (d.gather_rig_data ().poll_interval, 1);
+    if (online)
+      {
+        QVERIFY (configuration_->transceiver_online ());
+        QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+      }
+    auto const generation = configuration_->frequency_generation ();
+    QTimer::singleShot (0, &d, [&] {
+      ui ().best_sp_new_dxcc_check_box->setChecked (!configuration_->best_sp_new_dxcc ());
+      d.accept ();
+    });
+    auto const previous = configuration_->best_sp_new_dxcc ();
+    QCOMPARE (configuration_->exec (), int (QDialog::Accepted));
+    QCOMPARE (configuration_->best_sp_new_dxcc (), !previous);
+    QCOMPARE (configuration_->is_transceiver_online (), online);
+    QCOMPARE (configuration_->frequency_generation (), generation);
+
+    // The main window requests an online rig after Settings OK.
+    QVERIFY (configuration_->transceiver_online ());
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+    if (online) QCOMPARE (configuration_->frequency_generation (), generation);
+    else QVERIFY (configuration_->frequency_generation () != generation);
+  }
+
+  void acceptingChangedRigOpensSelectedRig ()
+  {
+    auto& d = dialog ();
+    QVERIFY (!configuration_->is_transceiver_online ());
+    ui ().rig_combo_box->setCurrentText (TransceiverFactory::basic_transceiver_name_);
+    ui ().PTT_VOX_radio_button->setChecked (true);
+    d.accept ();
+    QCOMPARE (d.result (), int (QDialog::Accepted));
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+    QVERIFY (configuration_->is_dummy_rig ());
+    QCOMPARE (settings_->value ("Configuration/Rig").toString (), QString {"None"});
   }
 
   void baudRatePresetsRemainCanonicalAcrossTranslations ()
