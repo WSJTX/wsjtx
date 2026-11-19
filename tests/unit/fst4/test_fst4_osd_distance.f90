@@ -1,10 +1,11 @@
 program test_fst4_osd_distance
   implicit none
-  external :: encode240_101, osd240_101
+  external :: encode240_101, encode240_74, osd240_101, osd240_74
   integer :: failures
 
   failures=0
   call check_distance(101,91,encode240_101,osd240_101)
+  call check_distance(74,66,encode240_74,osd240_74)
   if (failures /= 0) error stop 'incorrect OSD candidate distance'
 
 contains
