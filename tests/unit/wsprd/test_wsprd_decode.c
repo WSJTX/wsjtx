@@ -27,6 +27,8 @@
  *   test_wsprd_decode unencodable_text
  *     A decode whose printed text no WSPR encoder makes (call "K1") is not
  *     printed, and a weaker signal after it still decodes.
+ *   test_wsprd_decode osd_distance
+ *     Check the distance and ranking of WSPR codewords after a missed pivot.
  *   test_wsprd_decode decoder_api
  *     wspr_decoder's knowledge import checks, its status codes, no reception
  *     after a failed prepare, and the 12 kHz transform planned and destroyed
@@ -47,12 +49,16 @@
 #define change_dir(path) chdir(path)
 #endif
 
+#include <float.h>
 #include <math.h>
 
 #include "lib/wsprd/wsprd_decode.h"
 #include "lib/wsprd/wspr_decoder.h"
 #include "lib/wsprd/nhash.h"
+#include "lib/wsprd/fano.h"
 #include "lib/wsprd/wsprsim_utils.h"
+
+extern void osdwspr_(float [], unsigned char [], int *, unsigned char [], int *, float *);
 
 static int failures = 0;
 
@@ -623,6 +629,46 @@ static int row_decoder_api(void)
     return 0;
 }
 
+static int row_osd_distance(void)
+{
+    enum { symbols = 162 };
+    unsigned char message[11] = {0}, challenger[sizeof message * 16];
+    unsigned char apmask[symbols] = {0}, cw[symbols];
+    int depth = 1;
+
+    /* The last message bit first affects symbols 99 and 100. Ranking the
+       first 98 highest leaves it without a pivot in the first 70 columns.
+       A single input flip still generates its convolutional codeword. */
+    message[6] = 0x40;
+    encode(challenger, message, sizeof message);
+    int const prefix_weights[] = {2, 127};
+    for( int profile = 0; profile < 2; profile++ ) {
+        int weight = prefix_weights[profile], nhard;
+        float received[symbols], reported;
+        for( int i = 0; i < symbols; i++ )
+            received[i] = challenger[i] ? 1 : -(i < 98 ? weight : 1);
+        received[symbols-1] *= -1;
+
+        osdwspr_(received, apmask, &depth, cw, &nhard, &reported);
+        int actual = 0, hard = 0;
+        for( int i = 0; i < symbols; i++ ) {
+            if( cw[i] != (received[i] >= 0) ) {
+                actual += (int)fabsf(received[i]);
+                hard++;
+            }
+        }
+        /* The challenger differs at one unit-weight symbol. Allow for float
+           normalization by 127 and one addition per hard disagreement. */
+        double expected = actual / 127.0;
+        double tolerance = (hard + 1) * FLT_EPSILON * expected;
+        CHECK(actual <= 1, "prefix weight %d: winner costs %d, challenger costs 1", weight, actual);
+        CHECK(fabs(reported - expected) <= tolerance && nhard == hard,
+              "prefix weight %d: reported distance %g and %d errors, expected %d/127 and %d",
+              weight, reported, nhard, actual, hard);
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int rc = 2;
@@ -640,12 +686,14 @@ int main(int argc, char **argv)
         rc = row_type2_grid(argv[2]);
     } else if( argc == 2 && strcmp(argv[1], "unencodable_text") == 0 ) {
         rc = row_unencodable_text();
+    } else if( argc == 2 && strcmp(argv[1], "osd_distance") == 0 ) {
+        rc = row_osd_distance();
     } else if( argc == 2 && strcmp(argv[1], "decoder_api") == 0 ) {
         rc = row_decoder_api();
     } else {
         fprintf(stderr, "usage: %s repeat <wav> | hash_roundtrip <wav> <dir> | run_file <wav> <dir>"
                 " | short_name <wav> <dir> | unresolved_type3 | type2_grid <dir>"
-                " | unencodable_text | decoder_api\n", argv[0]);
+                " | unencodable_text | osd_distance | decoder_api\n", argv[0]);
         return 2;
     }
     if( rc == 0 && failures == 0 ) {

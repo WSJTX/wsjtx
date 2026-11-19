@@ -38,7 +38,8 @@ add_test (NAME test_wsprd_decode_unresolved_type3 COMMAND test_wsprd_decode unre
 add_test (NAME test_wsprd_decode_type2_grid
   COMMAND test_wsprd_decode type2_grid "${wsprd_decode_scratch}")
 add_test (NAME test_wsprd_decode_unencodable_text COMMAND test_wsprd_decode unencodable_text)
+add_test (NAME test_wsprd_decode_osd_distance COMMAND test_wsprd_decode osd_distance)
 add_test (NAME test_wsprd_decode_decoder_api COMMAND test_wsprd_decode decoder_api)
 list (APPEND wsprd_decode_tests test_wsprd_decode_unresolved_type3 test_wsprd_decode_type2_grid
-  test_wsprd_decode_unencodable_text test_wsprd_decode_decoder_api)
+  test_wsprd_decode_unencodable_text test_wsprd_decode_osd_distance test_wsprd_decode_decoder_api)
 set_tests_properties (${wsprd_decode_tests} PROPERTIES LABELS "decoder;wsprd" TIMEOUT 120)

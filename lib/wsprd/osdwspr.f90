@@ -16,7 +16,7 @@ integer indices(N),nxor(N)
 integer*1 cw(N),ce(N),c0(N),hdec(N)
 integer indx(N),ndeep,nhardmin
 real rx(N),absrx(N),dmin
-logical first,reset
+logical first,reset,systematic
 data first/.true./
 data gg/1,1,0,1,0,1,0,0,1,0,0,0,1,1,0,0,1,0,1,0,0,1,0,1,1,1,0,1,1,0,0,0, &
         0,1,0,0,0,0,0,0,1,0,0,1,1,1,1,0,0,0,1,0,0,1,0,0,1,0,1,1,1,1,1,1/
@@ -51,11 +51,10 @@ enddo
 
 ! Do gaussian elimination to create a generator matrix with the most reliable
 ! received bits in positions 1:K in order of decreasing reliability (more or less). 
-do id=1,K ! diagonal element indices 
+systematic=.true.
+pivot_rows: do id=1,K
   do icol=id,K+20  ! The 20 is ad hoc - beware
-    iflag=0
     if( genmrb(id,icol) .eq. 1 ) then
-      iflag=1
       if( icol .ne. id ) then ! reorder column
         temp(1:K)=genmrb(1:K,id)
         genmrb(1:K,id)=genmrb(1:K,icol)
@@ -69,10 +68,11 @@ do id=1,K ! diagonal element indices
           genmrb(ii,1:N)=ieor(genmrb(ii,1:N),genmrb(id,1:N))
         endif
       enddo
-      exit
+      cycle pivot_rows
     endif
   enddo
-enddo
+  systematic=.false.
+enddo pivot_rows
 
 g2=transpose(genmrb)
 
@@ -167,7 +167,9 @@ do iorder=1,nord
          if(nd1Kpt .le. ntheta) then
             call mrbencode(me,ce,g2,N,K)
             nxor=ieor(ce,hdec)
-            if(n1.eq.iflag) then
+            if(.not.systematic) then
+               dd=sum(nxor*absrx)
+            elseif(n1.eq.iflag) then
                dd=d1+sum(e2sub*absrx(K+1:N))
             else
                dd=d1+ieor(ce(n1),hdec(n1))*absrx(n1)+sum(e2*absrx(K+1:N))
