@@ -69,7 +69,7 @@ Each tarball's `README.txt` gives, for its release and platform, the system the 
 
 ## Directories
 
-- Give each running codec its own `-a`, `-t` and working directory. Keep `-a` across runs: the codec reads its FFTW wisdom from there at the start and saves it there, and MSK144's training, the reference spectrum, `refspec.dat`, and WSPR's hash table, `hashtable.txt`, which resolves type 3 calls from session to session, go there too. The decoders' temporary files go to `-t`; JT4 can write `fort.77` to its working directory, and a file named `rx_messages.txt` there is a test hook ([Directories and files](interface.md#directories-and-files)).
+- Give each running codec its own `-a` and working directory (and `-t`, which the stream leaves unused). Keep `-a` across runs: the codec reads its FFTW wisdom from there at the start and saves it there, and MSK144's training, the reference spectrum, `refspec.dat`, and WSPR's hash table, `hashtable.txt`, which resolves type 3 calls from session to session, go there too. On the stream the codec writes none of WSJT-X's result files (`decoded.txt` and the side files): its lines carry them, and the files are yours. A file named `rx_messages.txt` in the working directory is a test hook ([Directories and files](interface.md#directories-and-files)).
 - The codec only reads `-r`, so codecs can share it. The codec tarball carries `ALLCALL7.TXT`, which the multithreaded FT8 decoder reads from `-r`: point `-r` at the tarball's directory, or copy the file to yours.
 - `CALL3.TXT`, which JT4 and JT65 read from `-a`, is the client's to supply. The source has one at its top level.
 

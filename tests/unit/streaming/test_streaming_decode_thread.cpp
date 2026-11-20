@@ -1576,6 +1576,415 @@ private slots:
     QVERIFY2 (messagesOf (QByteArrayList {first, lines.end ()}).contains (EngineMessage), qPrintable (codec.report ()));
   }
 
+  // What drops a waiting final, as the GUI drops it (its
+  // cancelPendingFt8Decode): "cancel", its Stop or a half-duplex
+  // transmission's start; "dial change", any change of its receive
+  // frequency, even one changed back before the decoder frees; not "same
+  // dial". The early pass is held while the rest of the period, then the
+  // input, comes, so the final waits.
+  void waitingFinalDroppedAsTheGui_data ()
+  {
+    QTest::addColumn<QString> ("input");
+    for (auto const name : {"cancel", "dial change", "dial change and back", "same dial"})
+      QTest::newRow (name) << QString {name};
+  }
+
+  void waitingFinalDroppedAsTheGui ()
+  {
+    QFETCH (QString, input);
+    auto const ft8 = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
+    QVERIFY2 (!ft8.isEmpty (), "no recording");
+    QJsonObject const live {{"mode", "FT8"}, {"depth", 3}, {"multithreaded_ft8", true}, {"ft8_threads", 2},
+                            {"ft8_cycles", 1}, {"ft8_decoder_start", 1}, {"live_audio", true},
+                            {"utc", utcOf (0)}, {"dial_frequency", 14074000}};
+    auto const after = "cancel" == input ? control ({{"t", "cancel"}})
+      : "dial change and back" == input
+      ? configure ({{"dial_frequency", 14075000}}) + configure ({{"dial_frequency", 14074000}})
+      : configure ({{"dial_frequency", "dial change" == input ? 14075000 : 14074000}});
+    Options options;
+    options.environment << "WSJT_CODEC_TEST_HOLD_PASS=41:1500";
+    Codec codec {options};
+    QVERIFY2 (codec.started, qPrintable (codec.failure));
+    codec.write (sessionHeader () + configure (live) + frame (0x01u, ft8.left (2)));
+    codec.waitUntil (Ft8PeriodSamples / 12 + DueMarginMs);
+    codec.write (frame (0x01u, samples (ft8, 1, 41 * HsymSamples))
+                 + frame (0x01u, samples (ft8, 41 * HsymSamples, Ft8PeriodSamples)) + after);
+    QVERIFY2 (codec.waitForLine (outType ("decode_finished"), waitMs (), "the final"), qPrintable (codec.report ()));
+    codec.write (marker ());
+    QVERIFY2 (codec.waitForLine (outHas ("configure_parse_error"), waitMs (), "the marker"), qPrintable (codec.report ()));
+    QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
+    QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+    QStringList const deferral {"pass 41 F", "skip 46 early busy", "defer 50"};
+    auto const finalDecodes = count (codec.lines, [] (Line const& line) {
+      return outType ("decode") (line) && 50 == json (line.text).value ("pass").toInt ();
+    });
+    QCOMPARE (count (codec.lines, outType ("decode_finished")), 1);
+    if ("same dial" == input)
+      {
+        QCOMPARE (decisions (codec.lines), deferral + QStringList {"pass 50 T"});
+        QCOMPARE (count (codec.lines, outHas ("\"cancelled\"")), 0);
+        QVERIFY2 (finalDecodes > 0, qPrintable (codec.report ()));
+      }
+    else
+      {
+        QCOMPARE (decisions (codec.lines), deferral + QStringList {"skip 50 final cancelled"});
+        QCOMPARE (count (codec.lines, outHas ("\"cancelled\"")), 1);
+        QCOMPARE (finalDecodes, 0);
+      }
+  }
+
+  // A running decode's lines, as the GUI treats an obsolete decode's: kept
+  // after "cancel", its Stop or a half-duplex transmission's start; dropped
+  // after "dial change", from the first line after it, latched, and the
+  // decode abandons the period kept to decode again, so a decode again then
+  // decodes the period in flight; kept after "same dial". FT4's one pass a
+  // period is held; period 0 decodes, then the input comes during period 1's.
+  void runningDecodeLinesAsTheGui_data ()
+  {
+    QTest::addColumn<QString> ("input");
+    for (auto const name : {"cancel", "dial change", "same dial"}) QTest::newRow (name) << QString {name};
+  }
+
+  void runningDecodeLinesAsTheGui ()
+  {
+    QFETCH (QString, input);
+    constexpr int ft4Period = 90000;
+    auto const ft4 = period (wavPcm (inSamples ("FT4/000000_000002.wav")), ft4Period);
+    QVERIFY2 (!ft4.isEmpty (), "no recording");
+    QJsonObject const live {{"mode", "FT4"}, {"depth", 3}, {"live_audio", true}, {"utc", "00:00:00"},
+                            {"dial_frequency", 14080000}};
+    auto const after = "cancel" == input ? control ({{"t", "cancel"}})
+      : configure ({{"dial_frequency", "dial change" == input ? 14080500 : 14080000}});
+    Options options;
+    options.environment << "WSJT_CODEC_TEST_HOLD_PASS=21:1500";
+    Codec codec {options};
+    QVERIFY2 (codec.started, qPrintable (codec.failure));
+    codec.write (sessionHeader () + configure (live) + frame (0x01u, ft4.left (2)));
+    codec.waitUntil (2 * ft4Period / 12 + DueMarginMs);
+    codec.write (frame (0x01u, samples (ft4, 1, ft4Period)));
+    QVERIFY2 (codec.waitForLine (outType ("decode_finished"), waitMs (), "period 0"), qPrintable (codec.report ()));
+    codec.write (configure ({{"utc", "00:00:07"}}) + frame (0x01u, ft4));
+    QVERIFY2 (codec.waitForCount (passLine (21), 2, waitMs (), "period 1's pass"), qPrintable (codec.report ()));
+    codec.write (after);
+    QVERIFY2 (codec.waitForCount (outType ("decode_finished"), 2, waitMs (), "period 1"), qPrintable (codec.report ()));
+    // Decode again, 3 s into period 2: period 1 again, or after a change,
+    // which left no period to decode again, the period in flight.
+    codec.write (configure ({{"utc", "00:00:15"}}) + frame (0x01u, ft4.left (2 * 36000))
+                 + configure ({{"nagain_flag", true}}) + marker ());
+    QVERIFY2 (codec.waitForLine (outHas ("configure_parse_error"), waitMs (), "the marker"), qPrintable (codec.report ()));
+    QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
+    QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+    auto const of = [&] (QString const& label) {
+      return count (codec.lines, [label] (Line const& line) {
+        return outType ("decode") (line) && json (line.text).value ("time").toString () == label;
+      });
+    };
+    QVERIFY2 (of ("000000") > 0, qPrintable (codec.report ()));
+    if ("dial change" == input) QCOMPARE (of ("000007"), 0);
+    else QVERIFY2 (of ("000007") > 0, qPrintable (codec.report ()));
+    auto const again = decisions (codec.lines).value (2);
+    QVERIFY2 (again == QString {"dial change" == input ? "pass 21 F" : "pass 21 F again"},
+              qPrintable (again + "\n" + codec.report ()));
+    // Periods 0 and 1, the decode again, and period 2 at the end of input.
+    QCOMPARE (count (codec.lines, outType ("decode_finished")), 4);
+  }
+
+  // A final deferred after a change of the receive frequency but published
+  // under the old one, within 0.6 TR, is dropped when the decoder frees, as
+  // the GUI's drain drops it (its captured frequency is not the receive
+  // frequency); the change itself found no final waiting.
+  void finalDeferredUnderTheOldFrequencyDropped ()
+  {
+    auto const ft8 = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
+    QVERIFY2 (!ft8.isEmpty (), "no recording");
+    QJsonObject const live {{"mode", "FT8"}, {"depth", 3}, {"multithreaded_ft8", true}, {"ft8_threads", 2},
+                            {"ft8_cycles", 1}, {"ft8_decoder_start", 1}, {"live_audio", true},
+                            {"utc", utcOf (0)}, {"dial_frequency", 14074000}};
+    Options options;
+    options.environment << "WSJT_CODEC_TEST_HOLD_PASS=41:1500";
+    Codec codec {options};
+    QVERIFY2 (codec.started, qPrintable (codec.failure));
+    codec.write (sessionHeader () + configure (live) + frame (0x01u, ft8.left (2)));
+    codec.waitUntil (Ft8PeriodSamples / 12 + DueMarginMs);
+    codec.write (frame (0x01u, samples (ft8, 1, 41 * HsymSamples)));
+    QVERIFY2 (codec.waitForLine (passLine (41), waitMs (), "the early pass"), qPrintable (codec.report ()));
+    codec.write (configure ({{"dial_frequency", 14074500}})
+                 + frame (0x01u, samples (ft8, 41 * HsymSamples, Ft8PeriodSamples)));
+    QVERIFY2 (codec.waitForLine (outType ("decode_finished"), waitMs (), "the final"), qPrintable (codec.report ()));
+    codec.write (marker ());
+    QVERIFY2 (codec.waitForLine (outHas ("configure_parse_error"), waitMs (), "the marker"), qPrintable (codec.report ()));
+    QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
+    QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+    QCOMPARE (decisions (codec.lines),
+              (QStringList {"pass 41 F", "skip 46 early busy", "defer 50", "skip 50 final cancelled"}));
+  }
+
+  // The multithreaded FT8 decoder writes its decodes from its threads: a
+  // change of the receive frequency while its final runs drops them all.
+  // With decoder start 2 it decodes once a period, at half-symbol 48.
+  void multithreadedDecodesDroppedAsTheGui_data ()
+  {
+    QTest::addColumn<bool> ("change");
+    QTest::newRow ("dial change") << true;
+    QTest::newRow ("same dial") << false;
+  }
+
+  void multithreadedDecodesDroppedAsTheGui ()
+  {
+    QFETCH (bool, change);
+    auto const ft8 = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
+    QVERIFY2 (!ft8.isEmpty (), "no recording");
+    QJsonObject const live {{"mode", "FT8"}, {"depth", 3}, {"multithreaded_ft8", true}, {"ft8_threads", 3},
+                            {"ft8_cycles", 1}, {"ft8_decoder_start", 2}, {"live_audio", true},
+                            {"utc", utcOf (0)}, {"dial_frequency", 14074000}};
+    Options options;
+    options.environment << "WSJT_CODEC_TEST_HOLD_PASS=48:1500";
+    Codec codec {options};
+    QVERIFY2 (codec.started, qPrintable (codec.failure));
+    codec.write (sessionHeader () + configure (live) + frame (0x01u, ft8.left (2)));
+    codec.waitUntil (Ft8PeriodSamples / 12 + DueMarginMs);
+    codec.write (frame (0x01u, samples (ft8, 1, Ft8PeriodSamples)));
+    QVERIFY2 (codec.waitForLine (passLine (48, true), waitMs (), "the final"), qPrintable (codec.report ()));
+    codec.write (configure ({{"dial_frequency", change ? 14074500 : 14074000}}));
+    QVERIFY2 (codec.waitForLine (outType ("decode_finished"), waitMs (), "the decode"), qPrintable (codec.report ()));
+    codec.write (marker ());
+    QVERIFY2 (codec.waitForLine (outHas ("configure_parse_error"), waitMs (), "the marker"), qPrintable (codec.report ()));
+    QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
+    QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+    auto const decodes = count (codec.lines, outType ("decode"));
+    if (change) QCOMPARE (decodes, 0);
+    else QVERIFY2 (decodes > 1, qPrintable (codec.report ()));
+  }
+
+  // On the stream the decoders write no result files, JT65+JT9's legacy
+  // decoder included; jt9's WAV mode writes them (test_streaming_side).
+  void streamWritesNoResultFiles ()
+  {
+    auto const pcm = period (wavPcm (inSamples ("JT65/JT65B/000000_0004.wav")), 60 * 12000);
+    QVERIFY2 (!pcm.isEmpty (), "no recording");
+    auto const run = runInput (sessionHeader () + configure ({{"mode", "JT65+JT9"}, {"utc", "00:00:00"}})
+                               + audio (pcm) + halt ());
+    QVERIFY2 (run->clean (), qPrintable (run->report ()));
+    QCOMPARE (count (run->lines, outType ("decode_finished")), 1);
+    for (auto const name : {"decoded.txt", "avemsg.txt", "fort.77"})
+      QVERIFY2 (!QFile::exists (QDir {run->directory}.filePath (name)), name);
+  }
+
+  // A change of the receive frequency drops the live decodes published
+  // until WSJT-X's period frequency follows it, 0.6 TR (4.5 s in FT4) after
+  // the change: the dial changes 5 s into period 0, whose pass publishes at
+  // its stop, 6.05 s, and is dropped; period 1's publishes at 13.55 s and is
+  // kept. The control sends the same dial again.
+  void dialChangeDropsDecodesUntilThePeriodFollows_data ()
+  {
+    QTest::addColumn<bool> ("change");
+    QTest::newRow ("change") << true;
+    QTest::newRow ("same dial") << false;
+  }
+
+  void dialChangeDropsDecodesUntilThePeriodFollows ()
+  {
+    QFETCH (bool, change);
+    constexpr int ft4Period = 90000;
+    auto const ft4 = period (wavPcm (inSamples ("FT4/000000_000002.wav")), ft4Period);
+    QVERIFY2 (!ft4.isEmpty (), "no recording");
+    QJsonObject const live {{"mode", "FT4"}, {"depth", 3}, {"live_audio", true}, {"utc", "00:00:00"},
+                            {"dial_frequency", 7047500}};
+    Codec codec;
+    QVERIFY2 (codec.started, qPrintable (codec.failure));
+    codec.write (sessionHeader () + configure (live) + frame (0x01u, ft4.left (2)));
+    codec.waitUntil (5000);
+    codec.write (configure ({{"dial_frequency", change ? 7047600 : 7047500}})
+                 + frame (0x01u, samples (ft4, 1, ft4Period)) + configure ({{"utc", "00:00:07"}})
+                 + audio (ft4) + halt ());
+    QVERIFY2 (codec.finish (5 * waitMs ()), qPrintable (codec.report ()));
+    QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+    QCOMPARE (periodEnds (codec.lines), (QStringList {"000000", "000007"}));
+    auto const of = [&] (QString const& label) {
+      return count (codec.lines, [label] (Line const& line) {
+        return outType ("decode") (line) && json (line.text).value ("time").toString () == label;
+      });
+    };
+    QVERIFY2 (of ("000007") > 0, qPrintable (codec.report ()));
+    if (change) QCOMPARE (of ("000000"), 0);
+    else QVERIFY2 (of ("000000") > 0, qPrintable (codec.report ()));
+  }
+
+  // From a file a change of the receive frequency applies in stream order:
+  // the decodes equal those of the same input without dial_frequency.
+  void dialChangeFromAFileDropsNothing ()
+  {
+    auto const ft8 = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
+    QVERIFY2 (!ft8.isEmpty (), "no recording");
+    QJsonObject const file {{"mode", "FT8"}, {"depth", 3}, {"utc", utcOf (0)}};
+    auto const input = [&] (bool dials) {
+      auto const dial = [dials] (int hz) {return dials ? configure ({{"dial_frequency", hz}}) : QByteArray {};};
+      return sessionHeader () + configure (file) + dial (14074000) + audio (ft8.left (2 * 20 * HsymSamples))
+        + dial (14075000) + audio (ft8.mid (2 * 20 * HsymSamples)) + configure ({{"utc", utcOf (1)}})
+        + dial (7074000) + audio (ft8) + halt ();
+    };
+    // Period 0's final held, so that the frame loop has read the later
+    // frequencies while it runs.
+    Options options;
+    options.environment << "WSJT_CODEC_TEST_HOLD_PASS=50:1500";
+    auto const with_ = runInput (input (true), options);
+    auto const plain = runInput (input (false), options);
+    QVERIFY2 (with_->clean (), qPrintable (with_->report ()));
+    QVERIFY2 (plain->clean (), qPrintable (plain->report ()));
+    QVERIFY2 (count (plain->lines, outType ("decode")) > 0, qPrintable (plain->report ()));
+    QCOMPARE (decodeLines (with_->lines), decodeLines (plain->lines));
+  }
+
+  // The GUI's Decode button with no period to decode again, once a decode
+  // has been triggered, decodes the period in flight, the audio in so far and
+  // zeros after, as a new decode under its label (widgets/mainwindow.cpp,
+  // decode()), and the period goes on to its own decode. A period in the
+  // other mode comes first, and the mode change leaves nothing to decode
+  // again. FT4 decodes once, at its stop, so the decode equals a file period
+  // of the same audio and zeros; FT8, before its first early pass, decodes
+  // under the period's label.
+  void decodeAgainDecodesThePeriodInFlight_data ()
+  {
+    QTest::addColumn<QString> ("mode");
+    QTest::newRow ("FT4") << "FT4";
+    QTest::newRow ("FT8") << "FT8";
+  }
+
+  void decodeAgainDecodesThePeriodInFlight ()
+  {
+    QFETCH (QString, mode);
+    auto const ft4 = "FT4" == mode;
+    auto const ft4Pcm = period (wavPcm (inSamples ("FT4/000000_000002.wav")), 90000);
+    auto const ft8Pcm = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
+    QVERIFY2 (!ft4Pcm.isEmpty () && !ft8Pcm.isEmpty (), "no recording");
+    auto const& pcm = ft4 ? ft4Pcm : ft8Pcm;
+    auto const samplesPerPeriod = ft4 ? 90000 : Ft8PeriodSamples;
+    // Before FT4's stop (21 half-symbols) and FT8's first early pass (41).
+    auto const in = ft4 ? 70000 : 40 * HsymSamples;
+    QJsonObject const first {{"mode", ft4 ? "FT8" : "FT4"}, {"depth", 3}, {"utc", "00:00:00"}};
+    QJsonObject const keys {{"mode", mode}, {"depth", 3}, {"utc", "00:01:00"}};
+    auto const run = runInput (sessionHeader () + configure (first) + audio (ft4 ? ft8Pcm : ft4Pcm)
+                               + configure (keys) + audio (pcm.left (2 * in))
+                               + configure ({{"nagain_flag", true}}) + audio (pcm.mid (2 * in)) + halt ());
+    QVERIFY2 (run->clean (), qPrintable (run->report ()));
+    QCOMPARE (count (run->lines, outHas ("decode_again_unavailable")), 0);
+    QCOMPARE (periodEnds (run->lines), (QStringList {"000000", "000100", "000100"}));
+    auto const lines = decodeLines (run->lines);
+    auto const first0 = std::find_if (lines.begin (), lines.end (), [] (QByteArray const& line) {
+      return "decode_finished" == typeOf (line);
+    });
+    auto const second = std::find_if (first0 + 1, lines.end (), [] (QByteArray const& line) {
+      return "decode_finished" == typeOf (line);
+    });
+    QByteArrayList const inFlight {first0 + 1, second};
+    QVERIFY2 (!inFlight.isEmpty (), qPrintable (run->report ()));
+    for (auto const& line : inFlight) QCOMPARE (json (line).value ("time").toString (), QString {"000100"});
+    if (ft4)
+      {
+        // The audio in so far, then zeros, as a period from a file.
+        auto const padded = runInput (sessionHeader () + configure (keys)
+                                      + audio (pcm.left (2 * in) + QByteArray (2 * (samplesPerPeriod - in), '\0'))
+                                      + halt ());
+        QVERIFY2 (padded->clean (), qPrintable (padded->report ()));
+        auto const expected = decodeLines (padded->lines);
+        QCOMPARE (inFlight + QByteArrayList {*second}, expected);
+      }
+    // The period's own decode follows, as it would without the decode again.
+    auto const plain = runInput (sessionHeader () + configure (first) + audio (ft4 ? ft8Pcm : ft4Pcm)
+                                 + configure (keys) + audio (pcm) + halt ());
+    QVERIFY2 (plain->clean (), qPrintable (plain->report ()));
+    auto const plainLines = decodeLines (plain->lines);
+    auto const plainFirst = std::find_if (plainLines.begin (), plainLines.end (), [] (QByteArray const& line) {
+      return "decode_finished" == typeOf (line);
+    });
+    QCOMPARE ((QByteArrayList {second + 1, lines.end ()}), (QByteArrayList {plainFirst + 1, plainLines.end ()}));
+  }
+
+  // An FT8 decode again sent between a period's passes waits for the
+  // period's last pass and decodes it again, under its label, even with no
+  // period kept before (a mode change came first).
+  void decodeAgainBetweenFt8PassesDecodesThePeriod ()
+  {
+    auto const ft4 = period (wavPcm (inSamples ("FT4/000000_000002.wav")), 90000);
+    auto const ft8 = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
+    QVERIFY2 (!ft4.isEmpty () && !ft8.isEmpty (), "no recording");
+    auto const run = runInput (sessionHeader () + configure ({{"mode", "FT4"}, {"depth", 3}, {"utc", "00:00:00"}})
+                               + audio (ft4) + configure ({{"mode", "FT8"}, {"utc", "00:01:00"}})
+                               + audio (ft8.left (2 * 45 * HsymSamples)) + configure ({{"nagain_flag", true}})
+                               + audio (ft8.mid (2 * 45 * HsymSamples)) + halt ());
+    QVERIFY2 (run->clean (), qPrintable (run->report ()));
+    QCOMPARE (count (run->lines, outHas ("decode_again_unavailable")), 0);
+    QCOMPARE (periodEnds (run->lines), (QStringList {"000000", "000100", "000100"}));
+    QCOMPARE (decisions (run->lines).mid (1), (QStringList {"pass 41 F", "pass 47 F", "pass 50 F", "pass 50 F again"}));
+  }
+
+  // dial_frequency is whole Hz from 0 to 2**53: another number declines the
+  // frame (configure_range_error), a value not a number too
+  // (configure_type_error); a declined frame changes nothing.
+  void dialFrequencyDeclined_data ()
+  {
+    QTest::addColumn<QJsonValue> ("value");
+    QTest::addColumn<QString> ("code");
+    QTest::newRow ("negative") << QJsonValue {-1} << "configure_range_error";
+    QTest::newRow ("fraction") << QJsonValue {14074000.5} << "configure_range_error";
+    QTest::newRow ("too large") << QJsonValue {1.0e17} << "configure_range_error";
+    QTest::newRow ("string") << QJsonValue {"14074000"} << "configure_type_error";
+    QTest::newRow ("boolean") << QJsonValue {true} << "configure_type_error";
+    QTest::newRow ("whole") << QJsonValue {10368100000.0} << "";
+    QTest::newRow ("zero") << QJsonValue {0} << "";
+    QTest::newRow ("largest") << QJsonValue {9007199254740992.0} << "";
+  }
+
+  void dialFrequencyDeclined ()
+  {
+    QFETCH (QJsonValue, value);
+    QFETCH (QString, code);
+    auto const run = runInput (sessionHeader () + configure ({{"mode", "FT8"}, {"dial_frequency", value}}) + halt ());
+    QVERIFY2 (run->clean (), qPrintable (run->report ()));
+    auto const errors = count (run->lines, outType ("error"));
+    if (code.isEmpty ())
+      {
+        QCOMPARE (errors, 0);
+        return;
+      }
+    QCOMPARE (errors, 1);
+    auto const error = json (run->lines[find (run->lines, outType ("error"))].text);
+    QCOMPARE (error.value ("code").toString (), code);
+    QCOMPARE (error.value ("key").toString (), QString {"dial_frequency"});
+  }
+
+  // The GUI's refusals: Q65, FST4 and FST4W decode only a completed
+  // reception again, and live FST4W none (widgets/mainwindow.cpp, decode()).
+  void decodeAgainRefusedAsTheGui_data ()
+  {
+    QTest::addColumn<QJsonObject> ("keys");
+    QTest::addColumn<QString> ("detail");
+    QTest::newRow ("Q65") << QJsonObject {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 0}}
+                          << "no completed Q65 reception is available to decode again";
+    QTest::newRow ("FST4") << QJsonObject {{"mode", "FST4"}, {"trperiod", 60}}
+                           << "no completed FST4 reception is available to decode again";
+    QTest::newRow ("FST4W file") << QJsonObject {{"mode", "FST4W"}, {"trperiod", 120}}
+                                 << "no completed FST4W reception is available to decode again";
+    QTest::newRow ("FST4W live") << QJsonObject {{"mode", "FST4W"}, {"trperiod", 120}, {"live_audio", true}}
+                                 << "FST4W decodes again only from a file (live_audio false)";
+    // Before the session's first decode the GUI's Decode button does nothing.
+    QTest::newRow ("before any decode") << QJsonObject {{"mode", "FT8"}}
+                                        << "no decoded period to decode again (none yet or since a mode or "
+                                           "period change; MSK144, Echo, JTTY, FreqCal and WSPR keep none)";
+  }
+
+  void decodeAgainRefusedAsTheGui ()
+  {
+    QFETCH (QJsonObject, keys);
+    QFETCH (QString, detail);
+    auto const run = runInput (sessionHeader () + configure (keys) + audio (QByteArray (2 * 12000, '\0'))
+                               + configure ({{"nagain_flag", true}}) + halt ());
+    QVERIFY2 (run->started && QProcess::NormalExit == run->exitStatus, qPrintable (run->report ()));
+    auto const refused = find (run->lines, outHas ("decode_again_unavailable"));
+    QVERIFY2 (refused >= 0, qPrintable (run->report ()));
+    QCOMPARE (json (run->lines[refused].text).value ("detail").toString (), detail);
+  }
+
   // A deferred final with no further input runs when the main thread
   // waits for input, every time; "take held" holds the decode thread before it
   // takes each operation, so that the main thread waits first.
@@ -2114,9 +2523,9 @@ private slots:
   // A busy false the decode thread owes goes out before the decode thread's
   // own refusal of an operation read after the decode ended. Two markers
   // read with an early pass's audio are taken after the pass, each after a
-  // held take; a decode again sent once the first marker's error is out,
-  // with no period decoded yet in the session, is queued while the second
-  // waits, and is refused after the busy false.
+  // held take; a decode again sent once the first marker's error is out, in
+  // a frame that changes the mode, so that nothing is left to decode again,
+  // is queued while the second waits, and is refused after the busy false.
   void busyFalseComesBeforeARefusal ()
   {
     auto const mode = modeOf ("ft8");
@@ -2131,7 +2540,7 @@ private slots:
                  + marker ());
     auto const markerError = outHas ("\"configure_parse_error\"");
     QVERIFY2 (codec.waitForLine (markerError, 2 * waitMs (), "the first marker"), qPrintable (codec.report ()));
-    auto const sent = codec.write (configure ({{"nagain_flag", true}}));
+    auto const sent = codec.write (configure ({{"mode", "FT4"}, {"nagain_flag", true}}));
     auto const first = msOf (codec.lines, find (codec.lines, markerError));
     auto const waiting = 1 == count (codec.lines, markerError);
     QVERIFY2 (codec.waitForLine (outHas ("\"decode_again_unavailable\""), 2 * waitMs (), "the refusal"),

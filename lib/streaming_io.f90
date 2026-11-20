@@ -56,6 +56,41 @@
 !               the audio that is in, so a decode's "pass" is that
 !               half-symbol, not how much audio there was. In JTTY it ends
 !               the JTTY session, and the stream goes on.
+!   cancel    : monitoring stops, as at the GUI's Stop or a half-duplex
+!               transmission's start (its monitor(false)): a waiting final
+!               is dropped (pass_skipped "cancelled"), and in JTTY the
+!               session ends; a running decode, its lines and the period to
+!               decode again stay. A client then sends no audio until
+!               monitoring resumes, and a discontinuity before its first
+!               sample.
+!
+! Receive frequency (configure's dial_frequency, Hz): a value other than the
+! one in force, of any size, is the GUI's receive frequency changing
+! (widgets/mainwindow_band.cpp). A waiting final is dropped, then and when
+! the decoder frees if it was published under another frequency than the
+! one in force at the free's place in the stream; live in JTTY the session
+! ends; in JT65 the next decode clears the averages. Live, each
+! decode pass is published under the GUI's period frequency, which is the
+! dial at the session's first publication and follows it 0.6 TR after each
+! change; once a pass's frequency is not the one in force its decode and
+! side lines are dropped, from the next one, latched (lib/stream_decode.c,
+! lib/streaming_emit.f90), and it leaves no period to decode again, as the
+! GUI drops an obsolete decode's output and abandons its retained audio. Its
+! decode_finished still comes. WSPR's, fast JT9's and MSK144's decodes, which
+! the GUI decodes outside its worker, are never dropped. From a file a change
+! applies in stream order and drops nothing.
+!
+! Decode-again (configure's nagain_flag) with no period to decode again
+! decodes the period in flight, if it has samples and a decode has been
+! triggered in the session, as the GUI's Decode button does: a new decode
+! (newdat) of the audio in so far, zeros after it, on a new decoder input,
+! under the period's label, at the mode's stop, with its own
+! decode_finished, which becomes the period to decode again; the period
+! goes on. Q65, FST4 and FST4W decode only a completed reception again, live
+! FST4W none, fast JT9 only its last decode, and a live SuperFox even
+! sequence (the kept period's, or the one in flight) nothing before
+! half-symbol 50. The GUI's Echo, MSK144 and JTTY decodes count as a first
+! decode.
 !
 ! A period is TRperiod * 12 kHz samples (lib/streaming_period.f90). Keep a
 ! frame remainder for the next period; retain only the first npts samples
@@ -201,7 +236,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use, intrinsic :: iso_fortran_env, only: int8, int16, int64, error_unit
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use, intrinsic :: iso_c_binding, only: c_int64_t, c_double
-  use prog_args, only: data_dir
+  use prog_args, only: data_dir, result_files
+  use ft8_decode, only: fox_list_reset
   use streaming_emit, only: streaming_emit_ready, streaming_emit_error,    &
        streaming_emit_error_code, streaming_emit_error_version,            &
        streaming_emit_error_type, time_form, streaming_emit_period_finished, &
@@ -211,7 +247,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
        CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, MODE_JTTY,   &
-       MODE_FREQCAL, MODE_ECHO, CTRL_REVIEW, MODE_WSPR
+       MODE_FREQCAL, MODE_ECHO, CTRL_REVIEW, MODE_WSPR, CTRL_CANCEL
   use streaming_apply, only: apply_configure_fields, engine_range_key
   use streaming_echo, only: echo_apply, echo_measure, echo_range_detail,    &
        ECHO_TRPERIOD, ECHO_STOP
@@ -225,7 +261,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use streaming_encode, only: stream_encode
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready, period_set_stop,           &
-       gui_hsym_stop, HSYM_SAMPLES, clock_start, fast_first_try, fast_last_try
+       gui_hsym_stop, HSYM_SAMPLES, clock_start, fast_first_try, fast_last_try, &
+       trigger_fire_time
   use streaming_apply, only: ft8_settings_change, apply_msk144_fields
   use streaming_decode, only: decode_op, decode_submit, decode_drain,      &
        snapshot, superfox_even, superfox_hound, backpressure, hhmm_label,  &
@@ -305,6 +342,17 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   type(option_problem) :: problem
   type(configure_fields) :: no_keys
   logical :: next_eme_on, next_live, cancels
+  ! The receive dial frequency (configure's dial_frequency; -1: none yet),
+  ! and the one WSJT-X attributes a live period's decodes to, which follows
+  ! it 0.6 TR after its last change (the GUI's m_freqNominalPeriod; -1:
+  ! none yet, the dial's then stands), at arrival dial_due.
+  integer(int64) :: dial_now, dial_nominal
+  real(8) :: dial_due, dial_at
+  logical :: dial_changed
+  ! A decode has been triggered in the session (the GUI's m_dataAvailable):
+  ! before one, its Decode button does nothing.
+  logical :: published
+  type(decode_op) :: again_op
   ! Audio samples consumed in any mode; JTTY's origin and times count them.
   integer(int64) :: stream_samples
   ! Session-baseline nfa/nfb stashed after jt9.f90's init_streaming_extra_fields
@@ -375,6 +423,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        import :: c_double
        real(c_double) :: t
      end function stream_stdin_arrival
+     subroutine stream_decode_set_dial(hz) bind(C, name="stream_decode_set_dial")
+       import :: c_int64_t
+       integer(c_int64_t), value :: hz
+     end subroutine stream_decode_set_dial
      function stream_stdin_waited() result(w) bind(C, name="stream_stdin_waited")
        import :: c_double
        real(c_double) :: w
@@ -477,6 +529,17 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      write(error_unit, '(a)') 'wsjt-codec: ' // WSPR_PERIOD_RULE // '; the command line set it'
      stop 2
   end if
+  ! On the stream the result files are the client's: the decoders write
+  ! none of the worker's (lib/prog_args.f90 lists them), and their lines
+  ! and events carry what those files hold.
+  result_files = .false.
+  ! Without the file, the Fox caller list starts at the first Fox pass as the
+  ! worker's does when houndcallers.txt is missing (lib/ft8_engine_kernel.f90).
+  fox_list_reset = .true.
+  dial_now = -1
+  dial_nominal = -1
+  dial_due = huge(1.d0)
+  published = .false.
   call decode_start()
   call streaming_emit_ready()
   ! Command-line starting values are checked once; the session still runs.
@@ -739,6 +802,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  call route_end()
                  cycle
               end if
+              if (cfg%dial_frequency_out_of_range) then
+                 call route_begin()
+                 call streaming_emit_error_range('dial_frequency', range_mode,    &
+                      'dial_frequency must be a whole number of Hz from 0 to 2**53')
+                 call route_end()
+                 cycle
+              end if
               if (cfg%nutc_out_of_range .or. cfg%utc_out_of_range) then
                  range_key = 'nutc'
                  if (cfg%utc_out_of_range) range_key = 'utc'
@@ -847,12 +917,38 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     period%k = period%npts
                  end if
               end if
+              ! A change of the receive dial frequency, of any size, is WSJT-X's
+              ! receive frequency changing: a waiting final is dropped, live
+              ! decodes published under the old frequency (until WSJT-X's
+              ! period frequency follows, 0.6 TR later) are dropped from their
+              ! next line (make_op, lib/streaming_emit.f90), and in JT65 the next
+              ! decode clears the averages. The first value sets it.
+              dial_changed = .false.
+              if (cfg%dial_frequency_set) then
+                 ! On the audio clock, as the passes it compares with.
+                 dial_at = stream_stdin_arrival()
+                 if (anchored) dial_at = trigger_fire_time(dial_at, t0, stream_samples - 1)
+                 call follow_dial(dial_at)
+                 if (cfg%dial_frequency .ne. dial_now) then
+                    dial_changed = dial_now .ge. 0
+                    dial_now = cfg%dial_frequency
+                    call stream_decode_set_dial(dial_now)
+                    dial_due = dial_at + 0.6d0 * TRperiod
+                    ! WSJT-X starts a new JTTY reception for the new
+                    ! frequency, live.
+                    if (dial_changed .and. mode .eq. MODE_JTTY .and. live_audio) call jtty_close()
+                 end if
+              end if
               call make_op(op, OP_CONFIGURE)
-              op%cancels = cancels
+              op%cancels = cancels .or. dial_changed
               op%new_period = mode .ne. prev_mode .or. TRperiod .ne. prev_TRperiod
               ! In ECHO a clear is Echo's (lib/streaming_echo.f90).
               op%clear_set = cfg%clear_average_set .and. mode .ne. MODE_ECHO
               op%clear_average = cfg%clear_average
+              if (dial_changed .and. mode .eq. 65) then
+                 op%clear_set = .true.
+                 op%clear_average = .true.
+              end if
               ! The Q65 caller list's edits, on the decode side in stream order.
               op%q65_clear = cfg%q65_callers_clear_set .and. cfg%q65_callers_clear
               op%q65_remove = cfg%q65_callers_remove(1:cfg%q65_callers_remove_count)
@@ -871,7 +967,19 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     call streaming_emit_error_code('decode_again_unavailable', &
                          NO_DECODED_PERIOD)
                  else
-                    call hand_op(OP_AGAIN)
+                    ! With no period to decode again the decode side decodes
+                    ! the period in flight, as the GUI does, from what is in
+                    ! so far, at the mode's stop, once a decode has been
+                    ! triggered; Q65, FST4, FST4W and fast JT9 never do.
+                    call make_op(again_op, OP_AGAIN)
+                    again_op%k = period%k
+                    if (published .and. period%k .gt. 0 .and. .not. fast_on() .and.      &
+                         mode .ne. 66 .and. mode .ne. 240 .and. mode .ne. 241 .and. mode .ne. 242) then
+                       again_op%params%nzhsym = current_stop()
+                       again_op%k = period%k
+                       call take_audio(again_op, period%k)
+                    end if
+                    call decode_submit(again_op)
                  end if
               end if
               shared_data%params%nagain = .false.
@@ -890,6 +998,16 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               end if
            case (CTRL_FLUSH)
               call flush_period()
+           case (CTRL_CANCEL)
+              ! WSJT-X's Stop and a half-duplex transmission's start
+              ! (monitor(false)) drop a waiting final, as a configure that
+              ! cancels does, and end a JTTY reception; a running decode, its
+              ! lines and the period to decode again stay.
+              call make_op(op, OP_CONFIGURE)
+              op%cancels = .true.
+              call decode_submit(op)
+              ! Monitoring stopping ends WSJT-X's JTTY reception at once.
+              if (mode .eq. MODE_JTTY) call jtty_close()
            case (CTRL_PACK, CTRL_RENDER)
               call streaming_emit_reply(.true.)
               call stream_encode(ctl_buf(1:frame_len), action .eq. CTRL_RENDER)
@@ -1123,6 +1241,8 @@ contains
        ! Measured on the main thread at its stop, as the GUI's Echo block;
        ! a period short of it is not (lib/streaming_echo.f90).
        decoded = .true.
+       ! The GUI's Echo, MSK144 and JTTY decodes count as its first decode too.
+       published = .true.
        if (period%k .ge. ECHO_STOP * HSYM_SAMPLES) call echo_measure(shared_data%id2, &
             period%k, live_audio, shared_data%params%nutc, label_form)
        call streaming_emit_period_finished(shared_data%params%nutc, label_form)
@@ -1207,7 +1327,33 @@ contains
     if (mode .eq. 9 .and. receive%low_sidelobes) &
          op%params%ndepth = ior(op%params%ndepth, 256)
     op%form = label_form
+    ! Live, the receive frequency it is published under: WSJT-X's period
+    ! frequency, which catches up with the dial 0.6 TR after a change, as it
+    ! stands when the operation's trigger fires (its last sample is due). From
+    ! a file none: a change applies to the audio after it, in stream order.
+    call follow_dial(trigger_fire_time(op%arrival, op%t0, op%last_sample))
+    op%rx = dial_now
+    ! A decode's publication sets the period frequency the first time.
+    if (kind .eq. OP_PASS .or. (kind .eq. OP_AGAIN .and. published)) then
+       if (dial_nominal .lt. 0) dial_nominal = dial_now
+       published = .true.
+    end if
+    op%dial = -1
+    if (live_audio) then
+       op%dial = dial_now
+       if (dial_nominal .ge. 0) op%dial = dial_nominal
+    end if
   end subroutine make_op
+
+  ! WSJT-X's period frequency catches up with the dial once 0.6 TR has
+  ! passed since its last change (its band-reporting timer), by arrival t.
+  subroutine follow_dial(t)
+    real(8), intent(in) :: t
+    if (dial_due .le. t) then
+       dial_nominal = dial_now
+       dial_due = huge(1.d0)
+    end if
+  end subroutine follow_dial
 
   ! An operation that carries nothing more, handed over at once.
   subroutine hand_op(kind)
@@ -1528,6 +1674,7 @@ contains
     ! As do fast JT9's decode tries.
     call run_fast_tries()
     ! As does each MSK144 block, never refused for a busy decoder.
+    if (mode .eq. 144) published = .true.
     if (mode .eq. 144) call msk144_window(shared_data%id2, period%k,   &
          shared_data%params%nutc, shared_data%params%ntol,              &
          shared_data%params%nfqso, shared_data%params%ndepth, msk144,   &
@@ -1587,6 +1734,7 @@ contains
     if (receive%prepared_audio .and. live_audio)                             &
          call jtty_prepared_audio(jblk(1:njblk), jblk_from)
     call jtty_rows()
+    published = .true.
     call jtty_audio(jblk(1:njblk), jblk_from, shared_data%params)
     call jtty_review_keep(jblk(1:njblk), jblk_from)
     njblk = 0

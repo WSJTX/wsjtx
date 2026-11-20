@@ -106,6 +106,9 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
   if(params%nranera.eq.0) ntrials=0
 
   nfail=0
+  ios13=-1
+  ! The codec's stream writes no result files (prog_args' result_files).
+  if(.not.result_files) go to 11
 10 if (params%nagain) then
      open(13,file=trim(temp_dir)//'/decoded.txt',status='unknown',            &
           position='append',iostat=ios13)
@@ -119,6 +122,7 @@ subroutine multimode_decoder_core(ss,id2,params,nfsample,completion,progress_gen
         go to 10
      endif
   endif
+11 continue
 
   callback_context%nutc = params%nutc
   callback_context%nfqso = params%nfqso

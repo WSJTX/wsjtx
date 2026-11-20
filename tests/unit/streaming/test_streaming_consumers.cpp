@@ -610,21 +610,14 @@ private slots:
     QCOMPARE (completions.size (), 1);
     QCOMPARE (completions.first ().value ("period_end").toString (), QString {"001500"});
 
-    QFile curves {directory.filePath ("red.dat")};
-    QVERIFY2 (curves.open (QIODevice::ReadOnly), qPrintable (curves.errorString ()));
-    auto const rows = curves.readAll ().trimmed ().split ('\n');
-    QVERIFY (rows.size () > 1);
-    for (auto const& row : rows)
-      {
-        auto const values = row.simplified ().split (' ');
-        QCOMPARE (values.size (), 3);
-        for (auto const& value : values)
-          {
-            bool ok;
-            auto const number = value.toDouble (&ok);
-            QVERIFY (ok && std::isfinite (number));
-          }
-      }
+    // On the stream the sync curves come as a line, and no red.dat is written.
+    QVERIFY (!QFile::exists (directory.filePath ("red.dat")));
+    auto const curves = eventsMatching (events.values, "q65_sync");
+    QCOMPARE (curves.size (), 1);
+    for (auto const key : {"dt", "averaged_min", "averaged_max", "df"})
+      QVERIFY2 (curves.first ().value (key).isDouble () && std::isfinite (curves.first ().value (key).toDouble ()),
+                key);
+    QVERIFY (!curves.first ().value ("current").toString ().isEmpty ());
   }
 
   void wsjtCodecRejectsOversizedFrames_data ()

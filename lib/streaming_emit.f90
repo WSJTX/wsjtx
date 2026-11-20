@@ -132,8 +132,9 @@
 !                     catches up. "replaced": a waiting final gave way to a
 !                     later one. "cancelled": a waiting final was dropped as
 !                     the GUI drops it: by a configure that changes the mode,
-!                     the period, live_audio, or a decoder or station setting
-!                     the GUI cancels on; or, when the final is taken up,
+!                     the period, live_audio, the receive frequency
+!                     (dial_frequency), or a decoder or station setting the
+!                     GUI cancels on, or by a cancel; or, when the final is taken up,
 !                     because its decode range or submode changed while it
 !                     waited. "memory": there was no memory to copy the pass's
 !                     audio for the decoder; a final that would have waited
@@ -184,8 +185,9 @@
 !                     false from then on.
 !
 !   Side outputs (lib/streaming_side.f90): each carries what one of the
-!   side files the decoders write holds, after the attempt that wrote it,
-!   with the attempt's period label as "time" and its "pass" as a decode's.
+!   side files WSJT-X's decoder writes holds after the attempt (the stream
+!   writes none of them), with the attempt's period label as "time" and its
+!   "pass" as a decode's.
 !   fox_callers       {"v":1,"t":"fox_callers","time":"HHMMSS","callers":
 !                      [{"call":"W9XYZ","grid":"EN37","snr":-12,"freq":1500,
 !                      "distance":1814,"age":0}],"pass":50}
@@ -536,6 +538,20 @@ module streaming_emit
   ! decodes carry it (not in JT65+JT9, whose JT9 decoder reads none).
   integer, save :: submode_ = -1
   logical, save :: submode_jt9_ = .true.
+  ! A change of the receive frequency (configure's dial_frequency, live)
+  ! drops the decodes of a pass published under another, from its first line
+  ! after the change, as WSJT-X drops an obsolete decode's output: whether
+  ! the running pass is obsolete, latched, which lib/stream_decode.c keeps
+  ! for the decode thread and its OpenMP workers alike (null: never).
+  ! MSK144's decodes, the only ones the frame loop's thread writes, are never
+  ! dropped, as WSJT-X's in-process MSK144 decodes are not.
+  abstract interface
+     function emit_obsolete() result(obsolete) bind(C)
+       use, intrinsic :: iso_c_binding, only: c_int
+       integer(c_int) :: obsolete
+     end function emit_obsolete
+  end interface
+  procedure(emit_obsolete), pointer, save :: obsolete_ => null()
   ! The stream host's stdout writer lock, held around every line; null: one
   ! thread writes.
   abstract interface
@@ -602,6 +618,7 @@ module streaming_emit
   public :: streaming_emit_json_escape
   public :: streaming_emit_threads
   public :: streaming_emit_set_writer
+  public :: streaming_emit_set_obsolete_source, streaming_emit_pass_obsolete
   public :: streaming_emit_set_rows
   public :: streaming_emit_set_live
   public :: streaming_emit_rows_end
@@ -699,6 +716,9 @@ contains
     character(len=2048) :: line
 
     if (.not. enabled_) return
+    if (.not. present(training)) then
+       if (streaming_emit_pass_obsolete()) return
+    end if
 
     call format_utc_(nutc, time_str, utc_is_hhmmss, form)
     call streaming_emit_json_escape(msg, msg_escaped, msg_len)
@@ -1194,6 +1214,19 @@ contains
     streaming_emit_threads = .false.
     !$ streaming_emit_threads = .true.
   end function streaming_emit_threads
+
+  ! Where a decode line learns that its pass is obsolete (lib/stream_decode.c).
+  subroutine streaming_emit_set_obsolete_source(obsolete)
+    procedure(emit_obsolete) :: obsolete
+    obsolete_ => obsolete
+  end subroutine streaming_emit_set_obsolete_source
+
+  ! Whether the running decode pass is obsolete, its decode and side lines
+  ! dropped: a change of the receive frequency since it was published.
+  logical function streaming_emit_pass_obsolete()
+    streaming_emit_pass_obsolete = .false.
+    if (associated(obsolete_)) streaming_emit_pass_obsolete = obsolete_() .ne. 0
+  end function streaming_emit_pass_obsolete
 
   subroutine streaming_emit_set_writer(lock, trylock, unlock)
     procedure(emit_lock) :: lock, unlock

@@ -32,6 +32,11 @@ module decoder_callbacks
      procedure(engine_superfox_sink), pointer, nopass :: superfox_sink => null()
      type(c_ptr) :: sink_user = c_null_ptr
      logical :: render_legacy = .true.
+     ! The result files the worker writes beside its lines (decoded.txt,
+     ! avemsg.txt, houndcallers.txt, red.dat, q65_decodes.txt, fort.77);
+     ! off on the codec's stream, whose lines and events carry them
+     ! (prog_args' result_files).
+     logical :: write_files = .true.
      logical :: utc_is_hhmmss = .false.
   end type decoder_callback_context
 
