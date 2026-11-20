@@ -360,6 +360,17 @@ QStringList paths (QString const& directory)
   return {"-a", directory, "-t", directory, "-r", qEnvironmentVariable ("WSJT_SHARE_DIR")};
 }
 
+// The result files WSJT-X's decoder writes beside its lines in a directory
+// (lib/prog_args.f90's result_files), which the codec's stream
+// writes none of.
+QStringList resultFilesIn (QString const& directory)
+{
+  QStringList found;
+  for (auto const name : {"decoded.txt", "houndcallers.txt", "avemsg.txt", "red.dat", "q65_decodes.txt", "fort.77"})
+    if (QFile::exists (QDir {directory}.filePath (name))) found << name;
+  return found;
+}
+
 // jt9 on the first count periods, in a fresh directory of its own; dir keeps it.
 Run jt9On (QList<Period> const& periods, int count, QStringList const& options, QTemporaryDir& dir)
 {
@@ -685,6 +696,10 @@ private slots:
     auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths (codecDir.path ()),
                             sessionInput (periods, s.keys, s.seconds), codecDir.path ());
     QVERIFY2 (codec.ok, codec.err.constData ());
+    // (i) On the stream the files are the client's: in its -a, -t and working
+    // directory the codec writes none of the result files jt9 writes below.
+    QVERIFY2 (resultFilesIn (codecDir.path ()).isEmpty (),
+              qPrintable ("the stream wrote " + resultFilesIn (codecDir.path ()).join (", ")));
     auto const events = eventsOf (codec.out);
     auto const split = byPeriod (events);
     QCOMPARE (split.size (), periods.size ());
@@ -710,6 +725,9 @@ private slots:
         QVERIFY (jt9Dir.isValid ());
         auto const jt9 = jt9On (periods, n + 1, s.jt9, jt9Dir);
         QVERIFY2 (jt9.ok, jt9.err.constData ());
+        // The control: jt9's decoder, on the same audio, writes them.
+        QVERIFY2 (resultFilesIn (jt9Dir.path ()).contains ("decoded.txt"),
+                  qPrintable ("jt9 wrote " + resultFilesIn (jt9Dir.path ()).join (", ")));
         for (auto const& type : types)
           {
             auto const ofPeriod = ofType (lines, type);
@@ -873,6 +891,34 @@ private slots:
     QVERIFY (ok);
     QVERIFY2 (callerLines (lists[1], false) == gui, qPrintable (show (callerLines (lists[1], false)) + "\nGUI:\n"
                                                                  + show (gui)));
+  }
+
+  // A change of the receive frequency in JT65 clears the averages at the next
+  // decode, as WSJT-X's does (m_jt65ClearAveragesPending): the same events as
+  // clear_average at that place, and not those of no change.
+  void dialChangeClearsJt65Averages ()
+  {
+    auto const s = settingsOf ("jt65 averages");
+    QString reason;
+    auto const periods = periodsOf (s.set, reason);
+    if (periods.isEmpty ()) QSKIP (qPrintable (reason));
+    QVERIFY (periods.size () >= 2);
+    auto const runWith = [&] (QJsonObject const& atLast) {
+      auto copy = periods;
+      for (auto it = atLast.begin (); it != atLast.end (); ++it) copy.last ().keys.insert (it.key (), it.value ());
+      QTemporaryDir dir;
+      return run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths (dir.path ()),
+                  sessionInput (copy, with (s.keys, {{"dial_frequency", 50276000}}), s.seconds), dir.path ());
+    };
+    auto const changed = runWith ({{"dial_frequency", 50276100}});
+    auto const cleared = runWith ({{"clear_average", true}});
+    auto const kept = runWith ({});
+    for (auto const* each : {&changed, &cleared, &kept}) QVERIFY2 (each->ok, each->err.constData ());
+    for (auto const type : {"decode", "averages", "decode_finished", "error"})
+      QVERIFY2 (ofType (eventsOf (changed.out), type) == ofType (eventsOf (cleared.out), type),
+                qPrintable (QString {type} + "\nchanged:\n" + changed.out + "\ncleared:\n" + cleared.out));
+    QVERIFY2 (ofType (eventsOf (kept.out), "averages") != ofType (eventsOf (cleared.out), "averages"),
+              qPrintable ("the clear changed no averages\n" + kept.out));
   }
 
   // The GUI's Fox reset (its Reset button and a band change) deletes

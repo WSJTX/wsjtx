@@ -9,6 +9,9 @@
 !   {"t":"flush"}           decode what the period in flight has and go on.
 !   {"t":"discontinuity"}   the next audio sample does not follow the last
 !                           one; lib/streaming_io.f90 states what it ends.
+!   {"t":"cancel"}          monitoring stops (WSJT-X's Stop, or a
+!                           half-duplex transmission starting): a waiting
+!                           final is dropped (lib/streaming_io.f90).
 !   {"t":"pack",...}, {"t":"render",...}   encode requests: JTTY's, read by
 !                           parse_encode_request and parse_render_request
 !                           and stated in lib/streaming_jtty.f90, and with a
@@ -52,6 +55,7 @@ module streaming_control
   integer, parameter, public :: CTRL_RENDER    = 6
   integer, parameter, public :: CTRL_FLUSH     = 7
   integer, parameter, public :: CTRL_REVIEW    = 8
+  integer, parameter, public :: CTRL_CANCEL    = 9
   ! configure's ref_spectrum, numbered as the GUI's ReferenceSpectrumInput
   ! numbers its modes.
   integer, parameter, public :: REF_SPECTRUM_OFF = 0
@@ -188,7 +192,8 @@ module streaming_control
      ! Q65's, and only the next decode that runs (a decode again included), as
      ! the GUI's Clear Avg; robust_mode, tx_mode and npts_c0_array reach only
      ! JT65+JT9; no decoder reads dt_tolerance_seconds. nagain_flag asks once to
-     ! decode the last period again (streaming_io.f90). With live audio it is
+     ! decode the last period again, or with none the period in flight
+     ! (streaming_io.f90). With live audio it is
      ! refused while the decoder is busy (decode_again_unavailable, detail "the
      ! decoder is busy"), as the GUI's Decode button is; send it again after a
      ! decode_finished.
@@ -258,11 +263,20 @@ module streaming_control
      ! 12 characters; rm_q3list compares the first 6, as the list keeps them.
      logical                :: q65_callers_clear_set    = .false.
      logical                :: q65_callers_clear        = .false.
-     ! fox_callers_clear true deletes <-t>/houndcallers.txt, as the GUI's Fox
-     ! reset does, once, at the frame's place in the stream: the next FT8 pass
-     ! in Fox mode starts a new caller list (lib/ft8_engine_kernel.f90).
+     ! fox_callers_clear true starts the Fox caller list again, as the GUI's
+     ! Fox reset does by deleting houndcallers.txt, once, at the frame's place
+     ! in the stream: the next FT8 pass in Fox mode starts a new caller list
+     ! (lib/ft8_engine_kernel.f90).
      logical                :: fox_callers_clear_set    = .false.
      logical                :: fox_callers_clear        = .false.
+     ! dial_frequency: the receive dial frequency in Hz, a whole JSON number
+     ! from 0 to 2**53 (configure_type_error otherwise; configure_range_error
+     ! for a fraction or a value outside it). A value other than the one in
+     ! force is a change of WSJT-X's receive frequency, which
+     ! lib/streaming_io.f90 states the effects of; the first sets it.
+     logical                :: dial_frequency_set          = .false.
+     integer(int64)         :: dial_frequency              = 0
+     logical                :: dial_frequency_out_of_range = .false.
      ! wspr_hash_clear true empties the WSPR decoder's hash table and
      ! deletes <-a>/hashtable.txt, as the GUI's Erase WSPR hashtable does,
      ! once, at the frame's place in the stream (lib/streaming_wspr.f90).
@@ -657,6 +671,11 @@ contains
        return
     end if
 
+    if (trim(t_value) .eq. 'cancel') then
+       action = CTRL_CANCEL
+       return
+    end if
+
     if (trim(t_value) .eq. 'pack') then
        action = CTRL_PACK
        return
@@ -936,6 +955,22 @@ contains
        if (ok) then
           cfg%eme_delay_seconds_set = .true.
           cfg%eme_delay_seconds     = real_val
+       end if
+    end if
+
+    ! The receive dial frequency, whole Hz up to 2**53 (exact in a double).
+    call check_type_(buf, '"dial_frequency"', 'dial_frequency',                  &
+         'real', .false., .true., terr, proceed)
+    if (proceed) then
+       call get_real_(buf, '"dial_frequency"', real_val, ok)
+       if (ok) then
+          if (real_val .ge. 0.d0 .and. real_val .le. 2.d0**53 .and.              &
+               real_val .eq. aint(real_val)) then
+             cfg%dial_frequency_set = .true.
+             cfg%dial_frequency     = int(real_val, int64)
+          else
+             cfg%dial_frequency_out_of_range = .true.
+          end if
        end if
     end if
 

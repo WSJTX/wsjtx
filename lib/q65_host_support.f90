@@ -40,9 +40,12 @@ contains
     close(unit)
   end subroutine
 
-  subroutine write_q65_curves(decoder,options)
+  ! The q65_sync event, and red.dat when write_file (the worker's, not the
+  ! codec stream's: prog_args' result_files).
+  subroutine write_q65_curves(decoder,options,write_file)
     class(q65_decoder), intent(in) :: decoder
     type(q65_options), intent(in) :: options
+    logical, intent(in) :: write_file
     real, allocatable :: current(:),average(:)
     real :: df,dt,y0,y0_average,g_average,empty_current(0),empty_average(0)
     integer :: even_count,odd_count,count,i1,i2,i,unit,status,active_count
@@ -60,6 +63,7 @@ contains
     ! The q65_sync event (lib/streaming_side.f90): the values below, as written.
     call side_q65_sync(options%utc,dt,g_average*minval(average),g_average*maxval(average),df,i1, &
          g_average*(average(i1:i2)-y0_average),0.4*(current(i1:i2)-y0))
+    if(.not.write_file) return
     open(newunit=unit,file=trim(temp_dir)//'/red.dat',status='replace',iostat=status)
     if(status/=0) return
     write(unit,1000) dt,g_average*minval(average),g_average*maxval(average)

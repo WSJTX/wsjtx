@@ -7,7 +7,7 @@ module ft8_engine_kernel
   use timer_module, only: timer
   use packjt77, only: pack77_state
   use decoder_engine_types, only: ft8_signal_evidence
-  use ft8_decode, only: c2fox,g2fox,nsnrfox,nfreqfox,n30fox,n30z,nfox,ft8_a8d,MAXFOX
+  use ft8_decode, only: c2fox,g2fox,nsnrfox,nfreqfox,n30fox,n30z,nfox,ft8_a8d,MAXFOX,fox_list_reset
   use ft8_decodevar, only: ltry_a8
   use ft8_decode_ranges, only: max_ft8_decode_ranges, partition_ft8_decode_range
   use ft8_mtd_residual, only: mtd_prepare,mtd_finish,mtd_worker_residual,mtd_worker_spectrum
@@ -194,6 +194,8 @@ contains
           go to 800
        endif
        nfail=0
+       ios13=-1
+       if(.not.context%write_files) go to 11
 10     if(params%nagain) then
           open(13,file=trim(temp_dir)//'/decoded.txt',status='unknown',position='append',iostat=ios13)
        else
@@ -206,7 +208,7 @@ contains
              go to 10
           endif
        endif
-       context%ios13=ios13
+11     context%ios13=ios13
     endif
     context%nutc=params%nutc
     context%nfqso=params%nfqso
@@ -218,8 +220,12 @@ contains
     my_ft8var%context=context
 
      if(ncontest.eq.6 .and. context%render_legacy) then
-        ! Fox mode: initialize and open houndcallers.txt
-        inquire(file=trim(temp_dir)//'/houndcallers.txt',exist=ex)
+        ! Fox mode: initialize and open houndcallers.txt. Without the file
+        ! (write_files false: the codec's stream) the list starts again only
+        ! on fox_callers_clear.
+        ex=.not.fox_list_reset
+        fox_list_reset=.false.
+        if(ex .and. context%write_files) inquire(file=trim(temp_dir)//'/houndcallers.txt',exist=ex)
         if(.not.ex) then
            c2fox='            '
            g2fox='    '
@@ -229,7 +235,7 @@ contains
            nwrap=0
            nfox=0
         endif
-        open(19,file=trim(temp_dir)//'/houndcallers.txt',status='unknown')
+        if(context%write_files) open(19,file=trim(temp_dir)//'/houndcallers.txt',status='unknown')
      endif
 
      if(ncontest.eq.7 .and. params%b_superfox .and. params%b_even_seq) then
@@ -500,10 +506,10 @@ contains
         n30z=n30
         n30=n30+nwrap
 
-        if(context%render_legacy) rewind 19
+        if(context%write_files) rewind 19
         if(nfox.eq.0) then
-           if(context%render_legacy) endfile 19
-           if(context%render_legacy) rewind 19
+           if(context%write_files) endfile 19
+           if(context%write_files) rewind 19
         else
            do i=1,nfox
               n=n30fox(i)
@@ -522,7 +528,7 @@ contains
                  else
                     nDkm=9999
                  endif
-                 if(context%render_legacy) write(19,1004) c2fox(j),g2fox(j),nsnrfox(j),nfreqfox(j), &
+                 if(context%write_files) write(19,1004) c2fox(j),g2fox(j),nsnrfox(j),nfreqfox(j), &
                       nDkm,nage
 1004             format(a12,1x,a4,i5,i6,i7,i3)
                  fox_km(j)=nDkm
@@ -530,7 +536,7 @@ contains
               endif
            enddo
            nfox=j
-           if(context%render_legacy) flush(19)
+           if(context%write_files) flush(19)
         endif
         ! The same records as an event (lib/streaming_side.f90).
         if(context%render_legacy) call side_fox_callers(params%nutc,j,c2fox,g2fox,nsnrfox, &
@@ -561,8 +567,8 @@ contains
      call set_decode_completion(completion,nsynced,ndecoded,navg0)
      call write_decode_progress(active_progress_generation)
   endif
-  if(context%render_legacy) close(13)
-  if(ncontest.eq.6 .and. context%render_legacy) close(19)
+  if(context%render_legacy .and. context%ios13.eq.0) close(13)
+  if(ncontest.eq.6 .and. context%render_legacy .and. context%write_files) close(19)
   end associate
 
 
