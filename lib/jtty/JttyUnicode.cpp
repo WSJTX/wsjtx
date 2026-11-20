@@ -202,7 +202,7 @@ namespace Jtty::Encoder
     std::string result;
     result.reserve (text.size ());
     for (std::size_t i = 0; i < text.size (); ++i) {
-      char32_t code = text[i];
+      char32_t code = static_cast<char32_t> (text[i]);
       if (isHighSurrogate (text[i]) && i + 1 < text.size () && isLowSurrogate (text[i + 1])) {
         code = 0x10000 + ((code - 0xD800) << 10) + (text[++i] - 0xDC00);
       } else if (isHighSurrogate (text[i]) || isLowSurrogate (text[i])) {
@@ -280,7 +280,7 @@ namespace Jtty::Encoder
         }
         continue;
       }
-      appendCodePoint (result, upperCodePoint (unit));
+      appendCodePoint (result, upperCodePoint (static_cast<char32_t> (unit)));
     }
     return result;
   }

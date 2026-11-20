@@ -120,6 +120,7 @@ void MainWindow::setJttyPttEnabled(bool on, bool finalOver)
     }
     setXIT (ui->TxFreqSpinBox->value ());
     m_jttyLiveEntryArmed = true;
+    m_jttyOverPrefixed = false;   // a new over: it may get the MyCall prefix
     m_jttyDiddling = false;   // stale from the previous session's last filler
     m_jttyDiddleFrames = 0;
     // Nothing committable (empty box or half-typed word): key with diddle.
@@ -245,6 +246,29 @@ void MainWindow::sendJttyFillerPadding()
   execute_jtty_tx (requestId, Jtty::jttyFillerText, /*isFinal=*/false);
 }
 
+// Chat: the first text of an over gets "MYCALL: " in front unless all that is
+// typed so far (uncommitted) already names the station. "First text of the
+// over" is that nothing of the box is committed or pending and no slice has
+// been prefixed yet (m_jttyOverPrefixed, cleared by PTT on and by clearing the
+// box); whether the transmitter is already keyed with diddle does not matter.
+// The one place that decides, used by the commit and by the frame estimate so
+// the two cannot drift apart. `expanded` is the macro-expanded text of the slice.
+QString MainWindow::withJttyOverPrefix(QString const& expanded, QString const& uncommitted,
+                                       bool * added)
+{
+  if (added) *added = false;
+  if (ui->cbJttyMyCallPrefix->isChecked ()
+      && m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off
+      && m_jttyLiveEntryCommitted == 0 && m_jttyLiveEntryPending.isEmpty ()
+      && !m_jttyOverPrefixed
+      && !Jtty::textHasCall (jtty_msg_expand (uncommitted), m_config.my_callsign ())) {
+    auto const prefixed = Jtty::withMyCallPrefix (expanded, m_config.my_callsign ());
+    if (added) *added = prefixed != expanded;
+    return prefixed;
+  }
+  return expanded;
+}
+
 bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, bool isFinal)
 {
   QString const uncommitted = ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted);
@@ -252,6 +276,9 @@ bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, boo
   if (plan.text.trimmed ().isEmpty ()) return false;
 
   QString expanded = jtty_msg_expand (plan.text);
+  bool prefixAdded = false;
+  expanded = withJttyOverPrefix (expanded, uncommitted, &prefixAdded);
+  if (prefixAdded) m_jttyOverPrefixed = true;
   if (ui->cbLowerCase->isChecked ()) expanded = expanded.toLower ();
   expanded = Jtty::prepareTransmitText (expanded).text;
 
@@ -295,6 +322,7 @@ void MainWindow::clearJttyLiveEntry()
   }
   m_jttyLiveEntryPending.clear ();
   m_jttyLiveEntryCommitted = 0;
+  m_jttyOverPrefixed = false;
   m_jttyLiveEntryFramesSent = 0;
   m_jttyLiveEntryArmed = false;
   m_jttyDiddling = false;
@@ -425,6 +453,7 @@ void MainWindow::updateJttyLiveEntryFrameLabel()
   int uncommittedFrames = 0;
   if (!uncommitted.trimmed ().isEmpty ()) {
     QString probe = jtty_msg_expand (uncommitted);
+    probe = withJttyOverPrefix (probe, uncommitted);
     if (ui->cbLowerCase->isChecked ()) probe = probe.toLower ();
     probe = Jtty::prepareTransmitText (probe).text;
     uncommittedFrames = countJttyTransmitFrames (probe);
@@ -1456,24 +1485,18 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
   m_wideGraph->setTol(n);
 }
 
-void MainWindow::on_comboBoxJttyStyle_currentIndexChanged(int index)
-{
-  if (index < 0 || index == m_jttyMacros.currentIndex ()) return;
-  m_jttyMacros.setCurrentIndex (index);
-  refreshJttyMacroControls ();
-}
-
 void MainWindow::refreshJttyMacroControls()
 {
-  {
-    QSignalBlocker const blocker {ui->comboBoxJttyStyle};
-    ui->comboBoxJttyStyle->clear ();
-    for (auto const& set : m_jttyMacros.sets ()) ui->comboBoxJttyStyle->addItem (set.name);
-    for (int i = 0; i < ui->comboBoxJttyStyle->count (); ++i) {
-      ui->comboBoxJttyStyle->setItemData (i, Qt::AlignCenter, Qt::TextAlignmentRole);
-    }
-    ui->comboBoxJttyStyle->setCurrentIndex (m_jttyMacros.currentIndex ());
+  // Check the button of the current set. A user set has no button: the group
+  // is exclusive, so it has to be let go of before every button can be cleared.
+  QString const setName = m_jttyMacros.current ().name;
+  bool const builtInSet = m_jttyMacros.current ().isBuiltIn ();
+  ui->buttonGroupJttyStyle->setExclusive (false);
+  for (auto * const button : ui->buttonGroupJttyStyle->buttons ()) {
+    button->setChecked (builtInSet && button->property ("macroSet").toString () == setName);
   }
+  ui->buttonGroupJttyStyle->setExclusive (true);
+  ui->cbJttyMyCallPrefix->setEnabled (m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off);
   QPushButton * const buttons[Jtty::macroKeyCount] {
     ui->pbF1, ui->pbF2, ui->pbF3, ui->pbF4, ui->pbF5, ui->pbF6, ui->pbF7, ui->pbF8,
     ui->pbSF1, ui->pbSF2, ui->pbSF3, ui->pbSF4, ui->pbSF5, ui->pbSF6, ui->pbSF7, ui->pbSF8};

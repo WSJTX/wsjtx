@@ -300,6 +300,18 @@ target_link_libraries (test_jtty_macro_sets PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_macro_sets)
 add_test (NAME test_jtty_macro_sets COMMAND test_jtty_macro_sets)
 
+add_executable (test_jtty_style_buttons
+  test_jtty_style_buttons.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/JttyMacroSets.cpp)
+target_compile_definitions (test_jtty_style_buttons PRIVATE WSJTX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries (test_jtty_style_buttons PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_style_buttons)
+add_test (NAME test_jtty_style_buttons COMMAND test_jtty_style_buttons)
+add_executable (test_jtty_waterfall_calls test_jtty_waterfall_calls.cpp)
+target_link_libraries (test_jtty_waterfall_calls PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_waterfall_calls)
+add_test (NAME test_jtty_waterfall_calls COMMAND test_jtty_waterfall_calls)
+
 add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
 target_link_libraries (test_jtty_n1mm PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_n1mm)

@@ -386,6 +386,22 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QCheckBox" name="cbCallTx">
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>JTTY: a click on a callsign label also sets the Tx frequency to that signal</string>
+          </property>
+          <property name="text">
+           <string>Tx on call</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
       <item row="0" column="10" rowspan="3">

@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QKeyEvent>
 #include <QTranslator>
+#include <QTimer>
 #include <math.h>
 #include "ui_widegraph.h"
 #include "commons.h"
@@ -66,6 +67,15 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
 
   connect (ui->widePlot, &CPlotter::jttyDecodeAgainAtSample,
            this, &WideGraph::jttyDecodeAgainAtSample);
+  connect (ui->widePlot, &CPlotter::jttyCallClicked, this, [this] (QString const& call, int frequency) {
+      emit jttyCallClicked (call, frequency, ui->cbCallTx->isChecked ());
+    });
+
+  // labels expire on their own, whether or not anything new is decoded
+  auto * callTimer = new QTimer {this};
+  callTimer->setInterval (1000);
+  connect (callTimer, &QTimer::timeout, this, &WideGraph::refreshJttyCalls);
+  callTimer->start ();
 
   {
     //Restore user's settings
@@ -88,6 +98,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->widePlot->setBars(m_bars);
     m_freq=m_settings->value("Freq",true).toBool();
     ui->cbFreq->setChecked(m_freq);
+    ui->cbCallTx->setChecked (m_settings->value ("CallClickSetsTx", false).toBool ());
     ui->widePlot->showFreq(m_freq);
     int n = m_settings->value("BinsPerPixel",5).toInt();
     m_bFlatten=m_settings->value("Flatten",true).toBool();
@@ -187,6 +198,7 @@ void WideGraph::saveSettings()                                           //saveS
   m_settings->setValue ("Timestamp",m_timestamp);
   m_settings->setValue ("Bars", m_bars);
   m_settings->setValue ("Freq", m_freq);
+  m_settings->setValue ("CallClickSetsTx", ui->cbCallTx->isChecked ());
   m_settings->setValue ("FminPerBand", m_fMinPerBand);
 }
 
@@ -393,10 +405,37 @@ void WideGraph::setTxFreq(int n)                                   //setTxFreq
   ui->widePlot->setTxFreq(n);
 }
 
+void WideGraph::jttyCallUpdate (qint64 messageId, QString const& text, float frequency,
+                                bool growing, QString const& myCall)
+{
+  if (m_mode != "JTTY") return;
+  if (m_jttyCalls.update (messageId, text, frequency, growing, myCall,
+                          QDateTime::currentMSecsSinceEpoch ())) {
+    refreshJttyCalls ();
+  }
+}
+
+void WideGraph::clearJttyCalls ()
+{
+  m_jttyCalls.clear ();
+  ui->widePlot->setCallLabels ({});
+}
+
+void WideGraph::refreshJttyCalls ()
+{
+  ui->widePlot->setCallLabels (m_mode == "JTTY"
+                               ? m_jttyCalls.labels (QDateTime::currentMSecsSinceEpoch ())
+                               : QVector<WaterfallCalls::Label> {});
+}
+
 void WideGraph::setMode(QString mode)                              //setMode
 {
-  if (m_mode == "JTTY" && mode != m_mode) jttyReceptionEnded ();
+  if (m_mode == "JTTY" && mode != m_mode) {
+    jttyReceptionEnded ();
+    clearJttyCalls ();
+  }
   m_mode=mode;
+  ui->cbCallTx->setVisible(m_mode == "JTTY");    // only used by the JTTY call labels
   ui->fSplitSpinBox->setVisible(m_mode.startsWith("FST4"));
   ui->fSplitSpinBox->setEnabled(m_mode.startsWith("FST4"));
   ui->labTime->setVisible(!m_mode.startsWith("FST4"));
@@ -465,6 +504,7 @@ void WideGraph::setDialFreq(double d)                             //setDialFreq
 
 void WideGraph::setRxBand (QString const& band)
 {
+  if (band != m_rxBand) clearJttyCalls ();       // labels of the old band are not valid
   m_rxBand = band;
   if ("60m" == m_rxBand)
     {

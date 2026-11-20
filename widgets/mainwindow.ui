@@ -4084,39 +4084,146 @@ Double-click to reset to the standard 73 message</string>
              </item>
              <item row="2" column="0" colspan="3">
               <layout class="QGridLayout" name="gridLayout_4">
-               <item row="0" column="0">
-                <widget class="QLabel" name="label_jttyStyle">
-                 <property name="text">
-                  <string>Macro set </string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
+               <item row="0" column="0" colspan="3">
+                <layout class="QHBoxLayout" name="horizontalLayout_jttyStyle">
+                 <item>
+                  <widget class="QPushButton" name="pbJttyRun">
+                   <property name="focusPolicy">
+                    <enum>Qt::NoFocus</enum>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>80</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Run: macros for calling CQ and working the stations that answer (F1-F8, Shift+F1-F8).</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton {padding: 2px 10px} QPushButton:checked {background-color: #0050c0; color: white; font-weight: bold; border: 1px solid #003080; border-radius: 3px}</string>
+                   </property>
+                   <property name="text">
+                    <string>Run</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                   <property name="macroSet" stdset="0">
+                    <string notr="true">Run</string>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroupJttyStyle</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pbJttySearchPounce">
+                   <property name="focusPolicy">
+                    <enum>Qt::NoFocus</enum>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>80</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Search and Pounce: macros for answering a station that is calling CQ.</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton {padding: 2px 10px} QPushButton:checked {background-color: #0050c0; color: white; font-weight: bold; border: 1px solid #003080; border-radius: 3px}</string>
+                   </property>
+                   <property name="text">
+                    <string>S&amp;&amp;P</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                   <property name="macroSet" stdset="0">
+                    <string notr="true">S&amp;P</string>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroupJttyStyle</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pbJttyChat">
+                   <property name="focusPolicy">
+                    <enum>Qt::NoFocus</enum>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>80</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Chat: macros for an ordinary conversation. Optionally puts your call in front of a message that does not contain it.</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton {padding: 2px 10px} QPushButton:checked {background-color: #0050c0; color: white; font-weight: bold; border: 1px solid #003080; border-radius: 3px}</string>
+                   </property>
+                   <property name="text">
+                    <string>Chat</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                   <property name="macroSet" stdset="0">
+                    <string notr="true">Chat</string>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroupJttyStyle</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_jttyStyle">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pbEditJttyMacros">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="toolTip">
+                    <string>Edit the macros, their button labels, and the macro sets.</string>
+                   </property>
+                   <property name="text">
+                    <string>Edit macros...</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
-               <item row="0" column="1">
-                <widget class="QComboBox" name="comboBoxJttyStyle">
+               <item row="3" column="2" alignment="Qt::AlignLeft">
+                <widget class="QCheckBox" name="cbJttyMyCallPrefix">
                  <property name="toolTip">
-                  <string>Choose the macro set for F1-F8 and Shift+F1-F8.</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="2" alignment="Qt::AlignLeft">
-                <widget class="QPushButton" name="pbEditJttyMacros">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="toolTip">
-                  <string>Edit the macros, their button labels, and the macro sets.</string>
+                  <string>Chat style only: a message that does not contain your call gets "YOURCALL: " put in front of it, so whoever reads it knows who is sending.</string>
                  </property>
                  <property name="text">
-                  <string>Edit macros...</string>
+                  <string>MyCall: prefix</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
                  </property>
                 </widget>
                </item>
+
                <item row="8" column="0">
                 <spacer name="verticalSpacer_8">
                  <property name="orientation">
@@ -4143,7 +4250,7 @@ Double-click to reset to the standard 73 message</string>
                  </property>
                 </widget>
                </item>
-               <item row="3" column="2">
+               <item row="3" column="4">
                 <spacer name="horizontalSpacer_8">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
@@ -6948,4 +7055,7 @@ QPushButton[state=&quot;ok&quot;] {
  </tabstops>
  <resources/>
  <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroupJttyStyle"/>
+ </buttongroups>
 </ui>
