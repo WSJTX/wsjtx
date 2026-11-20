@@ -779,7 +779,6 @@ private slots:
   void on_pbSF7_clicked();
   void on_pbSF8_clicked();
   void on_pbEditJttyMacros_clicked();
-  void on_pbJttyTest_clicked();
 #ifdef WIN32
   void logText(const QString &text);
 #endif
@@ -1015,7 +1014,6 @@ private:
   void installJttyWideGraphKeyFilter();
   bool sendJttyFunctionKey(int index);
   void refreshJttyMacroControls();
-  void updateJttyTestButton();
   struct JttyReceiveState;
   std::shared_ptr<JttyReceiveState> m_jttyReceive;
   void initializeJttyReceive();

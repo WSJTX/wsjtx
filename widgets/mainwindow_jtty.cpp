@@ -1465,55 +1465,6 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
   m_wideGraph->setTol(n);
 }
 
-// TEMPORARY, for testing the callsign labels on the waterfall: shown only when
-// the environment variable WSJTX_JTTY_TEST is set (and not 0 or empty).
-// Remove together with on_pbJttyTest_clicked().
-static bool jttyTestEnabled ()
-{
-  auto const value = qEnvironmentVariable ("WSJTX_JTTY_TEST").trimmed ();
-  return !value.isEmpty () && value != QLatin1String ("0");
-}
-
-void MainWindow::updateJttyTestButton()
-{
-  ui->pbJttyTest->setVisible (jttyTestEnabled ());
-}
-
-// Five CQs in one over, each at its own audio frequency, so five stations
-// seem to be calling at once (the last two only 50 Hz apart).
-void MainWindow::on_pbJttyTest_clicked()
-{
-  static struct {char const * text; int frequency;} const items[] {
-    {"CQ DL3WDG CQ", 1000}, {"CQ K1ABC CQ", 1150},
-    {"CQ K2DEF CQ", 1300}, {"CQ DL3ABC CQ", 1540},
-    {"CQ K1JT CQ", 1590}};      // 50 Hz from DL3ABC: their labels overlap
-  if (m_mode != "JTTY" || !jttyTestEnabled ()) return;
-  if (m_jttyLiveEntryArmed || m_jttyTxLifecycle.active () || !m_jttyTransmitQueue.empty ()) {
-    showStatusWarning (tr ("Wait until the current transmission is finished."));
-    return;
-  }
-  if (!m_config.prepare_radio_mode ()) {
-    updateRadioModeStatus ();
-    return;
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-  int const count = int (sizeof items / sizeof items[0]);
-  for (int i = 0; i < count; ++i) {
-    auto encoded = Jtty::encodeTransmitText (
-      QString::fromLatin1 (items[i].text), jttyExchangeProfile (m_config), i == count - 1);
-    if (encoded.status != Jtty::TransmitTextStatus::Encoded) {
-      showStatusMessage (tr ("JTTY test message could not be encoded"));
-      return;
-    }
-    QVector<Jtty::TransmitSegment> segments;
-    for (auto& segment : encoded.segments) {
-      segment.transmit.frequency = items[i].frequency;
-      segments.append (std::move (segment.transmit));
-    }
-    enqueueJttySegments (++m_jttyTxRequestId, std::move (segments));
-  }
-}
-
 void MainWindow::refreshJttyMacroControls()
 {
   // Check the button of the current set. A user set has no button: the group
@@ -1526,7 +1477,6 @@ void MainWindow::refreshJttyMacroControls()
   }
   ui->buttonGroupJttyStyle->setExclusive (true);
   ui->cbJttyMyCallPrefix->setEnabled (m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off);
-  updateJttyTestButton ();
   QPushButton * const buttons[Jtty::macroKeyCount] {
     ui->pbF1, ui->pbF2, ui->pbF3, ui->pbF4, ui->pbF5, ui->pbF6, ui->pbF7, ui->pbF8,
     ui->pbSF1, ui->pbSF2, ui->pbSF3, ui->pbSF4, ui->pbSF5, ui->pbSF6, ui->pbSF7, ui->pbSF8};
