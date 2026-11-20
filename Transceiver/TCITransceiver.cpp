@@ -585,6 +585,7 @@ void TCITransceiver::do_stop ()
   if (commander_)
   {
     if (inConnected) commander_->close(QWebSocketProtocol::CloseCodeNormal,"end");
+    inConnected = false;
     delete commander_, commander_ = nullptr;
     CAT_TRACE ("deleted commander & closed websocket & deleted:");
   }
@@ -974,18 +975,37 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
       return;
     }
     writeAudioData(const_cast<float *> (TciStream::float_payload (data)),pStream->length);
-  } else if (pStream->type == TciStream::TxChrono &&  pStream->receiver == rx_.toUInt()) {
+  } else if (pStream->type == TciStream::TxChrono) {
+    Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver received request"),
+                               data.size (), TciStream::HeaderSize);
+    if (pStream->receiver != rx_.toUInt()) {
+      Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver rejected receiver %1 (expected %2)")
+                                 .arg (pStream->receiver).arg (rx_.toUInt ()),
+                                 data.size (), TciStream::HeaderSize);
+      return;
+    }
     quint32 channels;
     if (!TciStream::valid_tx_chrono (*pStream, stream_channels_supported_,
                                      audioSampleRate, &channels)) {
+      Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver rejected request header "
+                                                "(rate=%1/%2 format=%3 codec=%4 length=%5 channels=%6 channelField=%7)")
+                                 .arg (pStream->sampleRate).arg (audioSampleRate).arg (pStream->format)
+                                 .arg (pStream->codec).arg (pStream->length).arg (pStream->channels)
+                                 .arg (stream_channels_supported_),
+                                 data.size (), TciStream::HeaderSize);
       return;
     }
+    Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver validated request"),
+                               data.size (), TciStream::HeaderSize);
 
     qint64 generatedScalars {0};
     {
-      std::lock_guard<std::mutex> lock {mtx_};
+      std::unique_lock<std::mutex> lock {mtx_};
       tx_fifo += 1; tx_fifo &= 7;
       if (!TciStream::prepare_tx_audio_frame (&m_tx1[tx_fifo], *pStream, channels)) {
+        lock.unlock ();
+        Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver could not frame reply"), 0,
+                                   TciStream::HeaderSize + pStream->length * sizeof (float));
         return;
       }
 
@@ -1001,7 +1021,16 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
       tx_fifo2 = tx_fifo;
     }
 
-    if (!inConnected || commander_->sendBinaryMessage(m_tx1[tx_fifo2]) != m_tx1[tx_fifo2].size()) {
+    auto const& reply = m_tx1[tx_fifo2];
+    auto const reply_size = reply.size ();
+    if (!inConnected) {
+      Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver disconnected before reply"),
+                                 0, reply_size);
+      return;
+    }
+    auto const sent = commander_->sendBinaryMessage (reply);
+    Q_EMIT txChronoDiagnostic (QStringLiteral ("transceiver reply send"), sent, reply_size);
+    if (sent != reply_size) {
       return;
     }
 
@@ -1013,27 +1042,6 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
     m_tciSuccessfullyWrittenFrames += frames;
     emit_tci_playout_snapshot (false, m_state == Idle);
   }
-}
-
-void TCITransceiver::txAudioData(quint32 len, float * data)
-{
-  if (len % TciStream::DefaultChannels || (len && !data)) {
-    return;
-  }
-
-  TciStream::Header chrono {};
-  chrono.receiver = 0u;
-  chrono.sampleRate = audioSampleRate;
-  chrono.length = len;
-  QByteArray tx;
-  if (!TciStream::prepare_tx_audio_frame (&tx, chrono, TciStream::DefaultChannels)) {
-    return;
-  }
-
-  if (len) {
-    std::memcpy (TciStream::float_payload (&tx), data, len * sizeof (float));
-  }
-  commander_->sendBinaryMessage(tx);
 }
 
 void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples,
@@ -1747,6 +1755,7 @@ void TCITransceiver::do_modulator_start (TxEvidence::TxRequest const& request)
   m_bFastMode=request.fast_mode;
   m_TRperiod=request.tr_period_s;
   m_tuning=request.tuning;
+  m_silent=request.silent;
   m_cwId=request.cw_id;
   unsigned delay_ms=1000;
 
@@ -2080,6 +2089,7 @@ quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, quint32
 
 qint16 TCITransceiver::postProcessSample (qint16 sample) const
 {
+  if (m_silent) return 0;       // footswitch TX: operator supplies the modulation
   if (m_addNoise) {  // Test frame, we'll add noise
     qint32 s = m_fac * (gran () + sample * m_snr / 32768.0);
     if (s > std::numeric_limits<qint16>::max ()) {

@@ -64,6 +64,13 @@ add_test (
     -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/nsis-launcher-config
     -P ${CMAKE_SOURCE_DIR}/tests/release/test_nsis_launcher_config.cmake)
 
+add_test (
+  NAME test_nsis_preflight_manifest
+  COMMAND ${CMAKE_COMMAND}
+    -D SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -D TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/nsis-preflight-manifest
+    -P ${CMAKE_SOURCE_DIR}/tests/release/test_nsis_preflight_manifest.cmake)
+
 # A cross-compiled tree runs its tests in another container than the one that built it.
 if (NOT CMAKE_CROSSCOMPILING)
   add_test (
@@ -130,3 +137,4 @@ add_subdirectory (unit/streaming)
 add_subdirectory (unit/tci)
 add_subdirectory (unit/waveform)
 add_subdirectory (unit/wsprd)
+add_subdirectory (integration/wsprd)

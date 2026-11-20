@@ -7,7 +7,9 @@ program test_jtty_payload_correlators
   integer(int32), parameter :: lengths(4) = [120,160,192,240]
   type(jtty_payload_correlator) :: correlator
   complex(real32), allocatable :: samples(:)
-  complex(real32) :: whole(0:3,46), halves(0:3,46), expected(0:3,46)
+  complex(real32) :: whole(0:3,46), halves(0:3,46)
+  complex(real64) :: expected(0:3,46)
+  real(real64) :: error_bound(0:3,46)
   integer :: length_index, nss, offset, segment_count
 
   do length_index = 1, size(lengths)
@@ -20,11 +22,11 @@ program test_jtty_payload_correlators
     call jtty_payload_correlator_prepare(correlator,int(nss,int32))
     call jtty_correlate_payload_symbols(correlator,samples,7_int32,whole,halves)
     do segment_count = 1, 2
-      call separate_reference(samples,7,nss,segment_count,expected)
+      call separate_reference(samples,7,nss,segment_count,expected,error_bound)
       if (segment_count == 1) then
-        call require(correlations_agree(whole,expected,nss),'shared M1 differs from separate original-order accumulation')
+        call require(numerically_agree(whole,expected,error_bound),'M1 exceeds real32 accumulation error bound')
       else
-        call require(correlations_agree(halves,expected,nss),'shared M2 differs from separate half-symbol accumulation')
+        call require(numerically_agree(halves,expected,error_bound),'M2 exceeds real32 accumulation error bound')
       end if
     end do
 
@@ -52,16 +54,23 @@ program test_jtty_payload_correlators
 
 contains
 
-  subroutine separate_reference(samples,start,nss,segments,values)
+  subroutine separate_reference(samples,start,nss,segments,values,error_bound)
     complex(real32), intent(in) :: samples(0:)
     integer, intent(in) :: start,nss,segments
-    complex(real32), intent(out) :: values(0:3,46)
+    complex(real64), intent(out) :: values(0:3,46)
+    real(real64), intent(out) :: error_bound(0:3,46)
     real(real32) :: reference_real(0:nss-1),reference_imaginary(0:nss-1)
-    real(real32) :: phase,step,sum_real,sum_imaginary,sample_real,sample_imaginary
-    real(real64) :: energy
+    real(real32) :: phase,step
+    real(real64) :: sum_real,sum_imaginary,sample_real,sample_imaginary,energy
+    real(real64) :: rr,ii,ri,ir,absolute_real,absolute_imaginary,squared_error,gamma
+    real(real64), parameter :: unit_roundoff = real(epsilon(0.0_real32),real64)/2.0_real64
     integer :: tone,offset,symbol,segment,first,segment_length
 
     segment_length = nss/segments
+    ! Each component sums 2*m rounded products; gamma bounds error by their
+    ! absolute sum, including when the correlation nearly cancels.
+    gamma = real(2*segment_length+2,real64)*unit_roundoff
+    gamma = gamma/(1.0_real64-gamma)
     do tone = 0, 3
       phase = 0.0_real32
       step = 6.2831853071795864769_real32*real(tone,real32)/real(nss,real32)
@@ -73,46 +82,52 @@ contains
       do symbol = 1, 46
         first = start + (symbol-1)*nss
         energy = 0.0_real64
+        squared_error = 0.0_real64
         do segment = 0, segments-1
-          sum_real = 0.0_real32
-          sum_imaginary = 0.0_real32
+          sum_real = 0.0_real64
+          sum_imaginary = 0.0_real64
+          absolute_real = 0.0_real64
+          absolute_imaginary = 0.0_real64
           do offset = segment*segment_length, (segment+1)*segment_length-1
-            sample_real = real(samples(first+offset),real32)
-            sample_imaginary = aimag(samples(first+offset))
-            sum_real = sum_real + reference_real(offset)*sample_real + &
-                 reference_imaginary(offset)*sample_imaginary
-            sum_imaginary = sum_imaginary + reference_real(offset)*sample_imaginary - &
-                 reference_imaginary(offset)*sample_real
+            sample_real = real(samples(first+offset),real64)
+            sample_imaginary = real(aimag(samples(first+offset)),real64)
+            rr = real(reference_real(offset),real64)*sample_real
+            ii = real(reference_imaginary(offset),real64)*sample_imaginary
+            ri = real(reference_real(offset),real64)*sample_imaginary
+            ir = real(reference_imaginary(offset),real64)*sample_real
+            sum_real = sum_real + rr + ii
+            sum_imaginary = sum_imaginary + ri - ir
+            absolute_real = absolute_real + abs(rr) + abs(ii)
+            absolute_imaginary = absolute_imaginary + abs(ri) + abs(ir)
           end do
-          energy = energy + real(sum_real*sum_real + sum_imaginary*sum_imaginary,real64)
+          energy = energy + sum_real*sum_real + sum_imaginary*sum_imaginary
+          squared_error = squared_error + (gamma*absolute_real)**2 + (gamma*absolute_imaginary)**2
         end do
         if (segments == 1) then
-          values(tone,symbol) = cmplx(sum_real,sum_imaginary,real32)
+          values(tone,symbol) = cmplx(sum_real,sum_imaginary,real64)
+          error_bound(tone,symbol) = sqrt(squared_error)
         else
-          values(tone,symbol) = cmplx(real(sqrt(max(0.0_real64,energy)),real32),0.0_real32,real32)
+          values(tone,symbol) = cmplx(sqrt(energy),0.0_real64,real64)
+          ! The norm propagates segment errors without amplification; allow
+          ! rounding in real32 squares, their sum, and the final real32 value.
+          error_bound(tone,symbol) = sqrt(squared_error) + &
+               4.0_real64*unit_roundoff*(sqrt(energy)+sqrt(squared_error))
         end if
       end do
     end do
   end subroutine separate_reference
 
-  logical function correlations_agree(left,right,accumulation_terms) result(agree)
-    complex(real32), intent(in) :: left(:,:),right(:,:)
-    integer, intent(in) :: accumulation_terms
-    real(real64) :: relative_tolerance, observation_scale
+  logical function numerically_agree(actual,expected,error_bound) result(agree)
+    complex(real32), intent(in) :: actual(:,:)
+    complex(real64), intent(in) :: expected(:,:)
+    real(real64), intent(in) :: error_bound(:,:)
 
     agree = .false.
-    if (any(shape(left) /= shape(right))) return
-    if (.not.all(ieee_is_finite(real(left,real32))) .or. &
-         .not.all(ieee_is_finite(aimag(left))) .or. &
-         .not.all(ieee_is_finite(real(right,real32))) .or. &
-         .not.all(ieee_is_finite(aimag(right)))) return
-    ! Independent real32 accumulation may round differently over a whole symbol.
-    relative_tolerance = real(accumulation_terms,real64)*real(epsilon(0.0_real32),real64)
-    observation_scale = max(1.0_real64,maxval(abs(cmplx(left,kind=real64))), &
-         maxval(abs(cmplx(right,kind=real64))))
-    agree = maxval(abs(cmplx(left,kind=real64)-cmplx(right,kind=real64))) <= &
-         relative_tolerance*observation_scale
-  end function correlations_agree
+    if (.not.all(ieee_is_finite(real(actual))) .or. .not.all(ieee_is_finite(aimag(actual)))) return
+    if (.not.all(ieee_is_finite(real(expected))) .or. .not.all(ieee_is_finite(aimag(expected)))) return
+    if (.not.all(ieee_is_finite(error_bound))) return
+    agree = all(abs(cmplx(actual,kind=real64)-expected) <= error_bound)
+  end function numerically_agree
 
   subroutine require(condition,message)
     logical, intent(in) :: condition

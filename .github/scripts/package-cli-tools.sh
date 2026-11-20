@@ -12,6 +12,8 @@
 # library or a library third-party-libraries.tsv does not name fails the run,
 # and then no tarball is written.
 #
+# The codec tarball also holds ALLCALL7.TXT, the callsign list wsjt-codec's multithreaded FT8 decoder reads; the client supplies CALL3.TXT.
+#
 # macos:   --source is the CLI assets directory: the signed programs and the
 #          deployed lib/ of dylibs they reference as @rpath/<name>. Each
 #          tarball gets its programs at the top and, in lib/, the dylibs they
@@ -62,6 +64,7 @@ done
 
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 COPYING="${SCRIPTS}/../../COPYING"
+ALLCALL7="${SCRIPTS}/../../ALLCALL7.TXT"
 NOTICES_TABLE="${SCRIPTS}/third-party-libraries.tsv"
 EXCLUDELIST="${SCRIPTS}/linuxdeploy-excludelist.txt"
 LICENSE_PAGE="${SCRIPTS}/../../doc/common/license.adoc"
@@ -85,6 +88,7 @@ esac
 [ -d "$SOURCE" ] || fail "source directory not found: $SOURCE"
 [ -s "$GROUPS_FILE" ] || fail "release tarball list not found or empty: $GROUPS_FILE"
 [ -f "$COPYING" ] || fail "COPYING not found: $COPYING"
+[ -f "$ALLCALL7" ] || fail "ALLCALL7.TXT not found: $ALLCALL7"
 [ -f "$NOTICES_TABLE" ] || fail "third-party library table not found: $NOTICES_TABLE"
 [ -f "$LICENSE_PAGE" ] || fail "license page not found: $LICENSE_PAGE"
 [ "$PLATFORM" != linux ] || [ -f "$EXCLUDELIST" ] || fail "linuxdeploy excludelist not found: $EXCLUDELIST"
@@ -206,7 +210,7 @@ macos_closure() {
 
 macos_minimum() {
   local file
-  find "$DEST" -type f ! -name '*.txt' ! -name COPYING | while IFS= read -r file; do
+  find "$DEST" -type f ! -iname '*.txt' ! -name COPYING | while IFS= read -r file; do
     otool -l "$file" | awk '
       $1 == "Load" && $2 == "command" { command = "" }
       $1 == "cmd" { command = $2 }
@@ -422,16 +426,21 @@ describe() {
   local writes="writes working files to its data directory (-a) and its temporary directory (-t), both the current directory by default; run it where it can write, or point -a and -t at writable directories."
   case "$1" in
     jt9)
-      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the stream codec without the shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files."
+      echo "jt9 is the decoder the WSJT-X application drives through shared memory (-s). It also decodes WAV files. wsjt-codec, in its own tarball, is the stream codec without the shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files and WSPR .c2 files."
       echo "jt9 ${writes}"
       ;;
     codec)
-      echo "wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files."
+      echo "wsjt-codec is the stream codec, without jt9's shared-memory worker: it decodes the period modes and JTTY, and encodes the slot modes, Echo, Tune, Fox, SuperFox and JTTY, through framed PCM audio and requests on standard input, and decodes WAV files and WSPR .c2 files."
       echo "wsjt-codec ${writes}"
+      echo "Its multithreaded FT8 decoder reads ALLCALL7.TXT, included here, from its read-only data directory (-r, default the current directory); point -r at this directory, where this README is."
+      echo
+      echo "doc/codec/ in the source code of this release documents how a client program drives wsjt-codec: https://github.com/WSJTX/wsjtx/tree/v${VERSION}/doc/codec"
       ;;
     wsprd)
-      echo "wsprd decodes WSPR from WAV files, and from framed PCM audio on standard input (-0)."
+      echo "wsprd decodes WSPR from WAV and .c2 files. wsjt-codec, in its own tarball, decodes WSPR on its stream and from files with -2."
       echo "wsprd writes working files to its data directory (-a, default the current directory) and stops if it cannot write there."
+      echo
+      echo "doc/codec/ in the source code of this release documents how a client program drives wsjt-codec, WSPR included: https://github.com/WSJTX/wsjtx/tree/v${VERSION}/doc/codec"
       ;;
     utilities)
       echo "Utilities for testing decoders: wsprcode and encode77 encode messages; ft4sim, jt4sim, jt65sim, cwsim and sfoxsim write simulated signals to WAV files in the current directory, so run them where they can write."
@@ -526,6 +535,7 @@ for index in "${!GROUP_NAMES[@]}"; do
     esac
   done < <(find "$DEST" \( -type f -o -type l \) -print0)
   cp "$COPYING" "${DEST}/COPYING"
+  [ "$group" != codec ] || cp "$ALLCALL7" "${DEST}/ALLCALL7.TXT"
   write_notices
   write_readme "$group" "$programs"
   COPYFILE_DISABLE=1 tar -czf "${WORK}/tarballs/${NAME}.tar.gz" -C "$WORK" "$NAME"

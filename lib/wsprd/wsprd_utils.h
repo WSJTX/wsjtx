@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <time.h>
 #include "nhash.h"
+#include "../../DecoderEngine.h"
 
 enum {
     WSPRD_CALLSIGN_SIZE = 13,
@@ -31,6 +32,8 @@ void deinterleave(unsigned char *sym);
 // used by qsort
 int doublecomp(const void* elem1, const void* elem2);
 int floatcomp(const void* elem1, const void* elem2);
+
+int wsprd_interpret(signed char *, char *, char *, char *, char *, decoder_wspr_result *);
 
 int unpk_( signed char *message, char* hashtab, char* loctab, char *call_loc_pow, char *callsign);
 

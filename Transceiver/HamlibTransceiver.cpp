@@ -184,7 +184,6 @@ public:
     , set_vfo_works_ {true}
     , do_snr_ {false}
     , do_pwr_ {false}
-    , do_pwr2_ {false}
     , do_swr_ {false}
   {
   }
@@ -206,7 +205,6 @@ public:
     , set_vfo_works_ {true}
     , do_snr_ {false}
     , do_pwr_ {false}
-    , do_pwr2_ {false}
     , do_swr_ {false}
   {
   }
@@ -251,7 +249,6 @@ public:
   bool set_vfo_works_;          // More rigctl promises which it can't deliver
   bool do_snr_;
   bool do_pwr_;
-  bool do_pwr2_;
   bool do_swr_;
 
   static int debug_callback (enum rig_debug_level_e level, rig_ptr_t arg, char const * format, va_list ap);
@@ -441,7 +438,7 @@ HamlibTransceiver::HamlibTransceiver (logger_type * logger,
   if (!m_->is_dummy_)
     {
       // printf("Hamlib open params: power_on=%d power_off=%d ptt_share=%d\n",(params.poll_interval & rig__power) == rig__power,(params.poll_interval & rig__power_off) == rig__power_off,(params.poll_interval & ptt__share) == ptt__share);
-      if (params.poll_interval & do__pwr) { do_pwr_ = true; do_pwr2_ = true; do_swr_ = true;}
+      if (params.poll_interval & do__pwr) { do_pwr_ = true; do_swr_ = true;}
 
       switch (rig_get_caps_int (m_->model_, RIG_CAPS_PORT_TYPE))
         {
@@ -611,6 +608,27 @@ int HamlibTransceiver::do_start ()
 
   m_->error_check (rig_open (m_->rig_.data ()), tr ("opening connection to rig"));
 
+  // A rig receives wherever it transmits, so the transmit ranges are added.
+  // Hamlib (4.7.2 in our builds) swaps the second caps lists in when the first
+  // receive list is empty, so for backends that fill only the second lists
+  // rx_range_list holds the transmit bands alone. The "None" rig controls no
+  // radio, so it reports no ranges.
+  RigFrequency::Ranges tuning_ranges;
+  if (RIG_MODEL_DUMMY != m_->rig_.data ()->caps->rig_model)
+    {
+      auto const * rig_state = HAMLIB_STATE (m_->rig_.data ());
+      for (auto const * range_list : {rig_state->rx_range_list, rig_state->tx_range_list})
+        {
+          for (int i = 0; i < HAMLIB_FRQRANGESIZ && !RIG_IS_FRNG_END (range_list[i]); ++i)
+            {
+              if (range_list[i].startf >= 0 && range_list[i].endf >= range_list[i].startf)
+                tuning_ranges.push_back ({static_cast<Frequency> (std::llround (range_list[i].startf)),
+                                          static_cast<Frequency> (std::llround (range_list[i].endf))});
+            }
+        }
+    }
+  update_tuning_ranges (tuning_ranges);
+
   // reset dynamic state
   m_->one_VFO_ = false;
   m_->vfo_roles_.reset ();
@@ -621,7 +639,6 @@ int HamlibTransceiver::do_start ()
   m_->get_vfo_works_ = true;
   m_->set_vfo_works_ = true;
   do_pwr_ &= (!m_->is_dummy_ && rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_LEVEL) && (rig_get_caps_int (m_->model_, RIG_CAPS_HAS_GET_LEVEL) & RIG_LEVEL_RFPOWER_METER_WATTS) == RIG_LEVEL_RFPOWER_METER_WATTS);
-  do_pwr2_ &= (!m_->is_dummy_ && rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_LEVEL) && (rig_get_caps_int (m_->model_, RIG_CAPS_HAS_GET_LEVEL) & RIG_LEVEL_RFPOWER) == RIG_LEVEL_RFPOWER);
   do_swr_ &= (!m_->is_dummy_ && rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_LEVEL) && (rig_get_caps_int (m_->model_, RIG_CAPS_HAS_GET_LEVEL) & RIG_LEVEL_SWR) == RIG_LEVEL_SWR);
 
   // the Net rigctl back end promises all functions work but we must
@@ -1264,21 +1281,6 @@ void HamlibTransceiver::do_poll ()
           update_power (strength.f*1000);
       } else {
           CAT_TRACE ("rig_get_level RFPOWER_METER_WATTS failed with rc:" << rc << "ignoring");
-          update_power (0);
-      }
-    } else if (do_pwr2_) {
-      rc = rig_get_level (m_->rig_.data (), RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &strength);
-      if (RIG_OK == rc) {
-          unsigned int mwpower;
-          rc = rig_power2mW(m_->rig_.data (),&mwpower,strength.f,f,m);
-          if (RIG_OK != rc) {
-            CAT_TRACE ("rig_power2mW failed with rc:" << rc << "ignoring");
-            mwpower=0;
-          }
-          update_power (mwpower);
-          // printf ("POWER %.3f %.1f\n",strength.f,mwpower / 1000.);
-      } else {
-          CAT_TRACE ("rig_get_level RFPOWER failed with rc:" << rc << "ignoring");
           update_power (0);
       }
     } else  update_power (0);

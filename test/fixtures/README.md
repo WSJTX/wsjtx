@@ -2,7 +2,7 @@
 
 Known-good decoder outputs captured at SHA `3b354122` (a commit with zero decoder changes relative to its parent).
 
-These fixtures are the regression baseline: any change that alters `jt9`'s or `wsprd`'s stdout byte-for-byte fails the harness in CI. The harness protects decoder behavior through the streaming I/O, NDJSON output, control frames, and wsprd streaming paths.
+These fixtures are the regression baseline: any change that alters `jt9`'s or `wsprd`'s stdout byte-for-byte fails the harness in CI. The harness protects decoder behavior through the streaming I/O, NDJSON output, and control frames.
 
 ## Current fixtures
 
@@ -20,6 +20,12 @@ These fixtures are the regression baseline: any change that alters `jt9`'s or `w
 | `jt65_000000_0004.expected.txt` | `samples/JT65/JT65B/000000_0004.wav` | JT65 (`--jt65 -b B -f 1700 -d 3`) | 1 signal | K1JT, 2026-08-02 |
 | `jt4_OK1KIR_141105_175700.expected.txt` | `samples/JT4/JT4F/OK1KIR_141105_175700.WAV` | JT4-F (`--jt4 -b F -f 1200 -d 3`) | 1 signal | K1JT, 2026-08-02 |
 | `wspr_150426_0918.expected.txt` | `samples/WSPR/150426_0918.wav` | WSPR (`wsprd`, no flags) | 9 signals | K1JT, 2026-08-02 |
+| `wspr_150426_0918_d1.expected.txt` and its data files | `samples/WSPR/150426_0918.wav` | WSPR depth 1 (`wsprd -qB`, dial 14.0956) | 8 signals | develop's `wsprd`, 2026-11-16 |
+| `wspr_150426_0918_d2.expected.txt` and its data files | `samples/WSPR/150426_0918.wav` | WSPR depth 2 (`wsprd -C 500 -o 4`, dial 14.0956) | 8 signals | develop's `wsprd`, 2026-11-16 |
+| `wspr_150426_0918_d3.expected.txt` and its data files | `samples/WSPR/150426_0918.wav` | WSPR depth 3 (`wsprd -C 500 -o 4 -d`, dial 14.0956) | 8 signals | develop's `wsprd`, 2026-11-16 |
+| `wspr_generated_261116_0016_d1.expected.txt` and its data files | generated at test time | WSPR depth 1 (`wsprd -qB`, dial 14.0956) | none | develop's `wsprd`, 2026-11-16 |
+| `wspr_generated_261116_0016_d2.expected.txt` and its data files | generated at test time | WSPR depth 2 (`wsprd -C 500 -o 4`, dial 14.0956) | 1 signal | develop's `wsprd`, 2026-11-16 |
+| `wspr_generated_261116_0016_d3.expected.txt` and its data files | generated at test time | WSPR depth 3 (`wsprd -C 500 -o 4 -d`, dial 14.0956) | 1 signal | develop's `wsprd`, 2026-11-16 |
 
 ## Running
 
@@ -33,6 +39,34 @@ Two independent ways to run these:
   Exits 0 on pass, 1 on regression.
 - **ctest** (this is what CI actually runs): each fixture above is also registered as a `test_jt9_golden_*`/`test_wsprd_golden_*` test via `wsjt_add_jt9_golden_test`/`wsjt_add_wsprd_golden_test` in the top-level `CMakeLists.txt`, using `tests/integration/{jt9,wsprd}/compare_*_output.cmake` for an isolated, byte-exact comparison. These are gated to Linux x86-64 only (`ctest -R test_jt9_golden` / `test_wsprd_golden` to run just these) -- decoder output can drift in small ways across compilers/architectures, so the byte-exact check is pinned to one canonical platform; the other CI legs run everything else in `ctest`, except the long decode-thread rows where [the test policy](../../ci-cd/DEVELOPMENT_WORKFLOW.md#test-failure-policy) leaves them out.
 
+## WSPR depths and data files
+
+WSJT-X runs `wsprd` with one of three option sets, by decoding depth (`widgets/mainwindow.cpp`): depth 1 `-qB`, depth 2 `-C 500 -o 4`, depth 3 `-C 500 -o 4 -d`, then `-a <data dir>` and, for a period it recorded, `-f <dial MHz>`. `wsprd` writes its decodes to stdout and to three files in the data directory that WSJT-X uses: `ALL_WSPR.TXT`, `wspr_spots.txt` and `hashtable.txt`. Each `wspr_*_d<depth>.expected.txt` above is the stdout of one run at dial 14.0956, and its data files are `wspr_*_d<depth>.ALL_WSPR.expected.txt`, `wspr_*_d<depth>.wspr_spots.expected.txt` and `wspr_*_d<depth>.hashtable.expected.txt` (empty where `wsprd` decodes nothing).
+
+They were recorded from develop's `wsprd` (`lib/wsprd` as at develop `b2917f5a`), before `wsprd` and `wsjt-codec` were built from one decoder library, so a change in that library's output fails here even when `wsjt-codec` and the built `wsprd` agree. Each was recorded in a fresh data directory, `cd <dir> && wsprd <options> -a <dir> -f 14.0956 <file>.wav > stdout`, and the stdout and the three files were copied here unchanged.
+
+The generated period, `261116_0016.wav`, is written at test time by `tests/integration/wsprd/wspr_test_audio.f90`: `wspr_test_audio wav 261116_0016.wav 4 "PJ4/W9XYZ 23" 1500 -29 1`, a type 2 message at 1500 Hz and -29 dB in 2500 Hz, starting 1 s in, over noise seed 4. Depth 1 does not decode it because `-q` tries each candidate at one time offset; depths 2 and 3 do. Its noise is integer arithmetic but its signal goes through libm, so the test checks the file's SHA-256 (in `CMakeLists.txt`) before decoding and fails with "generated audio differs" if it is not the audio the fixtures were recorded from.
+
+ctest runs them as `test_wsprd_golden_150426_0918_d{1,2,3}` and `test_wsprd_golden_generated_261116_0016_d{1,2,3}`, registered by `wsjt_add_wsprd_golden_test` under the same Linux x86-64 condition as the other golden tests; each compares stdout and the three data files byte for byte (`tests/integration/wsprd/compare_wsprd_output.cmake`). `test/run-golden-fixtures.sh` compares stdout only and does not run them. On another platform, run one by hand from the source directory; a difference there may be the platform rather than a regression. Depth 3 on the sample, then depth 1 on the generated period:
+
+```sh
+cmake -DWSPRD=build/wsprd -DSAMPLE=samples/WSPR/150426_0918.wav \
+  -DEXPECTED=test/fixtures/wspr_150426_0918_d3.expected.txt \
+  -DWORK_DIR=build/Testing/Golden/test_wsprd_golden_150426_0918_d3 \
+  "-DOPTIONS=-C;500;-o;4;-d" -DDIAL=14.0956 -DSIDE_FILES=ON \
+  -P tests/integration/wsprd/compare_wsprd_output.cmake
+cmake -DWSPRD=build/wsprd \
+  -DSAMPLE=build/Testing/Golden/test_wsprd_golden_generated_261116_0016_d1/261116_0016.wav \
+  -DEXPECTED=test/fixtures/wspr_generated_261116_0016_d1.expected.txt \
+  -DWORK_DIR=build/Testing/Golden/test_wsprd_golden_generated_261116_0016_d1 \
+  -DOPTIONS=-qB -DDIAL=14.0956 -DSIDE_FILES=ON \
+  -DAUDIO=build/tests/integration/wsprd/wspr_test_audio "-DAUDIO_ARGS=4;PJ4/W9XYZ 23;1500;-29;1" \
+  -DAUDIO_SHA256=d43d243f65b7cafefaa3be5f6da3bd0310f8e959fc7c8e76cc8455cdc204d824 \
+  -P tests/integration/wsprd/compare_wsprd_output.cmake
+```
+
+`test_wsjt_codec_wspr_sample` (`tests/integration/wsprd/test_codec_wspr.cmake`) compares `wsjt-codec` with the built `wsprd` on every platform; its one comparison with a fixture, `wsjt-codec` at `wsprd`'s defaults against `wspr_150426_0918.expected.txt`, runs only on Linux x86-64, with the golden tests.
+
 ## Adding a fixture
 
 1. Put the input `.wav` under `samples/<MODE>/` (already there for standard modes).
@@ -43,7 +77,7 @@ Two independent ways to run these:
 ## Coverage
 
 - FT8 + JT9 + Q65-30A + Q65-300A + Q65-60D + MSK144 + FST4 + FST4W + FT4 + JT65 + JT4 + WSPR fixtures above cover basic decoder regression.
-- The streaming harnesses extend coverage to FST4 (`-7`), Q65 (`-3`), MSK144 (`-5`), and wsprd streaming.
+- The streaming harnesses extend coverage to FST4 (`-7`), Q65 (`-3`), and MSK144 (`-5`).
 - Streaming I/O parity: `test/run-stream-wav-parity.sh` validates that `wsjt-codec`'s stream decodes **contain** these expected decodes. The check is **containment, not identity**: streaming legitimately finds *more* signals (the early `nzhsym` passes pick up low-SNR signals) and the `snr`/`dt`/`freq` fields drift between the WAV and stream decode paths for the same signal (≈ ±2 dB / ±0.05 s / ±3 Hz — different fine estimates), so the decoded **message text** is the parity identity. FT8/JT9 only (FST4W has no good fixture; EME/JT65 I/Q paths are pass-on-absence).
 
 ## GUI FT8 receive scheduling

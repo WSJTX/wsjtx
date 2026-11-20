@@ -63,7 +63,11 @@ carrier at the specified Tx frequency (red marker on waterfall scale).
 This process is useful for adjusting an antenna tuner or tuning an
 amplifier.  The button is highlighted in red while *Tune* is active.
 Toggle the button a second time or click *Halt Tx* to terminate the
-*Tune* process.  
+*Tune* process.
+Except in *WSPR* and *FST4W*, transmission cannot be enabled manually or
+automatically while *Tune* is active or finishing its brief shutdown.
+A rejected start is not queued: retry *Enable Tx* or wait for another
+qualifying decode after shutdown completes.
 
 * Uncheck the box *Menus* to make the top-of-window menus disappear,
 leaving more vertical space for decoded messages.

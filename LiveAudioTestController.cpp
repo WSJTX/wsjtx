@@ -950,10 +950,8 @@ void LiveAudioTestController::prepareJttyInput ()
   m_jttyCheckStage = JttyCheckStage::Live;
   auto const mailboxError = m_window->checkLiveAudioTestJttyMailboxOverflow ();
   if (!mailboxError.isEmpty ()) { fail (mailboxError); return; }
-  auto * includeTime = m_window->findChild<QAbstractButton *> ("cbIncludeTime");
   auto * lowerCase = m_window->findChild<QAbstractButton *> ("cbLowerCase");
-  if (!includeTime || !lowerCase) { fail (tr ("JTTY display options were not found.")); return; }
-  includeTime->setChecked (true);
+  if (!lowerCase) { fail (tr ("JTTY display options were not found.")); return; }
   lowerCase->setChecked (false);
 
   connect (m_jttyAllDecodes, &QTextEdit::textChanged,
@@ -1348,22 +1346,10 @@ void LiveAudioTestController::checkJttyReviewAndStatus ()
         return;
       }
     }
-    auto * includeTime = m_window->findChild<QAbstractButton *> ("cbIncludeTime");
     auto * lowerCase = m_window->findChild<QAbstractButton *> ("cbLowerCase");
-    if (!includeTime || !lowerCase) { fail (tr ("JTTY display options were not found.")); return; }
+    if (!lowerCase) { fail (tr ("JTTY display options were not found.")); return; }
     QStringList const before {m_jttyAllDecodes->toPlainText (), m_jttyQsoFrequency->toPlainText ()};
     QList<QTextEdit *> const panes {m_jttyAllDecodes, m_jttyQsoFrequency};
-    QRegularExpression const timestamp {QStringLiteral ("^[0-9]{6} "),
-                                        QRegularExpression::MultilineOption};
-    includeTime->setChecked (false);
-    for (int i = 0; i < panes.size (); ++i) {
-      auto expected = before[i];
-      expected.remove (timestamp);
-      if (panes[i]->toPlainText () != expected) {
-        fail (tr ("Include Time did not immediately refresh retained JTTY history."));
-        return;
-      }
-    }
     lowerCase->setChecked (true);
     for (int i = 0; i < panes.size (); ++i) {
       auto const text = panes[i]->toPlainText ().simplified ();
@@ -1375,7 +1361,6 @@ void LiveAudioTestController::checkJttyReviewAndStatus ()
         }
       }
     }
-    includeTime->setChecked (true);
     lowerCase->setChecked (false);
     if (panes[0]->toPlainText () != before[0] || panes[1]->toPlainText () != before[1]
         || !log.seek (0) || log.readAll () != contents) {

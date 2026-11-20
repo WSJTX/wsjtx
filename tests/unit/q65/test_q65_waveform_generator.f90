@@ -24,6 +24,7 @@ program test_q65_waveform_generator
   call test_q65_invalid_message(q65_wave)
   call test_q65_legacy_wave(legacy_q65_wave)
   call test_jt65_complex_wave(jt65_wave)
+  deallocate(q65_wave, jt65_wave, legacy_q65_wave)
   print '(a)', 'Q65 waveform generator tests passed'
 
 contains

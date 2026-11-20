@@ -5,7 +5,7 @@ FC = gfortran
 FFLAGS = -O2 -Wall -Wno-conversion
 CFLAGS= -Wall -Wno-missing-braces -O2
 #LDFLAGS = -L/JTSDK/fftw3f
-LIBS = c:/JTSDK/fftw3f/libfftw3-3.dll -lm
+LIBS = c:/JTSDK/fftw3f/libfftw3-3.dll -lm -lgfortran
 
 # Default rules
 %.o: %.c $(DEPS)
@@ -21,12 +21,15 @@ LIBS = c:/JTSDK/fftw3f/libfftw3-3.dll -lm
 
 all:    wsprd
 
-DEPS = fano.h nhash.h ../lookup3.h
+DEPS = wspr_decoder.h wsprd_decode.h ../../DecoderEngine.h fano.h nhash.h ../lookup3.h
 
 lookup3.o: ../lookup3.c ../lookup3.h
 	${CC} ${CFLAGS} -c $< -o $@
 
-OBJS1 = wsprd.o wsprd_utils.o fano.o tab.o nhash.o lookup3.o
+indexx.o: ../indexx.f90
+	${FC} -o indexx.o ${FFLAGS} -c ../indexx.f90
+
+OBJS1 = wsprd.o wsprd_decode.o wspr_decoder.o wsprsim_utils.o wsprd_utils.o tab.o fano.o jelinek.o nhash.o lookup3.o indexx.o osdwspr.o
 wsprd: $(OBJS1)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
 

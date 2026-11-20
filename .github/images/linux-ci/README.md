@@ -181,11 +181,7 @@ packaging. Image-pair verification, including its brief QEMU checks, remains
 required. The `armhf_build_only` workflow input defaults to false, preserving
 full ARMHF CI; build-only cache writes require `develop`.
 
-The cache-refresh workflow selects ARMHF weekly, for relevant build/configuration
-changes on `develop`, and through its `linux-armhf` manual target. Source-only
-pushes do not select it. Successful internal ARMHF image promotion warms both
-distro builds for the exact new generation afterward; a warmer failure does not
-undo promotion.
+The cache-refresh workflow selects ARMHF weekly, for a push to `develop` that changes the FFTW or Boost version or the Boost log patch, and through its `linux-armhf` and `all` manual targets. Other pushes, such as CMake, workflow or source changes, do not select it; their ARMHF objects are compiled at the next weekly run. Successful internal ARMHF image promotion warms both distro builds for the exact new generation afterward; a warmer failure does not undo promotion.
 Standalone and post-promotion warmers share a concurrency group, and an image
 refresh suppresses duplicate standalone warming.
 

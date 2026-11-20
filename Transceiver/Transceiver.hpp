@@ -155,6 +155,7 @@ public:
     int level () const {return level_;}
     unsigned int power () const {return power_;}
     unsigned int swr () const {return swr_;}
+    RigFrequency::Ranges const& tuning_ranges () const {return tuning_ranges_;}
     QString jtmode () const {return tx_request_.mode;}  //w3sz tci
     bool fastmode () const {return tx_request_.fast_mode;}  //w3sz tci
     TxEvidence::TxSessionId tx_session_id () const {return tx_request_.session_id;}
@@ -193,6 +194,7 @@ public:
     void level (int strength) {level_ = strength;}
     void power (unsigned int mwpower) {power_ = mwpower;}
     void swr (unsigned int mswr) {swr_ = mswr;}
+    void tuning_ranges (RigFrequency::Ranges const& ranges) {tuning_ranges_ = ranges;}
     void jtmode(QString jtmode) {tx_request_.mode = jtmode;}  //w3sz tci
     void fastmode(bool fastmode) {tx_request_.fast_mode = fastmode;}  //w3sz tci
     void tx_session_id (TxEvidence::TxSessionId value) {tx_request_.session_id = value;}
@@ -223,6 +225,7 @@ public:
     int level_;
     unsigned int power_;
     unsigned int swr_;
+    RigFrequency::Ranges tuning_ranges_;  // empty when the backend does not report them
 
     // Don't forget to update the debug print and != operator if you
     // add more members here

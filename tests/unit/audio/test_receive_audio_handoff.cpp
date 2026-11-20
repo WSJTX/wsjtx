@@ -776,6 +776,17 @@ private Q_SLOTS:
     QVERIFY (file.open (QIODevice::ReadOnly));
     QCOMPARE (file.readAll (), measured);
   }
+  // A reference file that cannot be written leaves the measurement running.
+  void reference_measurement_survives_unwritable_file ()
+  {
+    QTemporaryDir directory;
+    QVERIFY (directory.isValid ());
+    auto path = (directory.path () + "/missing/refspec.dat").toLocal8Bit ();
+    auto const original = noiseSamples (8 * 3456);
+
+    QCOMPARE (runReferenceSpectrum (original, 3456, true, path), original);
+    QVERIFY (!QFile::exists (QString::fromLocal8Bit (path)));
+  }
   void echo_metadata_vs_append () { consumerRace (false, true); }
   void echo_metadata_vs_reset () { consumerRace (true, true); }
 };

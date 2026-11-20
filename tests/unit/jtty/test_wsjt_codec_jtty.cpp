@@ -587,7 +587,8 @@ private Q_SLOTS:
             bool frequencyOk {false}, tsyncOk {false};
             auto const f1 = candidate.mid (30, 7).toDouble (&frequencyOk);
             auto const tsync = candidate.mid (44, 9).toDouble (&tsyncOk);
-            if (frequencyOk && tsyncOk && qRound (f1) == frequency
+            // f1 is printed to 0.1 Hz, so rounding it again can miss nint(f1).
+            if (frequencyOk && tsyncOk && std::abs (f1 - frequency) <= 0.55
                 && QString::fromLatin1 (candidate.mid (68)) == text)
               {
                 references.append ({f1, tsync, text});
@@ -755,16 +756,17 @@ private Q_SLOTS:
 
   // Entering JTTY, rxfreq carries over and ntol becomes 20 Hz unless the
   // frame sets it; a value the frame sets is not capped as FT8's is. Away
-  // from rxfreq, with the default nfa and nfb, the decoder searches only 1200
-  // to 1800 Hz.
+  // from rxfreq the decoder searches only nfa..nfb, so 2200 Hz is reachable
+  // there only through rxfreq.
   void enteringJttySetsItsDefaults_data ()
   {
     QTest::addColumn<QByteArray> ("configures");
     QTest::addColumn<float> ("frequency");
     QTest::addColumn<bool> ("decoded");
-    QTest::newRow ("ntol 20") << control (R"({"t":"configure","mode":"FT8"})") + jtty () << 2200.0f << false;
+    auto const narrow = control (R"({"t":"configure","mode":"JTTY","nfa":1000,"nfb":2000})");
+    QTest::newRow ("ntol 20") << control (R"({"t":"configure","mode":"FT8"})") + narrow << 2200.0f << false;
     QTest::newRow ("rxfreq carried over")
-      << control (R"({"t":"configure","mode":"FT8","rxfreq":2200})") + jtty () << 2200.0f << true;
+      << control (R"({"t":"configure","mode":"FT8","rxfreq":2200})") + narrow << 2200.0f << true;
     QTest::newRow ("ntol 3000") << control (R"({"t":"configure","mode":"JTTY","ntol":3000})") << 2800.0f << true;
   }
 

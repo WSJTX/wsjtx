@@ -22,7 +22,8 @@
 !
 ! Restrictions (deliberate scope):
 !   - Flat objects only; no nested objects, and no arrays except
-!     configure's phase_eq and a Fox's slots (lib/streaming_encode.f90).
+!     configure's phase_eq and q65_callers_remove, and a Fox's slots
+!     (lib/streaming_encode.f90).
 !   - Numeric values must be plain decimal (no scientific notation),
 !     except where a key's rule says otherwise (render's freq and each
 !     phase_eq element are JSON numbers). Configure's integer keys must be
@@ -36,7 +37,8 @@
 !     error.
 
 module streaming_control
-  use, intrinsic :: iso_fortran_env, only: error_unit
+  use, intrinsic :: iso_fortran_env, only: error_unit, int64
+  use q65_callers, only: Q65_MAX_CALLERS
   implicit none
   private
 
@@ -49,16 +51,31 @@ module streaming_control
   integer, parameter, public :: CTRL_PACK      = 5
   integer, parameter, public :: CTRL_RENDER    = 6
   integer, parameter, public :: CTRL_FLUSH     = 7
+  integer, parameter, public :: CTRL_REVIEW    = 8
+  ! configure's ref_spectrum, numbered as the GUI's ReferenceSpectrumInput
+  ! numbers its modes.
+  integer, parameter, public :: REF_SPECTRUM_OFF = 0
+  integer, parameter, public :: REF_SPECTRUM_MEASURE = 1
+  integer, parameter, public :: REF_SPECTRUM_APPLY = 2
   ! JTTY is selected by name only: no jt9 mode number, so valid_mode_int_
   ! rejects it and "mode":<int> cannot select it.
   integer, parameter, public :: MODE_JTTY = 1000
-  ! WSPR, Echo, Tune, Fox and SuperFox, which only encode requests name, have
-  ! no jt9 mode number either.
+  ! WSPR, Echo, Tune, Fox and SuperFox have no jt9 mode number either:
+  ! encode requests name all five, and configure selects WSPR and Echo by
+  ! name only, as JTTY.
   integer, parameter, public :: MODE_WSPR = 1001
   integer, parameter, public :: MODE_ECHO = 1002
   integer, parameter, public :: MODE_TUNE = 1003
   integer, parameter, public :: MODE_FOX = 1004
   integer, parameter, public :: MODE_SUPERFOX = 1005
+  ! FreqCal, which configure selects by name only, as JTTY: no jt9 mode
+  ! number (lib/streaming_freqcal.f90).
+  integer, parameter, public :: MODE_FREQCAL = 1006
+  ! Echo's kinds, numbered as a render's kind: the GUI's Fixed Tone, Message
+  ! and CW.
+  integer, parameter, public :: ECHO_TONE = 1
+  integer, parameter, public :: ECHO_MESSAGE = 2
+  integer, parameter, public :: ECHO_CW = 3
   ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
   integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
   integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
@@ -219,6 +236,72 @@ module streaming_control
      ! planning lines on and off (lib/streaming_emit.f90), in stream order.
      logical                :: busy_events_set          = .false.
      logical                :: busy_events              = .false.
+     ! The receive chain's keys (lib/streaming_emit.f90 states them). A
+     ! ref_spectrum other than "off", "measure" and "apply" is out of range.
+     logical                :: spectrum_set             = .false.
+     logical                :: spectrum                 = .false.
+     logical                :: low_sidelobes_set        = .false.
+     logical                :: low_sidelobes            = .false.
+     logical                :: ref_spectrum_set         = .false.
+     integer                :: ref_spectrum             = REF_SPECTRUM_OFF
+     logical                :: ref_spectrum_out_of_range = .false.
+     logical                :: ref_spectrum_clear_set   = .false.
+     logical                :: ref_spectrum_clear       = .false.
+     logical                :: prepared_audio_set       = .false.
+     logical                :: prepared_audio           = .false.
+     ! The Q65 caller list's one-shot edits (lib/streaming_side.f90), each
+     ! applied once, at the frame's place in the stream: q65_callers_clear
+     ! true deletes <-a>/tsil.3q; q65_callers_remove, an array of JSON
+     ! strings (configure_type_error otherwise), at most the list's capacity
+     ! (configure_range_error), removes each call as the GUI's rm_q3list
+     ! does, after a clear in the same frame. Each call is read to its first
+     ! 12 characters; rm_q3list compares the first 6, as the list keeps them.
+     logical                :: q65_callers_clear_set    = .false.
+     logical                :: q65_callers_clear        = .false.
+     ! fox_callers_clear true deletes <-t>/houndcallers.txt, as the GUI's Fox
+     ! reset does, once, at the frame's place in the stream: the next FT8 pass
+     ! in Fox mode starts a new caller list (lib/ft8_engine_kernel.f90).
+     logical                :: fox_callers_clear_set    = .false.
+     logical                :: fox_callers_clear        = .false.
+     ! wspr_hash_clear true empties the WSPR decoder's hash table and
+     ! deletes <-a>/hashtable.txt, as the GUI's Erase WSPR hashtable does,
+     ! once, at the frame's place in the stream (lib/streaming_wspr.f90).
+     logical                :: wspr_hash_clear_set      = .false.
+     logical                :: wspr_hash_clear          = .false.
+     logical                :: q65_callers_remove_set   = .false.
+     logical                :: q65_callers_remove_out_of_range = .false.
+     integer                :: q65_callers_remove_count = 0
+     character(len=12)      :: q65_callers_remove(Q65_MAX_CALLERS) = ' '
+     ! Fast JT9 (submodes E to H at 5, 10, 15 or 30 s), JT9's only: a frame
+     ! that carries mode without it sets it false (lib/streaming_io.f90).
+     logical                :: fast_set                 = .false.
+     logical                :: fast                     = .false.
+     ! Echo's keys (lib/streaming_echo.f90 states them), each in force in
+     ! every mode until another configure sets it: doppler and rit JSON
+     ! numbers of Hz truncated toward zero, echo_freq and spread JSON numbers of Hz, kind ECHO_TONE,
+     ! ECHO_MESSAGE or ECHO_CW, echo_spacing and echo_average integers,
+     ! echo_text up to six letters and digits (kept in upper case), echo_auto
+     ! a boolean. echo_problem names the first out of range, in that order
+     ! (configure_range_error).
+     logical                :: doppler_set              = .false.
+     integer                :: doppler                  = 0
+     logical                :: rit_set                  = .false.
+     integer                :: rit                      = 0
+     logical                :: echo_freq_set            = .false.
+     real(8)                :: echo_freq                = 0.d0
+     logical                :: spread_set               = .false.
+     real(8)                :: spread                   = 0.d0
+     logical                :: kind_set                 = .false.
+     integer                :: kind                     = 0
+     logical                :: echo_spacing_set         = .false.
+     integer                :: echo_spacing             = 0
+     logical                :: echo_text_set            = .false.
+     character(len=6)       :: echo_text                = ' '
+     logical                :: echo_average_set         = .false.
+     integer                :: echo_average             = 0
+     logical                :: echo_auto_set            = .false.
+     logical                :: echo_auto                = .false.
+     character(len=16)      :: echo_problem             = ' '
      ! MSK144's receive options, in every mode, each in force until another
      ! configure sets it: the GUI's "Sh" (short_messages) and "SWL" check
      ! boxes, each independent of the other, its "Measure phase response"
@@ -493,7 +576,22 @@ module streaming_control
      character(len=:), allocatable :: problem, problem_key
   end type slot_request
 
+  ! A jtty_review request (lib/streaming_jtty_review.f90). id_ok, problem
+  ! and problem_key as in encode_request. session 0 names every kept
+  ! session; sample, the picked stream sample, only with a session. Each
+  ! frequency value is -1 when the request leaves it to the configure.
+  type, public :: review_request
+     logical :: id_ok   = .false.
+     integer :: id      = 0
+     integer :: session = 0
+     logical :: picked  = .false.
+     integer(int64) :: sample = 0
+     integer :: rxfreq = -1, ntol = -1, nfa = -1, nfb = -1
+     character(len=:), allocatable :: problem, problem_key
+  end type review_request
+
   public :: parse_control_frame
+  public :: parse_review_request
   public :: mode_string_to_int
   public :: parse_encode_request
   public :: parse_render_request
@@ -523,7 +621,7 @@ contains
 
     character(len=64)  :: t_value
     character(len=128) :: str_val
-    character(len=:), allocatable :: utc_val
+    character(len=:), allocatable :: utc_val, ref_val
     character(len=8)   :: category
     integer            :: int_val, mode_value_start, mode_buffer_length
     real(8)            :: real_val
@@ -569,6 +667,11 @@ contains
        return
     end if
 
+    if (trim(t_value) .eq. 'jtty_review') then
+       action = CTRL_REVIEW
+       return
+    end if
+
     if (trim(t_value) .ne. 'configure') then
        action = CTRL_UNKNOWN   ! forward-compat: ignore unknown "t"
        return
@@ -583,6 +686,11 @@ contains
        if (ok) then
           int_val = mode_string_to_int(trim(str_val))
           if (upper_(trim(str_val)) .eq. 'JTTY') int_val = MODE_JTTY
+          if (upper_(trim(str_val)) .eq. 'FREQCAL') int_val = MODE_FREQCAL
+          ! Echo and WSPR decode by name only, as JTTY: MODE_ECHO and
+          ! MODE_WSPR, the names their renders take, have no jt9 mode number.
+          if (upper_(trim(str_val)) .eq. 'ECHO') int_val = MODE_ECHO
+          if (upper_(trim(str_val)) .eq. 'WSPR') int_val = MODE_WSPR
           if (int_val .ge. 0) then
              cfg%mode_set = .true.
              cfg%mode     = int_val
@@ -963,6 +1071,112 @@ contains
           cfg%busy_events     = lval
        end if
     end if
+
+    call check_type_(buf, '"spectrum"', 'spectrum', 'bool',                      &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"spectrum"', lval, ok)
+       if (ok) then
+          cfg%spectrum_set = .true.
+          cfg%spectrum     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"low_sidelobes"', 'low_sidelobes', 'bool',            &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"low_sidelobes"', lval, ok)
+       if (ok) then
+          cfg%low_sidelobes_set = .true.
+          cfg%low_sidelobes     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"ref_spectrum"', 'ref_spectrum', 'string',            &
+         .true., .false., terr, proceed)
+    if (proceed) then
+       call value_category_(buf, '"ref_spectrum"', category)
+       if (trim(category) .eq. 'string') then
+          call get_whole_string_(buf, '"ref_spectrum"', ref_val, ok)
+          if (.not. ok) ref_val = ''
+          cfg%ref_spectrum_set = .true.
+          ! The '|' keeps trailing blanks, which Fortran's comparison ignores.
+          select case (ref_val // '|')
+          case ('off|')
+             cfg%ref_spectrum = REF_SPECTRUM_OFF
+          case ('measure|')
+             cfg%ref_spectrum = REF_SPECTRUM_MEASURE
+          case ('apply|')
+             cfg%ref_spectrum = REF_SPECTRUM_APPLY
+          case default
+             cfg%ref_spectrum_set = .false.
+             cfg%ref_spectrum_out_of_range = .true.
+          end select
+       end if
+    end if
+
+    call check_type_(buf, '"ref_spectrum_clear"', 'ref_spectrum_clear', 'bool',  &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"ref_spectrum_clear"', lval, ok)
+       if (ok) then
+          cfg%ref_spectrum_clear_set = .true.
+          cfg%ref_spectrum_clear     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"prepared_audio"', 'prepared_audio', 'bool',          &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"prepared_audio"', lval, ok)
+       if (ok) then
+          cfg%prepared_audio_set = .true.
+          cfg%prepared_audio     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"q65_callers_clear"', 'q65_callers_clear', 'bool',    &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"q65_callers_clear"', lval, ok)
+       if (ok) then
+          cfg%q65_callers_clear_set = .true.
+          cfg%q65_callers_clear     = lval
+       end if
+    end if
+    call q65_callers_remove_(buf, cfg, terr)
+
+    call check_type_(buf, '"fox_callers_clear"', 'fox_callers_clear', 'bool',    &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"fox_callers_clear"', lval, ok)
+       if (ok) then
+          cfg%fox_callers_clear_set = .true.
+          cfg%fox_callers_clear     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"wspr_hash_clear"', 'wspr_hash_clear', 'bool',        &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"wspr_hash_clear"', lval, ok)
+       if (ok) then
+          cfg%wspr_hash_clear_set = .true.
+          cfg%wspr_hash_clear     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"fast"', 'fast', 'bool',                              &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"fast"', lval, ok)
+       if (ok) then
+          cfg%fast_set = .true.
+          cfg%fast     = lval
+       end if
+    end if
+
+    call parse_echo_keys_(buf, cfg, terr)
 
     call check_type_(buf, '"short_messages"', 'short_messages', 'bool',          &
          .false., .false., terr, proceed, accept_bool=.true.)
@@ -2390,6 +2604,88 @@ contains
 
   end subroutine parse_jtty_request_
 
+  ! Read a jtty_review request: id, then session, sample and the four
+  ! frequency values, each refused bad_request when malformed.
+  subroutine parse_review_request(buf, req)
+    character(len=*),     intent(in)  :: buf
+    type(review_request), intent(out) :: req
+    character(len=*), parameter :: KEYS(8) = [character(len=7) :: 't', 'id',     &
+         'session', 'sample', 'rxfreq', 'ntol', 'nfa', 'nfb']
+    character(len=:), allocatable :: key
+    character(len=8) :: cat
+    integer :: vstart, blen, width, ios
+    logical :: present, ok
+
+    req%problem = ''
+    req%problem_key = ''
+    call request_int_(top_level_(buf), '"id"', req%id, present, req%id_ok)
+    req%id_ok = present .and. req%id_ok
+    if (.not. req%id_ok) return
+    if (nested_(buf)) then
+       call refuse_('', 'a request is a flat JSON object')
+       return
+    end if
+    key = unknown_key_(buf, KEYS(1:8))
+    if (len(key) .gt. 0) then
+       call refuse_(key, key // ' is not a jtty_review key')
+       return
+    end if
+    call request_int_(buf, '"session"', req%session, present, ok)
+    if (.not. ok .or. (present .and. req%session .lt. 1)) then
+       call refuse_('session', 'session must be an integer from 1')
+       return
+    end if
+    call value_category_(buf, '"sample"', cat)
+    req%picked = trim(cat) .ne. 'absent'
+    if (req%picked) then
+       ok = trim(cat) .eq. 'number'
+       if (ok) then
+          call find_key_(buf, '"sample"', vstart, blen, present)
+          ok = json_number_(buf(vstart:blen), .false.)
+       end if
+       if (ok) then
+          width = json_number_width_(buf(vstart:blen))
+          read(buf(vstart:vstart + width - 1), *, iostat=ios) req%sample
+          ok = ios .eq. 0 .and. req%sample .ge. 0
+       end if
+       if (.not. ok) then
+          call refuse_('sample', 'sample must be an integer from 0')
+          return
+       end if
+       if (req%session .eq. 0) then
+          call refuse_('sample', 'sample needs session')
+          return
+       end if
+    end if
+    call request_int_(buf, '"rxfreq"', req%rxfreq, present, ok)
+    if (.not. hz_(req%rxfreq, 'rxfreq')) return
+    call request_int_(buf, '"ntol"', req%ntol, present, ok)
+    if (.not. hz_(req%ntol, 'ntol')) return
+    call request_int_(buf, '"nfa"', req%nfa, present, ok)
+    if (.not. hz_(req%nfa, 'nfa')) return
+    call request_int_(buf, '"nfb"', req%nfb, present, ok)
+    if (.not. hz_(req%nfb, 'nfb')) return
+
+  contains
+
+    subroutine refuse_(key, detail)
+      character(len=*), intent(in) :: key, detail
+      req%problem_key = key
+      req%problem = detail
+    end subroutine refuse_
+
+    ! The frequency value just read, -1 when absent; .false. after refusing
+    ! one that is no integer from 0 to 6000 Hz.
+    logical function hz_(value, name)
+      integer,          intent(inout) :: value
+      character(len=*), intent(in)    :: name
+      hz_ = ok .and. (.not. present .or. (value .ge. 0 .and. value .le. 6000))
+      if (.not. hz_) call refuse_(name, name // ' must be an integer from 0 to 6000 Hz')
+      if (.not. present) value = -1
+    end function hz_
+
+  end subroutine parse_review_request
+
   ! Read a render request: a pack request's keys, then freq and rate.
   subroutine parse_render_request(buf, req)
     character(len=*),     intent(in)  :: buf
@@ -3201,6 +3497,167 @@ contains
 
   ! Record the FIRST per-key type error of a frame (subsequent ones are ignored;
   ! the whole frame is declined regardless).
+  ! Echo's configure keys: types as configure_fields gives them, and the
+  ! first value out of range in echo_problem: doppler and rit of less than
+  ! 2^31 Hz either way, echo_freq from 1490 to below
+  ! 1510 (the GUI's 1500 Hz and its dither), spread finite, kind tone,
+  ! message or cw (case aside), echo_spacing 10, 15, 20, 25 or 30 (the GUI's
+  ! Spacing), echo_text up to six letters and digits (its Echo message),
+  ! echo_average 1, 2, 5, 10, 20, 50 or 100 (its averaging count).
+  subroutine parse_echo_keys_(buf, cfg, terr)
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    character(len=*),         intent(in)    :: buf
+    type(configure_fields),   intent(inout) :: cfg
+    type(control_type_error), intent(inout) :: terr
+    character(len=:), allocatable :: text
+    integer :: int_val
+    real(8) :: real_val
+    logical :: lval, ok, proceed
+
+    ! doppler and rit: JSON numbers, truncated toward zero as the GUI's
+    ! int nDop = m_fAudioShift truncates.
+    call check_type_(buf, '"doppler"', 'doppler', 'real', .false., .true., terr, proceed)
+    if (proceed) then
+       call get_real_(buf, '"doppler"', real_val, ok)
+       if (ok) then
+          cfg%doppler_set = .true.
+          if (abs(real_val) .lt. 2147483648.d0) then
+             cfg%doppler = int(real_val)
+          else
+             call echo_problem_('doppler')
+          end if
+       end if
+    end if
+
+    call check_type_(buf, '"rit"', 'rit', 'real', .false., .true., terr, proceed)
+    if (proceed) then
+       call get_real_(buf, '"rit"', real_val, ok)
+       if (ok) then
+          cfg%rit_set = .true.
+          if (abs(real_val) .lt. 2147483648.d0) then
+             cfg%rit = int(real_val)
+          else
+             call echo_problem_('rit')
+          end if
+       end if
+    end if
+
+    call check_type_(buf, '"echo_freq"', 'echo_freq', 'real', .false., .true., terr, proceed)
+    if (proceed) then
+       call get_real_(buf, '"echo_freq"', real_val, ok)
+       if (ok) then
+          cfg%echo_freq_set = .true.
+          cfg%echo_freq     = real_val
+          ! Written so that a NaN fails it.
+          if (.not. (real_val .ge. 1490.d0 .and. real_val .lt. 1510.d0))      &
+               call echo_problem_('echo_freq')
+       end if
+    end if
+
+    call check_type_(buf, '"spread"', 'spread', 'real', .false., .true., terr, proceed)
+    if (proceed) then
+       call get_real_(buf, '"spread"', real_val, ok)
+       if (ok) then
+          cfg%spread_set = .true.
+          cfg%spread     = real_val
+          if (.not. ieee_is_finite(real(real_val))) call echo_problem_('spread')
+       end if
+    end if
+
+    call check_type_(buf, '"kind"', 'kind', 'string', .true., .false., terr, proceed)
+    if (proceed) then
+       call get_whole_string_(buf, '"kind"', text, ok)
+       if (ok) then
+          cfg%kind_set = .true.
+          select case (upper_(text) // '|')
+          case ('TONE|')
+             cfg%kind = ECHO_TONE
+          case ('MESSAGE|')
+             cfg%kind = ECHO_MESSAGE
+          case ('CW|')
+             cfg%kind = ECHO_CW
+          case default
+             call echo_problem_('kind')
+          end select
+       end if
+    end if
+
+    call check_type_(buf, '"echo_spacing"', 'echo_spacing', 'int', .false., .true., terr, proceed)
+    if (proceed) then
+       call get_int_(buf, '"echo_spacing"', int_val, ok)
+       if (ok) then
+          cfg%echo_spacing_set = .true.
+          cfg%echo_spacing     = int_val
+          if (.not. any(int_val .eq. [10, 15, 20, 25, 30])) call echo_problem_('echo_spacing')
+       end if
+    end if
+
+    call check_type_(buf, '"echo_text"', 'echo_text', 'string', .true., .false., terr, proceed)
+    if (proceed) then
+       call get_whole_string_(buf, '"echo_text"', text, ok)
+       if (ok) then
+          cfg%echo_text_set = .true.
+          cfg%echo_text     = upper_(text)
+          if (len(text) .gt. 6 .or.                                              &
+               verify(upper_(text), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') .ne. 0) &
+               call echo_problem_('echo_text')
+       end if
+    end if
+
+    call check_type_(buf, '"echo_average"', 'echo_average', 'int', .false., .true., terr, proceed)
+    if (proceed) then
+       call get_int_(buf, '"echo_average"', int_val, ok)
+       if (ok) then
+          cfg%echo_average_set = .true.
+          cfg%echo_average     = int_val
+          if (.not. any(int_val .eq. [1, 2, 5, 10, 20, 50, 100])) call echo_problem_('echo_average')
+       end if
+    end if
+
+    call check_type_(buf, '"echo_auto"', 'echo_auto', 'bool', .false., .false., terr, proceed, &
+         accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"echo_auto"', lval, ok)
+       if (ok) then
+          cfg%echo_auto_set = .true.
+          cfg%echo_auto     = lval
+       end if
+    end if
+
+  contains
+
+    subroutine echo_problem_(key)
+      character(len=*), intent(in) :: key
+      if (cfg%echo_problem .eq. ' ') cfg%echo_problem = key
+    end subroutine echo_problem_
+
+  end subroutine parse_echo_keys_
+
+  ! q65_callers_remove: an array of JSON strings, each a call to remove.
+  subroutine q65_callers_remove_(buf, cfg, terr)
+    character(len=*),         intent(in)    :: buf
+    type(configure_fields),   intent(inout) :: cfg
+    type(control_type_error), intent(inout) :: terr
+    logical :: long(Q65_MAX_CALLERS), present, ok
+    integer :: n, first, last
+    character(len=8) :: got
+    call string_array_(buf, '"q65_callers_remove"', cfg%q65_callers_remove, long, n, &
+         present, ok, first, last)
+    if (.not. present) return
+    if (.not. ok) then
+       call value_category_(buf, '"q65_callers_remove"', got)
+       if (first .le. len(buf)) then
+          if (buf(first:first) .eq. '[') got = 'array'
+          if (buf(first:first) .eq. '{') got = 'object'
+       end if
+       call set_type_error_(terr, 'q65_callers_remove', 'array of strings', got)
+       return
+    end if
+    cfg%q65_callers_remove_set = .true.
+    cfg%q65_callers_remove_count = min(n, Q65_MAX_CALLERS)
+    cfg%q65_callers_remove_out_of_range = n .gt. Q65_MAX_CALLERS
+  end subroutine q65_callers_remove_
+
   subroutine set_type_error_(terr, keyname, expected, got)
     type(control_type_error), intent(inout) :: terr
     character(len=*),         intent(in)    :: keyname, expected, got

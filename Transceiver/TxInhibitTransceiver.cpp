@@ -160,7 +160,7 @@ void TxInhibitTransceiver::expire_holds ()
   auto const was_inhibited = !holds_.isEmpty ();
   auto const previous_holder = holder_summary ();
   auto expired = false;
-  auto const now = monotonic_clock_.elapsed ();
+  auto const now = lease_now_ ();
   for (auto it = holds_.begin (); it != holds_.end ();)
     {
       if (it->expires_at <= now)
@@ -212,7 +212,7 @@ void TxInhibitTransceiver::tx_inhibit_command (QString controller, quint32 ttl_m
   else
     {
       ++hold_rx_;
-      auto const expires_at = monotonic_clock_.elapsed () + ttl_ms;
+      auto const expires_at = lease_now_ () + ttl_ms;
       auto const holder = sanitize_holder (station.isEmpty () ? controller : station);
       auto existing = holds_.find (controller);
       if (existing != holds_.end ())
@@ -260,7 +260,7 @@ void TxInhibitTransceiver::schedule_expiry ()
     {
       next_expiry = std::min (next_expiry, it->expires_at);
     }
-  auto const delay = std::max<qint64> (1, next_expiry - monotonic_clock_.elapsed ());
+  auto const delay = std::max<qint64> (1, next_expiry - lease_now_ ());
   expiry_timer_->start (static_cast<int> (std::min<qint64> (delay,
                                                             std::numeric_limits<int>::max ())));
 }

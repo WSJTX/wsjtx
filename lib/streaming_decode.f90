@@ -26,17 +26,30 @@
 ! Each pass decodes under a fresh progress generation, so the decoders'
 ! progress reports (the GUI's worker's, lib/decode_completion.f90) become its
 ! pass_progress lines.
+!
+! Fast JT9 decodes once a period, with fast_decode as the GUI's decode()
+! calls it (FastDecode.cpp), at the first of its tries (lib/streaming_io.f90)
+! that finds the decoder free; a busy last try skips the period
+! (pass_skipped "busy").
+!
+! WSPR decodes once a period, at the final, through lib/streaming_wspr.f90,
+! which owns the session's hash table; wspr_hash_clear is applied here, in
+! stream order, between passes.
 module streaming_decode
   use, intrinsic :: iso_fortran_env, only: int16, int64, error_unit
   use, intrinsic :: iso_c_binding, only: c_double, c_ptr, c_loc, c_f_pointer, &
        c_funloc, c_funptr
   use streaming_emit, only: time_form, streaming_emit_set_form,             &
        streaming_emit_decode_finished, streaming_emit_error_code,          &
+       streaming_emit_decode,                                              &
        streaming_emit_hold_finished, streaming_emit_pass_skipped,          &
        streaming_emit_finished_at, streaming_emit_set_pass,                &
+       streaming_emit_set_submode,                                         &
        streaming_emit_hold, streaming_emit_line, streaming_emit_threads,   &
        streaming_emit_set_writer, streaming_emit_label, streaming_emit_busy, &
-       streaming_emit_idle, streaming_emit_progress, streaming_emit_error
+       streaming_emit_idle, streaming_emit_progress, streaming_emit_error,  &
+       streaming_emit_set_rows, streaming_emit_rows_end, streaming_emit_quiet, &
+       stream_rows_emit
   use decode_completion_module, only: set_progress_receiver
   use jtty_mdec, only: jtty_set_planning_callback
   use streaming_jtty, only: jtty_measuring
@@ -44,6 +57,10 @@ module streaming_decode
        HSYM_SAMPLES
   use streaming_apply, only: ft8_identity_change
   use decoder_engine, only: engine_begin_input
+  use four2a_patience, only: patience_override
+  use streaming_side, only: side_q65_edit, side_fox_clear
+  use streaming_control, only: MODE_WSPR
+  use streaming_wspr, only: wspr_decode, wspr_hash_clear
 
   include 'jt9com.f90'
 
@@ -53,17 +70,21 @@ module streaming_decode
   public :: report_pass_line
   public :: decode_start, decode_threaded, decode_submit, decode_join
   public :: decode_read, decode_room, decode_wait, decode_has_work
+  public :: rows_start, rows_end
+  public :: decode_loop_events, decode_idle_point
 
   ! Operations.
   integer, parameter, public :: OP_PASS = 1, OP_CONFIGURE = 2, OP_AGAIN = 3, &
        OP_DISCONTINUITY = 4, OP_FREE = 5, OP_END = 6, OP_LINE = 7, OP_STOP = 8
   ! lib/stream_ft8_backpressure.cpp's stages and decisions.
   integer, parameter, public :: EARLY_ONE = 1, EARLY_TWO = 2, FINAL_STAGE = 3
+  ! A fast JT9 decode try.
+  integer, parameter, public :: FAST_STAGE = 4
   integer, parameter :: ACTION_PUBLISH = 0, ACTION_DEFER = 2, ACTION_REPLACE = 3
   integer, parameter :: NFSAMPLE = 12000
   character(len=*), parameter, public :: NO_DECODED_PERIOD =                &
        'no decoded period to decode again (none yet or since a ' //         &
-       'mode or period change; MSK144 and JTTY keep none)'
+       'mode or period change; MSK144, Echo, JTTY, FreqCal and WSPR keep none)'
 
   ! A pass's audio: the period's first n samples and, for JT65+JT9, the
   ! symbol spectra.
@@ -90,6 +111,8 @@ module streaming_decode
      ! period's samples in at the trigger; its audio, or none (memory).
      integer :: stage = 0, nzhsym = 0, nstop = 0, k = 0
      logical :: depth2 = .false., memory = .false.
+     ! A fast JT9 try: whether it is the period's last.
+     logical :: last_try = .false.
      type(pass_audio) :: audio
      ! A configure: whether it cancels the multithreaded FT8 scheduler,
      ! starts a new period, and sends clear_average and busy_events, with
@@ -97,6 +120,14 @@ module streaming_decode
      logical :: cancels = .false., new_period = .false.
      logical :: clear_set = .false., clear_average = .false.
      logical :: events_set = .false., events = .false.
+     ! A configure: the Q65 caller list's edits it carries (q65_callers_clear
+     ! and q65_callers_remove), applied at its place in the stream.
+     logical :: q65_clear = .false.
+     character(len=12), allocatable :: q65_remove(:)
+     ! And fox_callers_clear, the Fox caller list's reset, and
+     ! wspr_hash_clear, the WSPR hash table's.
+     logical :: fox_clear = .false.
+     logical :: wspr_clear = .false.
      ! A line: the lines to write, each ended by a newline.
      character(len=:), allocatable :: line
   end type decode_op
@@ -111,6 +142,8 @@ module streaming_decode
   integer(int64), save :: held_bytes = 0
   ! A decode thread runs the operations (the frame loop's to read).
   logical, save :: threaded = .false.
+  ! The writer thread was asked for (lib/stream_decode.c).
+  logical, save :: rows_asked = .false.
   ! Test-only hooks, read once at decode_start and inert when unset:
   !   WSJT_CODEC_TEST_INLINE=1             no decode thread
   !   WSJT_CODEC_TEST_HOLD_PASS=<n>:<ms>   sleep <ms> at the start of each
@@ -123,6 +156,8 @@ module streaming_decode
   !   WSJT_CODEC_TEST_PLAN_GATE=1          the decode thread's first pass waits,
   !                                        before it decodes, until the frame
   !                                        loop has said planning
+  !   WSJT_CODEC_TEST_DECODE_NICE=<n>      the decode thread runs at its nice
+  !                                        value plus n (Linux; elsewhere a note)
   integer, save :: hold_pass_nzhsym = -1, hold_pass_ms = 0
   integer(int64), save :: alloc_limit = 0
   logical, save :: plan_gate_wanted = .false.
@@ -146,6 +181,8 @@ module streaming_decode
   type(pass_audio), save :: again
   integer, save :: again_k = 0, again_nzhsym = 0, again_kin = 0, again_nutc = 0
   logical, save :: again_even = .false.
+  ! The last decoded period was fast JT9's.
+  logical, save :: again_fast = .false.
   type(time_form), save :: again_form
   ! The multithreaded FT8 final deferred while the decoder was busy: its
   ! period's samples, params, number and time form.
@@ -227,6 +264,12 @@ module streaming_decode
        integer(c_int), value :: take_ms
        integer(c_int) :: ok
      end function stream_decode_start
+     function stream_decode_set_nice(nice) result(applies)                 &
+          bind(C, name="stream_decode_set_nice")
+       import :: c_int
+       integer(c_int), value :: nice
+       integer(c_int) :: applies
+     end function stream_decode_set_nice
      subroutine stream_decode_join() bind(C, name="stream_decode_join")
      end subroutine stream_decode_join
      function stream_decode_put(op, bytes, work, pass) result(queued)      &
@@ -277,6 +320,23 @@ module streaming_decode
        import :: c_int
        integer(c_int) :: held
      end function stream_writer_trylock
+     function stream_rows_start(write) result(ok) bind(C, name="stream_rows_start")
+       import :: c_funptr, c_int
+       type(c_funptr), value :: write
+       integer(c_int) :: ok
+     end function stream_rows_start
+     function stream_rows_put(text, size, lines, droppable) result(queued)    &
+          bind(C, name="stream_rows_put")
+       import :: c_char, c_int, c_int64_t
+       character(kind=c_char), intent(in) :: text(*)
+       integer(c_int64_t), value :: size
+       integer(c_int), value :: lines, droppable
+       integer(c_int) :: queued
+     end function stream_rows_put
+     subroutine stream_rows_quiet() bind(C, name="stream_rows_quiet")
+     end subroutine stream_rows_quiet
+     subroutine stream_rows_end() bind(C, name="stream_rows_end")
+     end subroutine stream_rows_end
      subroutine stream_decode_progress_pass(generation, mode, label, nzhsym) &
           bind(C, name="stream_decode_progress_pass")
        import :: c_int
@@ -307,7 +367,9 @@ contains
     case (OP_PASS)
        call follow_period(op%period)
        stream_params = op%params
-       if (op%stage .eq. FINAL_STAGE) then
+       if (op%stage .eq. FAST_STAGE) then
+          call fast_pass(op)
+       else if (op%stage .eq. FINAL_STAGE) then
           call final_pass(op)
        else
           call early_pass(op)
@@ -336,7 +398,7 @@ contains
   ! operation runs as it is made.
   subroutine decode_start()
     character(len=32) :: value
-    integer :: colon, length, status, take_ms
+    integer :: colon, length, status, take_ms, nice
     allocate(work, stat=status)
     if (status .ne. 0) then
        call streaming_emit_error('no memory for the decoder''s buffer')
@@ -359,6 +421,11 @@ contains
     if (status .ne. 0) alloc_limit = 0
     call get_environment_variable('WSJT_CODEC_TEST_PLAN_GATE', value, length, status)
     plan_gate_wanted = status .eq. 0 .and. value .eq. '1'
+    call get_environment_variable('WSJT_CODEC_TEST_DECODE_NICE', value, length, status)
+    if (status .eq. 0) read(value, *, iostat=status) nice
+    if (status .ne. 0) nice = 0
+    if (nice .ne. 0 .and. stream_decode_set_nice(nice) .eq. 0) write(error_unit, '(a)') &
+         'wsjt-codec: WSJT_CODEC_TEST_DECODE_NICE does nothing on this platform'
     call set_progress_receiver(report_progress)
     call jtty_set_planning_callback(jtty_planning)
     call get_environment_variable('WSJT_CODEC_TEST_INLINE', value, length, status)
@@ -380,6 +447,26 @@ contains
   logical function decode_threaded()
     decode_threaded = threaded
   end function decode_threaded
+
+  ! A configure turned spectrum, ref_spectrum or prepared_audio on: from the
+  ! first, every stdout line goes to the writer thread, queued under the
+  ! writer lock, which a session without a decode thread makes then.
+  subroutine rows_start()
+    if (rows_asked) return
+    rows_asked = .true.
+    if (stream_rows_start(c_funloc(stream_rows_emit)) .eq. 0) then
+       write(error_unit, '(a)') 'wsjt-codec: no writer thread; lines are written at once'
+       return
+    end if
+    if (.not. threaded) call streaming_emit_set_writer(stream_writer_lock,      &
+         stream_writer_trylock, stream_writer_unlock)
+    call streaming_emit_set_rows(stream_rows_put, stream_rows_quiet, stream_rows_end)
+  end subroutine rows_start
+
+  ! The session ends: every queued line is written, and the thread joined.
+  subroutine rows_end()
+    call streaming_emit_rows_end()
+  end subroutine rows_end
 
   ! Hand op to the decode side: queued for the decode thread once the queue
   ! has room, or run now.
@@ -417,11 +504,14 @@ contains
   end subroutine decode_submit
 
   ! No memory to queue an operation: the session ends as when the input
-  ! cannot be buffered, its line written at once, since queuing it needs
-  ! memory too, and the writer lock kept, so that nothing follows it.
+  ! cannot be buffered, after the lines queued, its line written at once,
+  ! since queuing it needs memory too, and the writer lock kept, so that
+  ! nothing follows it.
   subroutine no_memory()
+    call streaming_emit_quiet()
     call streaming_emit_hold(.true.)
     call streaming_emit_error_code('out_of_memory', 'no memory to buffer the input')
+    call streaming_emit_quiet()
     write(error_unit, '(a)') 'wsjt-codec: no memory to buffer the input'
     stop 1
   end subroutine no_memory
@@ -530,9 +620,18 @@ contains
     call follow_period(op%period)
     if (op%new_period) then
        again_k = 0
+       again_fast = .false.
        call give(again)
     end if
     if (op%clear_set) pending_clear = op%clear_average
+    ! Between attempts, so that no attempt saves over the edit, as a GUI edit
+    ! during a decode can be (lib/streaming_side.f90).
+    if (op%q65_clear) call side_q65_edit(.true., [character(len=12) ::])
+    if (allocated(op%q65_remove)) then
+       if (size(op%q65_remove) .gt. 0) call side_q65_edit(.false., op%q65_remove)
+    end if
+    if (op%fox_clear) call side_fox_clear()
+    if (op%wspr_clear) call wspr_hash_clear()
     stream_params = op%params
     ! Turned on, busy_events says busy for a final that waits.
     if (op%events_set .and. (op%events .neqv. events)) then
@@ -676,6 +775,12 @@ contains
        call load_work(op%audio, op%k)
        call report_pass(p, op%k)
        call run_decoder(p)
+    else if (op%mode .eq. MODE_WSPR) then
+       call report_pass(p, op%k)
+       call run_wspr(p, op%audio, op%k, op%form)
+       ! No period to decode again: the GUI's Decode button does nothing in WSPR.
+       busy_until = decoder_freed_at(finished_before)
+       return
     else
        call load_work(op%audio, op%k)
        call report_pass(p, op%k)
@@ -694,7 +799,134 @@ contains
     again_nutc   = p%nutc
     again_even   = p%b_even_seq
     again_form   = op%form
+    again_fast   = .false.
   end subroutine final_pass
+
+  ! A fast JT9 decode try: the first the GUI's decoder would run decodes the
+  ! period, on its audio through op%k; one that finds the decoder busy, or
+  ! that got no audio (memory), waits for the next, and the last skips the
+  ! period, as the GUI's fastSink retries on each block while less than
+  ! 0.35 s remains. The period's later tries change nothing.
+  subroutine fast_pass(op)
+    type(decode_op), intent(inout) :: op
+    type(params_block) :: p
+    real(8) :: finished_before
+    if (decoded) return
+    p = op%params
+    p%nzhsym = op%k / HSYM_SAMPLES
+    if (busy(op)) then
+       if (.not. op%last_try) return
+       decoded = .true.
+       call skip_pass(p%nzhsym, .true., 'busy', p, op%form)
+       return
+    end if
+    ! A try without its audio waits for the next, as one with a busy decoder.
+    if (op%memory .and. .not. op%last_try) return
+    decoded = .true.
+    if (op%memory) then
+       call skip_pass(p%nzhsym, .true., 'memory', p, op%form)
+       return
+    end if
+    call streaming_emit_set_form(op%form)
+    call load_work(op%audio, op%k)
+    call report_pass(p, op%k)
+    finished_before = streaming_emit_finished_at()
+    call run_fast(p, op%k, .true.)
+    busy_until = decoder_freed_at(finished_before)
+    ! This period becomes the one to decode again, on this try's audio.
+    call take_over(op%audio, again)
+    again_k      = op%k
+    again_nzhsym = p%nzhsym
+    again_kin    = p%kin
+    again_nutc   = p%nutc
+    again_even   = p%b_even_seq
+    again_form   = op%form
+    again_fast   = .true.
+  end subroutine fast_pass
+
+  ! fast_decode as the GUI's decode() calls it for fast JT9 (narg, through
+  ! FastDecode.cpp's startFastDecode), on the decoder's buffer through sample
+  ! k, newdat for a new period and not for a decode again (which reuses the
+  ! symbol spectra fast9 kept); then its lines, (i6.6,i4,f5.1,i5,1x,'@ ',1x,
+  ! a22) (lib/fast9.f90), as decode events with the period, and the
+  ! period's decode_finished, its counts 0. With busy_events its busy line
+  ! comes first. Its FFTs are planned at patience 0, as the GUI's process
+  ! plans them; fast9 reads neither call, so they go blank.
+  subroutine run_fast(p, k, newdat)
+    type(params_block), intent(inout) :: p
+    integer,            intent(in)    :: k
+    logical,            intent(in)    :: newdat
+    integer :: narg(0:14), patience, i, utc, snr, freq, ios
+    real :: dt
+    real(8) :: trperiod
+    character(len=80) :: lines(100)
+    character(len=12) :: mycall, hiscall
+    character(len=6) :: label
+    if (events) then
+       label = streaming_emit_label(p%nutc, label_hhmmss(p%nmode))
+       call streaming_emit_busy(p%nmode, label, p%nzhsym, logical(p%nagain), .false.)
+       shown = .true.
+    end if
+    call test_hold(p%nzhsym)
+    trperiod = p%ntr
+    narg = 0
+    narg(0) = p%nutc
+    narg(1) = min(k, int(NFSAMPLE * trperiod))
+    narg(2) = p%nsubmode
+    narg(3) = merge(1, 0, newdat)
+    narg(4) = p%minsync
+    ! The GUI's m_t1, a float of k / 12000.0, in ms.
+    narg(7) = int(1000.d0 * dble(real(dble(k) / 12000.d0)))
+    narg(8) = merge(50, 2, p%minsync .lt. 0)
+    narg(9) = 102
+    narg(10) = p%nfqso
+    narg(11) = p%ntol
+    narg(13) = -1
+    mycall = ' '
+    hiscall = ' '
+    patience = patience_override
+    patience_override = 0
+    call fast_decode(work%id2, narg, trperiod, lines, mycall, hiscall)
+    patience_override = patience
+    do i = 1, size(lines)
+       if (lines(i)(1:1) .eq. char(0)) exit
+       read(lines(i), '(i6,i4,f5.1,i5)', iostat=ios) utc, snr, dt, freq
+       if (ios .ne. 0 .or. lines(i)(21:24) .ne. ' @  ') then
+          write(error_unit, '(a)') trim(lines(i)(1:index(lines(i) // char(0), char(0)) - 1))
+          cycle
+       end if
+       call streaming_emit_decode('JT9', utc, snr, dt, freq, lines(i)(25:46), &
+            period=p%ntr)
+    end do
+    call streaming_emit_decode_finished(p%nutc, label_hhmmss(p%nmode))
+  end subroutine run_fast
+
+  ! WSPR's decode of a period on its first k samples (lib/streaming_wspr.f90),
+  ! as the GUI runs wsprd at its stop: with busy_events its busy line first;
+  ! then its decode lines and the period's decode_finished, which counts
+  ! them, as wsprd's <DecodeFinished> counts nothing. A decoder that cannot
+  ! run (no memory for its buffers or plans) skips the pass, as the other
+  ! period modes do for want of memory.
+  subroutine run_wspr(p, audio, k, form)
+    type(params_block), intent(in) :: p
+    type(pass_audio),   intent(in) :: audio
+    integer,            intent(in) :: k
+    type(time_form),    intent(in) :: form
+    character(len=6) :: label
+    integer :: count
+    if (events) then
+       label = streaming_emit_label(p%nutc, label_hhmmss(p%nmode))
+       call streaming_emit_busy(p%nmode, label, p%nzhsym, logical(p%nagain), .false.)
+       shown = .true.
+    end if
+    call test_hold(p%nzhsym)
+    call wspr_decode(audio%id2, min(k, audio%n), p%ndepth, p%nutc, count)
+    if (count .lt. 0) then
+       call skip_pass(p%nzhsym, .true., 'memory', p, form)
+    else
+       call streaming_emit_decode_finished(p%nutc, label_hhmmss(p%nmode), [0, count, 0])
+    end if
+  end subroutine run_wspr
 
   ! The GUI's Decode button: one pass with nagain over the last decoded
   ! period, with its time and sequence.
@@ -710,6 +942,15 @@ contains
     p%nutc   = again_nutc
     p%b_even_seq = again_even
     call streaming_emit_set_form(again_form)
+    if (again_fast) then
+       ! The GUI's Decode button in fast JT9: newdat 0 at the last decode's k.
+       call load_work(again, again_k)
+       call report_pass(p, again_k)
+       finished_before = streaming_emit_finished_at()
+       call run_fast(p, again_k, .false.)
+       busy_until = decoder_freed_at(finished_before)
+       return
+    end if
     if (superfox_hound(p)) p%lmultift8 = .false.
     ! The single-threaded FT8 decoder decodes again only on the hsym-50 pass.
     if (stream_mode .eq. 8 .and. .not. p%lmultift8) p%nzhsym = 50
@@ -761,10 +1002,7 @@ contains
        if (status .ne. 0) number = 0
        call stream_decode_progress_pass(pass, p%nmode, number, p%nzhsym)
     end if
-    if (hold_pass_ms .gt. 0 .and. p%nzhsym .eq. hold_pass_nzhsym) then
-       call stream_decode_sleep_ms(hold_pass_ms)
-       write(error_unit, '(a,i0)') 'wsjt-codec: hold done nzhsym=', p%nzhsym
-    end if
+    call test_hold(p%nzhsym)
     if (gate_armed) then
        gate_armed = .false.
        call stream_decode_plan_wait()
@@ -772,6 +1010,15 @@ contains
     call multimode_decoder_progress(work%ss, work%id2, p, NFSAMPLE, pass)
     if (pass .gt. 0) call stream_decode_progress_pass(0, 0, 0, 0)
   end subroutine run_decoder
+
+  ! WSJT_CODEC_TEST_HOLD_PASS's hold of a pass at half-symbol nzhsym.
+  subroutine test_hold(nzhsym)
+    integer, intent(in) :: nzhsym
+    if (hold_pass_ms .gt. 0 .and. nzhsym .eq. hold_pass_nzhsym) then
+       call stream_decode_sleep_ms(hold_pass_ms)
+       write(error_unit, '(a,i0)') 'wsjt-codec: hold done nzhsym=', nzhsym
+    end if
+  end subroutine test_hold
 
   ! busy true for the final now waiting.
   subroutine busy_waits()
@@ -797,6 +1044,28 @@ contains
     write(label, '(i6.6)') number
     call streaming_emit_progress(mode, label, nzhsym)
   end subroutine report_progress
+
+  ! busy_events as the frame loop has applied it, for the lines the frame
+  ! loop's thread writes (a JTTY review's busy lines).
+  logical function decode_loop_events()
+    decode_loop_events = loop_events
+  end function decode_loop_events
+
+  ! Before a JTTY review step at a frame boundary: .true. when no input
+  ! waits. The frame loop has then read everything that arrived before now,
+  ! as when it waits in a read, so the decode side may drain meanwhile (the
+  ! busy false or completion of a pass that ends during the review).
+  logical function decode_idle_point()
+    real(c_double) :: now
+    now = stream_stdin_now()
+    decode_idle_point = stream_stdin_buffered_before(huge(now)) .eq. 0
+    if (.not. decode_idle_point) return
+    if (threaded) then
+       call stream_decode_publish(now)
+    else
+       call decode_drain(1_int64, 0.d0, -1_int64)
+    end if
+  end function decode_idle_point
 
   ! A JTTY decoder step on the frame loop's thread is about to measure an
   ! FFT plan (lib/jtty/jtty_mdecode.f90).
@@ -824,6 +1093,11 @@ contains
     integer,            intent(in) :: samples
     call report_pass_line(p, samples)
     call streaming_emit_set_pass(p%nzhsym)
+    ! JT4, JT9, JT65 and Q65 decodes carry the submode they decode with, and
+    ! JT65+JT9's JT65 decodes, whose decoder reads it (lib/decoder.f90); its
+    ! JT9 decoder reads none (lib/jt9_decode.f90).
+    call streaming_emit_set_submode(merge(p%nsubmode, -1, any(p%nmode .eq. [4, 9, 65, 66, 74])), &
+         p%nmode .ne. 74)
   end subroutine report_pass
 
   ! Each decode pass on stderr: the samples in when it ran, and how.
@@ -834,7 +1108,7 @@ contains
     write(delay, '(f16.1)') p%emedelay
     write(error_unit, '(a,i0,a,i0,a,i0,a,i0,a,l1,a,l1,a,l1,2a)')            &
          'wsjt-codec: pass nzhsym=', p%nzhsym,                               &
-         ' samples=', samples, ' depth=', p%ndepth,                          &
+         ' samples=', samples, ' depth=', iand(p%ndepth, not(256)),         &
          ' cycles=', p%nft8cycles,                                           &
          ' multithreaded=', p%lmultift8,                                     &
          ' live=', .not. p%ndiskdat,                                         &
@@ -1029,6 +1303,7 @@ contains
     again_nutc   = deferred_params%nutc
     again_even   = deferred_params%b_even_seq
     again_form   = deferred_form
+    again_fast   = .false.
   end subroutine run_deferred_final
 
   ! The decoder's buffer holds audio's first n samples, zeros after them, and

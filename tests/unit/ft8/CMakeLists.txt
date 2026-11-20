@@ -43,6 +43,43 @@ add_executable (test_ft8_fft32
 wsjt_link_common_fortran (test_ft8_fft32)
 add_test (NAME test_ft8_fft32 COMMAND test_ft8_fft32)
 
+add_executable (test_ft8_subtract_lowpass
+  test_ft8_subtract_lowpass.f90)
+wsjt_link_common_fortran (test_ft8_subtract_lowpass)
+add_test (NAME test_ft8_subtract_lowpass COMMAND test_ft8_subtract_lowpass)
+set_tests_properties (test_ft8_subtract_lowpass PROPERTIES TIMEOUT 120)
+
+add_executable (test_ft8var_subtract_lowpass
+  test_ft8var_subtract_lowpass.f90)
+target_include_directories (test_ft8var_subtract_lowpass PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_ft8var_subtract_lowpass)
+add_test (NAME test_ft8var_subtract_lowpass COMMAND test_ft8var_subtract_lowpass)
+set_tests_properties (test_ft8var_subtract_lowpass PROPERTIES TIMEOUT 120)
+
+add_executable (test_osd174_91_fast
+  test_osd174_91_fast.f90)
+wsjt_link_common_fortran (test_osd174_91_fast)
+foreach (k 91 85 77)
+  add_test (NAME test_osd174_91_fast_k${k} COMMAND test_osd174_91_fast 3000 ${k})
+  set_tests_properties (test_osd174_91_fast_k${k} PROPERTIES TIMEOUT 120)
+endforeach ()
+add_test (NAME test_osd174_91_fast_ties COMMAND test_osd174_91_fast 10000 91 ties)
+set_tests_properties (test_osd174_91_fast_ties PROPERTIES TIMEOUT 120)
+
+add_executable (test_osd174_91var_pairs
+  test_osd174_91var_pairs.f90)
+wsjt_link_common_fortran (test_osd174_91var_pairs)
+# About 10 times slower under ASan, so sanitizer builds run 500 cases, which
+# still include ten each of ndeep 1, 2, 4 and 5. The ties run fits as it is.
+set (osd_pairs_cases 3000)
+if (WSJT_ENABLE_TSAN OR WSJT_ENABLE_ASAN_UBSAN)
+  set (osd_pairs_cases 500)
+endif ()
+add_test (NAME test_osd174_91var_pairs
+  COMMAND test_osd174_91var_pairs ${osd_pairs_cases})
+add_test (NAME test_osd174_91var_pairs_ties COMMAND test_osd174_91var_pairs 1500 ties)
+set_tests_properties (test_osd174_91var_pairs test_osd174_91var_pairs_ties PROPERTIES TIMEOUT 120)
+
 if (TARGET wsjt_fort_omp)
   add_executable (test_ft8_sync_fft_concurrent
     test_ft8_sync_fft_concurrent.f90)
@@ -57,6 +94,19 @@ if (TARGET wsjt_fort_omp)
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=4;OMP_THREAD_LIMIT=4"
     PROCESSORS 4
     TIMEOUT 30)
+
+  add_executable (test_ft8var_subtract_concurrent
+    test_ft8var_subtract_concurrent.f90)
+  target_include_directories (test_ft8var_subtract_concurrent PRIVATE
+    ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
+  target_link_libraries (test_ft8var_subtract_concurrent PRIVATE
+    wsjt_fort_omp wsjt_fortran_openmp)
+  add_test (NAME test_ft8var_subtract_concurrent
+    COMMAND test_ft8var_subtract_concurrent)
+  set_tests_properties (test_ft8var_subtract_concurrent PROPERTIES
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=4;OMP_THREAD_LIMIT=4"
+    PROCESSORS 4
+    TIMEOUT 60)
 
   add_executable (test_ft8_mtd_transaction_concurrent
     test_ft8_mtd_transaction_concurrent.f90)

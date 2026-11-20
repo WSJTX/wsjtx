@@ -1,6 +1,7 @@
 #ifndef HRD_TRANSCEIVER_HPP__
 #define HRD_TRANSCEIVER_HPP__
 
+#include <array>
 #include <vector>
 #include <tuple>
 #include <memory>
@@ -54,6 +55,7 @@ protected:
   bool frequency_readback_expected (RigFrequency::Path, Frequency) const override;
 
 private:
+  void reset_discovery ();
   QString send_command (QString const&, bool prepend_context = true, bool recurse = false);
   QByteArray read_reply (QString const& command);
   void send_simple_command (QString const&);
@@ -65,6 +67,8 @@ private:
   void set_dropdown (int, int);
   void set_button (int button_index, bool checked = true);
   bool is_button_checked (int button_index);
+  Frequency get_frequency ();
+  std::array<Frequency, 2> get_frequencies ();
 
   // This dictionary type maps Transceiver::MODE to a list of mode
   // drop down selection indexes that equate to that mode.  It is used

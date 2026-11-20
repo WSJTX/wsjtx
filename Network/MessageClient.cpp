@@ -613,7 +613,8 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
               in >> dx_call >> sort_order_provided >> sort_order;
               TRACE_UDP ("External Callsign Info:" << dx_call << "sort_order_provided:" << sort_order_provided
                                                   << "sort_order:" << sort_order);
-              if (sort_order > 50000) sort_order = 50000;
+              // 0xFFFFFFFF means "remove this callsign's value", so it mustn't be capped
+              if (sort_order > 50000 && sort_order != std::numeric_limits<quint32>::max ()) sort_order = 50000;
               if (check_status(in) != Fail) {
                 Q_EMIT
                   self_->annotation_info(QString::fromUtf8(dx_call), sort_order_provided, sort_order);

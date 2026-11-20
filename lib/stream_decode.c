@@ -11,9 +11,26 @@
  * and, with the queue empty, once the frame loop has read that far or is
  * blocked with nothing buffered from before it (lib/stream_stdin.c).
  *
+ * The output queue: once spectrum, ref_spectrum or prepared_audio is on,
+ * every stdout line (lib/streaming_emit.f90) is queued, under the writer
+ * lock, for a writer thread, the only thread that then writes stdout, so no
+ * other thread waits on a reader. Past STREAM_ROWS_CAP droppable row
+ * entries the oldest is discarded and its lines counted for the writer's
+ * next rows_dropped line;
+ * past STREAM_ROWS_OTHER_CAP bytes of other lines the queuing thread waits.
+ * The other entries keep their order among themselves and go ahead of every
+ * droppable one. While a held group is open (the writer lock held more than
+ * once when one of its entries was queued: a reply, a held pair), the writer
+ * writes no droppable entry, so none lands inside the group.
+ *
  * Lock order: the queue lock, then the stdin reader's. Nothing holds the
  * queue lock across a decode or a stdout write. The writer lock is recursive:
  * a reply's lines take it once for the whole reply and again for each line.
+ * The output queue's lock is taken under the writer lock or with no lock
+ * held, and nothing is taken under it. Besides it, the writer thread takes
+ * only libgfortran's lock on unit 6, which no other thread takes while the
+ * writer runs but on error paths that write unit 6 directly: the decoders
+ * flush through streaming_emit_flush.
  * Called via bind(C) from Fortran.
  */
 #if defined(__linux__) && !defined(_GNU_SOURCE)
@@ -23,6 +40,7 @@
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 
 #ifdef _WIN32
@@ -33,6 +51,9 @@
 #endif
 #ifdef __linux__
 #include <link.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 #endif
 
 /* Queued bytes, operations and their audio, past which the frame loop waits;
@@ -40,6 +61,11 @@
 #define STREAM_DECODE_CAP ((int64_t) 64 << 20)
 /* The decode thread's stack, besides the static TLS glibc carves out of it. */
 #define STREAM_DECODE_STACK ((size_t) 16 << 20)
+/* Droppable row entries queued at most (about 5.8 s of a period mode's), and
+ * the row writer's stack besides the static TLS. */
+#define STREAM_ROWS_CAP 20
+#define STREAM_ROWS_OTHER_CAP ((int64_t) 16 << 20)
+#define STREAM_ROWS_STACK ((size_t) 256 << 10)
 
 /* lib/stream_stdin.c */
 void stream_stdin_set_decode (void (*lock_queue) (void), void (*unlock_queue) (void), void (*wake) (void));
@@ -75,6 +101,8 @@ static double reach = -HUGE_VAL;
 static int sleeping, drain_wanted;
 static double drain_at;
 static int hold_take_ms;
+/* WSJT_CODEC_TEST_DECODE_NICE: added to the decode thread's nice value. */
+static int decode_nice;
 static void (*body) (void);
 static pthread_t thread;
 /* WSJT_CODEC_TEST_PLAN_GATE: the frame loop has said planning. */
@@ -82,7 +110,36 @@ static pthread_cond_t planned = PTHREAD_COND_INITIALIZER;
 static int gate_open;
 
 static pthread_mutex_t writer;
+static int writer_ready;
+/* How many times the writer lock's holder holds it (only the holder reads
+ * or changes it). */
+static int writer_depth;
+/* A held group is open: changed only by the writer lock's holder, under the
+ * queue lock. */
+static int rows_group;
 static pthread_mutex_t pool = PTHREAD_MUTEX_INITIALIZER;
+
+struct stream_row {
+  struct stream_row *next;
+  int64_t size;
+  int lines, droppable;
+  char text[];
+};
+
+static pthread_mutex_t rows = PTHREAD_MUTEX_INITIALIZER;
+/* An entry is queued, or the session ends; an entry was written. */
+static pthread_cond_t rows_ready = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t rows_room = PTHREAD_COND_INITIALIZER;
+static struct stream_row *rows_head, *rows_tail;
+/* The last entry queued that is not droppable (NULL: none). */
+static struct stream_row *rows_last_other;
+/* Droppable entries queued; the writer is writing one; the session is
+ * ending; lines discarded since the last rows_dropped line; bytes of the
+ * other entries queued. */
+static int rows_droppable, rows_writing, rows_ending;
+static int64_t rows_dropped, rows_other;
+static pthread_t rows_thread;
+static void (*rows_write) (char const *text, int64_t size, int64_t dropped);
 
 /* pass_progress: the running pass's generation (0: none) and fields, and when
  * the last line went out (stream_stdin_now, in ns), for every thread that
@@ -131,8 +188,44 @@ static int add_tls (struct dl_phdr_info *info, size_t size, void *data)
 static void *decode_main (void *unused)
 {
   (void) unused;
+#ifdef __linux__
+  if (decode_nice)
+    {
+      /* Linux keeps a nice value per thread; the OpenMP threads this one
+       * starts inherit it. */
+      id_t const tid = (id_t) syscall (SYS_gettid);
+      errno = 0;
+      int const nice = getpriority (PRIO_PROCESS, tid);
+      if (errno == 0) setpriority (PRIO_PROCESS, tid, nice + decode_nice);
+    }
+#endif
   body ();
   return NULL;
+}
+
+/* Before stream_decode_start, a test's nice for the decode thread; 1 where
+ * it can apply it (Linux). */
+int stream_decode_set_nice (int nice)
+{
+  decode_nice = nice;
+#ifdef __linux__
+  return 1;
+#else
+  return 0;
+#endif
+}
+
+/* The writer lock, made once by the frame loop's thread. 0 when it could
+ * not be made. */
+static int writer_init (void)
+{
+  pthread_mutexattr_t recursive;
+  if (writer_ready) return 1;
+  if (pthread_mutexattr_init (&recursive) != 0) return 0;
+  writer_ready = pthread_mutexattr_settype (&recursive, PTHREAD_MUTEX_RECURSIVE) == 0
+    && pthread_mutex_init (&writer, &recursive) == 0;
+  pthread_mutexattr_destroy (&recursive);
+  return writer_ready;
 }
 
 /* Start the decode thread on decode; take_ms holds it before it takes each
@@ -140,15 +233,11 @@ static void *decode_main (void *unused)
 int stream_decode_start (void (*decode) (void), int take_ms)
 {
   pthread_attr_t attributes;
-  pthread_mutexattr_t recursive;
   size_t stack = STREAM_DECODE_STACK;
 #ifdef __linux__
   dl_iterate_phdr (add_tls, &stack);
 #endif
-  if (pthread_mutexattr_init (&recursive) != 0) return 0;
-  int ok = pthread_mutexattr_settype (&recursive, PTHREAD_MUTEX_RECURSIVE) == 0
-    && pthread_mutex_init (&writer, &recursive) == 0;
-  pthread_mutexattr_destroy (&recursive);
+  int ok = writer_init ();
   if (!ok || pthread_attr_init (&attributes) != 0) return 0;
   body = decode;
   hold_take_ms = take_ms;
@@ -291,16 +380,26 @@ void stream_decode_done (int held)
 void stream_writer_lock (void)
 {
   pthread_mutex_lock (&writer);
+  ++writer_depth;
 }
 
 /* 1 when the writer lock was free and is now held. */
 int stream_writer_trylock (void)
 {
-  return pthread_mutex_trylock (&writer) == 0;
+  if (pthread_mutex_trylock (&writer) != 0) return 0;
+  ++writer_depth;
+  return 1;
 }
 
 void stream_writer_unlock (void)
 {
+  if (--writer_depth == 0 && rows_group)
+    {
+      pthread_mutex_lock (&rows);
+      rows_group = 0;
+      pthread_cond_signal (&rows_ready);
+      pthread_mutex_unlock (&rows);
+    }
   pthread_mutex_unlock (&writer);
 }
 
@@ -356,4 +455,173 @@ void stream_decode_pool_lock (void)
 void stream_decode_pool_unlock (void)
 {
   pthread_mutex_unlock (&pool);
+}
+
+static void *rows_main (void *unused)
+{
+  (void) unused;
+  for (;;)
+    {
+      pthread_mutex_lock (&rows);
+      while (!rows_ending && !(rows_head && (!rows_head->droppable || !rows_group)))
+        pthread_cond_wait (&rows_ready, &rows);
+      struct stream_row *row = rows_head;
+      int64_t dropped = 0;
+      if (row)
+        {
+          rows_head = row->next;
+          if (!rows_head) rows_tail = NULL;
+          if (rows_last_other == row) rows_last_other = NULL;
+          rows_droppable -= row->droppable;
+          /* The count goes before a droppable row, never inside a held group
+           * of lines: the droppable row whose arrival discarded others is
+           * still queued. */
+          if (row->droppable)
+            {
+              dropped = rows_dropped;
+              rows_dropped = 0;
+            }
+          rows_writing = 1;
+        }
+      pthread_mutex_unlock (&rows);
+      if (!row) return NULL;
+      rows_write (row->text, row->size, dropped);
+      pthread_mutex_lock (&rows);
+      rows_writing = 0;
+      if (!row->droppable) rows_other -= row->size;
+      pthread_cond_broadcast (&rows_room);
+      pthread_mutex_unlock (&rows);
+      free (row);
+    }
+}
+
+/* Start the writer thread on write, which writes an entry, after a
+ * rows_dropped line when dropped is above 0. 0 when the writer lock or the
+ * thread could not be made. */
+int stream_rows_start (void (*write) (char const *text, int64_t size, int64_t dropped))
+{
+  pthread_attr_t attributes;
+  size_t stack = STREAM_ROWS_STACK;
+#ifdef __linux__
+  dl_iterate_phdr (add_tls, &stack);
+#endif
+  if (!writer_init () || pthread_attr_init (&attributes) != 0) return 0;
+  rows_write = write;
+  int ok = pthread_attr_setstacksize (&attributes, stack) == 0
+    && pthread_create (&rows_thread, &attributes, rows_main, NULL) == 0;
+  pthread_attr_destroy (&attributes);
+  return ok;
+}
+
+/* An entry of size bytes and lines lines, its lines ended by newlines but
+ * the last, queued under the writer lock: a droppable one last, another
+ * after the other entries queued. A droppable entry arriving at
+ * STREAM_ROWS_CAP queued discards the oldest droppable one, as one there is
+ * no memory for is discarded; another waits while STREAM_ROWS_OTHER_CAP
+ * bytes are queued. 0: no memory for another entry. */
+int stream_rows_put (char const *text, int64_t size, int lines, int droppable)
+{
+  int const grouped = writer_depth > 1;
+  struct stream_row *row = malloc (sizeof *row + (size_t) size);
+  if (row)
+    {
+      memcpy (row->text, text, (size_t) size);
+      row->size = size;
+      row->lines = lines;
+      row->droppable = droppable;
+      row->next = NULL;
+    }
+  pthread_mutex_lock (&rows);
+  if (!row)
+    {
+      if (droppable) rows_dropped += lines;
+      pthread_mutex_unlock (&rows);
+      return droppable;
+    }
+  while (!droppable && rows_other > 0 && rows_other + size > STREAM_ROWS_OTHER_CAP)
+    pthread_cond_wait (&rows_room, &rows);
+  if (droppable && rows_droppable == STREAM_ROWS_CAP)
+    {
+      /* Of several droppable entries the oldest is never the last. */
+      struct stream_row **at = &rows_head, *oldest;
+      while (!(*at)->droppable) at = &(*at)->next;
+      oldest = *at;
+      *at = oldest->next;
+      rows_dropped += oldest->lines;
+      rows_droppable -= 1;
+      free (oldest);
+    }
+  if (droppable || !rows_tail || rows_last_other == rows_tail)
+    {
+      if (rows_tail) rows_tail->next = row; else rows_head = row;
+      rows_tail = row;
+    }
+  else if (rows_last_other)
+    {
+      row->next = rows_last_other->next;
+      rows_last_other->next = row;
+    }
+  else
+    {
+      row->next = rows_head;
+      rows_head = row;
+    }
+  if (!droppable) rows_last_other = row;
+  if (grouped) rows_group = 1;
+  rows_droppable += droppable;
+  if (!droppable) rows_other += size;
+  pthread_cond_signal (&rows_ready);
+  pthread_mutex_unlock (&rows);
+  return 1;
+}
+
+/* Returns once every entry queued has been written. Called inside an open
+ * held group, it discards and counts the droppable entries instead, which
+ * could not be written until the group closes. */
+void stream_rows_quiet (void)
+{
+  int inside = 0;
+  /* The writer lock is recursive: it is free to the caller, and held at
+   * depth above 0, only when the caller already holds it. */
+  if (pthread_mutex_trylock (&writer) == 0)
+    {
+      inside = writer_depth > 0;
+      pthread_mutex_unlock (&writer);
+    }
+  pthread_mutex_lock (&rows);
+  if (inside && rows_group)
+    {
+      struct stream_row **at = &rows_head;
+      rows_tail = NULL;
+      while (*at)
+        {
+          struct stream_row *row = *at;
+          if (row->droppable)
+            {
+              *at = row->next;
+              rows_dropped += row->lines;
+              rows_droppable -= 1;
+              free (row);
+            }
+          else
+            {
+              rows_tail = row;
+              at = &row->next;
+            }
+        }
+      /* Another thread's quiet may wait for what was discarded. */
+      pthread_cond_broadcast (&rows_room);
+    }
+  while (rows_head || rows_writing) pthread_cond_wait (&rows_room, &rows);
+  pthread_mutex_unlock (&rows);
+}
+
+/* The session ends: the writer writes what is queued and stops. */
+void stream_rows_end (void)
+{
+  pthread_mutex_lock (&rows);
+  rows_ending = 1;
+  pthread_cond_signal (&rows_ready);
+  pthread_mutex_unlock (&rows);
+  pthread_join (rows_thread, NULL);
 }

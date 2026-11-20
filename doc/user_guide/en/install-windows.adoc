@@ -14,6 +14,12 @@ TIP: Your computer may be configured so that this directory is
      alternative (shortcut) directory name is
      `"%LocalAppData%\WSJT-X\"`.
 
+For unattended installation with `/S`, a destination conflict returns a
+nonzero exit status without prompting. Preflight failure reports are saved
+as uniquely named `.log` files in `%TEMP%\WSJT-X-installer` for the account
+running the installer. Each Unicode text report identifies the selected
+destination, blocked path, Windows error, and installer process ID.
+
 * The built-in Windows facility for time synchronization may 
   not be adequate.  We recommend the program _Meinberg NTP Client_: see
   {ntpsetup} for downloading and installation instructions. Recent

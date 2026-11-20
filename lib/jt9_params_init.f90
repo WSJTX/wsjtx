@@ -10,7 +10,7 @@ module jt9_params_init
   public :: init_streaming_extra_fields
   public :: apply_per_mode_policy
   public :: cli_args_t
-  public :: cli_tolerance, cli_exp_decode, normalize_station_options
+  public :: cli_tolerance, cli_exp_decode, normalize_station_options, standard_call
 
   ! CLI options used to initialize decoder parameters.
   type :: cli_args_t
@@ -39,6 +39,7 @@ module jt9_params_init
      logical :: lft8subpass      = .true.
      logical :: lwidedxcsearch   = .true.
      logical :: have_ntol        = .false.   ! tracks whether -F was supplied
+     logical :: low_sidelobes    = .false.   ! JT9 spectra windowed, as WSJT-X's Low sidelobes
      logical :: nexp_decode_set  = .false.   ! tracks whether --exp-decode was supplied
   end type cli_args_t
 
@@ -74,6 +75,18 @@ contains
        hisgrid = ' '
     end if
   end subroutine normalize_station_options
+
+  ! Whether FT8 sends the call, as given, in every standard message, CQ included: its grammar takes it as a call (a
+  ! trailing /R or /P is allowed, /M or /MM is not) and its unpacker's callok accepts what goes on air. A blank call is not.
+  logical function standard_call(callsign)
+    use packjt77_grammar, only: pack77_type12_call_source, pack77_parse_type12_call
+    character(len=12), intent(in) :: callsign
+    type(pack77_type12_call_source) :: source
+    logical, external :: callok
+
+    call pack77_parse_type12_call(trim(callsign), .false., source, standard_call)
+    if (standard_call) standard_call = .not. source%is_hash .and. callok(trim(source%c28_token))
+  end function standard_call
 
   ! Define every parameter before callers apply WAV or streaming overrides.
   subroutine init_default_params(params, mode, TRperiod, args)
@@ -111,6 +124,7 @@ contains
        params%ntxmode      = 65
     end if
     params%nmode           = mode
+    if (mode == 9 .and. args%low_sidelobes) params%ndepth = ior(params%ndepth, 256)
     params%minw            = 0
     params%nclearave       = .false.
     params%minsync         = 0
@@ -160,8 +174,8 @@ contains
     params%lhideft8dupes   = .false.
     params%lhound          = .false.
     params%lcommonft8b     = .false.
-    params%lmycallstd      = .false.
-    params%lhiscallstd     = .false.
+    params%lmycallstd      = standard_call(args%mycall)
+    params%lhiscallstd     = standard_call(args%hiscall)
     params%lapmyc          = .false.
     params%lmodechanged   = .false.
     params%lbandchanged   = .false.
@@ -217,8 +231,6 @@ contains
     params%nhint           = .false.
     params%fmaskact        = .false.
     params%ltxing          = .false.
-    params%lmycallstd      = .true.
-    params%lhiscallstd     = .true.
     params%lapmyc          = .false.
     params%lmodechanged    = .false.
     params%lbandchanged    = .false.

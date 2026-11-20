@@ -123,11 +123,12 @@ namespace
       active = nullptr;
     }
 
-    void start ()
+    void start (bool read_meters = false)
     {
       TransceiverFactory::ParameterPack parameters {};
       parameters.ptt_type = TransceiverFactory::PTT_method_CAT;
       parameters.split_mode = TransceiverFactory::split_mode_rig;
+      if (read_meters) parameters.poll_interval |= do__pwr;
       transceiver.reset (new HamlibTransceiver {&logger, model, parameters});
       QObject::connect (transceiver.get (), &Transceiver::failure,
                         [&] (QString const& message) { failure = message; });
@@ -171,6 +172,8 @@ namespace
     std::vector<vfo_t> mode_targets;
     std::vector<vfo_t> mode_queries;
     std::vector<vfo_t> frequency_targets;
+    std::vector<setting_t> level_queries;
+    int wattmeter_result = RIG_OK;
     int vfo_queries = 0;
     int ptt_on_count = 0;
     int mode_at_ptt_result = -RIG_EIO;
@@ -202,6 +205,76 @@ private:
   Q_SLOT void cleanupTestCase ()
   {
     QVERIFY (QDir::setCurrent (previous_directory_));
+  }
+
+  Q_SLOT void transmitPowerRequiresWattmeter_data ()
+  {
+    QTest::addColumn<bool> ("wattmeter");
+    QTest::addColumn<bool> ("read_meters");
+    QTest::newRow ("power-setting-only") << false << true;
+    QTest::newRow ("wattmeter") << true << true;
+    QTest::newRow ("meters-disabled") << true << false;
+  }
+
+  Q_SLOT void transmitPowerRequiresWattmeter ()
+  {
+    QFETCH (bool, wattmeter);
+    QFETCH (bool, read_meters);
+    RigFixture fixture {RIG_VFO_A};
+    QVERIFY (fixture.registered);
+    fixture.caps.has_get_level = RIG_LEVEL_RFPOWER | RIG_LEVEL_SWR
+      | (wattmeter ? RIG_LEVEL_RFPOWER_METER_WATTS : 0);
+    fixture.caps.get_level = [] (RIG * rig, vfo_t vfo, setting_t level, value_t * value) -> int
+      {
+        auto& self = *RigFixture::active;
+        self.level_queries.push_back (level);
+        if (level == RIG_LEVEL_RFPOWER)
+          {
+            value->f = 0.75f;
+            return RIG_OK;
+          }
+        if (level == RIG_LEVEL_RFPOWER_METER_WATTS)
+          {
+            value->f = 12.5f;
+            return self.wattmeter_result;
+          }
+        if (level == RIG_LEVEL_SWR)
+          {
+            value->f = 1.25f;
+            return RIG_OK;
+          }
+        return self.original.get_level (rig, vfo, level, value);
+      };
+    fixture.start (read_meters);
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    fixture.establish_split ();
+    fixture.state.ptt (true);
+    fixture.transceiver->set (fixture.state, 4);
+    for (int poll = 0; poll != 3; ++poll)
+      QVERIFY (QMetaObject::invokeMethod (fixture.transceiver.get (), "handle_timeout", Qt::DirectConnection));
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QCOMPARE (fixture.state.power (), wattmeter && read_meters ? 12500u : 0u);
+    QCOMPARE (fixture.state.swr (), read_meters ? 125u : 0u);
+    QVERIFY (std::find (fixture.level_queries.begin (), fixture.level_queries.end (), RIG_LEVEL_RFPOWER)
+             == fixture.level_queries.end ());
+    QCOMPARE (std::find (fixture.level_queries.begin (), fixture.level_queries.end (), RIG_LEVEL_RFPOWER_METER_WATTS)
+              != fixture.level_queries.end (), wattmeter && read_meters);
+
+    fixture.wattmeter_result = -RIG_EIO;
+    for (int poll = 0; poll != 3; ++poll)
+      QVERIFY (QMetaObject::invokeMethod (fixture.transceiver.get (), "handle_timeout", Qt::DirectConnection));
+    QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
+    QCOMPARE (fixture.state.power (), 0u);
+    QCOMPARE (fixture.state.swr (), read_meters ? 125u : 0u);
+    QVERIFY (std::find (fixture.level_queries.begin (), fixture.level_queries.end (), RIG_LEVEL_RFPOWER)
+             == fixture.level_queries.end ());
+
+    fixture.state.ptt (false);
+    fixture.transceiver->set (fixture.state, 5);
+    for (int poll = 0; poll != 3; ++poll)
+      QVERIFY (QMetaObject::invokeMethod (fixture.transceiver.get (), "handle_timeout", Qt::DirectConnection));
+    QCOMPARE (fixture.state.power (), 0u);
+    QCOMPARE (fixture.state.swr (), 0u);
   }
 
   Q_SLOT void quantizedReadbackUsesNegotiatedResolution_data ()

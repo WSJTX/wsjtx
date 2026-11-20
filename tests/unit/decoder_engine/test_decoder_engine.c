@@ -20,6 +20,7 @@ extern void decoder_engine_test_ft8_message(const char text[37], float carrier,
 extern void decoder_engine_test_qso_snapshot(int32_t *valid, int32_t *suppressed,
                                              char message[38], float *dt, char partner[13]);
 extern void decoder_engine_test_records(decoder_observation records[2], size_t *record_size);
+extern void decoder_engine_test_wspr_requests(decoder_attempt_request records[2], size_t *record_size);
 extern void decoder_engine_test_residual(float samples[180000]);
 extern void decoder_engine_test_host_windows(void);
 extern void decoder_engine_test_timing(const float *samples, int32_t n,
@@ -81,6 +82,24 @@ static void check_evidence_layout(void)
   CHECK(records[1].superfox.child_index == 4);
   CHECK(records[1].ft8.payload_origin == DECODER_PAYLOAD_NONE);
   CHECK(records[1].ft4.payload_origin == DECODER_PAYLOAD_NONE);
+  CHECK(records[0].wspr.message_type == DECODER_WSPR_HASHED);
+  CHECK(records[0].wspr.hash15 == 32767 && records[0].wspr.has_hash15 == 1);
+  CHECK(records[0].wspr.hash_resolved == 0 && records[0].wspr.has_call == 0);
+  CHECK(records[0].wspr.has_locator == 1 && records[0].wspr.locator[5] == 'Z');
+  CHECK(records[0].wspr.power_dbm == 37 && records[0].wspr.has_power == 1);
+  CHECK(records[0].wspr.snr_db == -12.5f && records[0].wspr.drift_hz == 0.125f);
+  CHECK(records[0].wspr.waveform_start_seconds == 1.25f);
+  CHECK(records[1].wspr.message_type == DECODER_WSPR_COMPOUND);
+  CHECK(records[1].wspr.has_call == 1 && records[1].wspr.call[11] == 'X');
+  decoder_attempt_request requests[2];
+  decoder_engine_test_wspr_requests(requests, &record_size);
+  CHECK(record_size == sizeof requests[0]);
+  CHECK(requests[0].input_id == INT64_C(9876543210));
+  CHECK(requests[0].wspr.waveform == DECODER_WSPR_15 && requests[0].wspr.effort == DECODER_WSPR_DEEP);
+  CHECK(requests[0].wspr.search_low_hz == 1601.25f && requests[0].wspr.search_high_hz == 1623.5f);
+  CHECK(requests[0].wspr.calibration_error_hz == -2.75f);
+  CHECK(requests[1].input_id == INT64_C(1234567890) && requests[1].wspr.waveform == DECODER_WSPR_2);
+  CHECK(requests[1].wspr.search_low_hz == 1390.5f && requests[1].wspr.calibration_error_hz == 3.125f);
 }
 
 typedef struct {
@@ -424,7 +443,7 @@ int main(int argc, char **argv)
   CHECK(decoder_engine_create(&options, &second) == DECODER_BUSY);
   CHECK(decoder_engine_get_capabilities(engine, &capabilities) == DECODER_OK);
   CHECK(capabilities.abi_version == DECODER_ENGINE_ABI);
-  CHECK(capabilities.supported_modes == (DECODER_SUPPORT_FT8 | DECODER_SUPPORT_FT4 | DECODER_SUPPORT_JT9 | DECODER_SUPPORT_JT65 | DECODER_SUPPORT_Q65 | DECODER_SUPPORT_FST4 | DECODER_SUPPORT_FST4W | DECODER_SUPPORT_JT4));
+  CHECK(capabilities.supported_modes == (DECODER_SUPPORT_FT8 | DECODER_SUPPORT_FT4 | DECODER_SUPPORT_JT9 | DECODER_SUPPORT_JT65 | DECODER_SUPPORT_Q65 | DECODER_SUPPORT_FST4 | DECODER_SUPPORT_FST4W | DECODER_SUPPORT_JT4 | DECODER_SUPPORT_WSPR));
   CHECK(capabilities.cancellation == 0);
   CHECK(capabilities.concurrent_sessions == 0);
   CHECK(capabilities.evidence_capacity == 1024);

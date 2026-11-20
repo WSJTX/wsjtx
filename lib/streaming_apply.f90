@@ -21,8 +21,8 @@
 
 module streaming_apply
   use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
-       NPTS_C0_ARRAY_MAX, MODE_JTTY
-  use jt9_params_init,   only: apply_per_mode_policy
+       NPTS_C0_ARRAY_MAX, MODE_JTTY, MODE_ECHO, MODE_FREQCAL, MODE_WSPR
+  use jt9_params_init,   only: apply_per_mode_policy, standard_call
   use msk144_stream,     only: msk144_settings
 
   include 'jt9com.f90'
@@ -60,6 +60,9 @@ contains
           case (8);   io_TRperiod = 15.d0
           case (5);   io_TRperiod = 7.5d0
           case (144); io_TRperiod = 30.d0
+          case (MODE_ECHO); io_TRperiod = 3.d0
+          ! The GUI's WSPR is WSPR-2 only: m_TRperiod=120 (on_actionWSPR_triggered).
+          case (MODE_WSPR); io_TRperiod = 120.d0
           case default; io_TRperiod = 60.d0
           end select
           params%ntr = int(io_TRperiod)
@@ -77,6 +80,9 @@ contains
     if (in_cfg%rxfreq_set) then
        params%nfqso = in_cfg%rxfreq
        params%nftx  = in_cfg%rxfreq
+    else if (in_cfg%mode_set .and. in_cfg%mode .eq. MODE_FREQCAL) then
+       ! Choosing FreqCal sets the GUI's Rx Freq to 1500 (setupFreqCal).
+       params%nfqso = 1500
     end if
     if (in_cfg%mycall_set) params%mycall = transfer(in_cfg%mycall, params%mycall)
     if (in_cfg%mygrid_set) params%mygrid = transfer(in_cfg%mygrid, params%mygrid)
@@ -91,6 +97,11 @@ contains
     if (in_cfg%his_b_call_set) params%hisbcall = transfer(in_cfg%his_b_call, params%hisbcall)
     if (in_cfg%my_call_standard_set)  params%lmycallstd  = in_cfg%my_call_standard
     if (in_cfg%his_call_standard_set) params%lhiscallstd = in_cfg%his_call_standard
+    ! A call sent without its flag takes the flag from the call, as at the start.
+    if (in_cfg%mycall_set .and. .not. in_cfg%my_call_standard_set) &
+         params%lmycallstd = standard_call(in_cfg%mycall)
+    if (in_cfg%his_call_set .and. .not. in_cfg%his_call_standard_set) &
+         params%lhiscallstd = standard_call(in_cfg%his_call)
 
     ! Phase 4: frequency-window ints. tx_audio_offset_hz -> nftx applies AFTER
     ! the rxfreq block above so it DECOUPLES the tx side: rxfreq set both
@@ -289,6 +300,7 @@ contains
           case (65 + 9);     params%ntol = 20       ! JT65+JT9 hard
           case (66);         params%ntol = 10       ! Q65 hard
           case (MODE_JTTY);  params%ntol = 20       ! the GUI's JTTY F Tol
+          case (MODE_FREQCAL); params%ntol = 50     ! the GUI's JT9 F Tol, FreqCal's
           case default;      params%ntol = 1000     ! FT8/FT4/etc
           end select
        else

@@ -120,3 +120,11 @@ translations.
 - Add or update tests when behavior changes.
 - Test decoding changes with known sample files and report the cases used.
 - Avoid broad formatting or cleanup mixed with a functional change.
+
+## Keep the codec's interface documented
+
+`doc/codec/` documents the stream interface of `wsjt-codec` for the programs that run it: the command line, what it reads on standard input, what it writes on standard output, and its exit status.
+
+- A change to that interface updates `doc/codec/` in the same pull request. `python3 .github/scripts/check-codec-reference.py` checks that every name the stream source reads or writes has its row, and CI runs it.
+- A change that breaks an existing client carries `!` before the colon of a `feat`, `fix` or `perf` commit subject, for example `feat(codec)!: …`, and the release notes list it with "(breaking)". Subjects with a scope, every one of them `release`, `ci`, `test` or `tests`, stay out of the notes.
+- Known codec issues are filed in the [issue tracker](https://github.com/WSJTX/wsjtx/issues) with the `codec` label.

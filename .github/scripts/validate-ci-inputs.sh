@@ -88,6 +88,21 @@ validate_inputs() {
     require_boolean "validate_fortran_fallback" "$VALIDATE_FORTRAN_FALLBACK"
   fi
 
+  if [ -n "${RUNTIME_TESTS+x}" ]; then
+    case "$RUNTIME_TESTS" in
+      include|exclude|only) ;;
+      *) fail "Invalid runtime_tests '${RUNTIME_TESTS}': use include, exclude, or only" ;;
+    esac
+  fi
+
+  # 0 keeps the repository's retention; upload-artifact allows at most 90 days.
+  if [ -n "${ARTIFACT_RETENTION_DAYS+x}" ]; then
+    case "$ARTIFACT_RETENTION_DAYS" in
+      [0-9]|[1-8][0-9]|90) ;;
+      *) fail "Invalid artifact_retention_days '${ARTIFACT_RETENTION_DAYS}': use a whole number of days from 0 to 90" ;;
+    esac
+  fi
+
   if [ -n "${IMAGE_TAG+x}" ]; then
     require_nonempty "image_tag" "$IMAGE_TAG"
     if [ "${#IMAGE_TAG}" -gt 128 ]; then
@@ -125,7 +140,7 @@ validate_inputs() {
 run_isolated() {
   env -u WSJTX_VERSION -u HAMLIB_BRANCH -u WSJT_RELEASE_CHANNEL \
     -u WSJT_PRERELEASE_NUMBER -u ARCH -u IMAGE_TAG -u DEPLOYMENT_TARGET -u RUNNER \
-    -u VALIDATE_FORTRAN_FALLBACK \
+    -u VALIDATE_FORTRAN_FALLBACK -u RUNTIME_TESTS -u ARTIFACT_RETENTION_DAYS \
     "$@" "$0"
 }
 
@@ -153,10 +168,15 @@ if [ "${1:-}" = "--self-test" ]; then
         WSJT_RELEASE_CHANNEL="RC" WSJT_PRERELEASE_NUMBER="1" \
         ARCH="x86_64" DEPLOYMENT_TARGET="10.13" RUNNER="macos-15-intel" \
         IMAGE_TAG="candidate-123-1" \
-        VALIDATE_FORTRAN_FALLBACK="true" \
+        VALIDATE_FORTRAN_FALLBACK="true" RUNTIME_TESTS="include" ARTIFACT_RETENTION_DAYS="0" \
     >/dev/null
   run_isolated env ARCH="arm64" DEPLOYMENT_TARGET="11.0" RUNNER="macos-15" >/dev/null
   run_isolated env HAMLIB_BRANCH="integration/4.7" VALIDATE_FORTRAN_FALLBACK="false" >/dev/null
+  run_isolated env RUNTIME_TESTS="exclude" ARTIFACT_RETENTION_DAYS="7" >/dev/null
+  run_isolated env RUNTIME_TESTS="only" ARTIFACT_RETENTION_DAYS="90" >/dev/null
+  run_isolated env ARTIFACT_RETENTION_DAYS="1" >/dev/null
+  run_isolated env ARTIFACT_RETENTION_DAYS="10" >/dev/null
+  run_isolated env ARTIFACT_RETENTION_DAYS="89" >/dev/null
 
   expect_failure 'command substitution in version' WSJTX_VERSION='3.1.0$(id)'
   expect_failure 'backticks in version' WSJTX_VERSION='3.1.0`id`'
@@ -176,6 +196,17 @@ if [ "${1:-}" = "--self-test" ]; then
   expect_failure 'uppercase fallback boolean' VALIDATE_FORTRAN_FALLBACK='TRUE'
   expect_failure 'numeric fallback boolean' VALIDATE_FORTRAN_FALLBACK='1'
   expect_failure 'shell payload in fallback boolean' VALIDATE_FORTRAN_FALLBACK='true$(id)'
+  expect_failure 'empty runtime_tests' RUNTIME_TESTS=''
+  expect_failure 'capitalized runtime_tests' RUNTIME_TESTS='Include'
+  expect_failure 'unknown runtime_tests' RUNTIME_TESTS='all'
+  expect_failure 'shell payload in runtime_tests' RUNTIME_TESTS='exclude; id'
+  expect_failure 'empty retention' ARTIFACT_RETENTION_DAYS=''
+  expect_failure 'retention above 90' ARTIFACT_RETENTION_DAYS='91'
+  expect_failure 'three-digit retention' ARTIFACT_RETENTION_DAYS='100'
+  expect_failure 'negative retention' ARTIFACT_RETENTION_DAYS='-1'
+  expect_failure 'fractional retention' ARTIFACT_RETENTION_DAYS='7.5'
+  expect_failure 'zero-padded retention' ARTIFACT_RETENTION_DAYS='07'
+  expect_failure 'shell payload in retention' ARTIFACT_RETENTION_DAYS='7; id'
 
   echo "validate-ci-inputs.sh self-test passed"
   exit 0

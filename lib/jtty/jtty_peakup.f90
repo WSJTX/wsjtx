@@ -9,7 +9,7 @@ subroutine jtty_peakup(c0,c1,csync,nchunk,nss,xdt0,f0,xdt,f1,snr)
    complex             :: zcur(0:12), zbest(0:12), ztot
    complex             :: qstep(0:12)
    real                :: a(3)
-   real                :: fsample, dt, pmax, fpk, xdtpk, xnorm, p
+   real                :: fsample, dt, pmax, fpk, xdtpk, p
    real                :: phase(0:12), uw(0:12)
    real                :: dphi, xm, ym, sxy, sxx, slope, intercept
    real                :: resid, resid_rms, dfhz, tsym
@@ -36,8 +36,6 @@ subroutine jtty_peakup(c0,c1,csync,nchunk,nss,xdt0,f0,xdt,f1,snr)
    pmax=0.
    fpk=0.
    xdtpk=0.
-   c1=cmplx(0.,0.)
-   xnorm=sum(abs(c0(0:nchunk-1)))/real(nchunk)
    do idf=-5,5
       a=0.
       a(1)=-f0 + 0.5*idf                     !Shift assumed peak to zero frequency

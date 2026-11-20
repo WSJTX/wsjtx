@@ -238,12 +238,6 @@
       endif
       snr1 = sync(ipk)%ccfmax
 
-      ! TEMP diagnostic 2026-09-09 for the two-close-Q65-signals investigation.
-      call dbg('q65b: ipk check at t=' // rtoa(sec_midn()) // &
-               ' nqd=' // itoa(nqd) // ' f0=' // rtoa(real(f0)) // ' ntol=' // itoa(ntol) // &
-               ' ifreq=' // itoa(ifreq) // ' ipk=' // itoa(ipk) // &
-               ' ldecoded(ipk)=' // itoa(merge(1,0,ldecoded(ipk))) // &
-               ' manualDecodeFlag=' // itoa(manualDecodeFlag) // ' nagain=' // itoa(nagain))
       ! ldecoded(ipk) exists to keep the wideband scan from repeatedly
       ! re-decoding a bin it already got a result from. A manual click is a
       ! deliberate, targeted request to decode at this exact bin, so it must

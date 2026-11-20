@@ -183,7 +183,9 @@ Or use the GitHub web UI: go to the repo, click "Compare & pull request" on the 
 
 #### 6. CI runs automatically
 
-When the PR is opened (and on every subsequent push), the default CI path runs the Linux x86_64 build. Apply the `full-ci` label or dispatch CI manually when all supported targets should run:
+When the PR is opened (and on every subsequent push), the default CI path builds and tests Linux x86_64. It leaves out the streaming runtime tests, which CTest labels `runtime`, and so does a push to `develop`; Nightly Tests runs them on `develop` each night, beside a Windows build of the whole suite, and pushes to `release/**`, full CI, manual runs, and a PR to or from a `release/` branch run them ([Test Failure Policy](#test-failure-policy)). To run them on a PR branch without full CI, see the [Quick Reference](#12-quick-reference).
+
+Apply the `full-ci` label once, when the PR is otherwise ready. Applying it, or opening or reopening a PR that carries it, starts one run of all supported targets with the runtime tests and the ASan + UBSan job. Dispatching CI manually runs the same targets without the sanitizer job:
 
 - **macOS ARM64** — builds; the app is ad-hoc signed and the package is unsigned
 - **macOS Intel x86_64** — builds; the app is ad-hoc signed and the package is unsigned
@@ -192,15 +194,17 @@ When the PR is opened (and on every subsequent push), the default CI path runs t
 - **Linux armhf** — cross-builds on `ubuntu-24.04`, then tests and packages in the armhf container on `ubuntu-24.04-arm`
 - **Windows x86_64** — builds via MSYS2/MinGW; the installer is unsigned
 
+Remove the label once that run has finished. Later pushes get the default run whether or not the label is still on the PR, and a push while the full run is in progress cancels it. To repeat full CI, re-apply the label; **Re-run all jobs** on the full run repeats it on that run's commit. The `sanitizers` and `thread-sanitizer` labels add the ASan + UBSan or TSan job to the run that applying them starts, and to every later run while they stay on the PR. That run is separate: it cancels no run in progress, a full run included, and a later push does not cancel it. Applying any other label starts a run that skips every job and cancels nothing. A PR to or from a `release/` branch keeps the earlier behaviour: applying any label starts a run, and every run while it carries `full-ci` is a full run. Merging or closing a PR cancels its CI still in progress, except, on a PR not to or from a `release/` branch, a run that applying `sanitizers` or `thread-sanitizer` started.
+
 Green checks cover the jobs selected for that run. A red X means something broke — click the check to see which platform failed and view the logs. The private release candidate always runs the complete six-target matrix before source can be promoted.
 
 #### 7. Review and merge
 
 The team reviews the PR via GitHub. When approved, merge to `develop`. Prefer **"Create a merge commit"** to preserve history (not squash or rebase).
 
-### What if I want to push directly to develop?
+### Can I push directly to develop?
 
-For very small, obvious changes (typo fixes, comment updates), pushing directly to `develop` is acceptable. CI will still run on the push. But for anything substantive — new features, bug fixes, refactoring — use a PR so the team can see what's happening and CI validates it before it lands on `develop`.
+No. A repository ruleset takes changes to `develop` only through pull requests, typo fixes included, so every change gets a PR CI run. Each pull request needs an approving review from someone other than its last pusher, and a push that changes the diff dismisses earlier approvals. The ruleset does not require CI to pass.
 
 ---
 
@@ -300,25 +304,27 @@ CI/CD serves two purposes: **quality gates** (does it compile?) and **release au
 ```
                     ┌─────────────────────────────────────────────────────────┐
   Push to develop   │                       ci.yml                            │
-  or open a PR  ──> │ Linux x86_64 by default                               │
-                    │                                                        │
-  full-ci/manual ──>│ macOS arm64 + Intel, Linux x86_64 + aarch64 + armhf,  │
-                    │ and Windows x86_64                                     │
-                    │                                                        │
-                    │ Selected jobs must all be green                        │
+  or open a PR  ──> │ Linux x86_64 by default, without the runtime tests      │
+                    │                                                         │
+  full-ci/manual ──>│ macOS arm64 + Intel, Linux x86_64 + aarch64 + armhf,    │
+                    │ and Windows x86_64                                      │
+                    │                                                         │
+                    │ Selected jobs must all be green                         │
                     └─────────────────────────────────────────────────────────┘
 ```
 
 **What triggers CI:**
 - Every push to `develop` or `release/**`
-- Every pull request targeting `develop` or `release/**`
+- Opening, reopening, or pushing to a pull request targeting `develop` or `release/**`
+- Applying the `full-ci`, `sanitizers`, or `thread-sanitizer` label to such a pull request, or any label to one to or from a `release/` branch; applying any other label starts a run that skips every job
 - Manual trigger via the Actions UI (workflow_dispatch)
+- Merging or closing such a pull request, which starts a run that skips every job and cancels the pull request's CI still in progress ([step 6](#6-ci-runs-automatically))
 
 **What CI checks:**
-- Default PR and branch CI compiles and tests Linux x86_64; `full-ci`, manual CI, and release candidates provide broader coverage
+- Default PR and branch CI compiles and tests Linux x86_64; applying `full-ci`, manual CI, and release candidates provide broader coverage ([step 6](#6-ci-runs-automatically)). A routine PR run and a `develop` push leave out the `runtime` tests, which Nightly Tests runs on `develop` each night with a Windows build ([Test Failure Policy](#test-failure-policy)).
 - CI, candidate, and beta installers and packages are unsigned; on macOS the app inside carries an ad-hoc signature for validation ([beta signing](DEPLOYMENT_PLAYBOOK.md#beta-signing)).
 - Only a GA installer is signed, through SignPath; a GA release's macOS packages are Developer ID-signed, and so are an RC's while hosted Developer ID signing is enabled ([procedures by channel](DEPLOYMENT_PLAYBOOK.md#procedures-by-channel)).
-- Build artifacts are uploaded for inspection
+- Build artifacts are uploaded for inspection. CI keeps its packages, installers, and executables for 7 days; for downloads that last longer, build them with Build Selected Artifacts ([Quick Reference](#12-quick-reference)), which keeps the repository default of 90 days.
 - **Tests pass on every platform** (Qt helpers, decoder smoke tests, pFUnit Fortran unit tests — registered via ctest). See [Test Failure Policy](#test-failure-policy) below.
 
 **What CI does not check:**
@@ -351,15 +357,17 @@ CI runs on GitHub-hosted runners:
 
 **Included minutes:** The organization's GitHub Team plan includes 3,000 Actions minutes a month for private repositories. Usage draws on them at each runner's per-minute list price, and usage beyond them is billed at the same rates. Standard GitHub-hosted runners are free in public repositories.
 
-**Caching:** Hamlib builds and MSYS2 packages are cached to reduce build times. First-run builds are slower; subsequent builds use the cache.
+**Caching:** Native dependency builds (Hamlib, Boost, FFTW, and pFUnit, plus Qt, libusb, and PortAudio on macOS), MSYS2 packages, and compiler objects (ccache) are cached to reduce build times; Linux dependencies come prebuilt in the CI images. First-run builds are slower; subsequent builds use the cache. Refresh Build Caches (`warm-dependency-caches.yml`) refreshes the caches every Monday and the Linux CI images monthly, and runs on dispatch and on a push to `develop` that changes a file hashed into a dependency-cache key, or a Linux CI image input. It does not watch workflow files, so a push that changes a value a dependency key carries does not start it. After changing `hamlib_branch`, a macOS `runner`, or a `deployment_target` (literals in the workflows that call the builds, such as `ci.yml`, `release.yml` and `warm-dependency-caches.yml`; `rg -n 'hamlib_branch|deployment_target|runner:' .github/workflows` lists every one), dispatch it with `gh workflow run warm-dependency-caches.yml --ref develop -f targets=macos`, and for `hamlib_branch` also with `-f targets=windows`; after changing `build-windows.yml`'s MSYS2 package list or `WSJT_WINDOWS_API_FLOOR`, dispatch it with `-f targets=windows`. Linux compiler caches are pruned automatically: after a `develop` push's Linux builds, and in each Refresh Build Caches run on `develop`, every `ccache-linux-*` entry on `develop` except the newest of each configuration is deleted. When more than 20 entries are due, the prune deletes none and logs an error, and the run still passes; [Cache Management](DEPLOYMENT_PLAYBOOK.md#cache-management) shows how to prune by hand. Before saving its compiler cache, the ASan + UBSan build evicts the objects that build did not use and trims the rest to a size cap.
 
 ### Test Failure Policy
 
-Tests run via ctest at the end of each platform's build job, after compilation succeeds. The decode-thread rows that took 30 s or more on some platform when labelled carry the label `decode-thread-long` (`tests/unit/streaming/CMakeLists.txt`). armhf and macOS Intel, the slow legs, always leave them out with `ctest -LE decode-thread-long`. So does every leg in a release candidate build and a tag build, whose tree has passed them in the Linux x86_64 push CI of its `release/` branch. Everywhere else they run: Linux x86_64 in every CI run, including a `release/` branch's push CI; aarch64 and macOS arm64 in full-ci, dispatched and Refresh Build Caches runs; and Windows, which registers only the inline ones. The policy is **hard-fail everywhere**:
+Tests run via ctest at the end of each platform's build job, after compilation succeeds. The streaming runtime tests carry the label `runtime` (`tests/unit/streaming/CMakeLists.txt`). A routine pull-request run and a push to `develop` leave them out of their Linux x86_64 leg with `ctest -LE '^runtime$'`. Every other leg runs them, and so does Linux x86_64 on pushes to `release/**`, in Nightly Tests, in full-ci and dispatched runs, and in a PR to or from a `release/` branch. Among them, the decode-thread rows that took 30 s or more on some platform when labelled also carry the label `decode-thread-long`. armhf and macOS Intel, the slow legs, always leave them out with `ctest -LE decode-thread-long`. So does every leg in a release candidate build and a tag build, whose tree has passed them in the Linux x86_64 push CI of its `release/` branch. Everywhere else they run: Linux x86_64 in every run that runs the runtime tests, including the nightly and a `release/` branch's push CI; aarch64 and macOS arm64 in full-ci, dispatched and Refresh Build Caches runs; and Windows, which registers only the inline ones. The policy is **hard-fail everywhere**:
 
 - Any test failure fails the platform's build job
 - A failed build job fails the entire CI run (red X on the PR or push)
 - A failed candidate build blocks `release.yml`'s `candidate-ready` job, which requires macOS arm64 and Intel, Linux x86_64, aarch64, and armhf, plus Windows x86_64. Candidate builds do not publish.
+
+**Nightly Tests** (`nightly-runtime-tests.yml`) builds `develop` at 06:17 UTC twice: Linux x86_64 running only the runtime tests (`ctest -L '^runtime$'`), and Windows x86_64, which routine CI never builds, running its whole suite. It skips a night only when the newest scheduled run that passed or failed tested the same commit and passed, so a passing commit is tested once; a night after a failed nightly retests the same commit. Cancelled runs do not count, and a dispatch always runs the tests. A failed scheduled run opens the issue "Nightly tests failed on develop", or comments on it while it is open. A green `develop` push covers neither the runtime tests nor Windows: check the nightly with `gh run list --workflow nightly-runtime-tests.yml`, and run it at once with `gh workflow run nightly-runtime-tests.yml --ref develop`. The weekly beta cut takes the newest green `develop` push; the cut's push CI on `release/X.Y` runs the runtime tests before a candidate is built.
 
 This is the simplest possible policy for v1. If a flaky test emerges, the team can add `continue-on-error: true` to the offending test's platform as a targeted soft-warn, file an issue to triage the flake, and remove the exception once fixed. No blanket soft-warn policy on `develop`.
 
@@ -561,6 +569,8 @@ docs: update build instructions for Windows
 
 **PR etiquette:**
 - Keep PRs focused — one logical change per PR
+- Group related small fixes into one PR rather than opening one for each; every PR, and every push to it, runs CI
+- Keep `full-ci` off small changes. When a change is specific to one platform other than Linux x86_64, build that platform alone ([Quick Reference](#12-quick-reference)); keep `full-ci` for changes that can break several platforms
 - Respond to review feedback promptly
 - Don't force-push after review has started (it loses review context)
 - Update the PR description if scope changes during review
@@ -594,9 +604,8 @@ Any team member can review any PR. For changes that affect specific areas:
 
 ### Approval and merge
 
-- At least one team member should review before merging
+- A PR into `develop` merges only after a team member other than its last pusher approves it; the ruleset enforces this, and a push that changes the diff dismisses earlier approvals
 - For significant changes (new features, architectural changes), wait for input from the relevant domain expert
-- The PR author should not merge their own PR without at least one approval
 - Use **"Create a merge commit"** (not squash or rebase) to preserve branch history
 
 ---
@@ -737,6 +746,11 @@ After a newest-line GA promotion, public `master` advances to the GA commit and 
 | See build logs | `gh run view <RUN_ID> --log` |
 | Re-run a failed build | `gh run rerun <RUN_ID>` |
 | Manually trigger CI | `gh workflow run ci.yml --ref develop` |
+| Run full CI on my PR | Once the PR is ready, `gh pr edit <PR> --add-label full-ci`; after that run, `gh pr edit <PR> --remove-label full-ci`. See [step 6](#6-ci-runs-automatically). |
+| Build one platform from my branch | `gh workflow run build-selected-artifacts.yml --ref <branch> -f targets=windows-x64`; the other single targets are `macos-arm64`, `macos-x64`, `linux-x64`, and `linux-arm64`. For armhf: `gh workflow run build-linux.yml --ref <branch> -f arch=armhf -f armhf_distro=bookworm -f allow_stale_image=true` (or `armhf_distro=trixie`). |
+| Run the runtime tests on my branch | `gh workflow run build-linux.yml --ref <branch> -f build_packages=false -f runtime_tests=only -f allow_stale_image=true` |
+| Check the nightly tests on `develop` | `gh run list --workflow nightly-runtime-tests.yml`; to run them at once, `gh workflow run nightly-runtime-tests.yml --ref develop` |
+| Refresh the Windows caches after changing `build-windows.yml` | `gh workflow run warm-dependency-caches.yml --ref develop -f targets=windows` |
 
 ### For External Contributors
 

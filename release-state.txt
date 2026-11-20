@@ -1,5 +1,5 @@
 version=3.3.0
 channel=BETA
-prerelease=6
+prerelease=8
 revision=$Format:%H$
 windows_signing=unsigned

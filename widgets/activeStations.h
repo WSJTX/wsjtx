@@ -4,6 +4,8 @@
 
 #include <QWidget>
 #include <QMap>
+#include <QDate>
+#include <QSet>
 
 class QSettings;
 class QFont;
@@ -31,6 +33,12 @@ public:
   void erase();
   bool readyOnly();
   bool wantedOnly();
+  // Days (UTC) whose QSOs count as worked for #, Wanted only and QSOs (Q65
+  // list); empty (= every QSO counts) when the "on days" box is not checked.
+  QSet<QDate> wantedDays() const;
+  // The chosen days themselves, whether or not "on days" is checked (the
+  // ARRL EME Cabrillo dialog's first suggestion; it keeps its own after).
+  QSet<QDate> chosenDays() const;
   void setRate(int n);
   void setBandChanges(int n);
   void setScore(int n);
@@ -51,7 +59,12 @@ private:
 
   Q_SLOT void on_cbReadyOnly_toggled(bool b);
   Q_SLOT void on_cbWantedOnly_toggled(bool b);
+  Q_SLOT void wantedDaysChanged();
   Q_SLOT void on_textEdit_clicked();
+  void chooseWantedDays();
+  void showWantedDays();
+
+  QSet<QDate> m_wantedDays;                     // chosen days, kept while unchecked
 
   DisplayMode m_displayMode = DisplayMode::Standard;
   QSettings * settings_;

@@ -2,10 +2,12 @@ module jt4_host_support
   use jt4_decode, only: jt4_decoder,jt4_call,jt4_average_entry
   use decoder_engine_types, only: engine_jt4_options
   use prog_args, only: data_dir
+  use streaming_side, only: side_averages
   use fftw3, only: FFTW_ESTIMATE,FFTW_ESTIMATE_PATIENT,FFTW_MEASURE,FFTW_PATIENT,FFTW_EXHAUSTIVE
   include 'jt9com.f90'
   private
   public :: convert_jt4_host_options,prepare_jt4_host,load_jt4_calls,write_jt4_averages,write_jt4_diagnostic
+  public :: emit_jt4_averages
 
 contains
 
@@ -99,6 +101,20 @@ contains
     endfile(unit)
     flush(unit)
   end subroutine write_jt4_averages
+
+  ! The averages event (lib/streaming_side.f90): the entries write_jt4_averages
+  ! writes, each with its HHMMSS label, after the attempt labelled utc.
+  subroutine emit_jt4_averages(decoder,utc)
+    class(jt4_decoder), intent(in) :: decoder
+    integer, intent(in) :: utc
+    type(jt4_average_entry) :: entries(64)
+    integer :: count
+
+    call decoder%get_averages(entries,count)
+    call side_averages('JT4',utc,.true.,count,entries(:count)%used,entries(:count)%utc, &
+         entries(:count)%sync,entries(:count)%dt_seconds,entries(:count)%frequency_hz,    &
+         entries(:count)%polarity)
+  end subroutine emit_jt4_averages
 
   subroutine write_jt4_diagnostic(line)
     character(len=*), intent(in) :: line

@@ -2,6 +2,8 @@
 #define TRANSCEIVER_BASE_HPP__
 
 #include <stdexcept>
+#include <functional>
+#include <optional>
 
 #include <QString>
 #include <QElapsedTimer>
@@ -150,6 +152,7 @@ protected:
   void update_level (int = 0);
   void update_power (unsigned int = 0);
   void update_swr (unsigned int = 0);
+  void update_tuning_ranges (RigFrequency::Ranges const&);
 
   // Calling this eventually triggers the Transceiver::update(State) signal.
   void update_complete (bool force_signal = false);
@@ -158,6 +161,8 @@ protected:
   void offline (QString const& reason);
 
 private:
+  friend class TestTransceiverFrequency;
+
   void startup ();
   void shutdown ();
   bool maybe_low_resolution (Frequency low_res, Frequency high_res);
@@ -199,7 +204,12 @@ private:
   bool period_applied_ {false};
   double applied_period_ {0.0};
   QTimer * mode_timer_ {nullptr};
-  QElapsedTimer mode_settling_clock_;
+  std::function<qint64 ()> mode_now_ {[] {
+    QElapsedTimer clock;
+    clock.start ();
+    return clock.msecsSinceReference ();
+  }};
+  std::optional<qint64> mode_settling_started_;
   MODE mode_expected_ {UNK};
   MODE mode_observed_ {UNK};
   MODE mode_published_ {UNK};

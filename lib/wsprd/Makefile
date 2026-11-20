@@ -20,7 +20,7 @@ LIBS = -lfftw3f -lm -lgfortran
 
 all:    wsprd wsprsim
 
-DEPS =  wsprsim_utils.h wsprd_utils.h fano.h jelinek.h nhash.h ../lookup3.h
+DEPS = wspr_decoder.h wsprd_decode.h ../../DecoderEngine.h  wsprsim_utils.h wsprd_utils.h fano.h jelinek.h nhash.h ../lookup3.h
 
 lookup3.o: ../lookup3.c ../lookup3.h
 	${CC} ${CFLAGS} -c $< -o $@
@@ -28,7 +28,7 @@ lookup3.o: ../lookup3.c ../lookup3.h
 indexx.o: ../indexx.f90
 	${FC} -o indexx.o ${FFLAGS} -c ../indexx.f90 
 
-OBJS1 = wsprd.o wsprsim_utils.o wsprd_utils.o tab.o fano.o jelinek.o nhash.o lookup3.o indexx.o osdwspr.o
+OBJS1 = wsprd.o wsprd_decode.o wspr_decoder.o wsprsim_utils.o wsprd_utils.o tab.o fano.o jelinek.o nhash.o lookup3.o indexx.o osdwspr.o
 
 wsprd: $(OBJS1)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)

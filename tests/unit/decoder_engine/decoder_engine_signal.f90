@@ -84,11 +84,47 @@ subroutine decoder_engine_test_records(records,record_size) bind(C)
   records(1)%ft4%has_tones=1
   records(1)%ft4%has_waveform_start=1
   records(1)%ft4%waveform_start_seconds=-0.125
+  records(1)%wspr%message_type=3
+  records(1)%wspr%has_hash15=1
+  records(1)%wspr%hash15=32767
+  records(1)%wspr%has_locator=1
+  records(1)%wspr%locator(6)='Z'
+  records(1)%wspr%has_power=1
+  records(1)%wspr%power_dbm=37
+  records(1)%wspr%snr_db=-12.5
+  records(1)%wspr%drift_hz=0.125
+  records(1)%wspr%waveform_start_seconds=1.25
+  records(2)%wspr%message_type=2
+  records(2)%wspr%has_call=1
+  records(2)%wspr%call(12)='X'
   records(2)%variant=2
   records(2)%superfox%symbols(50)=127
   records(2)%superfox%kind=sf_kind_verification
   records(2)%superfox%child_index=4
 end subroutine decoder_engine_test_records
+
+subroutine decoder_engine_test_wspr_requests(records,record_size) bind(C)
+  use iso_c_binding, only: c_int8_t,c_int64_t,c_size_t,c_sizeof
+  use decoder_engine, only: attempt_request
+  implicit none
+  type(attempt_request), intent(out) :: records(2)
+  integer(c_size_t), intent(out) :: record_size
+  integer(c_int8_t) :: zeros(c_sizeof(records))
+
+  record_size=c_sizeof(records(1))
+  zeros=0
+  records=transfer(zeros,records)
+  records(1)%input_id=9876543210_c_int64_t
+  records(1)%wspr%waveform=15
+  records(1)%wspr%effort=3
+  records(1)%wspr%search_low_hz=1601.25
+  records(1)%wspr%search_high_hz=1623.5
+  records(1)%wspr%calibration_error_hz=-2.75
+  records(2)%input_id=1234567890_c_int64_t
+  records(2)%wspr%waveform=2
+  records(2)%wspr%search_low_hz=1390.5
+  records(2)%wspr%calibration_error_hz=3.125
+end subroutine decoder_engine_test_wspr_requests
 
 subroutine decoder_engine_test_message(mode,text,samples,payload,expected_tones,start_sample) bind(C)
   use iso_c_binding, only: c_int,c_char,c_int8_t,c_int16_t,c_int64_t

@@ -8,7 +8,18 @@
 namespace Jtty
 {
   // Widest lookahead try_compact() uses (lib/jtty/jtty_mod.f90, words(3)); holding back this many trailing words guarantees an atom in progress is never split by an early commit.
+  // Typed live entry passes 0; the holdback is for macro text in the Tx box.
   inline constexpr int maxCompactAtomWords = 3;
+
+  // One transmitted frame at 48 kHz (genjtty_frames, lib/jtty/genjtty.f90).
+  inline constexpr qint64 samplesPerFrame = 59LL * 1536;
+
+  // True once the backlog is under a frame, where diddle would otherwise start.
+  inline bool shouldCommitForQueueDepth (qint64 queuedSamples,
+                                         qint64 thresholdSamples = samplesPerFrame)
+  {
+    return queuedSamples < thresholdSamples;
+  }
 
   struct IncrementalCommitPlan
   {

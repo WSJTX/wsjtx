@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <utility>
 
 #include <QAction>
@@ -23,6 +24,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTimer>
 #include <QTimerEvent>
 #include <QTranslator>
 #include <QVector>
@@ -44,6 +46,7 @@ extern bool pounce;
 extern bool wait_and_call;
 extern bool no_wait_and_call;
 extern QString ignoreList;
+extern bool programStart;
 
 namespace
 {
@@ -104,12 +107,16 @@ namespace
     void record (QString const& payload, int snr = -10, int frequency = 1900,
                  QString const& time = "120000")
     {
+      recordLine (QString {"%1 %2  0.3 %3 +  "}.arg (time).arg (snr, 3).arg (frequency, 4)
+                  + payload + '\n');
+    }
+    void recordLine (QString const& line)
+    {
       Output output;
       output.kind = Output::Kind::Record;
       output.current = true;
       output.request = active_;
-      output.text = (QString {"%1 %2  0.3 %3 +  "}.arg (time).arg (snr, 3).arg (frequency, 4)
-                     + payload + '\n').toUtf8 ();
+      output.text = line.toUtf8 ();
       deliver (output);
     }
     void complete (bool stale = false)
@@ -173,6 +180,16 @@ std::unique_ptr<AudioInputSource> makeBestSPTestAudioInput ()
 std::unique_ptr<AudioOutputSink> makeBestSPTestAudioOutput ()
 {
   return std::make_unique<SilentAudioOutput> ();
+}
+
+void deliverScriptedTestDecode (DecoderBackend * backend, QString const& line)
+{
+  static_cast<ScriptedDecoderBackend *> (backend)->recordLine (line);
+}
+
+void completeScriptedTestDecode (DecoderBackend * backend)
+{
+  static_cast<ScriptedDecoderBackend *> (backend)->complete ();
 }
 
 BestSPTestEnvironment::BestSPTestEnvironment ()
@@ -244,7 +261,7 @@ void BestSPApplicationTestController::begin ()
 void BestSPApplicationTestController::prepare ()
 {
   if (finished_) return;
-  if (!backend_->ready () || window_->m_logBook.countries ()->lookup ("JA1ABC")
+  if (programStart || !backend_->ready () || window_->m_logBook.countries ()->lookup ("JA1ABC")
       .identity (AD1CCty::EntityView::DXCC).name.isEmpty ())
     {
       retry_.start ();
@@ -257,17 +274,29 @@ void BestSPApplicationTestController::prepare ()
       retry_.start ();
       return;
     }
-  // Settings processes queued rig reports while the scripted decoder is active.
-  if (window_->m_rigState.frequency () != 14080000)
+  auto const state = window_->m_operatingFrequency.snapshot ();
+  if (state.pendingRx || state.pendingTx || window_->m_pendingModeRetune.pending ()
+      || window_->m_modeEntries.active ())
     {
-      if (!require (window_->m_config.transceiver_frequency (
-                      14080000, RigFrequencyChangePolicy::ChangeKind::NominalQsy),
+      retry_.start ();
+      return;
+    }
+  if (window_->m_mode != "FT4")
+    {
+      window_->on_actionFT4_triggered ();
+      window_->m_guiTimer.stop ();
+      retry_.start ();
+      return;
+    }
+  if (state.rx != 14080000 || window_->m_rigState.frequency () != 14080000)
+    {
+      if (!require (window_->requestBandChange (
+                      14080000, MainWindow::FrequencyRequestOrigin::User),
                     "Cannot initialize the dummy radio frequency.")) return;
       retry_.start ();
       return;
     }
   timeout_.stop ();
-  window_->on_actionFT4_triggered ();
   window_->m_guiTimer.stop ();
   if (!require (window_->m_logBook.add ("W1AAA", "FN31", "20m", "FT4",
                  "<call:5>W1AAA <gridsquare:4>FN31 <band:3>20m <mode:3>FT4"),
@@ -275,15 +304,36 @@ void BestSPApplicationTestController::prepare ()
   if (run ()) finish (true, "All Best S+P application scenarios passed.");
 }
 
+bool BestSPApplicationTestController::waitUntil (
+  std::function<bool()> const& ready, QString const& failure)
+{
+  if (ready ()) return true;
+  QEventLoop loop;
+  QTimer poll;
+  QTimer watchdog;
+  poll.setInterval (5);
+  watchdog.setSingleShot (true);
+  connect (&poll, &QTimer::timeout, &loop, [&] {if (ready ()) loop.quit ();});
+  connect (&watchdog, &QTimer::timeout, &loop, &QEventLoop::quit);
+  poll.start ();
+  watchdog.start (5000);
+  loop.exec ();
+  return require (ready (), failure);
+}
+
 bool BestSPApplicationTestController::startRequest (quint64 frequency, QString const& scenario)
 {
   scenario_ = scenario;
   window_->setBestSPArmed (false);
+  if (!waitUntil ([this] {
+        auto const state = window_->m_operatingFrequency.snapshot ();
+        return !state.pendingRx && !state.pendingTx && !window_->m_pendingModeRetune.pending ()
+          && !window_->m_modeEntries.active ();
+      }, "Radio activity did not settle before preparing the scripted request.")) return false;
   window_->m_operatingFrequency = OperatingFrequency {frequency};
   window_->m_operatingFrequency.requestNominal (frequency, {}, false);
   window_->m_freqNominalPeriod = frequency;
-  window_->m_currentBand = window_->m_config.bands ()->find (frequency);
-  window_->m_currentBandPeriod = window_->m_currentBand;
+  window_->m_currentBandPeriod = window_->nominalRxBand ();
   window_->m_dateTimeSeqStart = QDateTime::currentDateTimeUtc ();
   window_->m_diskData = false;
   window_->m_QSOProgress = QsoProgress::Calling;
@@ -352,7 +402,7 @@ bool BestSPApplicationTestController::complete (QString const& expectedCall)
   if (!require (window_->ui->dxCallEntry->text () == expectedCall,
                 QString {"Expected selected call '%1', got '%2'; mode=%3 band=%4 armed=%5 feedback=%6."}
                   .arg (expectedCall, window_->ui->dxCallEntry->text (), window_->m_mode,
-                        window_->m_currentBand).arg (window_->m_bestSP.armed ())
+                        window_->nominalRxBand ()).arg (window_->m_bestSP.armed ())
                   .arg (window_->ui->pbBestSP->accessibleDescription ()))) return false;
   std::cerr << "WSJT-X Best S+P integration: " << scenario_.toStdString () << " passed" << std::endl;
   return true;
@@ -383,7 +433,7 @@ bool BestSPApplicationTestController::run ()
 
   if (!startRequest (1000000, "unknown band has no callsign-on-band eligibility")) return false;
   auto const knownEntity = classifyDecode (DecodedText {"120000 -10  0.3 1900 +  CQ W1AW FN31"},
-                                          "FT4", window_->m_currentBand, window_->m_logBook);
+                                          "FT4", window_->nominalRxBand (), window_->m_logBook);
   if (!require (knownEntity.worked && knownEntity.worked->entity && !knownEntity.workedOnBand,
                 "Fixture must have worked entity facts and absent band facts.")
       || !record ("CQ W1AW FN31") || !complete ({})) return false;
@@ -394,7 +444,7 @@ bool BestSPApplicationTestController::run ()
   if (!startRequest (1000000, "unknown band retains new DXCC eligibility")) return false;
   window_->ui->actionIgnoreB4->setChecked (true);
   auto const newEntity = classifyDecode (DecodedText {"120000 -10  0.3 1900 +  CQ JA1ABC PM95"},
-                                        "FT4", window_->m_currentBand, window_->m_logBook);
+                                        "FT4", window_->nominalRxBand (), window_->m_logBook);
   if (!require (newEntity.worked && !newEntity.worked->entity && !newEntity.workedOnBand,
                  "Fixture must have new entity facts and absent band facts.")
       || !record ("CQ JA1ABC PM95") || !complete ("JA1ABC")) return false;
@@ -454,7 +504,8 @@ bool BestSPApplicationTestController::attemptArming (bool shortcut, QString cons
   return feedbackMatches (false, expectedFeedback);
 }
 
-bool BestSPApplicationTestController::feedbackMatches (bool armed, QString const& expected)
+bool BestSPApplicationTestController::feedbackMatches (
+  bool armed, QString const& expected, bool checkStatusMessage)
 {
   auto * button = window_->ui->pbBestSP;
   auto * accessible = QAccessible::queryAccessibleInterface (button);
@@ -463,9 +514,12 @@ bool BestSPApplicationTestController::feedbackMatches (bool armed, QString const
                   && accessible->state ().checked == armed,
                   "Controller, button, and accessible checked states diverged.")
     && require (button->accessibleDescription () == expected && button->statusTip () == expected
-                && accessible->text (QAccessible::Description) == expected
-                && window_->statusBar ()->currentMessage () == expected,
-                "The expected feedback or accessible description was replaced.");
+                && accessible->text (QAccessible::Description) == expected,
+                "The persistent feedback or accessible description was replaced.")
+    && (!checkStatusMessage
+        || require (window_->statusBar ()->currentMessage () == expected,
+                    QString {"Expected status message '%1', got '%2'."}
+                      .arg (expected, window_->statusBar ()->currentMessage ())));
 }
 
 bool BestSPApplicationTestController::competingCQSelections ()
@@ -591,7 +645,7 @@ bool BestSPApplicationTestController::settingsCQSelection ()
       timedOut = true;
       if (auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ())) dialog->reject ();
     });
-    QTimer::singleShot (0, window_, [&] {
+    QTimer::singleShot (0, &guard, [&] {
       auto * dialog = qobject_cast<QDialog *> (QApplication::activeModalWidget ());
       if (!dialog) return;
       auto * option = dialog->findChild<QCheckBox *> ("enable_Wait_features_check_box");
@@ -614,24 +668,36 @@ bool BestSPApplicationTestController::settingsCQSelection ()
     window_->m_guiTimer.stop ();
     return require (visited && !timedOut, "The isolated Wait-features Settings edit did not finish.");
   };
-  if (!startRequest (14080000, "Settings reactivates dormant Pounce only on acceptance")) return false;
+  auto const armPounce = [this] {
+    QApplication::setActiveWindow (window_);
+    window_->ui->autoButton->setFocus ();
+    if (!require (window_->ui->autoButton->hasFocus (),
+                  "The Pounce activation control did not receive focus.")) return false;
+    QMouseEvent event {QEvent::MouseButtonPress, QPointF {}, Qt::RightButton,
+                       Qt::RightButton, Qt::NoModifier};
+    QApplication::sendEvent (window_, &event);
+    return require (pounce, "Right-click did not arm Pounce.");
+  };
+  if (!startRequest (14080000, "Settings preserve Best S+P until Pounce is explicitly rearmed")) return false;
   window_->setBestSPArmed (false);
   window_->ui->cbAutoSeq->setChecked (true);
   window_->ui->respondComboBox->setCurrentIndex (
     window_->ui->respondComboBox->findData (static_cast<int> (AutoRespondPolicy::First)));
-  if (!editWaitFeatures (false, true)
-      || !require (!window_->m_config.Wait_features_enabled (), "Wait features were not disabled.")) return false;
-  pounce = true;
+  if (!armPounce () || !editWaitFeatures (false, true)
+      || !require (!window_->m_config.Wait_features_enabled () && !pounce,
+                   "Disabling Wait left Pounce armed.")) return false;
   window_->ui->pbBestSP->click ();
   if (!require (window_->m_bestSP.armed (), "Disabled Wait features prevented Best S+P arming.")) return false;
   auto const feedback = window_->ui->pbBestSP->accessibleDescription ();
   if (!editWaitFeatures (true, false)
-      || !require (!window_->m_config.Wait_features_enabled (), "Settings Cancel changed Wait features.")
-      || !feedbackMatches (true, feedback)
+      || !require (!window_->m_config.Wait_features_enabled () && !pounce,
+                   "Settings Cancel changed Wait features or Pounce intent.")
+      || !feedbackMatches (true, feedback, false)
       || !editWaitFeatures (true, true)
-      || !require (window_->m_config.Wait_features_enabled () && pounce,
-                   QString {"Settings acceptance did not reactivate Pounce: Wait features=%1, Pounce=%2."}
-                     .arg (window_->m_config.Wait_features_enabled ()).arg (pounce))
+      || !require (window_->m_config.Wait_features_enabled () && !pounce,
+                   "Enabling Wait resurrected previously disarmed Pounce intent.")
+      || !feedbackMatches (true, feedback, false)
+      || !armPounce ()
       || !feedbackMatches (false, QCoreApplication::translate (
            "MainWindow", "Best S+P canceled: Wait & Pounce is active."))) return false;
   return complete ({});
@@ -767,7 +833,27 @@ bool BestSPApplicationTestController::pounceSelections ()
       if (!require (pounce, "A canceled selection timeout cleared the new Pounce intent.")) return false;
       scripted->record ("CQ W1AW FN31", -15);
       if (!require (window_->ui->dxCallEntry->text () == "W1AW",
-                    "Fresh Pounce arming retained an earlier First latch or better score.")
+                    "Fresh Pounce arming retained an earlier First latch or better score.")) return false;
+      auto& replacement = window_->m_pounceSelectionTimer;
+      if (!require (replacement.isActive (), "The replacement selection window did not start.")) return false;
+      auto const replacementId = replacement.timerId ();
+      auto const replacementInterval = replacement.interval ();
+      auto const selected = window_->m_autoRespondSelectionLatch.isSelected ();
+      // Simultaneously active timers have distinct IDs even when canceled IDs are reused.
+      QTimer stale;
+      stale.start (std::numeric_limits<int>::max ());
+      auto const staleId = stale.timerId ();
+      stale.stop ();
+      QTimerEvent staleTimeout {staleId};
+      QApplication::sendEvent (&replacement, &staleTimeout);
+      if (!require (pounce && replacement.isActive () && replacement.timerId () == replacementId
+                    && replacement.interval () == replacementInterval
+                    && window_->ui->dxCallEntry->text () == "W1AW"
+                    && window_->m_autoRespondSelectionLatch.isSelected () == selected,
+                    "A stale timeout changed the replacement selection window.")) return false;
+      QTimerEvent replacementTimeout {replacementId};
+      QApplication::sendEvent (&replacement, &replacementTimeout);
+      if (!require (!pounce && !replacement.isActive (), "The replacement selection window did not expire.")
           || !complete ("W1AW")) return false;
     }
   return true;
@@ -844,6 +930,21 @@ bool BestSPApplicationTestController::feedbackLifecycle ()
   bool const feedbackRetained = feedbackMatches (false, selectedFeedback);
   window_->requestTxStop (TxEvidence::TxStopReason::UserHalt);
   m_txing = false;
+  auto const txStopped = [this] {
+    return !window_->m_tune && !window_->tuneButtonTimer.isActive ()
+      && !window_->ptt0Timer.isActive () && !window_->m_rigState.ptt ()
+      && !window_->m_rigState.tune ();
+  };
+  if (!txStopped ()) {
+    QEventLoop stopped;
+    auto const completed = [&] {if (txStopped ()) stopped.quit ();};
+    connect (&window_->tuneButtonTimer, &QTimer::timeout, &stopped, completed);
+    connect (&window_->ptt0Timer, &QTimer::timeout, &stopped, completed);
+    connect (&window_->m_config, &Configuration::transceiver_update, &stopped, completed);
+    QTimer::singleShot (2000, &stopped, &QEventLoop::quit);
+    stopped.exec ();
+  }
+  if (!require (txStopped (), "The synthetic Tune shutdown did not release the dummy radio PTT.")) return false;
   if (!require (txRequested, "The common TX-start request path was not exercised.")
       || !feedbackRetained) return false;
   std::cerr << "WSJT-X Best S+P integration: " << scenario_.toStdString () << " passed" << std::endl;

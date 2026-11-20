@@ -9,8 +9,11 @@
 #include <stdint.h>
 #include <time.h>
 
-extern int printdata;
+int get_wspr_channel_symbols_verbose(char *, char *, char *, unsigned char *, int);
 
 int get_wspr_channel_symbols(char* message, char* hashtab, char*loctab, unsigned char* symbols);
+
+/* The channel symbols for an 11-byte packed message (data with tail). */
+void wspr_channel_symbols_from_data(unsigned char const *data, unsigned char *symbols);
 
 #endif

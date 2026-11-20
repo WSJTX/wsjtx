@@ -2,11 +2,12 @@ module ft8_engine_kernel
 !$ use omp_lib
   use prog_args, only: temp_dir
   use streaming_emit, only: streaming_emit_enabled, streaming_emit_replay_line
+  use streaming_side, only: side_fox_callers
   use, intrinsic :: iso_fortran_env, only: error_unit
   use timer_module, only: timer
   use packjt77, only: pack77_state
   use decoder_engine_types, only: ft8_signal_evidence
-  use ft8_decode, only: c2fox,g2fox,nsnrfox,nfreqfox,n30fox,n30z,nfox,ft8_a8d
+  use ft8_decode, only: c2fox,g2fox,nsnrfox,nfreqfox,n30fox,n30z,nfox,ft8_a8d,MAXFOX
   use ft8_decodevar, only: ltry_a8
   use ft8_decode_ranges, only: max_ft8_decode_ranges, partition_ft8_decode_range
   use ft8_mtd_residual, only: mtd_prepare,mtd_finish,mtd_worker_residual,mtd_worker_spectrum
@@ -135,6 +136,8 @@ contains
     integer :: ft8_range_low(max_ft8_decode_ranges),ft8_range_high(max_ft8_decode_ranges)
     integer :: ft8_range_count,requested_threads,a8_requested_threads,nthr,active_progress_generation
     integer :: ncontest,nfqso
+    ! The distance and age of each caller houndcallers.txt gets (fox_callers).
+    integer :: fox_km(MAXFOX),fox_age(MAXFOX)
     logical :: newdat,ex
     character(len=6) :: mygrid
     character(len=60) :: line
@@ -522,11 +525,16 @@ contains
                  if(context%render_legacy) write(19,1004) c2fox(j),g2fox(j),nsnrfox(j),nfreqfox(j), &
                       nDkm,nage
 1004             format(a12,1x,a4,i5,i6,i7,i3)
+                 fox_km(j)=nDkm
+                 fox_age(j)=nage
               endif
            enddo
            nfox=j
            if(context%render_legacy) flush(19)
         endif
+        ! The same records as an event (lib/streaming_side.f90).
+        if(context%render_legacy) call side_fox_callers(params%nutc,j,c2fox,g2fox,nsnrfox, &
+             nfreqfox,fox_km,fox_age)
      endif
 
 

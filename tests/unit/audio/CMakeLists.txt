@@ -84,8 +84,18 @@ add_test (NAME test_fixture_audio_output COMMAND test_fixture_audio_output)
 add_executable (test_sound_output
   test_sound_output.cpp
   ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp
-  ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
-target_link_libraries (test_sound_output wsjt_qt Qt5::Test Qt5::Multimedia)
+  ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp)
+target_link_libraries (test_sound_output wsjt_qt Boost::log_setup Qt5::Test Qt5::Multimedia)
+add_library (sound_output_test_plugin MODULE sound_output_test_plugin.cpp)
+target_link_libraries (sound_output_test_plugin Qt5::Multimedia)
+set (sound_output_test_plugin_root "${CMAKE_CURRENT_BINARY_DIR}/sound-output-plugins/$<CONFIG>")
+set_target_properties (sound_output_test_plugin PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY "${sound_output_test_plugin_root}/audio"
+  RUNTIME_OUTPUT_DIRECTORY "${sound_output_test_plugin_root}/audio")
+target_compile_definitions (test_sound_output PRIVATE
+  SOUND_OUTPUT_TEST_PLUGIN_ROOT="${sound_output_test_plugin_root}")
+add_dependencies (test_sound_output sound_output_test_plugin)
 add_test (NAME test_sound_output COMMAND test_sound_output)
 
 add_executable (test_modulator
@@ -132,7 +142,8 @@ set (receive_handoff_isolated_scenarios
     reference_measurement_vs_reset
     reference_application_preserves_uncommitted_suffix
     reference_application_packetization
-    reference_measurement_packetization)
+    reference_measurement_packetization
+    reference_measurement_survives_unwritable_file)
 set (receive_handoff_tests test_receive_audio_handoff)
 foreach (scenario IN LISTS receive_handoff_isolated_scenarios)
   add_test (NAME test_receive_${scenario}
@@ -209,3 +220,21 @@ foreach (function ft8 ft4 ft4PhaseWrap fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr t
   set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES
     LABELS "streaming;encode;runtime" TIMEOUT 300 ENVIRONMENT "${slot_encode_environment}")
 endforeach ()
+
+file (MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fixwav_modules)
+add_executable (fixwav_test_driver
+  ${CMAKE_SOURCE_DIR}/lib/wavhdr.f90
+  ${CMAKE_SOURCE_DIR}/lib/fixwav.f90)
+set_target_properties (fixwav_test_driver PROPERTIES
+  AUTOMOC OFF
+  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fixwav_modules)
+target_include_directories (fixwav_test_driver PRIVATE
+  ${CMAKE_CURRENT_BINARY_DIR}/fixwav_modules)
+
+add_executable (test_fixwav test_fixwav.cpp)
+target_link_libraries (test_fixwav Qt5::Test)
+target_compile_definitions (test_fixwav PRIVATE
+  FIXWAV_EXECUTABLE="$<TARGET_FILE:fixwav_test_driver>")
+add_dependencies (test_fixwav fixwav_test_driver)
+add_test (NAME test_fixwav COMMAND test_fixwav)
+set_tests_properties (test_fixwav PROPERTIES TIMEOUT 30)

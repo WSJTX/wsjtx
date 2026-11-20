@@ -62,6 +62,7 @@ DecodedMessageFields parseDecodedMessage (QString message)
   DecodedMessageFields fields;
   fields.destination = match.captured ("word1");
   fields.sender = match.captured ("word2");
+  fields.exchange = match.captured ("word3");
   fields.cq = fields.destination == "CQ" || fields.destination == "CQDX"
     || fields.destination.startsWith ("CQ ");
   for (auto const& name : {"word3", "word4", "word5"}) {

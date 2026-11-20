@@ -2,7 +2,9 @@ program test_streaming_period
   use, intrinsic :: iso_fortran_env, only: int64
   use streaming_period, only: period_state, period_begin, period_room,      &
        period_take, period_full, period_ready, period_set_stop, gui_hsym_stop, &
-       sample_due, trigger_fire_time, read_passes_busy_end, clock_start
+       sample_due, trigger_fire_time, read_passes_busy_end, clock_start,     &
+       fast_first_try, fast_last_try
+  use streaming_control, only: MODE_WSPR
   implicit none
 
   integer, parameter :: NMAX = 1800 * 12000
@@ -18,6 +20,8 @@ program test_streaming_period
   call fire_times()
   call busy_end()
   call clock_starts()
+  call fast_tries()
+  call wspr_stop()
 
   if (nfail .eq. 0) then
      print '(a)', 'ALL STREAMING PERIOD CHECKS PASSED'
@@ -265,5 +269,48 @@ contains
     end do
     call ok('100 ppm of drift is taken up', abs(t0 - (-0.36d0 + 1.d0 / 12000)) .lt. 1d-6)
   end subroutine clock_starts
+
+  ! Fast JT9's decode tries, the GUI's (MainWindow::fastSink) as block ends:
+  ! live, the first 3456-sample block end with less than 0.35 s of the
+  ! period left, then each later whole block; from a file, the first block
+  ! end at or past the period's samples less 3584, and no other.
+  subroutine fast_tries()
+    integer, parameter :: tr(4) = [5, 10, 15, 30]
+    integer, parameter :: live_first(4) = [58752, 117504, 176256, 355968]
+    integer, parameter :: live_last(4)  = [58752, 117504, 179712, 359424]
+    integer, parameter :: file_first(4) = [58752, 117504, 179712, 359424]
+    integer :: i, first
+    character(len=40) :: label
+    do i = 1, 4
+       write(label, '(a,i0,a)') 'fast JT9 ', tr(i), ' s'
+       first = fast_first_try(dble(tr(i)), tr(i) * 12000, .true.)
+       call ok(trim(label) // ' live first try', first .eq. live_first(i))
+       call ok(trim(label) // ' live last try',                             &
+            fast_last_try(tr(i) * 12000, .true., first) .eq. live_last(i))
+       first = fast_first_try(dble(tr(i)), tr(i) * 12000, .false.)
+       call ok(trim(label) // ' file try', first .eq. file_first(i))
+       call ok(trim(label) // ' file has one try',                           &
+            fast_last_try(tr(i) * 12000, .false., first) .eq. first)
+    end do
+    ! The live point is 0.35 s before the period's end: 55,800 samples at
+    ! 5 s, and the block ending at 55,296 is still early.
+    call ok('fast JT9 live first try is the first past 0.35 s',               &
+         fast_first_try(5.d0, 60000, .true.) - 3456 .lt. 55800 .and.          &
+         fast_first_try(5.d0, 60000, .true.) .ge. 55800)
+  end subroutine fast_tries
+
+  ! WSPR decodes at the GUI's stop, 396 half-symbols (MainWindow::fixStop),
+  ! with or without "Decode after EME delay": live 1,368,576 of its 1,440,000
+  ! samples; from a file the whole period.
+  subroutine wspr_stop()
+    type(period_state) :: st
+    call ok('WSPR: stop 396', gui_hsym_stop(MODE_WSPR, 120.d0, .false., .false., 0) .eq. 396 .and. &
+         gui_hsym_stop(MODE_WSPR, 120.d0, .true., .false., 0) .eq. 396)
+    call period_begin(st, 120.d0, MODE_WSPR, NMAX, gui_hsym_stop(MODE_WSPR, 120.d0, .false., .false., 0))
+    call ok('WSPR live: period 1440000, decoder 1368576',                    &
+         st%nperiod .eq. 1440000 .and. st%npts .eq. 1368576)
+    call period_begin(st, 120.d0, MODE_WSPR, NMAX, 396, .true.)
+    call ok('WSPR file: decoder 1440000', st%npts .eq. 1440000)
+  end subroutine wspr_stop
 
 end program test_streaming_period

@@ -1398,7 +1398,8 @@ private slots:
     auto const good = exports + "/good.adi";
     auto const bad = exports + "/broken.adif";
     QVERIFY (writeHistoryFile (good, "<call:5>K1ABC<eor>"));
-    QVERIFY (writeHistoryFile (bad, "<call:5>K2BAD<eor><call:99>truncated"));
+    QByteArray const damaged {"<call:5>K2BAD<eor><call:99>truncated"};
+    QVERIFY (writeHistoryFile (bad, damaged));
     dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}};
     WorkedBefore worked {configuration_.get ()};
     QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
@@ -1410,13 +1411,16 @@ private slots:
     dialog ().supplemental_history_folders_ = HistoryFolders {{empty, false}, {exports, false}, {missing, true}};
     worked.reload ();
     QTRY_COMPARE (finished.count (), 2);
-    QCOMPARE (finished.at (1).at (0).toInt (), 1);
+    QCOMPARE (finished.at (1).at (0).toInt (), 2);
     QVERIFY (worked.call_worked ("K1ABC", {}, {}));
-    QVERIFY (!worked.call_worked ("K2BAD", {}, {}));
+    QVERIFY (worked.call_worked ("K2BAD", {}, {}));
+    QVERIFY (!worked.call_worked ("TRUNCATED", {}, {}));
+    QCOMPARE (historyFileContents (bad), damaged);
     QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (bad)));
     QVERIFY (worked.load_errors ().contains (QDir::toNativeSeparators (missing)));
     QVERIFY (!worked.load_errors ().contains (QDir::toNativeSeparators (empty)));
     QVERIFY2 (worked.load_status ().contains ("1 of 2 files loaded"), qPrintable (worked.load_status ()));
+    QVERIFY (worked.load_status ().contains ("1 incomplete; 0 failed."));
     QVERIFY (worked.load_status ().contains ("Directory discovery failures: 1"));
     QCOMPARE (configuration_->supplemental_history_folders ().size (), 3);
 
@@ -1426,7 +1430,10 @@ private slots:
     worked.reload ();
     QTRY_COMPARE (finished.count (), 3);
     QVERIFY (worked.load_errors ().isEmpty ());
+    QCOMPARE (finished.at (2).at (0).toInt (), 2);
+    QVERIFY (worked.call_worked ("K1ABC", {}, {}));
     QVERIFY (worked.call_worked ("K3NEW", {}, {}));
+    QVERIFY (!worked.call_worked ("K2BAD", {}, {}));
   }
 
   void folderHistoryReportsUnreadableDirectories ()
@@ -1596,6 +1603,48 @@ private slots:
     configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
     QCOMPARE (configuration_->supplemental_history_files (), QStringList {source});
     QCOMPARE (dialog ().next_supplemental_history_files_, QStringList {source});
+  }
+
+  void adifLogLocationRequiresAcceptanceAndRestore ()
+  {
+    auto const default_log = writable_file_path (configuration_->writeable_data_dir (), "wsjtx_log.adi");
+    auto const shared_log = QDir::cleanPath (directory_.filePath ("shared/our_log.adi"));
+    auto& d = dialog ();
+    ui ().rig_combo_box->setCurrentText ("None");
+    d.rig_params_ = d.gather_rig_data ();
+    QSignalSpy changed {configuration_.get (), &Configuration::supplemental_history_sources_changed};
+    QCOMPARE (configuration_->adif_log_file_path (), default_log);
+    d.next_adif_log_file_ = shared_log;
+    d.reject ();
+    QVERIFY (d.next_adif_log_file_.isEmpty ());
+    QCOMPARE (configuration_->adif_log_file_path (), default_log);
+    QCOMPARE (changed.count (), 0);
+
+    {
+      WorkedBefore worked {configuration_.get ()};
+      QSignalSpy finished {&worked, &WorkedBefore::finished_loading};
+      QTRY_COMPARE (finished.count (), 1);
+      QCOMPARE (worked.path (), default_log);
+      d.next_adif_log_file_ = shared_log;
+      d.next_supplemental_history_files_ = QStringList {shared_log};
+      d.accept ();
+      QTRY_COMPARE (worked.path (), shared_log);
+      QByteArray const record {"<call:5>K3NEW<gridsquare:4>FN20<band:3>20m<mode:3>FT8"};
+      QVERIFY (worked.add ("K3NEW", "FN20", "20m", "FT8", record));
+      QVERIFY (QFile::exists (shared_log));
+    }
+    QCOMPARE (configuration_->adif_log_file_path (), shared_log);
+    QCOMPARE (changed.count (), 1);
+    // the chosen log is the primary, so it is not also kept as a history source
+    QVERIFY (configuration_->supplemental_history_files ().isEmpty ());
+    d.accept ();
+    QCOMPARE (changed.count (), 1);
+
+    configuration_.reset ();
+    settings_->sync ();
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QCOMPARE (configuration_->adif_log_file_path (), shared_log);
+    QCOMPARE (dialog ().next_adif_log_file_, shared_log);
   }
 
   void folderSettingsRequireAcceptanceAndPreserveIndependentScopes ()
@@ -1845,6 +1894,12 @@ private slots:
             QVERIFY2 (scroll->viewport ()->rect ().contains (geometry_in (action, scroll->viewport ())),
                       qPrintable (diagnostic));
           }
+        for (auto const& name : {"adif_log_change", "adif_log_default"})
+          {
+            auto action = nested.findChild<QPushButton *> (name);
+            QVERIFY2 (action, name);
+            layout_controls.append (action);
+          }
         auto layout_overlap = [&] {
             auto control_rect = [&] (QWidget * control) {
                 auto rect = control->rect ();
@@ -1974,6 +2029,30 @@ private slots:
           }
         QCOMPARE (sources->item (0)->data (Qt::UserRole).toString (), source);
         QVERIFY (status->toPlainText ().contains (source));
+      }));
+  }
+
+  void historyDiagnosticsStayInScrollableReport ()
+  {
+    auto status = dialog ().ui_->worked_before_status_line_edit;
+    QString const hint {"Open History sources for the full scan report and diagnostic details."};
+    configuration_->set_worked_before_status ("History loaded.", {});
+    QCOMPARE (status->text (), QString {"History loaded."});
+    QCOMPARE (status->toolTip (), hint);
+
+    QString const summary {"History loaded with warnings: 200 warnings."};
+    QStringList details;
+    for (int line = 1; line <= 200; ++line)
+      details.append (QString {"history.adi: Line %1: Unreadable ADIF field length."}.arg (line));
+    auto const errors = details.join ('\n');
+    QVERIFY (inspectHistoryDialog ([&] (QDialog& nested) {
+        auto report = nested.findChild<QTextEdit *> ();
+        QVERIFY (report);
+        configuration_->set_worked_before_status (summary, errors);
+        QCOMPARE (status->text (), summary);
+        QCOMPARE (status->toolTip (), hint);
+        QVERIFY (report->isReadOnly ());
+        QCOMPARE (report->toPlainText (), summary + "\n\n" + errors);
       }));
   }
 

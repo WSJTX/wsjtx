@@ -175,9 +175,9 @@ static void run_tests(void)
   create_fixture(&f);
 
   for (int submode = 0; submode <= 7; ++submode) {
+    float windowed[4] = {0};
     prepare(&f, submode);
     if (submode == 0 || submode == 7) {
-      float windowed[4];
       decoder_engine_test_jt9_reference(submode, 1, f.samples, windowed);
       decoder_engine_test_jt9_reference(submode, 0, f.samples, f.reference);
       f.compare_reference = 1;
@@ -185,6 +185,18 @@ static void run_tests(void)
     decode(&f, 1);
     f.compare_reference = 0;
     if (submode == 0 || submode == 7) {
+      /* The engine's own spectra follow the Low sidelobes request. */
+      float unwindowed[4];
+      memcpy(unwindowed, f.reference, sizeof unwindowed);
+      memcpy(f.reference, windowed, sizeof windowed);
+      f.request.jt9.low_sidelobes = 1;
+      ++f.request.analysis_id;
+      ++f.request.attempt_no;
+      f.compare_reference = 1;
+      decode(&f, 1);
+      f.compare_reference = 0;
+      f.request.jt9.low_sidelobes = 0;
+      memcpy(f.reference, unwindowed, sizeof unwindowed);
       f.request.phase = DECODER_PHASE_REPEAT;
       ++f.request.analysis_id;
       ++f.request.attempt_no;
@@ -322,11 +334,45 @@ static int add_tls_size(struct dl_phdr_info *info, size_t size, void *opaque)
 }
 #endif
 
+extern void decoder_engine_test_jt9_signal_level(int submode, int start_sample, float spread_hz,
+                                               float frequency_hz, float amplitude, int16_t *samples);
+
+static void write_le(FILE *file, uint32_t value, unsigned bytes)
+{
+  for (unsigned i = 0; i < bytes; ++i) CHECK(fputc((value >> (8 * i)) & 255, file) != EOF);
+}
+
+static void write_wav(const char *path, float frequency, float amplitude)
+{
+  int16_t *samples = malloc(SAMPLE_COUNT * sizeof *samples);
+  CHECK(samples);
+  decoder_engine_test_jt9_signal_level(0, 12000, 0.0f, frequency, amplitude, samples);
+  FILE *file = fopen(path, "wb");
+  CHECK(file);
+  CHECK(fwrite("RIFF", 1, 4, file) == 4);
+  write_le(file, 36 + SAMPLE_COUNT * 2, 4);
+  CHECK(fwrite("WAVEfmt ", 1, 8, file) == 8);
+  write_le(file, 16, 4);
+  write_le(file, 1, 2);
+  write_le(file, 1, 2);
+  write_le(file, 12000, 4);
+  write_le(file, 24000, 4);
+  write_le(file, 2, 2);
+  write_le(file, 16, 2);
+  CHECK(fwrite("data", 1, 4, file) == 4);
+  write_le(file, SAMPLE_COUNT * 2, 4);
+  for (int i = 0; i < SAMPLE_COUNT; ++i) write_le(file, (uint16_t)samples[i], 2);
+  CHECK(fclose(file) == 0);
+  free(samples);
+}
+
 int main(int argc, char **argv)
 {
   /* FFTW threading must be initialized before creating any plans. */
   CHECK(fftwf_init_threads() != 0);
-  if (argc == 2 && !strcmp(argv[1], "--smoke")) {
+  if (argc == 5 && !strcmp(argv[1], "--write-wav")) {
+    write_wav(argv[2], (float)atof(argv[3]), (float)atof(argv[4]));
+  } else if (argc == 2 && !strcmp(argv[1], "--smoke")) {
     run_smoke();
   } else if (argc == 1) {
     run_tests();

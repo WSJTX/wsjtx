@@ -67,6 +67,16 @@ on:
         required: false
         type: boolean
         default: true
+      runtime_tests:
+        description: "Tests labelled runtime: include, exclude, or only (x86_64 and aarch64; release builds ignore it)"
+        required: false
+        type: string
+        default: "include"
+      artifact_retention_days:
+        description: "Days to keep the package and binary artifacts; 0 keeps the repository default"
+        required: false
+        type: number
+        default: 0
       armhf_build_only:
         description: "Compile and audit ARMHF production and test targets without runtime tests or packaging"
         required: false
@@ -158,6 +168,20 @@ on:
         required: false
         type: boolean
         default: true
+      runtime_tests:
+        description: "Tests labelled runtime (x86_64 and aarch64; release builds ignore it)"
+        required: false
+        type: choice
+        options:
+          - include
+          - exclude
+          - only
+        default: "include"
+      artifact_retention_days:
+        description: "Days to keep the package and binary artifacts; 0 keeps the repository default"
+        required: false
+        type: number
+        default: 0
       armhf_build_only:
         description: "Compile and audit ARMHF production and test targets without runtime tests or packaging"
         required: false
@@ -223,10 +247,15 @@ jobs:
           ARMHF_CROSS_IMAGE_DIGEST: ${{ inputs.armhf_cross_image_digest }}
           REQUEST_REPOSITORY: ${{ github.repository }}
           ALLOW_STALE_IMAGE: ${{ inputs.allow_stale_image }}
+          RUNTIME_TESTS: ${{ inputs.runtime_tests }}
         shell: bash
         run: |
           if [ "$ARMHF_BUILD_ONLY" = true ] && [ "$ARCH" != armhf ]; then
             echo "::error::armhf_build_only is valid only for ARMHF builds"
+            exit 2
+          fi
+          if [ "$RUNTIME_TESTS" != include ] && [ "$ARCH" = armhf ]; then
+            echo "::error::runtime_tests must be include for ARMHF builds, whose test set is fixed"
             exit 2
           fi
           case "$ARMHF_DISTRO" in
@@ -350,6 +379,8 @@ jobs:
           release_channel: ${{ inputs.release_channel }}
           prerelease_number: ${{ inputs.prerelease_number }}
           allow_stale_image: ${{ inputs.allow_stale_image }}
+          runtime_tests: ${{ inputs.runtime_tests }}
+          artifact_retention_days: ${{ inputs.artifact_retention_days }}
 
   build-aarch64:
     needs: resolve-image
@@ -388,6 +419,8 @@ jobs:
           release_channel: ${{ inputs.release_channel }}
           prerelease_number: ${{ inputs.prerelease_number }}
           allow_stale_image: ${{ inputs.allow_stale_image }}
+          runtime_tests: ${{ inputs.runtime_tests }}
+          artifact_retention_days: ${{ inputs.artifact_retention_days }}
 
   build-armhf:
     needs: resolve-image
@@ -423,6 +456,7 @@ jobs:
           ARCH: armhf
           IMAGE_TAG: ${{ needs.resolve-image.outputs.image_tag }}
           VALIDATE_FORTRAN_FALLBACK: ${{ inputs.validate_fortran_fallback }}
+          ARTIFACT_RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
         run: .github/scripts/validate-ci-inputs.sh
 
       - uses: docker/login-action@v4
@@ -766,6 +800,7 @@ jobs:
           path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}.deb
           if-no-files-found: error
           compression-level: 0
+          retention-days: ${{ inputs.artifact_retention_days }}
       - name: Upload RPM
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
@@ -774,6 +809,7 @@ jobs:
           path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}.rpm
           if-no-files-found: error
           compression-level: 0
+          retention-days: ${{ inputs.artifact_retention_days }}
       - name: Upload AppImage
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
@@ -782,6 +818,7 @@ jobs:
           path: wsjtx-${{ inputs.version }}-linux-armhf-${{ inputs.armhf_distro }}.AppImage
           if-no-files-found: error
           compression-level: 0
+          retention-days: ${{ inputs.artifact_retention_days }}
       - name: Upload build artifacts
         if: inputs.build_packages
         uses: actions/upload-artifact@v7
@@ -791,6 +828,7 @@ jobs:
             wsjtx-build/jt9
             wsjtx-build/wsprd
             wsjtx-build/wsjtx
+          retention-days: ${{ inputs.artifact_retention_days }}
       - name: Upload release tarballs
         if: inputs.build_packages
         uses: ./.github/actions/upload-release-tarballs
@@ -798,6 +836,7 @@ jobs:
           version: ${{ inputs.version }}
           target: linux-armhf-${{ inputs.armhf_distro }}
           directory: release-tarballs
+          artifact_retention_days: ${{ inputs.artifact_retention_days }}
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7

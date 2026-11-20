@@ -3,6 +3,7 @@
 #define BEST_SP_APPLICATION_TEST_CONTROLLER_HPP
 
 #include <memory>
+#include <functional>
 
 #include <QObject>
 #include <QString>
@@ -17,6 +18,8 @@ class QSettings;
 std::unique_ptr<DecoderBackend> makeBestSPTestBackend ();
 std::unique_ptr<AudioInputSource> makeBestSPTestAudioInput ();
 std::unique_ptr<AudioOutputSink> makeBestSPTestAudioOutput ();
+void deliverScriptedTestDecode (DecoderBackend *, QString const& line);
+void completeScriptedTestDecode (DecoderBackend *);
 
 class BestSPTestEnvironment final
 {
@@ -39,13 +42,14 @@ public:
 
 private:
   void prepare ();
+  bool waitUntil (std::function<bool()> const&, QString const& failure);
   bool run ();
   bool armingEligibility ();
   bool audioFrequencyChanges ();
   bool competingCQSelections ();
   bool pounceSelections ();
   bool settingsCQSelection ();
-  bool feedbackMatches (bool armed, QString const& expected);
+  bool feedbackMatches (bool armed, QString const& expected, bool checkStatusMessage = true);
   bool feedbackLifecycle ();
   bool contextAndReplyPaths ();
   bool translatedSelections ();

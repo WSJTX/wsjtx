@@ -93,6 +93,7 @@ private:
   QString m_mode;
 
   bool m_tuning;
+  bool m_silent {false};
   bool m_addNoise;
   bool m_bFastMode;
 

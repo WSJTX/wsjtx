@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "widgets/JttyMessages.hpp"
 #include "widgets/JttyTransmitText.hpp"
 
 namespace
@@ -173,6 +174,18 @@ class TestJttyTransmitText final
   Q_OBJECT
 
 private Q_SLOTS:
+  // Live-entry latency depends on one top-up staying one frame.
+  void idleFillerCostsExactlyOneFrame ()
+  {
+    auto const encoded = Jtty::encodeTransmitText (
+      Jtty::jttyFillerText, Jtty::NativeExchangeProfile::None, /*isFinal=*/false);
+    int frames = 0;
+    for (auto const& segment : encoded.segments) {
+      frames += segment.transmit.tones.size () / Jtty::transmitFrameSymbols;
+    }
+    QCOMPARE (frames, 1);
+  }
+
   void encodesAsTheTransmitter_data ()
   {
     QTest::addColumn<int> ("row");

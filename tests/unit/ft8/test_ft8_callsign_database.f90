@@ -5,9 +5,7 @@ program test_ft8_callsign_database
   character(len=16), parameter :: prefixes='ADEGIJKLNOPRSUWX'
   integer, parameter :: old_capacity(16)=[11500,11100,9000,7500,7600,10000,24000,6500, &
                                          9400,6700,5800,6500,7500,10400,13700,5800]
-  character(len=7), parameter :: shipped_hits(16)=[character(len=7) :: &
-    '2D0OMN','D2ACE','E20AX','G0ABI','I0ABU','J35AC','K0ACP','L22D', &
-    'N0A','OA1F','P29CW','R0AAW','S01WS','U1BD','W0A','XE1ACA']
+  character(len=7) :: shipped_hits(16)
   character(len=1024) :: shipped_path
   character(len=12) :: first,second
   integer :: nfail,unit,i,j
@@ -114,6 +112,7 @@ program test_ft8_callsign_database
 
   call get_command_argument(1,shipped_path)
   call expect(len_trim(shipped_path).gt.0,'shipped database path supplied')
+  call sample_shipped_records(trim(shipped_path),shipped_hits)
   call load_callsign_database(trim(shipped_path))
   call expect(callsign_database_available(),'shipped database is complete')
   do i=1,size(shipped_hits)
@@ -129,6 +128,33 @@ program test_ft8_callsign_database
   print *, 'FT8 callsign database tests passed'
 
 contains
+
+  subroutine sample_shipped_records(path,samples)
+    character(len=*), intent(in) :: path
+    character(len=7), intent(out) :: samples(16)
+    character(len=*), parameter :: upper_bounds='CDFHIJKMNOQRTVWZ'
+    character(len=1024) :: line
+    integer :: input,status,comma,bucket
+    samples=''
+    open(newunit=input,file=path,status='old',action='read',iostat=status)
+    call expect(status.eq.0,'open shipped input for independent samples')
+    if(status.ne.0) return
+    do
+      read(input,'(a)',iostat=status) line
+      if(status.ne.0) exit
+      if(line(1:4).eq.'ZZZZ') exit
+      comma=index(line,',')
+      if(comma.lt.4.or.comma.gt.8) cycle
+      if(line(1:1).le.'0'.or.line(1:1).gt.'Z') cycle
+      do bucket=1,len(upper_bounds)
+        if(line(1:1).gt.upper_bounds(bucket:bucket)) cycle
+        if(samples(bucket).eq.'') samples(bucket)=line(:comma-1)
+        exit
+      enddo
+    enddo
+    close(input)
+    call expect(all(samples.ne.''),'shipped input supplies all bucket samples')
+  end subroutine sample_shipped_records
 
   subroutine write_complete(output,limit)
     integer, intent(in) :: output

@@ -97,8 +97,7 @@ struct MainWindow::JttyReceiveState {
     Results::Reception const reception {source, span.contextId, span.displayGroup,
       span.anchor, span.displayAnchor, span.context, span.center, span.tolerance};
     Results::Inputs const inputs {
-      [&window] { return JttyReceiveLine::Options {window.ui->cbLowerCase->isChecked(),
-                                                   window.ui->cbIncludeTime->isChecked()}; },
+      [&window] { return JttyReceiveLine::Options {window.ui->cbLowerCase->isChecked()}; },
       [&window, this] { return Results::Selection {window.m_mode == "JTTY", currentContext,
         float(window.ui->RxFreqSpinBox_2->value()), float(window.ui->sbFtol_2->value())}; },
       [&window] {
@@ -159,7 +158,7 @@ int MainWindow::jttySnrForSelectedWord(QString const& word, bool leftPane) const
 
 void MainWindow::refreshJttyReceiveLines()
 {
-  JttyReceiveLine::Options const options {ui->cbLowerCase->isChecked(), ui->cbIncludeTime->isChecked()};
+  JttyReceiveLine::Options const options {ui->cbLowerCase->isChecked()};
   for (auto* pane : {ui->decodedTextBrowser, ui->decodedTextBrowser2}) {
     auto* scroll = pane->verticalScrollBar();
     bool const atEnd = scroll->value() == scroll->maximum();

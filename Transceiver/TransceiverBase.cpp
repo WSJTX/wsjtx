@@ -551,8 +551,8 @@ void TransceiverBase::begin_mode_command (TransceiverState const& s, unsigned se
       connect (mode_timer_, &QTimer::timeout, this, &TransceiverBase::settle_mode);
     }
   mode_settling_ = true;
-  mode_settling_clock_.start ();
-  mode_timer_->start (polls_to_stabilize * 500);
+  mode_timer_->stop ();
+  mode_settling_started_.reset ();
 }
 
 void TransceiverBase::finish_mode_command (unsigned sequence_number)
@@ -566,13 +566,18 @@ void TransceiverBase::finish_mode_command (unsigned sequence_number)
       mode_settling_ = false;
       publish_mode_status (mode_expected_, ModeStatusKind::Applied, mode_sequence_);
     }
-  else if (mode_settling_clock_.elapsed () >= polls_to_stabilize * 500)
-    {
-      settle_mode ();
-    }
   else
     {
-      publish_mode_observation ();
+      if (!mode_settling_started_)
+        {
+          // CAT writes can block the same thread that must poll for confirmation.
+          mode_settling_started_ = mode_now_ ();
+          mode_timer_->start (polls_to_stabilize * 500);
+        }
+      if (mode_now_ () - *mode_settling_started_ >= polls_to_stabilize * 500)
+        settle_mode ();
+      else
+        publish_mode_observation ();
     }
 }
 
@@ -632,6 +637,12 @@ void TransceiverBase::update_swr (unsigned int p)
 {
   CAT_TRACE ("swr: " << p);
   actual_.swr (p);
+}
+
+void TransceiverBase::update_tuning_ranges (RigFrequency::Ranges const& ranges)
+{
+  CAT_TRACE ("tuning ranges: " << ranges.size ());
+  actual_.tuning_ranges (ranges);
 }
 
 void TransceiverBase::update_complete (bool force_signal)

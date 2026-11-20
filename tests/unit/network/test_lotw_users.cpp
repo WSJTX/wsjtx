@@ -258,9 +258,14 @@ private Q_SLOTS:
     QSignalSpy errors {&users, &LotWUsers::LotW_users_error};
     QSignalSpy finished {&users, &LotWUsers::load_finished};
     users.set_local_file_path (path);
-    users.load ({}, false);
-    users.load ("https://example.invalid/lotw-user-activity.csv", true, true);
-    QTRY_COMPARE (errors.size (), 1);
+    {
+      BlockedThreadPool blocked;
+      QVERIFY (blocked.wait_until_blocked ());
+      users.load ({}, false);
+      users.load ("https://example.invalid/lotw-user-activity.csv", true, true);
+      QTRY_COMPARE (errors.size (), 1);
+      QCOMPARE (finished.size (), 0);
+    }
     QTRY_COMPARE (finished.size (), 1);
     QVERIFY (users.user ("CACHED"));
   }

@@ -109,6 +109,7 @@ program test_map65_wideband_sync_rows
   call test_candidate_search()
   call test_narrow_window_score_scale()
   call test_unnarrowed_reference_is_exact()
+  deallocate(ss,savg)
 
 contains
 

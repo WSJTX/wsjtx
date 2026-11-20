@@ -125,6 +125,7 @@ program test_map65_q65_dphi
        'manual center recovers Q65 when f0 is displaced from the clicked frequency')
   call require(.not. logical(abort_decode), 'manual decode stays within the time budget')
   call fini_timer()
+  deallocate(c4a, c4b, display_spectrum, seed)
   print '(a)', 'MAP65 Q65 Dphi test passed.'
 
 contains

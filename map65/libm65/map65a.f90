@@ -732,11 +732,6 @@ if (nagain .eq. 0 .or. sync_narrow) then
    call timer('get_cand', 1)
    sync_narrow = early_window
    candec = .false.
-   ! TEMP diagnostic 2026-09-09 for the missing-upper-Q65-decode investigation.
-   call dbg('map65a: get_candidates done at t=' // rtoa(sec_midn()) // &
-            ' ncand=' // itoa(ncand) // ' n_q65cand=' // itoa(count(cand(1:max(ncand,0))%iflip == 0)) // &
-            ' bq65=' // itoa(merge(1,0,bq65)) // ' xpol=' // itoa(merge(1,0,xpol)) // &
-            ' nhsym=' // itoa(nhsym) // ' manualDecodeFlag_initial=' // itoa(manualDecodeFlag_initial))
 endif
 
       do nqd = 1, 0, -1
@@ -787,11 +782,6 @@ endif
          short = 0.                                 !Zero the whole short array
          jpz = 1
          if (xpol) jpz = 4
-
-         ! TEMP diagnostic 2026-09-09 for the missing-other-JT65-signal investigation.
-         call dbg('map65a: JT65 sweep window at t=' // rtoa(sec_midn()) // &
-                  ' nqd=' // itoa(nqd) // ' fa=' // rtoa(fa) // ' fb=' // rtoa(fb) // &
-                  ' ia=' // itoa(ia) // ' ib=' // itoa(ib) // ' km_entering=' // itoa(km))
 
          do i = ia, ib                               !Search over freq range
 
@@ -846,15 +836,6 @@ endif
                call ccf65(ss_dec(:,:,i), nhsym_rows, ssmax, sync1, ipol, jpz, dt, flipk, &
                   syncshort, snr2, ipol2, dt2)
                call timer('ccf65   ', 1)
-               ! 2026-09-12: instrumentation for the "identical anomalous
-               ! dtbest across several consecutive nqd=0 candidates" investigation.
-               ! Logging ccf65's own per-candidate dt (the value that becomes
-               ! decode1a's dt00 input) so a live capture can show directly
-               ! whether the staleness/repetition already exists at THIS
-               ! input, before decode1a/afc65b ever runs.
-               call dbg('map65a: ccf65 result at t=' // rtoa(sec_midn()) // &
-                        ' nqd=' // itoa(nqd) // ' i=' // itoa(i) // ' dt=' // rtoa(dt) // &
-                        ' sync1=' // rtoa(sync1) // ' ntry=' // itoa(ntry))
                if (mode65 .eq. 0) syncshort = -99.0     !If "No JT65", don't waste time
 
 ! ########################### Search for Shorthand Messages #################
@@ -993,21 +974,6 @@ endif
                                    ndphi, nutc, ikHz, idf, ipol, ntol, sync2, &
                                    a, dt, pol, nkv, nhist, nsum, nsave, qual, decoded)
                      call timer('decode1a', 1)
-                     ! 2026-09-12: paired with the ccf65 instrumentation above --
-                     ! logs decode1a's OUTPUT dt (dt00+dtbest+1.7, so this
-                     ! encodes dtbest even though dtbest itself isn't passed
-                     ! back to this scope), the running real-candidate count
-                     ! this pass (ntry, already used for the "signal too
-                     ! strong" abort check), and elapsed wall-clock time, so a
-                     ! live capture can show whether the anomaly correlates
-                     ! with how many real candidates/how much time this pass
-                     ! has already chewed through before reaching this one.
-                     call dbg('map65a: decode1a call ' // itoa(ntry) // ' this pass at t=' // &
-                              rtoa(sec_midn()) // ' nqd=' // itoa(nqd) // ' i=' // itoa(i) // &
-                              ' f00=' // rtoa(real(f00)) // ' dt_out=' // rtoa(dt) // &
-                              ' initialization_only=' // itoa(merge(1,0,initialization_only)) // &
-                              ' decoded="' // trim(decoded) // '"')
-
                      call dbg('map65a: decode1a result at t=' // rtoa(sec_midn()) // &
                               ' nqd=' // itoa(nqd) // ' i=' // itoa(i) // ' freq=' // rtoa(freq) // &
                               ' sync1=' // rtoa(sync1) // ' initialization_only=' // itoa(merge(1,0,initialization_only)) // &
@@ -1254,10 +1220,6 @@ endif
 
 700   continue
       if (abort_decode) call note_decoder_lag(3)
-      ! TEMP diagnostic 2026-09-09 for the missing-other-signals-in-Messages investigation.
-      call dbg('map65a: reached label 700 at t=' // rtoa(sec_midn()) // &
-               ' km=' // itoa(km) // ' abort_decode=' // itoa(merge(1,0,abort_decode)) // &
-               ' nhsym=' // itoa(nhsym))
       call select_unique_decodes(sig, msg, km, ftol, RESULT_DT_TOLERANCE, indx, nz)
       call dbg('map65a: select_unique_decodes done at t=' // rtoa(sec_midn()) // &
                ' km=' // itoa(km) // ' nz=' // itoa(nz))

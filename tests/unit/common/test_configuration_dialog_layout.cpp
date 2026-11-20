@@ -16,6 +16,7 @@
 #include <QTableView>
 #include <QTest>
 #include <QWheelEvent>
+#include <QWindow>
 
 #include "models/DecodeHighlightingModel.hpp"
 #include "widgets/SettingsDialogLayout.hpp"
@@ -501,10 +502,28 @@ void TestConfigurationDialogLayout::keyboardFocusRevealsOffscreenControls ()
   DialogFixture fixture;
   auto& dialog = fixture.dialog;
   auto& ui = fixture.ui;
+  auto const focus_diagnostics = [&] (QWidget const * target) {
+    auto const name = [] (QWidget const * widget) {
+      return widget ? QString {"%1:%2"}.arg (widget->metaObject ()->className (), widget->objectName ())
+                    : QStringLiteral ("none");
+    };
+    return QString {"page=%1 activeWindow=%2 dialogActive=%3 exposed=%4 target=%5 "
+                    "visible=%6 enabled=%7 focusPolicy=%8 focusProxy=%9 focusWidget=%10"}
+      .arg (ui.configuration_tabs->currentWidget ()->objectName (), name (QApplication::activeWindow ()))
+      .arg (dialog.isActiveWindow ())
+      .arg (dialog.windowHandle () && dialog.windowHandle ()->isExposed ())
+      .arg (name (target)).arg (target->isVisible ()).arg (target->isEnabled ())
+      .arg (int (target->focusPolicy ())).arg (name (target->focusProxy ()), name (QApplication::focusWidget ()));
+  };
+  auto const prepare_focus = [&] (QWidget const * target) {
+    dialog.raise ();
+    dialog.activateWindow ();
+    return QTest::qWaitFor ([&] {
+      return dialog.isActiveWindow () && target->isVisible () && target->isEnabled ();
+    }, 10000);
+  };
   ui.configuration_tabs->setCurrentWidget (ui.advanced_tab);
   showDialog (dialog, {620, 360});
-  QApplication::setActiveWindow (&dialog);
-  settleLayouts ();
 
   auto * advanced_scroll_area = SettingsDialogLayout::pageScrollArea (ui.advanced_tab);
   auto * vertical_scroll_bar = advanced_scroll_area->verticalScrollBar ();
@@ -516,9 +535,11 @@ void TestConfigurationDialogLayout::keyboardFocusRevealsOffscreenControls ()
 
   QVERIFY (!isFullyVisible (ui.pbTestCloudlog, advanced_scroll_area));
   auto const button_box_geometry = geometryIn (ui.configuration_dialog_button_box, &dialog);
+  QVERIFY2 (prepare_focus (ui.pbTestCloudlog), qPrintable (focus_diagnostics (ui.pbTestCloudlog)));
   ui.pbTestCloudlog->setFocus (Qt::TabFocusReason);
 
-  QTRY_COMPARE (QApplication::focusWidget (), ui.pbTestCloudlog);
+  QTRY_VERIFY2_WITH_TIMEOUT (QApplication::focusWidget () == ui.pbTestCloudlog,
+                            qPrintable (focus_diagnostics (ui.pbTestCloudlog)), 10000);
   QTRY_VERIFY (vertical_scroll_bar->value () > vertical_scroll_bar->minimum ());
   QTRY_VERIFY (isFullyVisible (ui.pbTestCloudlog, advanced_scroll_area));
   QCOMPARE (geometryIn (ui.configuration_dialog_button_box, &dialog), button_box_geometry);
@@ -530,8 +551,10 @@ void TestConfigurationDialogLayout::keyboardFocusRevealsOffscreenControls ()
   auto * horizontal_scroll_bar = filters_scroll_area->horizontalScrollBar ();
   QVERIFY (horizontal_scroll_bar->maximum () > 0);
   auto * ok = ui.configuration_dialog_button_box->button (QDialogButtonBox::Ok);
+  QVERIFY2 (prepare_focus (ok), qPrintable (focus_diagnostics (ok)));
   ok->setFocus (Qt::TabFocusReason);
-  QTRY_COMPARE (QApplication::focusWidget (), ok);
+  QTRY_VERIFY2_WITH_TIMEOUT (QApplication::focusWidget () == ok,
+                            qPrintable (focus_diagnostics (ok)), 10000);
   horizontal_scroll_bar->setValue (horizontal_scroll_bar->maximum ());
   filters_scroll_area->verticalScrollBar ()->setValue (
     filters_scroll_area->verticalScrollBar ()->minimum ());
@@ -542,8 +565,10 @@ void TestConfigurationDialogLayout::keyboardFocusRevealsOffscreenControls ()
   auto * left_side_control = ui.Territory1;
   auto const initial_horizontal_position = horizontal_scroll_bar->value ();
   QVERIFY (!isFullyVisible (left_side_control, filters_scroll_area));
+  QVERIFY2 (prepare_focus (left_side_control), qPrintable (focus_diagnostics (left_side_control)));
   left_side_control->setFocus (Qt::TabFocusReason);
-  QTRY_COMPARE (QApplication::focusWidget (), left_side_control);
+  QTRY_VERIFY2_WITH_TIMEOUT (QApplication::focusWidget () == left_side_control,
+                            qPrintable (focus_diagnostics (left_side_control)), 10000);
   QTRY_VERIFY (horizontal_scroll_bar->value () < initial_horizontal_position);
   QTRY_VERIFY (isFullyVisible (left_side_control, filters_scroll_area));
   QCOMPARE (geometryIn (ui.configuration_dialog_button_box, &dialog),
@@ -552,15 +577,21 @@ void TestConfigurationDialogLayout::keyboardFocusRevealsOffscreenControls ()
   ui.configuration_tabs->setCurrentWidget (ui.colors_tab);
   settleLayouts ();
   auto * colors_scroll_area = SettingsDialogLayout::pageScrollArea (ui.colors_tab);
+  QVERIFY2 (prepare_focus (ui.move_highlighting_up_push_button),
+            qPrintable (focus_diagnostics (ui.move_highlighting_up_push_button)));
   ui.move_highlighting_up_push_button->setFocus (Qt::TabFocusReason);
-  QTRY_COMPARE (QApplication::focusWidget (), ui.move_highlighting_up_push_button);
+  QTRY_VERIFY2_WITH_TIMEOUT (QApplication::focusWidget () == ui.move_highlighting_up_push_button,
+                            qPrintable (focus_diagnostics (ui.move_highlighting_up_push_button)), 10000);
   QTRY_VERIFY (isFullyVisible (ui.move_highlighting_up_push_button, colors_scroll_area));
   QCOMPARE (ui.move_highlighting_up_push_button->nextInFocusChain (),
             ui.move_highlighting_down_push_button);
   QCOMPARE (ui.move_highlighting_down_push_button->previousInFocusChain (),
             ui.move_highlighting_up_push_button);
+  QVERIFY2 (prepare_focus (ui.move_highlighting_down_push_button),
+            qPrintable (focus_diagnostics (ui.move_highlighting_down_push_button)));
   ui.move_highlighting_down_push_button->setFocus (Qt::TabFocusReason);
-  QTRY_COMPARE (QApplication::focusWidget (), ui.move_highlighting_down_push_button);
+  QTRY_VERIFY2_WITH_TIMEOUT (QApplication::focusWidget () == ui.move_highlighting_down_push_button,
+                            qPrintable (focus_diagnostics (ui.move_highlighting_down_push_button)), 10000);
   QTRY_VERIFY (isFullyVisible (ui.move_highlighting_down_push_button, colors_scroll_area));
 }
 

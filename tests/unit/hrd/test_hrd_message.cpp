@@ -161,6 +161,71 @@ private slots:
 
     QVERIFY (!parsed.valid);
   }
+
+  void parsesRadio ()
+  {
+    unsigned id;
+    QString name;
+
+    QVERIFY (HRDMessage::parse_radio (" 12 : FTDX-3000 ", &id, &name));
+    QCOMPARE (id, 12u);
+    QCOMPARE (name, QString {"FTDX-3000"});
+
+    QVERIFY (HRDMessage::parse_radio ("12:FTDX-3000: Main", &id, &name));
+    QCOMPARE (id, 12u);
+    QCOMPARE (name, QString {"FTDX-3000: Main"});
+  }
+
+  void rejectsMalformedRadio_data ()
+  {
+    QTest::addColumn<QString> ("reply");
+    QTest::newRow ("empty") << QString {};
+    QTest::newRow ("missing-separator") << QString {"12"};
+    QTest::newRow ("missing-id") << QString {":FTDX-3000"};
+    QTest::newRow ("invalid-id") << QString {"radio:FTDX-3000"};
+    QTest::newRow ("missing-name") << QString {"12:"};
+  }
+
+  void rejectsMalformedRadio ()
+  {
+    QFETCH (QString, reply);
+    unsigned id;
+    QString name;
+
+    QVERIFY (!HRDMessage::parse_radio (reply, &id, &name));
+  }
+
+  void parsesFrequencies ()
+  {
+    std::array<quint64, 2> frequencies;
+
+    QVERIFY (HRDMessage::parse_frequencies (" 14074000-10368100000 ", &frequencies));
+    QCOMPARE (frequencies[0], quint64 (14074000));
+    QCOMPARE (frequencies[1], quint64 (10368100000));
+
+    QVERIFY (HRDMessage::parse_frequencies (" 14074000 - 10368100000 -extra", &frequencies));
+    QCOMPARE (frequencies[0], quint64 (14074000));
+    QCOMPARE (frequencies[1], quint64 (10368100000));
+  }
+
+  void rejectsMalformedFrequencies_data ()
+  {
+    QTest::addColumn<QString> ("reply");
+    QTest::newRow ("empty") << QString {};
+    QTest::newRow ("one-frequency") << QString {"14074000"};
+    QTest::newRow ("missing-first") << QString {"-7074000"};
+    QTest::newRow ("missing-second") << QString {"14074000-"};
+    QTest::newRow ("invalid-first") << QString {"frequency-7074000"};
+    QTest::newRow ("invalid-second") << QString {"14074000-frequency"};
+  }
+
+  void rejectsMalformedFrequencies ()
+  {
+    QFETCH (QString, reply);
+    std::array<quint64, 2> frequencies;
+
+    QVERIFY (!HRDMessage::parse_frequencies (reply, &frequencies));
+  }
 };
 
 QTEST_MAIN (TestHRDMessage)

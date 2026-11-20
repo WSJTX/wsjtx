@@ -121,6 +121,7 @@ namespace DecodedMessageReaction
     QsoCompletionSnapshot completion;
 
     bool waitFeaturesEnabled {false};
+    bool waitStationIgnored {false};
     bool waitAndCall {false};
     bool noWaitAndCall {false};
     bool waitAndCallControlChecked {false};

@@ -193,6 +193,30 @@
          </property>
         </widget>
        </item>
+       <item row="1" column="1">
+        <layout class="QHBoxLayout" name="wantedDaysLayout">
+         <item>
+          <widget class="QCheckBox" name="cbWantedDays">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to count only QSOs made on the chosen days (UTC) as worked, for example the days of a contest. # and &lt;span style=&quot; font-style:italic;&quot;&gt;Wanted only&lt;/span&gt; then mean not worked on this band on those days.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>on days</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="pbWantedDays">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Choose the days (UTC) whose QSOs count as worked: click a day to add or remove it.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>choose…</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
       </layout>
      </item>
      <item row="1" column="0">

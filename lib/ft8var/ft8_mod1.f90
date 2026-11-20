@@ -10,7 +10,7 @@ module ft8_mod1
        numdeccq=40,nummycsig=5,numdecmyc=25,nmaxthreads=24)
   real*4 dd8(nps)
   real endcorr(NFILT1/2+1)
-  complex cw(nps),csync(0:6,32),csynce(0:18,32),csyncsd(0:18,32),         &
+  complex csync(0:6,32),csynce(0:18,32),csyncsd(0:18,32),         &
        csyncsdcq(0:57,32),csynccq(0:7,32),ctwkw(11,32),ctwkn(11,32),      &
        ctwk256(256)
   character*37 allmessages(200),msgsd76(76),msg(56),msgroot,msgincall(174)
