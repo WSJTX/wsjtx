@@ -628,7 +628,11 @@
  *      terminal update, so Complete = true can repeat for the same
  *      message; listeners should treat a repeat as a replacement of
  *      that message, not a new one. Off air is true for a .wav source,
- *      as for Decode. Older listeners ignore this new message type.
+ *      as for Decode. Live text is sent only while WSJT-X is on the
+ *      dial frequency it was received on, so the frequency in Status
+ *      applies to it; text received before a change of dial frequency
+ *      is not sent after it. Older listeners ignore this new message
+ *      type.
  */
 
 #include <QDataStream>

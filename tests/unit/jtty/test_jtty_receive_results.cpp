@@ -26,6 +26,7 @@ struct Harness
   JttyReceiveLine::Options display;
   Controller::EchoOptions echo {true, false};
   bool reporting {true};
+  Radio::Frequency rx {14078000};
   QStringList trace, echoes, logs;
   QVector<DecodeOperatingContext> logContexts;
   QVector<Controller::Spot> spots;
@@ -64,6 +65,7 @@ struct Harness
     inputs.selection = [this] { event ("selection"); return selection; };
     inputs.echo = [this] { event ("echo-options"); return echo; };
     inputs.reporting = [this] { event ("reporting"); return reporting; };
+    inputs.rxFrequency = [this] { return rx; };
     effects.reviewHeading = [this] (Pane pane) {
       auto& document = pane == Pane::All ? all : qso;
       QTextCursor cursor {&document};
@@ -106,6 +108,30 @@ class TestJttyReceiveResults final : public QObject
   Q_OBJECT
 
 private slots:
+  void jttyTextOnlyOnTheDialFrequencyItWasHeardOn ()
+  {
+    Harness h;
+    h.apply ({update (7, "CQ K1ABC")});
+    QCOMPARE (h.texts.size (), 1);
+    h.rx = 14080000;
+    h.apply ({update (7, "CQ K1ABC FN42"),
+              update (7, "CQ K1ABC FN42 K", Terminal::Complete)});
+    QCOMPARE (h.texts.size (), 1);
+    QCOMPARE (h.logs.size (), 1);
+    h.rx = 14078000;
+    h.apply ({update (8, "CQ K2DEF", Terminal::Complete)});
+    QCOMPARE (h.texts.size (), 2);
+    QCOMPARE (h.texts.last ().text, QString {"CQ K2DEF"});
+    QVERIFY (h.texts.last ().complete);
+
+    Harness wav;
+    wav.reception.source = Source::Wav;
+    wav.rx = 7074000;
+    wav.apply ({update (9, "CQ K3GHI", Terminal::Complete)});
+    QCOMPARE (wav.texts.size (), 1);
+    QVERIFY (wav.texts.front ().offAir);
+  }
+
   void jttyTextTracksVisibleGrowthAndCompletion ()
   {
     Harness h;

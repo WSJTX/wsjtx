@@ -108,7 +108,8 @@ struct MainWindow::JttyReceiveState {
         return Results::EchoOptions {};
 #endif
       },
-      [&window] { return window.m_config.spot_to_psk_reporter(); }
+      [&window] { return window.m_config.spot_to_psk_reporter(); },
+      [&window] { return window.m_operatingFrequency.rx(); }
     };
     Results::Effects const effects {
       [&window](Results::Pane pane) {

@@ -13351,7 +13351,7 @@ void MainWindow::postDecode (bool is_new, QString const& message)
 void MainWindow::postJttyText (qint64 message_id, QDateTime const& start, quint32 delta_frequency, qint32 snr
                               , QString const& text, bool complete, bool off_air)
 {
-  if (no_decodes_to_UDP) return;  // Don't send decoded messages to messageClient after a band change
+  // Not gated on no_decodes_to_UDP: the receive controller sends only text heard on the current dial frequency.
   m_messageClient->jtty_text (message_id, start, delta_frequency, snr, text, complete, off_air);
 }
 

@@ -56,8 +56,12 @@ void ReceiveResultController::apply(QVector<ReceiveUpdate> const& updates,
         }
       }
     }
+    // JTTYText leaves the dial frequency to Status, so text is sent only while the radio is still on the
+    // frequency it was heard on; a .wav source is off air. This uses the receive context rather than the
+    // band-change timer, which in JTTY holds for 0.6 of the 180 s legacy period after every retune.
     if (!displayText.isEmpty() && reception.source != Source::Review
-        && (displayChanged || update.terminal != ReceiveTerminal::Growing)) {
+        && (displayChanged || update.terminal != ReceiveTerminal::Growing)
+        && (reception.source == Source::Wav || line.context.periodFrequency == inputs.rxFrequency())) {
       effects.jttyText(update.messageId, line.context.sequenceStart.toUTC(), qRound(update.frequency),
                        update.snr, displayText, update.terminal != ReceiveTerminal::Growing,
                        reception.source == Source::Wav);

@@ -38,6 +38,7 @@ public:
     std::function<Selection()> selection;
     std::function<EchoOptions()> echo;
     std::function<bool()> reporting;
+    std::function<Radio::Frequency()> rxFrequency;
   };
 
   struct Spot {
