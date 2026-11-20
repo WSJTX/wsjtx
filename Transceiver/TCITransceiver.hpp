@@ -210,6 +210,10 @@ private:
   void mysleep6 (int ms = 1);
   void mysleep7 (int ms = 1);
   void mysleep8 (int ms = 1);
+  // Every mysleepN runs a nested event loop on the rig thread; the callers
+  // above it still use this object and its wrappers, so none of them may be
+  // deleted from inside it.
+  void wait_exec (QEventLoop *);
   QString mode_to_command (QString) const;
   std::unique_ptr<TransceiverBase> wrapped_; // may be null
   QString rx_;

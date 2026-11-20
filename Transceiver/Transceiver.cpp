@@ -1,6 +1,11 @@
 #include "Transceiver.hpp"
 
 #include <ostream>
+#include <utility>
+
+#include <QEvent>
+#include <QPointer>
+#include <QVector>
 
 #include "moc_Transceiver.cpp"
 
@@ -12,6 +17,47 @@ Transceiver::Transceiver (logger_type * logger, QObject * parent)
   qRegisterMetaType<RigFrequency::Result> ("RigFrequency::Result");
   qRegisterMetaType<RigFrequency::Evidence> ("RigFrequency::Evidence");
   qRegisterMetaType<ModeStatus> ("Transceiver::ModeStatus");
+}
+
+namespace
+{
+  thread_local int deferred_delete_holds {0};
+  thread_local unsigned long long deferred_deletes_held {0};
+  thread_local QVector<QPointer<QObject>> held_deletes;
+}
+
+Transceiver::DeferredDeleteHold::DeferredDeleteHold ()
+{
+  ++deferred_delete_holds;
+}
+
+Transceiver::DeferredDeleteHold::~DeferredDeleteHold ()
+{
+  if (--deferred_delete_holds) return;
+  QVector<QPointer<QObject>> pending;
+  pending.swap (held_deletes);
+  for (auto const& object : pending)
+    {
+      if (object) object->deleteLater ();
+    }
+}
+
+unsigned long long Transceiver::DeferredDeleteHold::held_count ()
+{
+  return deferred_deletes_held;
+}
+
+// Qt 6.7 and later ignore a second deleteLater() on an object, which would
+// make the post above a no-op for an object whose first one was held back.
+bool Transceiver::event (QEvent * e)
+{
+  if (e->type () == QEvent::DeferredDelete && deferred_delete_holds)
+    {
+      held_deletes.append (this);
+      ++deferred_deletes_held;
+      return true;
+    }
+  return QObject::event (e);
 }
 
 #if !defined (QT_NO_DEBUG_STREAM)
