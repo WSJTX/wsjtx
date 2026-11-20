@@ -245,6 +245,18 @@ void MainWindow::sendJttyFillerPadding()
   execute_jtty_tx (requestId, Jtty::jttyFillerText, /*isFinal=*/false);
 }
 
+// Chat: the first words of an over get "MYCALL: " in front unless all that is
+// typed so far (uncommitted) already names the station. Used when text is
+// committed and by the frame estimate, so both count the same text.
+bool MainWindow::jttyOverGetsMyCallPrefix(QString const& uncommitted)
+{
+  return ui->cbJttyMyCallPrefix->isChecked ()
+    && m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off
+    && m_jttyLiveEntryCommitted == 0 && m_jttyLiveEntryPending.isEmpty ()
+    && !m_jttyTxLifecycle.active ()
+    && !Jtty::textHasCall (jtty_msg_expand (uncommitted), m_config.my_callsign ());
+}
+
 bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, bool isFinal)
 {
   QString const uncommitted = ui->Tx_Message->toPlainText ().mid (m_jttyLiveEntryCommitted);
@@ -254,11 +266,7 @@ bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, boo
   QString expanded = jtty_msg_expand (plan.text);
   // Chat: the first words of an over get "MYCALL: " in front unless the
   // message (all that is typed so far) already names the station.
-  if (ui->cbJttyMyCallPrefix->isChecked ()
-      && m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off
-      && m_jttyLiveEntryCommitted == 0 && m_jttyLiveEntryPending.isEmpty ()
-      && !m_jttyTxLifecycle.active ()
-      && !Jtty::textHasCall (jtty_msg_expand (uncommitted), m_config.my_callsign ())) {
+  if (jttyOverGetsMyCallPrefix (uncommitted)) {
     expanded = Jtty::withMyCallPrefix (expanded, m_config.my_callsign ());
   }
   if (ui->cbLowerCase->isChecked ()) expanded = expanded.toLower ();
@@ -434,6 +442,9 @@ void MainWindow::updateJttyLiveEntryFrameLabel()
   int uncommittedFrames = 0;
   if (!uncommitted.trimmed ().isEmpty ()) {
     QString probe = jtty_msg_expand (uncommitted);
+    if (jttyOverGetsMyCallPrefix (uncommitted)) {
+      probe = Jtty::withMyCallPrefix (probe, m_config.my_callsign ());
+    }
     if (ui->cbLowerCase->isChecked ()) probe = probe.toLower ();
     probe = Jtty::prepareTransmitText (probe).text;
     uncommittedFrames = countJttyTransmitFrames (probe);

@@ -46,7 +46,33 @@ namespace WaterfallCalls
     static QRegularExpression const re {
       QStringLiteral ("^(?=.*\\d)(?=.*[A-Z])[A-Z0-9/]{3,11}$")};
     static QRegularExpression const grid {QStringLiteral ("^[A-R]{2}\\d{2}$")};
-    return re.match (word).hasMatch () && !grid.match (word).hasMatch ();
+    // Words that look like calls but are not: a band (20M, 40M, 70CM), a power
+    // (100W, 1KW) or a report (5NN).
+    static QRegularExpression const notCall {
+      QStringLiteral ("^(\\d{1,3}(M|CM|MM|W|KW)|\\d[N\\d]{1,2})$")};
+    return re.match (word).hasMatch () && !grid.match (word).hasMatch ()
+      && !notCall.match (word).hasMatch ();
+  }
+
+  // The part of a call that names the station: DL3WDG for DL3WDG/P, EA8/DL3WDG
+  // and DL3WDG, so a portable or visiting call counts as the same station.
+  inline QString baseCall (QString const& call)
+  {
+    QString base;
+    for (auto const& part : call.split ('/')) {
+      bool digit = false, letter = false;
+      for (auto const c : part) {
+        if (c.isDigit ()) digit = true;
+        else if (c.isLetter ()) letter = true;
+      }
+      if (digit && letter && part.size () > base.size ()) base = part;
+    }
+    return base.isEmpty () ? call : base;
+  }
+
+  inline bool sameStation (QString const& a, QString const& b)
+  {
+    return !a.isEmpty () && !b.isEmpty () && baseCall (a) == baseCall (b);
   }
 
   inline QString stripBrackets (QString word)
@@ -93,7 +119,7 @@ namespace WaterfallCalls
         result.call = m.captured (1);
         // addressed to us: our call somewhere after the colon
         for (int i = 1; i < words.size () && !mine.isEmpty (); ++i) {
-          if (stripBrackets (words[i]) == mine) {
+          if (sameStation (stripBrackets (words[i]), mine)) {
             result.kind = Kind::Me;
             break;
           }
@@ -101,7 +127,7 @@ namespace WaterfallCalls
       }
     }
     if (!result.valid ()) return result;
-    if (!mine.isEmpty () && result.call == mine) result.kind = Kind::Own;
+    if (sameStation (result.call, mine)) result.kind = Kind::Own;
     else if (cq) result.kind = Kind::Cq;
     return result;
   }

@@ -110,10 +110,11 @@ public:
   void setCallLabels (QVector<WaterfallCalls::Label> const& labels);
   QStringList shownCallLabels () const;               // placed, in priority order
   QRect callLabelRect (QString const& call) const;    // in widget coordinates
+  bool isOnCallLabel (QPoint const& pos) const;       // on a label's dark box
   int  waterfallTop () const;                         // y of the first waterfall row
-  // y of the top of the strip: on the lower edge of the waterfall, just above
-  // the spectrum (or above the controls when the spectrum is 0 %). The
-  // waterfall keeps its place; the strip covers its oldest rows.
+  // y of the top of the label rows: on the lower edge of the waterfall, just
+  // above the spectrum (or above the controls when the spectrum is 0 %). The
+  // waterfall keeps its place; only a label's own box covers it.
   int  callStripTop () const;
 
 signals:
@@ -143,6 +144,7 @@ private:
     int centreX;
   };
   QVector<PlacedCall> layoutCallLabels () const;
+  static QRect callLabelBox (QRect const& textRect);
   void drawCallStrip (QPainter& painter);
   QVector<WaterfallCalls::Label> m_callLabels;
 

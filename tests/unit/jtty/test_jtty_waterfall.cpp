@@ -124,26 +124,44 @@ private slots:
     QCoreApplication::processEvents ();
     QVERIFY (plotter.callStripTop () + CPlotter::callStripHeight >= 400 - 2);
     QVERIFY (plotter.callStripTop () + CPlotter::callStripHeight <= 400);
-    plotter.setMode ("FT8");
-    QCOMPARE (plotter.waterfallTop (), 30);
   }
 
-  void aDoubleClickInTheStripDoesNotDecodeTheRowsUnderIt ()
+  void aDoubleClickOnALabelDoesNotDecodeTheRowUnderIt ()
   {
     TestablePlotter plotter;
+    plotter.setMode ("JTTY");
     plotter.resize (1500, 400);
     QCoreApplication::processEvents ();
     plotter.setCallLabels ({label ("K1ABC", 500)});
     QSignalSpy again (&plotter, &CPlotter::jttyDecodeAgainAtSample);
     auto const rect = plotter.callLabelRect ("K1ABC");
+    QVERIFY (plotter.isOnCallLabel (rect.center ()));
     QMouseEvent twice {QEvent::MouseButtonDblClick, QPointF (rect.center ()),
                        Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
     plotter.mouseDoubleClickEvent (&twice);
     QCOMPARE (again.size (), 0);
   }
+
+  void theStripBetweenLabelsIsNotACoveredArea ()
+  {
+    TestablePlotter plotter;
+    plotter.setMode ("JTTY");
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("K1ABC", 500)});
+    auto const rect = plotter.callLabelRect ("K1ABC");
+    // same height as the label, but well to the side of it: the waterfall is
+    // visible there and a double click works as anywhere else on it
+    QPoint const beside {rect.right () + 60, rect.center ().y ()};
+    QVERIFY (!plotter.isOnCallLabel (beside));
+    plotter.setCallLabels ({});
+    QVERIFY (!plotter.isOnCallLabel (rect.center ()));   // no label: no covered area
+  }
+
   void labelsAreShownInTheStripAndClickSelectsTheirSignal ()
   {
     TestablePlotter plotter;
+    plotter.setMode ("JTTY");
     plotter.resize (1500, 400);
     QCoreApplication::processEvents ();
     plotter.setCallLabels ({label ("DL3WDG", 200), label ("K1ABC", 500),
@@ -177,7 +195,11 @@ private slots:
     plotter.setCallLabels ({label ("DL3WDG", 1000)});
     QCOMPARE (plotter.shownCallLabels ().size (), 1);
     plotter.setMode ("FT8");
-    QCOMPARE (plotter.waterfallTop (), 30);
+    // in any other mode nothing is shown and nothing is a label to click
+    QVERIFY (plotter.shownCallLabels ().isEmpty ());
+    QVERIFY (!plotter.isOnCallLabel (plotter.callLabelRect ("DL3WDG").center ()));
+    plotter.setMode ("JTTY");                       // and they are back in JTTY
+    QCOMPARE (plotter.shownCallLabels ().size (), 1);
   }
 };
 

@@ -435,6 +435,7 @@ void WideGraph::setMode(QString mode)                              //setMode
     clearJttyCalls ();
   }
   m_mode=mode;
+  ui->cbCallTx->setVisible(m_mode == "JTTY");    // only used by the JTTY call labels
   ui->fSplitSpinBox->setVisible(m_mode.startsWith("FST4"));
   ui->fSplitSpinBox->setEnabled(m_mode.startsWith("FST4"));
   ui->labTime->setVisible(!m_mode.startsWith("FST4"));
@@ -503,6 +504,7 @@ void WideGraph::setDialFreq(double d)                             //setDialFreq
 
 void WideGraph::setRxBand (QString const& band)
 {
+  if (band != m_rxBand) clearJttyCalls ();       // labels of the old band are not valid
   m_rxBand = band;
   if ("60m" == m_rxBand)
     {
@@ -584,11 +586,6 @@ void WideGraph::on_cbBars_toggled(bool b)
 {
   m_bars = b;
   ui->widePlot->setBars(m_bars);
-}
-
-void WideGraph::on_cbCallTx_toggled(bool)
-{
-  // read when a call label is clicked; saved with the other settings
 }
 
 void WideGraph::on_cbFreq_toggled(bool b)

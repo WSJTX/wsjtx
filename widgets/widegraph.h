@@ -101,7 +101,6 @@ private slots:
   void on_cbControls_toggled(bool b);
   void on_cbBars_toggled(bool b);
   void on_cbFreq_toggled(bool b);
-  void on_cbCallTx_toggled(bool b);
   void on_adjust_palette_push_button_clicked (bool);
   void on_gainSlider_valueChanged(int value);
   void on_zeroSlider_valueChanged(int value);

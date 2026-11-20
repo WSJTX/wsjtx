@@ -499,6 +499,7 @@ void CPlotter::setCallLabels (QVector<WaterfallCalls::Label> const& labels)
 
 QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
 {
+  if (!hasCallStrip ()) return {};              // labels are a JTTY thing
   QFont font ("Arial");
   font.setPointSize (10);       // two rows in a 32 px strip
   font.setBold (true);
@@ -527,6 +528,20 @@ QStringList CPlotter::shownCallLabels () const
   return calls;
 }
 
+QRect CPlotter::callLabelBox (QRect const& textRect)
+{
+  return textRect.adjusted (-3, 0, 3, 0);       // the text plus a little room, under the 4 px gap
+}
+
+bool CPlotter::isOnCallLabel (QPoint const& pos) const
+{
+  if (!hasCallStrip ()) return false;
+  for (auto const& p : layoutCallLabels ()) {
+    if (callLabelBox (p.rect).contains (pos)) return true;
+  }
+  return false;
+}
+
 QRect CPlotter::callLabelRect (QString const& call) const
 {
   for (auto const& p : layoutCallLabels ()) {
@@ -538,8 +553,6 @@ QRect CPlotter::callLabelRect (QString const& call) const
 void CPlotter::drawCallStrip (QPainter& painter)
 {
   painter.save ();
-  int const top = callStripTop ();
-  painter.fillRect (0, top, m_scale.width (), callStripHeight, QColor (0x18, 0x18, 0x18));
   QFont font ("Arial");
   font.setPointSize (10);       // two rows in a 32 px strip
   font.setBold (true);
@@ -552,6 +565,8 @@ void CPlotter::drawCallStrip (QPainter& painter)
     case WaterfallCalls::Kind::Cq: colour = QColor (0x5e, 0xe0, 0x5e); break;
     case WaterfallCalls::Kind::Other: break;
     }
+    // Only the label has a dark background; the waterfall shows between labels.
+    painter.fillRect (callLabelBox (p.rect), QColor (0x18, 0x18, 0x18, 0xe0));
     painter.setPen (colour);
     painter.drawText (p.rect, Qt::AlignCenter, p.label.call);
   }
@@ -1076,7 +1091,7 @@ void CPlotter::mouseReleaseEvent (QMouseEvent * event)
     int newFreq = int(FreqfromX(x)+0.5);
     if (hasCallStrip ()) {                      // a click on a call label = that signal
       for (auto const& p : layoutCallLabels ()) {
-        if (p.rect.adjusted (-2, 0, 2, 0).contains (event->pos ())) {
+        if (callLabelBox (p.rect).contains (event->pos ())) {
           newFreq = int (p.label.freq + 0.5f);
           if (!shift) emit jttyCallClicked (p.label.call, newFreq);
           break;
@@ -1110,9 +1125,8 @@ void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
   if (leftbutton and m_mode=="JTTY" and !ctrl) {
     int const row = event->y() - waterfallTop();
-    bool const inStrip = hasCallStrip () && event->y () >= callStripTop ()
-      && event->y () < callStripTop () + callStripHeight;     // the strip covers those rows
-    if (!inStrip && row >= 0 && row < m_jttyRows.size ()) {
+    bool const onLabel = isOnCallLabel (event->pos ());       // a label covers that row
+    if (!onLabel && row >= 0 && row < m_jttyRows.size ()) {
       auto const& audio = m_jttyRows[row].audio;
       if (audio.hasAudio ()) emit jttyDecodeAgainAtSample (audio.reception, audio.endSample);
     }

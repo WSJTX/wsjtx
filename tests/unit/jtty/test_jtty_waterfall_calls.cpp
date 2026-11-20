@@ -20,6 +20,16 @@ private slots:
     QVERIFY (!isCallsign ("599"));         // no letter
     QVERIFY (!isCallsign ("JN68"));        // a grid square
     QVERIFY (!isCallsign ("TU"));
+    QVERIFY (!isCallsign ("20M"));         // a band
+    QVERIFY (!isCallsign ("40M"));
+    QVERIFY (!isCallsign ("160M"));
+    QVERIFY (!isCallsign ("70CM"));
+    QVERIFY (!isCallsign ("100W"));        // a power
+    QVERIFY (!isCallsign ("1KW"));
+    QVERIFY (!isCallsign ("5NN"));         // a report
+    QVERIFY (isCallsign ("2E0ABC"));       // real calls that start like them
+    QVERIFY (isCallsign ("4X4AA"));
+    QVERIFY (isCallsign ("3W5A"));
   }
 
   void onlyCqAndColonLinesAreLabelled ()
@@ -61,6 +71,16 @@ private slots:
     QCOMPARE (int (jttyCall ("K1ABC: DL3WDG HELLO", false, "DL3WDG").kind), int (Kind::Me));
     QCOMPARE (int (jttyCall ("K1ABC: HELLO", false, "DL3WDG").kind), int (Kind::Other));
     QCOMPARE (int (jttyCall ("DL3WDG: TEST", false, "DL3WDG").kind), int (Kind::Own));
+    // a portable or visiting form of my call is still me
+    QCOMPARE (int (jttyCall ("CQ DL3WDG/P CQ", false, "DL3WDG").kind), int (Kind::Own));
+    QCOMPARE (int (jttyCall ("CQ EA8/DL3WDG CQ", false, "DL3WDG").kind), int (Kind::Own));
+    QCOMPARE (int (jttyCall ("CQ DL3WDG CQ", false, "DL3WDG/P").kind), int (Kind::Own));
+    QCOMPARE (int (jttyCall ("K1ABC: DL3WDG/P HELLO", false, "DL3WDG").kind), int (Kind::Me));
+    QCOMPARE (int (jttyCall ("CQ DL3WDGX CQ", false, "DL3WDG").kind), int (Kind::Cq));
+    // a band or report word after CQ is not the call
+    QCOMPARE (jttyCall ("CQ 20M DL3WDG", false, "K1ABC").call, QString ("DL3WDG"));
+    QCOMPARE (jttyCall ("CQ 5NN K1ABC FN20", false, "DL3WDG").call, QString ("K1ABC"));
+    QVERIFY (!jttyCall ("CQ 40M", false, "DL3WDG").valid ());
     // no call set: nothing is "mine"
     QCOMPARE (int (jttyCall ("CQ DL3WDG CQ", false, "").kind), int (Kind::Cq));
   }

@@ -948,6 +948,7 @@ private:
   void applyJttyLiveEntryFormatting();
   void guardJttyLiveEntryLock();
   void updateJttyLiveEntryFrameLabel();
+  bool jttyOverGetsMyCallPrefix(QString const& uncommitted);
   double jttyRequestSentFraction(qint64 requestId) const;
   int jttyRequestFramesDone(qint64 requestId) const;
   int countJttyTransmitFrames(QString const& preparedMessage) const;
