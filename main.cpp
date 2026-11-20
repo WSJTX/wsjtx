@@ -304,6 +304,7 @@ int main(int argc, char *argv[])
   bool ft8_tx_loopback_test {false};
   bool receive_handoff_test {false};
   bool qso_completion_test {false};
+  bool fox_hound_exchange_test {false};
   bool best_sp_test {false};
   bool wait_features_test {false};
   bool operating_band_test {false};
@@ -419,6 +420,10 @@ int main(int argc, char *argv[])
         QStringList {} << "qso-completion-test",
         "Exercise QSO completion with automatic, prompt, or disabled logging; append -keep, -keep-call, or -keep-grid to retain fields.", "profile");
       parser.addOption (qso_completion_test_option);
+      QCommandLineOption fox_hound_exchange_test_option (
+        QStringList {} << "fox-hound-exchange-test",
+        "Run the isolated classic Fox/Hound audio exchange test.", "station", "fox");
+      parser.addOption (fox_hound_exchange_test_option);
       QCommandLineOption best_sp_test_option (
         QStringList {} << "best-sp-test",
         "Exercise Best S+P through the application with a scripted decoder and silent audio.");
@@ -534,6 +539,14 @@ int main(int argc, char *argv[])
       ft8_tx_loopback_test = parser.isSet (ft8_tx_loopback_test_option);
       receive_handoff_test = parser.isSet (receive_handoff_test_option);
       qso_completion_test = parser.isSet (qso_completion_test_option);
+      fox_hound_exchange_test = parser.isSet (fox_hound_exchange_test_option);
+      auto const fox_hound_station = parser.value (fox_hound_exchange_test_option);
+      if (fox_hound_exchange_test
+          && !QStringList {"fox", "hound", "compound"}.contains (fox_hound_station))
+        {
+          std::cerr << "--fox-hound-exchange-test requires fox, hound, or compound" << std::endl;
+          return EXIT_FAILURE;
+        }
       auto const qso_completion_profile = parser.value (qso_completion_test_option);
       auto const qso_logging_profile = qso_completion_profile.section ('-', 0, 0);
       auto const qso_field_profile = qso_completion_profile.mid (qso_logging_profile.size ());
@@ -634,6 +647,7 @@ int main(int argc, char *argv[])
           + (jtty_tx_loopback_test ? 1 : 0)
           + (ft8_tx_loopback_test ? 1 : 0)
           + (receive_handoff_test ? 1 : 0) + (qso_completion_test ? 1 : 0)
+          + (fox_hound_exchange_test ? 1 : 0)
           + (jt4_wav_test ? 1 : 0) + (jt9_wav_test ? 1 : 0)
           + (best_sp_test ? 1 : 0)
           + (wait_features_test ? 1 : 0)
@@ -660,7 +674,8 @@ int main(int argc, char *argv[])
         }
       automated_test = startup_smoke_test || live_audio_test
         || jtty_live_audio_test || jtty_tx_loopback_test || ft8_tx_loopback_test
-        || receive_handoff_test || qso_completion_test || best_sp_test || wait_features_test || operating_band_test
+        || receive_handoff_test || qso_completion_test || fox_hound_exchange_test
+        || best_sp_test || wait_features_test || operating_band_test
         || jt4_wav_test || jt9_wav_test || jt65_wav_test || q65_wav_test || fst4_wav_test || fst4w_wav_test;
 #else
       automated_test = startup_smoke_test;
@@ -696,12 +711,14 @@ int main(int argc, char *argv[])
         }
 
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
-      if (best_sp_test || wait_features_test || operating_band_test || qso_completion_test)
+      if (best_sp_test || wait_features_test || operating_band_test || qso_completion_test || fox_hound_exchange_test)
         a.setApplicationName (a.applicationName () + (qso_completion_test ? " - QsoCompletion-"
+                              : fox_hound_exchange_test ? " - FoxHound-"
                               : operating_band_test ? " - OperatingBand-"
                               : wait_features_test ? " - WaitFeatures-" : " - BestSP-")
                               + QUuid::createUuid ().toString (QUuid::WithoutBraces));
-      auto scripted_test_environment = best_sp_test || wait_features_test || operating_band_test || qso_completion_test
+      auto scripted_test_environment = best_sp_test || wait_features_test || operating_band_test
+        || qso_completion_test || fox_hound_exchange_test
         ? std::make_unique<BestSPTestEnvironment> () : nullptr;
 #endif
       // now we have the application name we can open the logging and settings
@@ -713,7 +730,7 @@ int main(int argc, char *argv[])
       QString settings_file;
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
       std::unique_ptr<QTemporaryDir> qso_test_directory;
-      if (qso_completion_test)
+      if (qso_completion_test || fox_hound_exchange_test)
         {
           qso_test_directory = std::make_unique<QTemporaryDir> (
             QDir::tempPath () + "/wsjtx-qso-completion-XXXXXX");
@@ -732,6 +749,26 @@ int main(int argc, char *argv[])
             ? WaitFeaturesApplicationTestController::prepareSettings (multi_settings.settings ())
             : BestSPApplicationTestController::prepareSettings (multi_settings.settings ());
           if (!error.isEmpty ()) throw std::runtime_error {error.toStdString ()};
+        }
+#endif
+
+#ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
+      if (fox_hound_exchange_test)
+        {
+          auto * settings = multi_settings.settings ();
+          auto const error = BestSPApplicationTestController::prepareSettings (settings);
+          if (!error.isEmpty ()) throw std::runtime_error {error.toStdString ()};
+          bool const fox = fox_hound_station == "fox";
+          settings->setValue ("Configuration/MyCall",
+            fox ? "K1ABC" : fox_hound_station == "compound" ? "PJ2/W1AW" : "W9XYZ");
+          settings->setValue ("Configuration/AutoLog", true);
+          settings->setValue ("Configuration/ContestingOnly", false);
+          settings->setValue ("Configuration/clear_DXcall", false);
+          settings->setValue ("Configuration/SpecialOpActivity", fox);
+          settings->setValue ("Configuration/SelectedActivity", static_cast<int> (
+            fox ? SpecialOperatingActivity::FOX : SpecialOperatingActivity::HOUND));
+          settings->setValue ("Configuration/SuperFox", false);
+          settings->setValue ("Common/Mode", "FT8");
         }
 #endif
 
@@ -878,6 +915,7 @@ int main(int argc, char *argv[])
       bool startup_smoke_ready {false};
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
       bool qso_completion_succeeded {false};
+      bool fox_hound_exchange_succeeded {false};
 #endif
       auto const prerelease_expiration = QDateTime::fromSecsSinceEpoch (WSJT_PRERELEASE_EXPIRY, Qt::UTC);
       bool prerelease_notice_pending = WSJT_PRERELEASE_EXPIRY > 0;
@@ -1025,7 +1063,7 @@ int main(int argc, char *argv[])
           std::unique_ptr<AudioOutputSink> sound_output;
           std::unique_ptr<DecoderBackend> decoder_backend;
           DecoderBackend * scripted_test_backend {nullptr};
-          if (best_sp_test || wait_features_test || operating_band_test)
+          if (best_sp_test || wait_features_test || operating_band_test || fox_hound_exchange_test)
             {
               audio_input = makeBestSPTestAudioInput ();
               sound_output = makeBestSPTestAudioOutput ();
@@ -1230,6 +1268,19 @@ int main(int argc, char *argv[])
                 a.exit (qso_completion_succeeded ? EXIT_SUCCESS : EXIT_FAILURE);
               });
             }
+          if (fox_hound_exchange_test)
+            {
+              a.setQuitOnLastWindowClosed (false);
+              QTimer::singleShot (0, &w, [&a, &w, &fox_hound_exchange_succeeded, fox_hound_station] {
+                auto const error = w.checkFoxHoundExchangeTest (fox_hound_station);
+                fox_hound_exchange_succeeded = error.isEmpty ();
+                std::cerr << "Classic Fox/Hound " << fox_hound_station.toStdString ()
+                          << (error.isEmpty () ? " passed" : " failed: ")
+                          << error.toStdString () << std::endl;
+                w.close ();
+                a.exit (fox_hound_exchange_succeeded ? EXIT_SUCCESS : EXIT_FAILURE);
+              });
+            }
           if (jtty_tx_loopback_test)
             {
               a.setQuitOnLastWindowClosed (false);
@@ -1318,6 +1369,7 @@ int main(int argc, char *argv[])
             }
 #ifdef WSJT_ENABLE_LIVE_AUDIO_TEST
           if (qso_completion_test && !qso_completion_succeeded) result = EXIT_FAILURE;
+          if (fox_hound_exchange_test && !fox_hound_exchange_succeeded) result = EXIT_FAILURE;
           if ((live_audio_test || jtty_live_audio_test)
               && (!live_audio_controller || !live_audio_controller->succeeded ()))
             {

@@ -1214,7 +1214,8 @@ wsjt_enable_qt_automoc (wsjtx)
 target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
 if (WSJT_ENABLE_TESTS)
-  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp WaitFeaturesApplicationTestController.cpp
+  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp widgets/mainwindow_fox_hound_test.cpp
+    WaitFeaturesApplicationTestController.cpp
     OperatingBandApplicationTestController.cpp)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
   add_test (NAME test_wsjtx_best_sp
@@ -1369,6 +1370,12 @@ if (WSJT_ENABLE_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSS
 endif ()
 
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS)
+  add_test (NAME test_wsjtx_fox_hound_exchange
+    COMMAND $<TARGET_FILE:wsjtx> --fox-hound-exchange-test fox --rig-name CTEST-FOX)
+  set_tests_properties (test_wsjtx_fox_hound_exchange PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_fox"
+    LABELS "gui;qso;ft8;integration" PROCESSORS 3 TIMEOUT 90)
+
   foreach (profile IN ITEMS automatic prompt disabled automatic-keep prompt-keep disabled-keep
       automatic-keep-call automatic-keep-grid)
     set (qso_test_root "${CMAKE_BINARY_DIR}/Testing/QsoCompletion/${profile}")
