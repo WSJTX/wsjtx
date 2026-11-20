@@ -1,11 +1,13 @@
 module osd_pairs_concurrent_controls
   implicit none
   ! Direct global controls avoid libgomp's captured stack environment in TSan tests.
-  ! The atomics below are relaxed on purpose: they must not give ThreadSanitizer an
-  ! ordering between the two decodes that would hide a race between them.
-  integer, save :: nreported = 0
-  logical, save :: seen(2) = .false.
+  ! Every atomic in this test is relaxed except the store and load of ndone: the
+  ! relaxed ones must not give ThreadSanitizer an ordering between the two
+  ! decodes that would hide a race between them.
+  integer, save :: nentered = 0
+  integer, save :: nexited = 0
   integer, save :: ntimeout = 0
+  integer, save :: ndone(2) = 0
   integer, parameter :: N = 174
   real, save :: llrs(N,2)
   integer*1, save :: apmask(N)
@@ -14,23 +16,26 @@ module osd_pairs_concurrent_controls
   real, save :: dmin_par(2)
   logical, save :: packed_par(2)
 contains
-  ! Called from inside the decoder on a thread's progress reports; generation
-  ! is the thread's number.  A thread's first report returns only once the other
-  ! thread has also reported, so both threads are inside the decoder together.
-  ! The limit only stops a hang if a report never comes.
-  subroutine rendezvous(generation)
+  ! Called by the decoder as a decode enters and leaves its packed pair-table
+  ! pass.  Entering returns only once the other thread has entered too, so both
+  ! decodes have entered the packed pass before either starts its work in it.
+  ! The limit only stops a hang if the other thread never arrives.
+  subroutine packed_pass(entering)
     use iso_fortran_env, only: int64
-    integer, intent(in) :: generation
+    logical, intent(in) :: entering
     integer :: nseen
     integer(int64) :: t0, t1, rate
-    if (seen(generation)) return
-    seen(generation) = .true.
+    if (.not. entering) then
+!$omp atomic update
+      nexited = nexited + 1
+      return
+    endif
     call system_clock(t0, rate)
 !$omp atomic update
-    nreported = nreported + 1
+    nentered = nentered + 1
     do
 !$omp atomic read
-      nseen = nreported
+      nseen = nentered
       if (nseen .ge. 2) exit
       call system_clock(t1)
       if (t1 - t0 .gt. 10_int64*rate) then
@@ -39,7 +44,7 @@ contains
         exit
       endif
     enddo
-  end subroutine rendezvous
+  end subroutine packed_pass
 end module osd_pairs_concurrent_controls
 
 program test_osd174_91var_pairs_concurrent
@@ -47,29 +52,31 @@ program test_osd174_91var_pairs_concurrent
 ! must equal the same decode run alone, and both must have used the table.  The
 ! generator matrix is built before the threads start, so what is left to race
 ! is the decoding itself.  Without ThreadSanitizer the comparison can only
-! catch a race that changes the result; ThreadSanitizer reports any data race
-! in these decodes.
+! catch a race that changes the result; ThreadSanitizer reports a data race it
+! observes in these decodes.
   use iso_fortran_env, only: int64
   use omp_lib
-  use decode_completion_module, only: set_progress_receiver
+  use decode_completion_module, only: set_packed_pass_receiver
   use osd_pairs_concurrent_controls
   implicit none
   integer, parameter :: NTHREAD = 2
   integer*1 :: cwtrue(N), msg77(77), cw_ser(N,2), msg_ser(77,2), cw(N), m(77), cw2(N), m2(77)
-  integer :: nh_ser(2), it, i, nh, nd, nh2, ntry
+  integer :: nh_ser(2), it, i, nh, nd, nh2, ntry, nflag, nin, nout, nto
   real :: dmin_ser(2), dmin, dmin2, g, u1, u2, sigma, llr(N)
-  logical :: pu
+  logical :: pu, chosen
   integer(int64) :: state
 
   if (omp_get_max_threads() .lt. NTHREAD) error stop 'two OpenMP workers are required'
 
   state = 20261120_int64
   apmask = 0
-! The first two inputs, from a fixed sequence, for which the pair pass improves
-! on the result without it, so that a decode gone wrong in the pair table shows.
-! The first call also builds the generator matrix.
+! Tries 107 and 109 of a fixed input sequence are inputs for which the pair pass
+! improves on the result without it, so that a decode gone wrong in the pair
+! table shows; the sequence is generated in full, but only those two are decoded
+! (the improvement is asserted, so a change to the generator below fails here).
+! Decoding try 1 builds the generator matrix before the threads start.
   it = 0
-  do ntry = 1, 400
+  do ntry = 1, 109
     do i = 1, 77
       state = modulo(48271_int64*state, 2147483647_int64)
       msg77(i) = int(iand(state/65536, 1_int64), 1)
@@ -85,12 +92,16 @@ program test_osd174_91var_pairs_concurrent
       g = sqrt(-2.0*log(u1))*cos(6.2831853*u2)
       llr(i) = 6.0*(2.0*cwtrue(i) - 1.0) + sigma*g
     enddo
+    chosen = ntry .eq. 107 .or. ntry .eq. 109
+    if (ntry .ne. 1 .and. .not. chosen) cycle
     nd = 3
     call osd174_91var_core(llr, apmask, nd, m, cw, nh, dmin, 1, 0, .false., pu)
     if (.not. pu) error stop 'the packed pair table was not used'
+    if (.not. chosen) cycle
     nd = 2
     call osd174_91var_core(llr, apmask, nd, m2, cw2, nh2, dmin2, 1, 0, .false., pu)
-    if (.not. (dmin .lt. dmin2 .and. nh .gt. 0)) cycle
+    if (.not. (dmin .lt. dmin2 .and. nh .gt. 0)) &
+         error stop 'the pair pass does not improve this input'
     it = it + 1
     llrs(:,it) = llr
     msg_ser(:,it) = m
@@ -99,23 +110,42 @@ program test_osd174_91var_pairs_concurrent
     dmin_ser(it) = dmin
     if (it .eq. NTHREAD) exit
   enddo
-  if (it .ne. NTHREAD) error stop 'no input found for which the pair pass improves the result'
+  if (it .ne. NTHREAD) error stop 'the two inputs were not generated'
 
-! Together.  Each thread has its own generation, so the receiver can tell them apart.
-  call set_progress_receiver(rendezvous)
+! Together.  Each worker publishes its results with a release store of its own
+! completion flag after the decode, and the main thread reads them only after an
+! acquire load of that flag.  That is the only ordering the test adds: the
+! libgomp join is not visible to ThreadSanitizer, and nothing orders the two
+! decodes relative to each other.
+  call set_packed_pass_receiver(packed_pass)
 !$omp parallel num_threads(NTHREAD) default(shared) private(it, nd, cw, m, nh, dmin, pu)
+  if (omp_get_num_threads() .ne. NTHREAD) error stop 'OpenMP did not start two threads'
   it = omp_get_thread_num() + 1
   nd = 3
-  call osd174_91var_core(llrs(:,it), apmask, nd, m, cw, nh, dmin, it, it, .false., pu)
+  call osd174_91var_core(llrs(:,it), apmask, nd, m, cw, nh, dmin, it, 0, .false., pu)
   msg_par(:,it) = m
   cw_par(:,it) = cw
   nh_par(it) = nh
   dmin_par(it) = dmin
   packed_par(it) = pu
+!$omp atomic write release
+  ndone(it) = 1
 !$omp end parallel
 
-  if (ntimeout .ne. 0) error stop 'a thread never reached the decoder progress report'
-  if (.not. all(seen)) error stop 'both threads must report'
+  do it = 1, NTHREAD
+!$omp atomic read acquire
+    nflag = ndone(it)
+    if (nflag .ne. 1) error stop 'a worker did not finish'
+  enddo
+!$omp atomic read
+  nin = nentered
+!$omp atomic read
+  nout = nexited
+!$omp atomic read
+  nto = ntimeout
+  if (nto .ne. 0) error stop 'the other decode never reached the packed pass'
+  if (nin .ne. NTHREAD .or. nout .ne. NTHREAD) &
+       error stop 'both decodes must enter and leave the packed pass'
   do it = 1, NTHREAD
     if (.not. packed_par(it)) error stop 'a thread did not use the packed pair table'
     if (any(cw_par(:,it) .ne. cw_ser(:,it)) .or. any(msg_par(:,it) .ne. msg_ser(:,it)) &

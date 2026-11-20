@@ -80,15 +80,17 @@ set_tests_properties (test_osd174_91_fast_ties PROPERTIES TIMEOUT 120)
 # ndeep 3, and the pair pass improves the result in 3 and 11. Case 1 catches a
 # pair pass that ignores the a-priori mask and case 3 one that skips the chain
 # walk. The ties list is all-hard-decision inputs with many exact ties: 35
-# catches a chain built in the other order and 80 a chain cut short. Plain
-# builds run every case.
+# catches a chain built in the other order and 80 a chain cut short. The lists
+# are passed as "curated", so the test also checks that the normal list reaches
+# every ndeep and that the pair pass improves at least one result. Plain builds
+# run every case.
 if (NOT WSJT_ENABLE_TSAN)
   add_executable (test_osd174_91var_pairs
     test_osd174_91var_pairs.f90)
   wsjt_link_common_fortran (test_osd174_91var_pairs)
   if (WSJT_ENABLE_ASAN_UBSAN)
-    set (osd_pairs_args 50 normal 1 3 10 11 30 40 50)
-    set (osd_pairs_ties_args 80 ties 3 35 80)
+    set (osd_pairs_args 50 normal curated 1 3 10 11 30 40 50)
+    set (osd_pairs_ties_args 80 ties curated 3 35 80)
     set (osd_pairs_timeout 20)
   else ()
     set (osd_pairs_args 3000)
