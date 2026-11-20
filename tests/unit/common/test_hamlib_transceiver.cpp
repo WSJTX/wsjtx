@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <hamlib/rig.h>
@@ -540,7 +541,7 @@ private:
     QFETCH (bool, wrap_ptt);
     RadioModePolicy policy;
     policy.configure (Transceiver::DIG_U);
-    bool keyed_while_ready = false;
+    std::optional<bool> ready_at_first_ptt_update;
     RigFixture fixture {RIG_VFO_B};
     QVERIFY (fixture.registered);
     auto& backend = fixture.start (false, wrap_ptt);
@@ -548,7 +549,8 @@ private:
              [&] (Transceiver::ModeStatus status, unsigned sequence) {policy.observe (status, sequence);});
     connect (fixture.transceiver.get (), &Transceiver::update,
              [&] (Transceiver::TransceiverState const& state, unsigned) {
-               if (state.ptt ()) keyed_while_ready = policy.ready ();
+               if (state.ptt () && !ready_at_first_ptt_update.has_value ())
+                 ready_at_first_ptt_update = policy.ready ();
              });
     fixture.state.frequency (14074000);
     fixture.state.mode (Transceiver::DIG_U);
@@ -571,7 +573,8 @@ private:
     QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
     QCOMPARE (fixture.ptt_on_count, 1);
     QVERIFY (fixture.state.ptt ());
-    QVERIFY (keyed_while_ready);
+    QVERIFY (ready_at_first_ptt_update.has_value ());
+    QVERIFY (*ready_at_first_ptt_update);
     QCOMPARE (fixture.mode_at_ptt_result, RIG_OK);
     QCOMPARE (fixture.mode_at_ptt, rmode_t {RIG_MODE_PKTUSB});
     rmode_t receive_mode;
