@@ -1,18 +1,33 @@
+module osd174_91var_mod
+  private
+  public :: osd_pair_workspace, osd174_91var, osd174_91var_core
+
+  integer, parameter :: N=174, K=91, M=N-K
+  integer, parameter :: NPAIR=K*(K-1)/2, NTAUMAX=14
+
+  type :: osd_pair_workspace
+     integer :: ckey(K),pkey(NPAIR),head(0:2**NTAUMAX-1)
+     integer :: nxt(NPAIR),pi1(NPAIR),pi2(NPAIR)
+  end type osd_pair_workspace
+
+contains
+
 subroutine osd174_91var(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
-     progress_generation)
+     progress_generation,ws)
   implicit none
   integer*1 apmask(174),message77(77),cw(174)
   integer ndeep,nhardmin,nthr
   integer, intent(in) :: progress_generation
+  type(osd_pair_workspace), intent(inout) :: ws
   real llr(174),dmin
   logical packed_used
   call osd174_91var_core(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
-       progress_generation,.false.,packed_used)
+       progress_generation,.false.,packed_used,ws)
   return
 end subroutine osd174_91var
 
-subroutine osd174_91var_core(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
-     progress_generation,slow_pairs,packed_used)
+recursive subroutine osd174_91var_core(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
+     progress_generation,slow_pairs,packed_used,ws)
 !
 ! An ordered-statistics decoder for the (174,91) code.
 !
@@ -22,7 +37,6 @@ subroutine osd174_91var_core(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
 !
 use ft8_mod1, only : first_osd,gen
 use decode_completion_module, only : write_decode_progress,report_packed_pass
-integer, parameter:: N=174, K=91, M=N-K
 integer*1 apmask(N),apmaskr(N)
 integer*1 genmrb(K,N),g2(N,K)
 integer*1 temp(K),m0(K),me(K),mi(K),misub(K),e2sub(N-K),e2(N-K),ui(N-K)
@@ -35,12 +49,11 @@ integer indx(N),progress_work
 integer, intent(in) :: progress_generation
 logical, intent(in) :: slow_pairs
 logical, intent(out) :: packed_used
+type(osd_pair_workspace), intent(inout) :: ws
 real llr(N),rx(N),absrx(N)
 include '/lib/ft8/ldpc_174_91_c_generator.f90'
 logical reset
-integer, parameter :: NPAIR=K*(K-1)/2, NTAUMAX=14
-integer ckey(K),pkey(NPAIR),head(0:2**NTAUMAX-1),nxt(NPAIR),pi1(NPAIR),pi2(NPAIR)
-integer e20,ekey
+integer e20,ekey,key_mask
 logical lfast,systematic
 
 integer, DIMENSION(:,:), ALLOCATABLE :: indexes
@@ -253,9 +266,9 @@ if(lfast) then
 ! same key is looked up again straight after (lastpat, inext).
    call report_packed_pass(.true.)
    do j=1,K
-      ckey(j)=0
+      ws%ckey(j)=0
       do i=1,ntau
-         if(g2(K+i,j).eq.1) ckey(j)=ibset(ckey(j),ntau-i)
+         if(g2(K+i,j).eq.1) ws%ckey(j)=ibset(ws%ckey(j),ntau-i)
       enddo
    enddo
    ntotal=0
@@ -263,15 +276,15 @@ if(lfast) then
       if(mod(i1,8).eq.0) call write_decode_progress(progress_generation)
       do i2=i1-1,1,-1
          ntotal=ntotal+1
-         pkey(ntotal)=ieor(ckey(i1),ckey(i2))
-         pi1(ntotal)=i1
-         pi2(ntotal)=i2
+         ws%pkey(ntotal)=ieor(ws%ckey(i1),ws%ckey(i2))
+         ws%pi1(ntotal)=i1
+         ws%pi2(ntotal)=i2
       enddo
    enddo
-   head(0:2**ntau-1)=0
+   ws%head(0:2**ntau-1)=0
    do n1=ntotal,1,-1
-      nxt(n1)=head(pkey(n1))
-      head(pkey(n1))=n1
+      ws%nxt(n1)=ws%head(ws%pkey(n1))
+      ws%head(ws%pkey(n1))=n1
    enddo
    e20=0
    do i=1,ntau
@@ -288,21 +301,22 @@ if(lfast) then
       if(mod(progress_work,32).eq.0) call write_decode_progress(progress_generation)
       ekey=e20
       do j=1,K
-         if(misub(j).eq.1) ekey=ieor(ekey,ckey(j))
+         key_mask=merge(not(0),0,misub(j).eq.1)
+         ekey=ieor(ekey,iand(ws%ckey(j),key_mask))
       enddo
       do i2=0,ntau
          ipat=ekey
          if(i2.gt.0) ipat=ieor(ipat,ishft(1,ntau-i2))
          do
-            ip=head(ipat)
+            ip=ws%head(ipat)
             if(lastpat.ne.ipat .and. ip.gt.0) then
-               in1=pi1(ip)
-               in2=pi2(ip)
-               inext=nxt(ip)
+               in1=ws%pi1(ip)
+               in2=ws%pi2(ip)
+               inext=ws%nxt(ip)
             elseif(lastpat.eq.ipat .and. inext.gt.0) then
-               in1=pi1(inext)
-               in2=pi2(inext)
-               inext=nxt(inext)
+               in1=ws%pi1(inext)
+               in2=ws%pi2(inext)
+               inext=ws%nxt(inext)
             else
                in1=-1
                in2=-1
@@ -408,6 +422,7 @@ if(nbadcrc.eq.1) nhardmin=-nhardmin
 
 return
 end subroutine osd174_91var_core
+end module osd174_91var_mod
 
 subroutine mrbencode91var(me,codeword,g2,N,K)
 integer*1 me(K),codeword(N),g2(N,K)

@@ -1,10 +1,12 @@
 program test_osd174_91_distance
+  use osd174_91var_mod, only: osd174_91var,osd_pair_workspace
   implicit none
   integer, parameter :: n=174, k=91
   integer*1 :: unit(k), row(n), cw(n), message(k), apmask(n)
   integer, parameter :: weights(2)=[2,128]
   integer :: i, profile, weight, depth, nhard, failures
   real :: llr(n), dmin
+  type(osd_pair_workspace), allocatable :: ws
 
   ! Keep the first 90 identity columns in order. Rank all remaining
   ! columns with a zero in row 91 ahead of every possible last pivot.
@@ -16,6 +18,7 @@ program test_osd174_91_distance
   apmask=0
   failures=0
   depth=2
+  allocate(ws)
   ! At weight 2, charging for the input flip misreports the distance.
   ! At weight 128, the same charge can keep a better candidate from winning.
   do profile=1,size(weights)
@@ -30,7 +33,7 @@ program test_osd174_91_distance
      ! also reverse hard decision 90 so reaching row takes a pair of flips.
      if (profile==2) llr(k-1)=real(weight+1)
 
-     call osd174_91var(llr,apmask,depth,message(1:77),cw,nhard,dmin,1,0)
+     call osd174_91var(llr,apmask,depth,message(1:77),cw,nhard,dmin,1,0,ws)
      call check_distance('var')
      call osd174_91(llr,k,apmask,depth,message,cw,nhard,dmin)
      call check_distance('packed')

@@ -2,6 +2,7 @@ module ft8_decodevar
   use packjt77, only: pack77_state
   use decoder_engine_types, only: ft8_signal_evidence
   use ft8var_work_types
+  use osd174_91var_mod, only: osd_pair_workspace
 
   logical ltry_a8
   type :: ft8_decodervar
@@ -31,9 +32,9 @@ module ft8_decodevar
          lcqcand,ncqsignal,nmycsignal,npass,i3bit,lft8s,lmycallstd,lhiscallstd, &
          levenint,loddint,lft8sd,i3,n3,nft8rxfsens,ncount,msgsrcvd,lrepliedother, &
          lhashmsg,lqsothread,lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig, &
-         lnohiscall,lnomycall,lnohisgrid,qual,iaptype2,progress_generation,knowledge,evidence)
+         lnohiscall,lnomycall,lnohisgrid,qual,iaptype2,progress_generation,knowledge,evidence,osd_ws)
       import pack77_state,ft8_signal_evidence,tmpcqdec_struct,tmpmyc_struct, &
-           tmpcqsig_struct,tmpmycsig_struct,tmpqsosig_struct
+           tmpcqsig_struct,tmpmycsig_struct,tmpqsosig_struct,osd_pair_workspace
       real :: residual(180000),f1,xdt,xsnr,qual
       complex :: spectrum(0:96000)
       integer :: nQSOProgress,nfqso,nftx,napwid,iaptype,nbadcrc,nthr,ipass
@@ -52,6 +53,7 @@ module ft8_decodevar
       type(tmpqsosig_struct) :: tmpqsosig(*)
       type(pack77_state), target, optional, intent(inout) :: knowledge
       type(ft8_signal_evidence), optional, intent(out) :: evidence
+      type(osd_pair_workspace), intent(inout) :: osd_ws
     end subroutine ft8bvar
   end interface
 
@@ -106,6 +108,7 @@ contains
     integer nsnr,nmsgcopy
     type(pack77_state), pointer :: codec
     type(ft8_signal_evidence) :: evidence
+    type(osd_pair_workspace), allocatable :: osd_ws
 
     type oddtmp_struct
        real freq
@@ -132,6 +135,7 @@ contains
     codec => this%knowledge
     if(.not.associated(codec)) codec => get_ft8_codec_state()
     allocate(tmpcqsig(numcqsig))
+    allocate(osd_ws)
     oddtmp%lstate=.false.
     eventmp%lstate=.false.
     nmsgloc=0
@@ -236,7 +240,7 @@ contains
                nft8rxfsens,ncount,msgsrcvd,lrepliedother,lhashmsg,lqsothread,   &
                lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig,                &
                lnohiscall,lnomycall,lnohisgrid,qual,iaptype2,                   &
-               progress_generation,codec,evidence)
+               progress_generation,codec,evidence,osd_ws)
           nsnr=nint(xsnr)
           xdt=xdt-0.5
           if(nbadcrc.eq.0) then

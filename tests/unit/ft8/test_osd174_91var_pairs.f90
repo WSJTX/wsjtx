@@ -16,6 +16,7 @@ program test_osd174_91var_pairs
 ! ndeep 1 to 5 (normal) and the pair pass must improve a result.  A run without
 ! case numbers must also show that the inputs exercise the pair pass.
   use iso_fortran_env, only: int64
+  use osd174_91var_mod, only: osd174_91var,osd174_91var_core,osd_pair_workspace
   implicit none
   integer, parameter :: N=174
   integer :: ncases,nd,ic,i,nargs,nfail,nimproved,nok,iap,nblk,iarg,icase,nrun,ifirst,nseen(5)
@@ -29,6 +30,7 @@ program test_osd174_91var_pairs
   integer :: nh1,nh2,nh3,nh4
   character(len=32) :: arg
   logical :: bad,tiesonly,curated,pu1,pu3,pu4
+  type(osd_pair_workspace), allocatable :: ws
 
   ncases=3000
   nargs=command_argument_count()
@@ -155,6 +157,13 @@ program test_osd174_91var_pairs
     if(tiesonly) ndeeps(ic)=3
   enddo
 
+  allocate(ws)
+  ws%ckey=-1
+  ws%pkey=-1
+  ws%head=size(ws%nxt)+1
+  ws%nxt=-1
+  ws%pi1=-1
+  ws%pi2=-1
   nfail=0; nimproved=0; nok=0; nrun=0; nseen=0
   do ic=1,ncases
     if(.not.selected(ic)) cycle
@@ -162,11 +171,11 @@ program test_osd174_91var_pairs
     nseen(ndeeps(ic))=nseen(ndeeps(ic))+1
     llr=llrs(:,ic); apmask=aps(:,ic)
     nd=ndeeps(ic)
-    call osd174_91var_core(llr,apmask,nd,m1,cw1,nh1,dmin1,1,0,.true.,pu1)
+    call osd174_91var_core(llr,apmask,nd,m1,cw1,nh1,dmin1,1,0,.true.,pu1,ws)
     nd=ndeeps(ic)
-    call osd174_91var(llr,apmask,nd,m2,cw2,nh2,dmin2,1,0)
+    call osd174_91var(llr,apmask,nd,m2,cw2,nh2,dmin2,1,0,ws)
     nd=ndeeps(ic)
-    call osd174_91var_core(llr,apmask,nd,m3,cw3,nh3,dmin3,1,0,.false.,pu3)   ! as the wrapper does
+    call osd174_91var_core(llr,apmask,nd,m3,cw3,nh3,dmin3,1,0,.false.,pu3,ws)   ! as the wrapper does
     bad = any(cw1.ne.cw2) .or. any(m1.ne.m2) .or. nh1.ne.nh2 .or. &
           transfer(dmin1,1).ne.transfer(dmin2,1) .or. &
           any(cw1.ne.cw3) .or. any(m1.ne.m3) .or. nh1.ne.nh3 .or. &
@@ -175,7 +184,7 @@ program test_osd174_91var_pairs
     bad = bad .or. pu1 .or. (pu3 .neqv. (ndeeps(ic).eq.3))
     if(ndeeps(ic).eq.3) then
       nd=2
-      call osd174_91var_core(llr,apmask,nd,m4,cw4,nh4,dmin4,1,0,.true.,pu4)
+      call osd174_91var_core(llr,apmask,nd,m4,cw4,nh4,dmin4,1,0,.true.,pu4,ws)
       if(dmin1.lt.dmin4) nimproved=nimproved+1
     endif
     if(nh1.gt.0) nok=nok+1

@@ -57,6 +57,7 @@ program test_osd174_91var_pairs_concurrent
   use iso_fortran_env, only: int64
   use omp_lib
   use decode_completion_module, only: set_packed_pass_receiver
+  use osd174_91var_mod, only: osd174_91var_core,osd_pair_workspace
   use osd_pairs_concurrent_controls
   implicit none
   integer, parameter :: NTHREAD = 2
@@ -65,9 +66,11 @@ program test_osd174_91var_pairs_concurrent
   real :: dmin_ser(2), dmin, dmin2, g, u1, u2, sigma, llr(N)
   logical :: pu, chosen
   integer(int64) :: state
+  type(osd_pair_workspace), allocatable :: ws
 
   if (omp_get_max_threads() .lt. NTHREAD) error stop 'two OpenMP workers are required'
 
+  allocate(ws)
   state = 20261120_int64
   apmask = 0
 ! Tries 107 and 109 of a fixed input sequence are inputs for which the pair pass
@@ -95,11 +98,11 @@ program test_osd174_91var_pairs_concurrent
     chosen = ntry .eq. 107 .or. ntry .eq. 109
     if (ntry .ne. 1 .and. .not. chosen) cycle
     nd = 3
-    call osd174_91var_core(llr, apmask, nd, m, cw, nh, dmin, 1, 0, .false., pu)
+    call osd174_91var_core(llr, apmask, nd, m, cw, nh, dmin, 1, 0, .false., pu, ws)
     if (.not. pu) error stop 'the packed pair table was not used'
     if (.not. chosen) cycle
     nd = 2
-    call osd174_91var_core(llr, apmask, nd, m2, cw2, nh2, dmin2, 1, 0, .false., pu)
+    call osd174_91var_core(llr, apmask, nd, m2, cw2, nh2, dmin2, 1, 0, .false., pu, ws)
     if (.not. (dmin .lt. dmin2 .and. nh .gt. 0)) &
          error stop 'the pair pass does not improve this input'
     it = it + 1
@@ -111,6 +114,7 @@ program test_osd174_91var_pairs_concurrent
     if (it .eq. NTHREAD) exit
   enddo
   if (it .ne. NTHREAD) error stop 'the two inputs were not generated'
+  deallocate(ws)
 
 ! Together.  Each worker publishes its results with a release store of its own
 ! completion flag after the decode, and the main thread reads them only after an
@@ -118,11 +122,12 @@ program test_osd174_91var_pairs_concurrent
 ! libgomp join is not visible to ThreadSanitizer, and nothing orders the two
 ! decodes relative to each other.
   call set_packed_pass_receiver(packed_pass)
-!$omp parallel num_threads(NTHREAD) default(shared) private(it, nd, cw, m, nh, dmin, pu)
+!$omp parallel num_threads(NTHREAD) default(shared) private(it, nd, cw, m, nh, dmin, pu, ws)
   if (omp_get_num_threads() .ne. NTHREAD) error stop 'OpenMP did not start two threads'
+  allocate(ws)
   it = omp_get_thread_num() + 1
   nd = 3
-  call osd174_91var_core(llrs(:,it), apmask, nd, m, cw, nh, dmin, it, 0, .false., pu)
+  call osd174_91var_core(llrs(:,it), apmask, nd, m, cw, nh, dmin, it, 0, .false., pu, ws)
   msg_par(:,it) = m
   cw_par(:,it) = cw
   nh_par(it) = nh
