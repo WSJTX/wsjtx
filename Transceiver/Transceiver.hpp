@@ -84,6 +84,21 @@ protected:
 public:
   virtual ~Transceiver () {}
 
+  // While one of these is alive on a thread, a queued deleteLater() of any
+  // Transceiver (or wrapper) on that thread is held back and posted again
+  // when the last one is gone. Use it around a nested event loop whose
+  // callers still use the object.
+  class DeferredDeleteHold
+  {
+  public:
+    DeferredDeleteHold ();
+    ~DeferredDeleteHold ();
+    // Deletes held back so far on this thread (diagnostics and tests).
+    static unsigned long long held_count ();
+    DeferredDeleteHold (DeferredDeleteHold const&) = delete;
+    DeferredDeleteHold& operator = (DeferredDeleteHold const&) = delete;
+  };
+
   enum MODE {UNK, CW, CW_R, USB, LSB, FSK, FSK_R, DIG_U, DIG_L, AM, FM, DIG_FM};
   Q_ENUM (MODE)
 
@@ -306,6 +321,9 @@ public:
 
   // Ready to be destroyed.
   Q_SIGNAL void finished () const;
+
+protected:
+  bool event (QEvent *) override;
 
 private:
   logger_type mutable * logger_;

@@ -1683,53 +1683,59 @@ auto TCITransceiver::string_to_frequency (QString const& s) const -> Frequency
   return frequency;
 }
 
+void TCITransceiver::wait_exec (QEventLoop * loop)
+{
+  DeferredDeleteHold hold;
+  loop->exec ();
+}
+
 void TCITransceiver::mysleep1 (int ms)
 {
   if (ms) tci_timer1_->start(ms);
-  tci_loop1_->exec();
+  wait_exec (tci_loop1_);
   if (tci_timer1_->isActive() && tci_Ready) tci_timer1_->stop();
 }
 void TCITransceiver::mysleep2 (int ms)
 {
   if (ms) tci_timer2_->start(ms);
-  tci_loop2_->exec();
+  wait_exec (tci_loop2_);
   if (tci_timer2_->isActive()) tci_timer2_->stop();
 }
 void TCITransceiver::mysleep3 (int ms)
 {
   if (ms) tci_timer3_->start(ms);
-  tci_loop3_->exec();
+  wait_exec (tci_loop3_);
   if (tci_timer3_->isActive()) tci_timer3_->stop();
 }
 void TCITransceiver::mysleep4 (int ms)
 {
   if (ms) tci_timer4_->start(ms);
-  tci_loop4_->exec();
+  wait_exec (tci_loop4_);
   if (tci_timer4_->isActive()) tci_timer4_->stop();
 }
 void TCITransceiver::mysleep5 (int ms)
 {
   if((tci_loop5_ && (tci_loop5_->isRunning())) || (tci_timer5_ && tci_timer5_->isActive())) return;
   if (ms) tci_timer5_->start(ms);
-  tci_loop5_->exec();
+  wait_exec (tci_loop5_);
   if (tci_timer5_->isActive()) tci_timer5_->stop();
 }
 void TCITransceiver::mysleep6 (int ms)
 {
   if (ms) tci_timer6_->start(ms);
-  tci_loop6_->exec();
+  wait_exec (tci_loop6_);
   if (tci_timer6_->isActive()) tci_timer6_->stop();
 }
 void TCITransceiver::mysleep7 (int ms)
 {
     if (ms) tci_timer7_->start(ms);
-    tci_loop7_->exec();
+    wait_exec (tci_loop7_);
     if (tci_timer7_->isActive()) tci_timer7_->stop();
 }
 void TCITransceiver::mysleep8 (int ms)
 {
     if (ms) tci_timer8_->start(ms);
-    tci_loop8_->exec();
+    wait_exec (tci_loop8_);
     if (tci_timer8_->isActive()) tci_timer8_->stop();
 }
 // Modulator part
