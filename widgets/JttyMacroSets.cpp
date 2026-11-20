@@ -75,7 +75,6 @@ namespace Jtty
           {QStringLiteral ("Over"), QStringLiteral ("BTU %H DE %M K%]")},
           {QStringLiteral ("Sign off"), QStringLiteral ("%H DE %M SK%]")},
           {QStringLiteral ("CQ grid"), QStringLiteral ("%[CQ %M %G%]")},
-          {QStringLiteral ("TQBF"), QStringLiteral ("THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG")},
         });
     }
     return {};

@@ -141,8 +141,8 @@ private:
   struct PlacedCall {
     WaterfallCalls::Label label;
     QRect rect;                 // widget coordinates
-    int centreX;
   };
+  static QFont callLabelFont ();
   QVector<PlacedCall> layoutCallLabels () const;
   static QRect callLabelBox (QRect const& textRect);
   void drawCallStrip (QPainter& painter);

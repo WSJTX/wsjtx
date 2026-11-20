@@ -497,13 +497,20 @@ void CPlotter::setCallLabels (QVector<WaterfallCalls::Label> const& labels)
   if (hasCallStrip ()) update ();
 }
 
-QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
+// The one font of the call labels: layout (and so the click boxes) and drawing
+// both use it, so the boxes always match the drawn text.
+QFont CPlotter::callLabelFont ()
 {
-  if (!hasCallStrip ()) return {};              // labels are a JTTY thing
   QFont font ("Arial");
   font.setPointSize (10);       // two rows in a 32 px strip
   font.setBold (true);
-  QFontMetrics const fm {font};
+  return font;
+}
+
+QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
+{
+  if (!hasCallStrip ()) return {};              // labels are a JTTY thing
+  QFontMetrics const fm {callLabelFont ()};
   int const width = m_scale.width ();
   int const rowHeight = callStripHeight / 2;
   auto const placed = WaterfallCalls::place (
@@ -516,7 +523,7 @@ QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
     auto const& label = m_callLabels[p.index];
     int const w = fm.horizontalAdvance (label.call);
     int const x = int (p.xCentre) - w / 2;
-    out.append ({label, QRect (x, callStripTop () + p.row * rowHeight, w, rowHeight), int (p.xCentre)});
+    out.append ({label, QRect (x, callStripTop () + p.row * rowHeight, w, rowHeight)});
   }
   return out;
 }
@@ -553,10 +560,7 @@ QRect CPlotter::callLabelRect (QString const& call) const
 void CPlotter::drawCallStrip (QPainter& painter)
 {
   painter.save ();
-  QFont font ("Arial");
-  font.setPointSize (10);       // two rows in a 32 px strip
-  font.setBold (true);
-  painter.setFont (font);
+  painter.setFont (callLabelFont ());
   for (auto const& p : layoutCallLabels ()) {
     QColor colour {0xe0, 0xe0, 0xe0};
     switch (p.label.kind) {
@@ -1089,7 +1093,11 @@ void CPlotter::mouseReleaseEvent (QMouseEvent * event)
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
     if(!shift and m_mode=="FST4W") return;
     int newFreq = int(FreqfromX(x)+0.5);
-    if (hasCallStrip ()) {                      // a click on a call label = that signal
+    // A click on a call label = that signal. Keep this block above the read
+    // of m_txFreq below: jttyCallClicked's slot in MainWindow sets the Tx
+    // frequency (Tx on call) before oldTxFreq is read, and that is the only
+    // reason setFreq1 (newFreq, oldTxFreq) does not put the old Tx frequency back.
+    if (hasCallStrip ()) {
       for (auto const& p : layoutCallLabels ()) {
         if (callLabelBox (p.rect).contains (event->pos ())) {
           newFreq = int (p.label.freq + 0.5f);

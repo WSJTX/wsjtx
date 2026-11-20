@@ -60,7 +60,7 @@ private slots:
     QVERIFY (over.pttOff);
   }
 
-  void chatHasCqGridAndTheFoxText ()
+  void chatHasCqGridAndLeavesTheRestForTheOperator ()
   {
     auto const chat = Jtty::defaultMacroSet (QStringLiteral ("Chat"));
     QCOMPARE (chat.macros[0].text, QStringLiteral ("%[CQ CQ CQ DE %M %M K%]"));
@@ -69,11 +69,12 @@ private slots:
     QCOMPARE (cq.text, QStringLiteral ("CQ %M %G"));
     QVERIFY (cq.pttOn);
     QVERIFY (cq.pttOff);
-    auto const fox = Jtty::parseMacroControl (chat.macros[5].text);
-    QCOMPARE (fox.text, QStringLiteral ("THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"));
-    QVERIFY (!fox.pttOn);
-    QVERIFY (!fox.pttOff);
-    // Run and S&P have no CQ-with-grid or fox macro to find.
+    // F6 and the keys after it are blank: a default set does not spend a key
+    // on a test string; the operator puts their own text there.
+    for (int key = 6; key <= Jtty::macroKeyCount; ++key) {
+      QVERIFY (chat.macros[key - 1].text.isEmpty ());
+    }
+    // Run and S&P have no CQ-with-grid macro to find.
     for (QString const& name : {QStringLiteral ("Run"), QStringLiteral ("S&P")}) {
       auto const set = Jtty::defaultMacroSet (name);
       for (int key = 9; key <= Jtty::macroKeyCount; ++key) {

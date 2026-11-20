@@ -948,7 +948,8 @@ private:
   void applyJttyLiveEntryFormatting();
   void guardJttyLiveEntryLock();
   void updateJttyLiveEntryFrameLabel();
-  bool jttyOverGetsMyCallPrefix(QString const& uncommitted);
+  QString withJttyOverPrefix(QString const& expanded, QString const& uncommitted,
+                             bool * added = nullptr);
   double jttyRequestSentFraction(qint64 requestId) const;
   int jttyRequestFramesDone(qint64 requestId) const;
   int countJttyTransmitFrames(QString const& preparedMessage) const;
@@ -1659,7 +1660,8 @@ private:
   QString m_jttyQueueNotice;
   bool m_jttyLiveEntryArmed {false};
   bool m_guardingJttyLiveEntryLock {false};
-  int m_jttyLiveEntryCommitted {0};   // Tx_Message chars already sent/queued; locked against edits.
+  bool m_jttyOverPrefixed {false};    // this over's text already got the MyCall prefix
+  int m_jttyLiveEntryCommitted {0};  // Tx_Message chars already sent/queued; locked against edits.
   QString m_jttyLiveEntryLockedText;  // cached committed prefix, to detect edits that touch it
   struct PendingLiveEntryCommit { qint64 requestId; int start, end; int totalFrames {0}; };
   // Committed spans not yet confirmed fully transmitted; drives progressive sent/queued coloring and reject-triggered unlocking.

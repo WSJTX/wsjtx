@@ -120,6 +120,7 @@ void MainWindow::setJttyPttEnabled(bool on, bool finalOver)
     }
     setXIT (ui->TxFreqSpinBox->value ());
     m_jttyLiveEntryArmed = true;
+    m_jttyOverPrefixed = false;   // a new over: it may get the MyCall prefix
     m_jttyDiddling = false;   // stale from the previous session's last filler
     m_jttyDiddleFrames = 0;
     // Nothing committable (empty box or half-typed word): key with diddle.
@@ -245,16 +246,27 @@ void MainWindow::sendJttyFillerPadding()
   execute_jtty_tx (requestId, Jtty::jttyFillerText, /*isFinal=*/false);
 }
 
-// Chat: the first words of an over get "MYCALL: " in front unless all that is
-// typed so far (uncommitted) already names the station. Used when text is
-// committed and by the frame estimate, so both count the same text.
-bool MainWindow::jttyOverGetsMyCallPrefix(QString const& uncommitted)
+// Chat: the first text of an over gets "MYCALL: " in front unless all that is
+// typed so far (uncommitted) already names the station. "First text of the
+// over" is that nothing of the box is committed or pending and no slice has
+// been prefixed yet (m_jttyOverPrefixed, cleared by PTT on and by clearing the
+// box); whether the transmitter is already keyed with diddle does not matter.
+// The one place that decides, used by the commit and by the frame estimate so
+// the two cannot drift apart. `expanded` is the macro-expanded text of the slice.
+QString MainWindow::withJttyOverPrefix(QString const& expanded, QString const& uncommitted,
+                                       bool * added)
 {
-  return ui->cbJttyMyCallPrefix->isChecked ()
-    && m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off
-    && m_jttyLiveEntryCommitted == 0 && m_jttyLiveEntryPending.isEmpty ()
-    && !m_jttyTxLifecycle.active ()
-    && !Jtty::textHasCall (jtty_msg_expand (uncommitted), m_config.my_callsign ());
+  if (added) *added = false;
+  if (ui->cbJttyMyCallPrefix->isChecked ()
+      && m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off
+      && m_jttyLiveEntryCommitted == 0 && m_jttyLiveEntryPending.isEmpty ()
+      && !m_jttyOverPrefixed
+      && !Jtty::textHasCall (jtty_msg_expand (uncommitted), m_config.my_callsign ())) {
+    auto const prefixed = Jtty::withMyCallPrefix (expanded, m_config.my_callsign ());
+    if (added) *added = prefixed != expanded;
+    return prefixed;
+  }
+  return expanded;
 }
 
 bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, bool isFinal)
@@ -264,11 +276,9 @@ bool MainWindow::commitJttyLiveEntryPlan(bool forceFlush, int holdbackWords, boo
   if (plan.text.trimmed ().isEmpty ()) return false;
 
   QString expanded = jtty_msg_expand (plan.text);
-  // Chat: the first words of an over get "MYCALL: " in front unless the
-  // message (all that is typed so far) already names the station.
-  if (jttyOverGetsMyCallPrefix (uncommitted)) {
-    expanded = Jtty::withMyCallPrefix (expanded, m_config.my_callsign ());
-  }
+  bool prefixAdded = false;
+  expanded = withJttyOverPrefix (expanded, uncommitted, &prefixAdded);
+  if (prefixAdded) m_jttyOverPrefixed = true;
   if (ui->cbLowerCase->isChecked ()) expanded = expanded.toLower ();
   expanded = Jtty::prepareTransmitText (expanded).text;
 
@@ -312,6 +322,7 @@ void MainWindow::clearJttyLiveEntry()
   }
   m_jttyLiveEntryPending.clear ();
   m_jttyLiveEntryCommitted = 0;
+  m_jttyOverPrefixed = false;
   m_jttyLiveEntryFramesSent = 0;
   m_jttyLiveEntryArmed = false;
   m_jttyDiddling = false;
@@ -442,9 +453,7 @@ void MainWindow::updateJttyLiveEntryFrameLabel()
   int uncommittedFrames = 0;
   if (!uncommitted.trimmed ().isEmpty ()) {
     QString probe = jtty_msg_expand (uncommitted);
-    if (jttyOverGetsMyCallPrefix (uncommitted)) {
-      probe = Jtty::withMyCallPrefix (probe, m_config.my_callsign ());
-    }
+    probe = withJttyOverPrefix (probe, uncommitted);
     if (ui->cbLowerCase->isChecked ()) probe = probe.toLower ();
     probe = Jtty::prepareTransmitText (probe).text;
     uncommittedFrames = countJttyTransmitFrames (probe);
