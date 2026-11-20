@@ -70,25 +70,37 @@ endforeach ()
 add_test (NAME test_osd174_91_fast_ties COMMAND test_osd174_91_fast 10000 91 ties)
 set_tests_properties (test_osd174_91_fast_ties PROPERTIES TIMEOUT 120)
 
-# Not run under TSan: this test calls the decoder from one thread and checks
-# that two pair tables give identical output, so there is no concurrency for
-# TSan to examine. There it takes about 340 s (main) and 400 s (ties), about 6
-# times ASan. ASan+UBSan is about 10 times slower than a plain build, so it
-# runs 500 cases, which still include ten each of ndeep 1, 2, 4 and 5, with a
-# longer timeout. The ties run keeps its count.
+# Not registered under TSan: this test calls the decoder from one thread and
+# checks that two pair tables give identical output, so there is no concurrency
+# for TSan to examine; test_osd174_91var_pairs_concurrent covers that.
+# Under ASan+UBSan, which look for out-of-bounds access and undefined behaviour
+# in the table indexing, the test runs the numbered cases below instead of
+# hundreds of random ones. The case numbers name the inputs the generator in the
+# test produces. Cases 10, 30, 40 and 50 are ndeep 2, 4, 5 and 1; 1, 3 and 11 are
+# ndeep 3, and the pair pass improves the result in 3 and 11. Case 1 catches a
+# pair pass that ignores the a-priori mask and case 3 one that skips the chain
+# walk. The ties list is all-hard-decision inputs with many exact ties: 35
+# catches a chain built in the other order and 80 a chain cut short. The lists
+# are passed as "curated", so the test also checks that the normal list reaches
+# every ndeep and that the pair pass improves at least one result. Plain builds
+# run every case.
 if (NOT WSJT_ENABLE_TSAN)
   add_executable (test_osd174_91var_pairs
     test_osd174_91var_pairs.f90)
   wsjt_link_common_fortran (test_osd174_91var_pairs)
-  set (osd_pairs_cases 3000)
-  set (osd_pairs_timeout 120)
   if (WSJT_ENABLE_ASAN_UBSAN)
-    set (osd_pairs_cases 500)
-    set (osd_pairs_timeout 300)
+    set (osd_pairs_args 50 normal curated 1 3 10 11 30 40 50)
+    set (osd_pairs_ties_args 80 ties curated 3 35 80)
+    set (osd_pairs_timeout 20)
+  else ()
+    set (osd_pairs_args 3000)
+    set (osd_pairs_ties_args 1500 ties)
+    set (osd_pairs_timeout 120)
   endif ()
   add_test (NAME test_osd174_91var_pairs
-    COMMAND test_osd174_91var_pairs ${osd_pairs_cases})
-  add_test (NAME test_osd174_91var_pairs_ties COMMAND test_osd174_91var_pairs 1500 ties)
+    COMMAND test_osd174_91var_pairs ${osd_pairs_args})
+  add_test (NAME test_osd174_91var_pairs_ties
+    COMMAND test_osd174_91var_pairs ${osd_pairs_ties_args})
   set_tests_properties (test_osd174_91var_pairs test_osd174_91var_pairs_ties
     PROPERTIES TIMEOUT ${osd_pairs_timeout})
 endif ()
@@ -120,6 +132,23 @@ if (TARGET wsjt_fort_omp)
     ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=4;OMP_THREAD_LIMIT=4"
     PROCESSORS 4
     TIMEOUT 60)
+
+  add_executable (test_osd174_91var_pairs_concurrent
+    test_osd174_91var_pairs_concurrent.f90)
+  target_include_directories (test_osd174_91var_pairs_concurrent PRIVATE
+    ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
+  target_link_libraries (test_osd174_91var_pairs_concurrent PRIVATE
+    wsjt_fort_omp wsjt_fortran_openmp)
+  add_test (NAME test_osd174_91var_pairs_concurrent
+    COMMAND test_osd174_91var_pairs_concurrent)
+  set_tests_properties (test_osd174_91var_pairs_concurrent PROPERTIES
+    ENVIRONMENT "OMP_DYNAMIC=FALSE;OMP_NUM_THREADS=2;OMP_THREAD_LIMIT=2"
+    PROCESSORS 2
+    TIMEOUT 30)
+  if (WSJT_ENABLE_TSAN)
+    set_property (TEST test_osd174_91var_pairs_concurrent APPEND PROPERTY
+      ENVIRONMENT "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
+  endif ()
 
   add_executable (test_ft8_mtd_transaction_concurrent
     test_ft8_mtd_transaction_concurrent.f90)

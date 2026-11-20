@@ -6,13 +6,20 @@ program test_osd174_91var_pairs
 ! original table in both.  The packed table must be used for ndeep 3 and for no
 ! other ndeep.
 !
-! usage: test_osd174_91var_pairs [ncases [ties]]   (default 3000)
+! usage: test_osd174_91var_pairs [ncases [normal|ties [curated] [case ...]]]   (default 3000)
 ! "ties": every input is hard decisions only, so many candidates tie exactly and
 ! the order in which the search visits them decides the result.
+! With case numbers (1-based, at most ncases) only those cases are decoded; the
+! inputs are still generated in sequence, so a case number names the same input
+! whatever ncases is.  A replay of chosen cases only checks that the decoders
+! agree.  "curated" marks a list chosen to cover the decoder: it must reach
+! ndeep 1 to 5 (normal) and the pair pass must improve a result.  A run without
+! case numbers must also show that the inputs exercise the pair pass.
   use iso_fortran_env, only: int64
   implicit none
   integer, parameter :: N=174
-  integer :: ncases,nd,ic,i,nargs,nfail,nimproved,nok,iap,nblk
+  integer :: ncases,nd,ic,i,nargs,nfail,nimproved,nok,iap,nblk,iarg,icase,nrun,ifirst,nseen(5)
+  logical, allocatable :: selected(:)
   integer(int64) :: state
   integer, allocatable :: ndeeps(:)
   real, allocatable :: llrs(:,:)
@@ -21,14 +28,36 @@ program test_osd174_91var_pairs
   integer*1 :: apmask(N),cw1(N),cw2(N),m1(77),m2(77),msg77(77),cwtrue(N),cw3(N),m3(77),cw4(N),m4(77)
   integer :: nh1,nh2,nh3,nh4
   character(len=32) :: arg
-  logical :: bad,tiesonly,pu1,pu3,pu4
+  logical :: bad,tiesonly,curated,pu1,pu3,pu4
 
   ncases=3000
   nargs=command_argument_count()
   if(nargs.ge.1) then; call get_command_argument(1,arg); read(arg,*) ncases; endif
   tiesonly=.false.
-  if(nargs.ge.2) then; call get_command_argument(2,arg); tiesonly=(trim(arg).eq.'ties'); endif
-  allocate(llrs(N,ncases),aps(N,ncases),ndeeps(ncases))
+  if(nargs.ge.2) then
+    call get_command_argument(2,arg)
+    if(trim(arg).ne.'ties' .and. trim(arg).ne.'normal') error stop 'second argument must be normal or ties'
+    tiesonly=(trim(arg).eq.'ties')
+  endif
+  curated=.false.
+  ifirst=3
+  if(nargs.ge.3) then
+    call get_command_argument(3,arg)
+    if(trim(arg).eq.'curated') then
+      curated=.true.
+      ifirst=4
+    endif
+  endif
+  ! The case numbers in tests/unit/ft8/CMakeLists.txt name the inputs generated
+  ! below; changing the generator changes which input each number is.
+  allocate(llrs(N,ncases),aps(N,ncases),ndeeps(ncases),selected(ncases))
+  selected=(nargs.lt.ifirst)
+  if(curated .and. nargs.lt.ifirst) error stop 'curated needs case numbers'
+  do iarg=ifirst,nargs
+    call get_command_argument(iarg,arg); read(arg,*) icase
+    if(icase.lt.1 .or. icase.gt.ncases) error stop 'case number out of range'
+    selected(icase)=.true.
+  enddo
   state=20261114_int64
 
   do ic=1,ncases
@@ -126,8 +155,11 @@ program test_osd174_91var_pairs
     if(tiesonly) ndeeps(ic)=3
   enddo
 
-  nfail=0; nimproved=0; nok=0
+  nfail=0; nimproved=0; nok=0; nrun=0; nseen=0
   do ic=1,ncases
+    if(.not.selected(ic)) cycle
+    nrun=nrun+1
+    nseen(ndeeps(ic))=nseen(ndeeps(ic))+1
     llr=llrs(:,ic); apmask=aps(:,ic)
     nd=ndeeps(ic)
     call osd174_91var_core(llr,apmask,nd,m1,cw1,nh1,dmin1,1,0,.true.,pu1)
@@ -152,10 +184,20 @@ program test_osd174_91var_pairs
       if(nfail.le.5) print '(a,i6,a,i2,a,3i5,3es15.7)','MISMATCH case',ic,' ndeep',ndeeps(ic),' nhard',nh1,nh2,nh3,dmin1,dmin2,dmin3
     endif
   enddo
-  print '(a,i7,a,i6,a,i6)','cases',ncases,'  pair pass improved over ndeep 2:',nimproved,'  CRC ok, nhard>0:',nok
+  print '(a,i7,a,i6,a,i6)','cases',nrun,'  pair pass improved over ndeep 2:',nimproved,'  CRC ok, nhard>0:',nok
 
   if(nfail.ne.0) error stop 'test_osd174_91var_pairs failed'
-! The comparison means little if the pair pass never changes the result.
-  if(nimproved.lt.ncases/50 .or. nok.lt.ncases/10) error stop 'test inputs do not exercise the pair pass'
+! The comparison means little if the pair pass never changes the result.  This
+! is checked for a run without case numbers and for a curated list; a replay of
+! chosen cases only has to agree.
+  if(curated .or. nargs.lt.3) then
+    if(nimproved.lt.max(1,nrun/50)) error stop 'test inputs do not exercise the pair pass'
+  endif
+  if(nargs.lt.3 .and. nok.lt.ncases/10) error stop 'test inputs do not exercise the pair pass'
+! A curated normal list must reach every ndeep, so a list that loses the only
+! ndeep 5 case (the original-table fallback) is noticed.
+  if(curated .and. .not.tiesonly) then
+    if(any(nseen.eq.0)) error stop 'curated list does not reach every ndeep'
+  endif
   print *,'test_osd174_91var_pairs passed'
 end program

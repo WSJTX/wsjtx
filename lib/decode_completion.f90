@@ -10,6 +10,8 @@ module decode_completion_module
   public :: write_decode_completion
   public :: write_decode_progress
   public :: set_progress_receiver
+  public :: set_packed_pass_receiver
+  public :: report_packed_pass
 
   type :: decode_completion_result
      logical :: available = .false.
@@ -32,6 +34,16 @@ module decode_completion_module
      end subroutine progress_receiver
   end interface
   procedure(progress_receiver), pointer, save :: receive_progress => null()
+
+  ! Called, when set, as the OSD decoder enters (entering .true.) and leaves
+  ! (.false.) its packed pair-table pass.  Does nothing unless a receiver is
+  ! set, which must happen before any decoding thread starts.
+  abstract interface
+     subroutine packed_pass_receiver(entering)
+       logical, intent(in) :: entering
+     end subroutine packed_pass_receiver
+  end interface
+  procedure(packed_pass_receiver), pointer, save :: receive_packed_pass => null()
 
 contains
 
@@ -101,5 +113,15 @@ contains
     procedure(progress_receiver) :: receiver
     receive_progress => receiver
   end subroutine set_progress_receiver
+
+  subroutine set_packed_pass_receiver(receiver)
+    procedure(packed_pass_receiver) :: receiver
+    receive_packed_pass => receiver
+  end subroutine set_packed_pass_receiver
+
+  subroutine report_packed_pass(entering)
+    logical, intent(in) :: entering
+    if (associated(receive_packed_pass)) call receive_packed_pass(entering)
+  end subroutine report_packed_pass
 
 end module decode_completion_module

@@ -21,7 +21,7 @@ subroutine osd174_91var_core(llr,apmask,ndeep,message77,cw,nhardmin,dmin,nthr, &
 ! packed_used reports whether the second rule used the packed table.
 !
 use ft8_mod1, only : first_osd,gen
-use decode_completion_module, only : write_decode_progress
+use decode_completion_module, only : write_decode_progress,report_packed_pass
 integer, parameter:: N=174, K=91, M=N-K
 integer*1 apmask(N),apmaskr(N)
 integer*1 genmrb(K,N),g2(N,K)
@@ -251,6 +251,7 @@ if(lfast) then
 ! chain in the order boxit91var would have stored them, and the search below
 ! walks the chains the way fetchit91var does, including what it returns when the
 ! same key is looked up again straight after (lastpat, inext).
+   call report_packed_pass(.true.)
    do j=1,K
       ckey(j)=0
       do i=1,ntau
@@ -326,6 +327,7 @@ if(lfast) then
       enddo
       call nextpat91var(misub,K,nord,iflag)
    enddo
+   call report_packed_pass(.false.)
 endif
 
 if(npre2.eq.1 .and. .not.lfast) then
