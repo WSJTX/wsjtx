@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -316,6 +317,21 @@ fi
 """
 
 
+def find_bash() -> str:
+    """The bash a shell would run. Windows searches System32, where WSL installs a bash.exe, before PATH, and a default
+    Git for Windows install puts only git on PATH, so take the bash.exe beside git there."""
+    bash = shutil.which("bash")
+    if os.name == "nt" and (bash is None or pathlib.Path(bash).parent.name.lower() == "system32"):
+        git = shutil.which("git")
+        beside = pathlib.Path(git).resolve().parents[1] / "bin" / "bash.exe" if git else None
+        if beside is not None and beside.is_file():
+            return str(beside)
+    return bash or "bash"
+
+
+BASH = find_bash()
+
+
 class ReportScriptTests(unittest.TestCase):
     TITLE = "Nightly tests failed on develop"
 
@@ -323,19 +339,20 @@ class ReportScriptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             directory = pathlib.Path(directory)
             gh = directory / "gh"
-            gh.write_text(FAKE_GH)
+            gh.write_text(FAKE_GH, newline="\n")
             gh.chmod(0o755)
             script = directory / "report.sh"
-            script.write_text(report_script())
+            script.write_text(report_script(), newline="\n")
             log = directory / "log"
             log.write_text("")
-            env = {"PATH": f"{directory}:/usr/bin:/bin", "GH_LOG": str(log), "FAKE_OPEN_ISSUE": open_issue,
+            env = {"PATH": os.pathsep.join([str(directory), "/usr/bin", "/bin"]), "GH_LOG": str(log),
+                   "FAKE_OPEN_ISSUE": open_issue,
                    "GH_TOKEN": "token", "GH_REPO": "WSJTX/wsjtx-internal", "RUN_URL": "https://example.invalid/runs/7",
                    "SHA": HEAD, "PREPARE": prepare, "RUNTIME": runtime, "WINDOWS": windows}
             if fail:
                 env["FAKE_GH_FAIL"] = "1"
             # GitHub runs a step's script with bash -eo pipefail.
-            result = subprocess.run(["bash", "-eo", "pipefail", str(script)], env=env, capture_output=True, text=True)
+            result = subprocess.run([BASH, "-eo", "pipefail", str(script)], env=env, capture_output=True, text=True)
             calls = [call.split("\0")[:-1] for call in log.read_text().split("\036") if call]
             return result.returncode, calls
 

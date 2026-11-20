@@ -39,6 +39,21 @@ LOCK = beta.LOCK_FILE
 RUN_IDS = itertools.count(1000)
 
 
+def find_bash() -> str:
+    """The bash a shell would run. Windows searches System32, where WSL installs a bash.exe, before PATH, and a default
+    Git for Windows install puts only git on PATH, so take the bash.exe beside git there."""
+    bash = shutil.which("bash")
+    if os.name == "nt" and (bash is None or Path(bash).parent.name.lower() == "system32"):
+        git = shutil.which("git")
+        beside = Path(git).resolve().parents[1] / "bin" / "bash.exe" if git else None
+        if beside is not None and beside.is_file():
+            return str(beside)
+    return bash or "bash"
+
+
+BASH = find_bash()
+
+
 def state(channel="BETA", number=2, version="3.3.0"):
     lines = [f"version={version}", f"channel={channel}", f"prerelease={number if channel in ('BETA', 'RC') else ''}",
              "revision=$Format:%H$"]
@@ -1240,9 +1255,9 @@ class RestartTest(SchedulerTestCase):
         self.assertEqual(self.internal.dispatches, [])
         return raised.exception
 
-    def spend_publication(self):
+    def spend_publication(self, **fields):
         self.public.published.discard("v3.3.0-beta2")
-        failed = run(beta.PUBLICATION, branch="v3.3.0-beta2", conclusion="failure")
+        failed = run(beta.PUBLICATION, branch="v3.3.0-beta2", conclusion="failure", **fields)
         self.internal.add(run(beta.CI, sha=TIP), candidate(), run(beta.PROMOTION, event="workflow_dispatch"))
         self.public.add(failed)
         return failed
@@ -1289,6 +1304,60 @@ class RestartTest(SchedulerTestCase):
         self.assertIn("3.3.0-beta2 is spent", reason)
         self.assertIn(result, reason)
         self.assertIn("Do not re-run its public build", reason)
+
+    def test_a_public_build_failed_less_than_a_day_ago_alerts_and_keeps_its_number(self):
+        for name, updated, held in (
+            ("failed overnight", "2026-11-18T01:40:00Z", "2026-11-19 01:40"),
+            ("failed a minute short of a day ago", "2026-11-17T07:31:00Z", "2026-11-18 07:31"),
+            ("failed exactly a day ago", "2026-11-17T07:30:00Z", None),
+            ("failed more than a day ago", "2026-11-17T07:29:00Z", None),
+        ):
+            with self.subTest(name=name):
+                self.setUp()
+                failed = self.spend_publication(created="2026-11-17T00:00:00Z", updated=updated)
+                if held is None:
+                    self.assertCut(3, self.restart())
+                    self.assertEqual([(stage, link) for stage, _, link in self.scheduler.notices],
+                                     [("publication", failed["html_url"])])
+                    continue
+                stop = self.stopped()
+                self.assertEqual((stop.stage, stop.link), ("publication", failed["html_url"]))
+                self.assertIn(f"concluded failure at {updated[:10]} {updated[11:16]} UTC", str(stop))
+                self.assertIn("Re-run its failed jobs if the failure was transient", str(stop))
+                self.assertIn(f"The restart leaves 3.3.0-beta2 until {held} UTC", str(stop))
+                self.assertNothingDone()
+                self.assertEqual(self.scheduler.notices, [])
+
+    def test_the_hold_alerts_whatever_develop_and_the_numbers_before_show(self):
+        # Without the hold these restarts skip quietly, and nothing else reports the failed public build.
+        for name, setup in (
+            ("develop has not moved", lambda: self.repo.ancestors.add((GREEN, TIP))),
+            ("no tested commit", lambda: self.internal.workflow_runs.update({beta.NIGHTLY: []})),
+            ("beta1 was not published either", lambda: self.public.published.discard("v3.3.0-beta1")),
+        ):
+            with self.subTest(name=name):
+                self.setUp()
+                self.spend_publication(updated=JUST_NOW)
+                setup()
+                self.assertEqual(self.stopped().stage, "publication")
+                self.assertNothingDone()
+        with self.subTest(name="beta1 was not published either, a day later"):
+            self.setUp()
+            self.spend_publication()
+            self.public.published.discard("v3.3.0-beta1")
+            self.assertIn("stands down", self.skipped())
+
+    def test_only_a_public_build_with_a_finish_time_is_held(self):
+        with self.subTest(name="a candidate that failed just now"):
+            self.setUp()
+            self.spend_candidate()["updated_at"] = JUST_NOW
+            self.assertCut(3, self.restart())
+        with self.subTest(name="a public build without updated_at"):
+            self.setUp()
+            # Started and created just now, so only the missing finish time lets the restart move on.
+            failed = self.spend_publication(created=JUST_NOW, started=JUST_NOW)
+            del failed["updated_at"]
+            self.assertCut(3, self.restart())
 
     def test_a_published_beta_is_left_alone(self):
         self.assertIn("`v3.3.0-beta2` is published; nothing failed", self.skipped())
@@ -1946,9 +2015,9 @@ class WorkflowWiringTest(unittest.TestCase):
             '          if [ "$BETA_AUTOMATION" = enabled ]; then\n', gate)
         with tempfile.TemporaryDirectory() as directory:
             directory = Path(directory)
-            (directory / "date").write_text('#!/bin/bash\n[ "$*" = "-u +%u" ] || exit 9\necho "$FAKE_UTC_DAY"\n')
-            (directory / "date").chmod(0o755)
-            (directory / "gate.sh").write_text(self.gate_script())
+            # date is a function, not a script on PATH: Git for Windows' bash puts its own directories first.
+            (directory / "gate.sh").write_text('date() { [ "$*" = "-u +%u" ] || exit 9; echo "$FAKE_UTC_DAY"; }\n'
+                                               + self.gate_script(), newline="\n")
             # The pause holds for every event and day: only BETA_AUTOMATION=enabled exactly passes the gate.
             for automation in ("enabled", None, "disabled", "Enabled"):
                 for event in ("workflow_run", "schedule", "workflow_dispatch"):
@@ -1957,12 +2026,11 @@ class WorkflowWiringTest(unittest.TestCase):
                             output, summary = directory / "output", directory / "summary"
                             output.write_text("")
                             summary.write_text("")
-                            env = {"PATH": f"{directory}:/usr/bin:/bin", "FAKE_UTC_DAY": str(day),
-                                   "EVENT_NAME": event, "GITHUB_OUTPUT": str(output),
+                            env = {"FAKE_UTC_DAY": str(day), "EVENT_NAME": event, "GITHUB_OUTPUT": str(output),
                                    "GITHUB_STEP_SUMMARY": str(summary)}
                             if automation is not None:
                                 env["BETA_AUTOMATION"] = automation
-                            result = subprocess.run(["bash", "-e", str(directory / "gate.sh")], env=env,
+                            result = subprocess.run([BASH, "-e", str(directory / "gate.sh")], env=env,
                                                     capture_output=True, text=True)
                             self.assertEqual(result.returncode, 0, result.stderr)
                             reached = event != "workflow_run" or day in (3, 4)
