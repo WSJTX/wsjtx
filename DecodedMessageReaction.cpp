@@ -971,9 +971,11 @@ namespace DecodedMessageReaction
       return plan;
     }
 
+    bool const hasReportRecipient = isResolvedCall(fields.destinationState)
+      || fields.destinationState == DecodedCallState::UnresolvedHash;
     bool const acknowledgesUs = isResolvedCall(fields.acknowledgedRecipientState)
       && sameStation(fields.acknowledgedRecipient, snapshot.myCall)
-      && isResolvedCall(fields.destinationState) && message.payloadWords().size() == 5
+      && hasReportRecipient && message.payloadWords().size() == 5
       && fields.exchangeWords.size() == 1 && isSignedReport(fields.exchange);
     bool const addressedToUs = isResolvedCall(fields.destinationState)
       && sameStation(fields.destination, snapshot.myCall);

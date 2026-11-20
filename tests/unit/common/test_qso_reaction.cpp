@@ -426,13 +426,23 @@ private slots:
       QVERIFY(!hasEffect(report, Effect::Kind::RequestLogQso));
     }
 
+    auto const acknowledgement = DecodedMessageReaction::planHoundReply(
+      decode("K1ABC RR73; <...> <W1AW> -10", "~", "060500"), snapshot);
+    QVERIFY(hasEffect(acknowledgement, Effect::Kind::ClickStopTx));
+    QVERIFY(hasEffect(acknowledgement, Effect::Kind::RequestLogQso));
+    QVERIFY(!hasEffect(acknowledgement, Effect::Kind::PrepareHoundReply));
+
     for (QString const& payload : {QString {"K1ABC W1AWX -10"},
          QString {"K1ABC <...> -10"}, QString {"K1ABC <W1AW -10"},
          QString {"K1ABC W1AW -10X"}, QString {"K1ABCX W1AW -10"},
          QString {"K1ABC RR73; W2XX <W1AW> -10 JUNK"},
          QString {"K1ABC RR73; W2XX <W1AW> -10X"},
          QString {"K1ABC RR73; W2XX <W1AW>"},
-         QString {"K1ABC RR73; <...> <W1AW> -10"}}) {
+         QString {"K1ABC RR73; <...> <W1AW> -10X"},
+         QString {"K1ABC RR73; <<...>> <W1AW> -10"},
+         QString {"K1ABC RR73; <...> <...> -10"},
+         QString {"K1ABC RR73; <...> <K1ABD> -10"},
+         QString {"<...> RR73; <...> <W1AW> -10"}}) {
       auto const rejected = DecodedMessageReaction::planHoundReply(
         decode(payload, "~", "060500"), snapshot);
       QVERIFY(rejected.effects.isEmpty());
