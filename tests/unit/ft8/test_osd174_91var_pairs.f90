@@ -6,13 +6,17 @@ program test_osd174_91var_pairs
 ! original table in both.  The packed table must be used for ndeep 3 and for no
 ! other ndeep.
 !
-! usage: test_osd174_91var_pairs [ncases [ties]]   (default 3000)
+! usage: test_osd174_91var_pairs [ncases [normal|ties [case ...]]]   (default 3000)
 ! "ties": every input is hard decisions only, so many candidates tie exactly and
 ! the order in which the search visits them decides the result.
+! With case numbers (1-based, at most ncases) only those cases are decoded; the
+! inputs are still generated in sequence, so a case number names the same input
+! whatever ncases is.
   use iso_fortran_env, only: int64
   implicit none
   integer, parameter :: N=174
-  integer :: ncases,nd,ic,i,nargs,nfail,nimproved,nok,iap,nblk
+  integer :: ncases,nd,ic,i,nargs,nfail,nimproved,nok,iap,nblk,iarg,icase,nrun
+  logical, allocatable :: selected(:)
   integer(int64) :: state
   integer, allocatable :: ndeeps(:)
   real, allocatable :: llrs(:,:)
@@ -27,8 +31,20 @@ program test_osd174_91var_pairs
   nargs=command_argument_count()
   if(nargs.ge.1) then; call get_command_argument(1,arg); read(arg,*) ncases; endif
   tiesonly=.false.
-  if(nargs.ge.2) then; call get_command_argument(2,arg); tiesonly=(trim(arg).eq.'ties'); endif
-  allocate(llrs(N,ncases),aps(N,ncases),ndeeps(ncases))
+  if(nargs.ge.2) then
+    call get_command_argument(2,arg)
+    if(trim(arg).ne.'ties' .and. trim(arg).ne.'normal') error stop 'second argument must be normal or ties'
+    tiesonly=(trim(arg).eq.'ties')
+  endif
+  ! The case numbers in tests/unit/ft8/CMakeLists.txt name the inputs generated
+  ! below; changing the generator changes which input each number is.
+  allocate(llrs(N,ncases),aps(N,ncases),ndeeps(ncases),selected(ncases))
+  selected=(nargs.lt.3)
+  do iarg=3,nargs
+    call get_command_argument(iarg,arg); read(arg,*) icase
+    if(icase.lt.1 .or. icase.gt.ncases) error stop 'case number out of range'
+    selected(icase)=.true.
+  enddo
   state=20261114_int64
 
   do ic=1,ncases
@@ -126,8 +142,10 @@ program test_osd174_91var_pairs
     if(tiesonly) ndeeps(ic)=3
   enddo
 
-  nfail=0; nimproved=0; nok=0
+  nfail=0; nimproved=0; nok=0; nrun=0
   do ic=1,ncases
+    if(.not.selected(ic)) cycle
+    nrun=nrun+1
     llr=llrs(:,ic); apmask=aps(:,ic)
     nd=ndeeps(ic)
     call osd174_91var_core(llr,apmask,nd,m1,cw1,nh1,dmin1,1,0,.true.,pu1)
@@ -152,10 +170,11 @@ program test_osd174_91var_pairs
       if(nfail.le.5) print '(a,i6,a,i2,a,3i5,3es15.7)','MISMATCH case',ic,' ndeep',ndeeps(ic),' nhard',nh1,nh2,nh3,dmin1,dmin2,dmin3
     endif
   enddo
-  print '(a,i7,a,i6,a,i6)','cases',ncases,'  pair pass improved over ndeep 2:',nimproved,'  CRC ok, nhard>0:',nok
+  print '(a,i7,a,i6,a,i6)','cases',nrun,'  pair pass improved over ndeep 2:',nimproved,'  CRC ok, nhard>0:',nok
 
   if(nfail.ne.0) error stop 'test_osd174_91var_pairs failed'
 ! The comparison means little if the pair pass never changes the result.
-  if(nimproved.lt.ncases/50 .or. nok.lt.ncases/10) error stop 'test inputs do not exercise the pair pass'
+  if(nimproved.lt.max(1,nrun/50)) error stop 'test inputs do not exercise the pair pass'
+  if(nrun.eq.ncases .and. nok.lt.ncases/10) error stop 'test inputs do not exercise the pair pass'
   print *,'test_osd174_91var_pairs passed'
 end program
