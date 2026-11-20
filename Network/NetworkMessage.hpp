@@ -618,11 +618,17 @@
  *      retained audio does not send JTTYText. Start is the UTC start
  *      of the transmission and Delta frequency is the rounded receive
  *      offset in Hz. Message id is stable while a transmission grows;
- *      listeners key on (Id, Message id). Text contains the whole
+ *      listeners key on (Id, Message id). Message id restarts at 1
+ *      each time WSJT-X starts, so (Id, Message id) is unique only
+ *      within one run; listeners should also compare Start to tell
+ *      messages apart across a restart. Text contains the whole
  *      message so far, with filler stripped, allowing recovery after
  *      a missed datagram. Complete is false while growing and true on
- *      any terminal update. Off air is true for a .wav source, as for
- *      Decode. Older listeners ignore this new message type.
+ *      any terminal update. A message may receive more than one
+ *      terminal update, so Complete = true can repeat for the same
+ *      message; listeners should treat a repeat as a replacement of
+ *      that message, not a new one. Off air is true for a .wav source,
+ *      as for Decode. Older listeners ignore this new message type.
  */
 
 #include <QDataStream>
