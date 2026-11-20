@@ -91,6 +91,13 @@ add_executable (test_message_server
 target_link_libraries (test_message_server wsjtx_udp-static Qt5::Test Qt5::Network)
 add_test (NAME test_message_server COMMAND test_message_server)
 
+add_executable (test_message_jtty_text
+  test_message_jtty_text.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
+  )
+target_link_libraries (test_message_jtty_text wsjt_qt wsjtx_udp-static Boost::log_setup Qt5::Test Qt5::Network)
+add_test (NAME test_message_jtty_text COMMAND test_message_jtty_text)
+
 add_executable (test_cloudlog_connection_check
   test_cloudlog_connection_check.cpp
   test_cloudlog_revision_stub.cpp

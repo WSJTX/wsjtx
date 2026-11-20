@@ -355,6 +355,8 @@
  *      "Status" message  is also broadcast.  If the server  wishes to
  *      determine  the  status  of  a newly  discovered  client;  this
  *      message should be used.
+ *      JTTY history is not replayed. JTTY lines in the "Band activity"
+ *      window are excluded from the "Decode" messages sent by Replay.
  *
  *
  * Halt Tx       In        8
@@ -598,6 +600,39 @@
  *      Datagrams are limited to 4096 bytes and the target Id to 1024 bytes.
  *      Malformed commands are ignored and counted; other target IDs are ignored.
  *      Unknown trailing fields within the datagram limit are ignored as usual.
+ *
+ *
+ * JTTYText      Out       19                     quint32
+ *                         Id (unique key)        utf8
+ *                         Message id             qint64
+ *                         Start                  QDateTime (UTC)
+ *                         Delta frequency (Hz)   quint32
+ *                         snr                    qint32
+ *                         Text                   utf8
+ *                         Complete               bool
+ *                         Off air                bool
+ *
+ *      JTTYText is sent for live receptions and .wav decoding whenever
+ *      the displayed text changes or an update is terminal, provided
+ *      the text is non-empty after stripping JTTY filler. Review of
+ *      retained audio does not send JTTYText. Start is the UTC start
+ *      of the transmission and Delta frequency is the rounded receive
+ *      offset in Hz. Message id is stable while a transmission grows;
+ *      listeners key on (Id, Message id). Message id restarts at 1
+ *      each time WSJT-X starts, so (Id, Message id) is unique only
+ *      within one run; listeners should also compare Start to tell
+ *      messages apart across a restart. Text contains the whole
+ *      message so far, with filler stripped, allowing recovery after
+ *      a missed datagram. Complete is false while growing and true on
+ *      any terminal update. A message may receive more than one
+ *      terminal update, so Complete = true can repeat for the same
+ *      message; listeners should treat a repeat as a replacement of
+ *      that message, not a new one. Off air is true for a .wav source,
+ *      as for Decode. Live text is sent only while WSJT-X is on the
+ *      dial frequency it was received on, so the frequency in Status
+ *      applies to it; text received before a change of dial frequency
+ *      is not sent after it. Older listeners ignore this new message
+ *      type.
  */
 
 #include <QDataStream>
@@ -632,6 +667,7 @@ namespace NetworkMessage
       AnnotationInfo,
       InhibitStatus = 17,
       TxInhibit = 18,
+      JTTYText = 19,
       maximum_message_type_     // ONLY add new message types
                                 // immediately before here
     };

@@ -1803,6 +1803,8 @@ private:
   void locationChange(QString const& location);
   void replayDecodes ();
   void postDecode (bool is_new, QString const& message);
+  void postJttyText (qint64 message_id, QDateTime const& start, quint32 delta_frequency, qint32 snr
+                     , QString const& text, bool complete, bool off_air);
   void postWSPRDecode (bool is_new, QStringList message_parts);
   void enable_DXCC_entity (bool on);
   void switch_mode (Mode);

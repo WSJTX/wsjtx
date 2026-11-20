@@ -288,6 +288,24 @@ void MessageServer::impl::parse_message (QHostAddress const& sender, port_type s
               }
               break;
 
+            case NetworkMessage::JTTYText:
+              {
+                qint64 message_id {};
+                QDateTime start;
+                quint32 delta_frequency {};
+                qint32 snr {};
+                QByteArray text;
+                bool complete {false};
+                bool off_air {false};
+                in >> message_id >> start >> delta_frequency >> snr >> text >> complete >> off_air;
+                if (OK == check_status (in))
+                  {
+                    Q_EMIT self_->jtty_text (client_key, message_id, start, delta_frequency, snr
+                                             , QString::fromUtf8 (text), complete, off_air);
+                  }
+              }
+              break;
+
             case NetworkMessage::WSPRDecode:
               {
                 // unpack message

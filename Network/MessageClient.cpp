@@ -1057,6 +1057,20 @@ void MessageClient::decode (bool is_new, QTime time, qint32 snr, float delta_tim
     }
 }
 
+void MessageClient::jtty_text (qint64 message_id, QDateTime start, quint32 delta_frequency, qint32 snr
+                               , QString const& text, bool complete, bool off_air)
+{
+   if (m_->server_port_ && !m_->server_.isNull ())
+    {
+      QByteArray message;
+      NetworkMessage::Builder out {&message, NetworkMessage::JTTYText, m_->id_, m_->schema_};
+      out << message_id << start.toUTC () << delta_frequency << snr << text.toUtf8 ()
+          << complete << off_air;
+      TRACE_UDP ("id:" << message_id << "start:" << start << "df:" << delta_frequency << "snr:" << snr << "text:" << text << "complete:" << complete << "off air:" << off_air);
+      m_->send_message (out, message);
+    }
+}
+
 void MessageClient::inhibit_status (bool supported, bool inhibited,
                                     QString const& source_station,
                                     quint32 hold_rx, quint32 release_rx,

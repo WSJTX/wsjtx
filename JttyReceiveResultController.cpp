@@ -25,6 +25,7 @@ void ReceiveResultController::apply(QVector<ReceiveUpdate> const& updates,
     }
     // Idle-padding (MainWindow::sendJttyFillerPadding) travels gaplessly inside the same growing message as the real content around it, so it shows up embedded mid-string here rather than as an isolated update; strip it before anything gets displayed, logged, or forwarded, but keep comparing/storing the raw text so continuation tracking (line.text) stays consistent.
     QString const displayText = stripJttyFillerText(update.text);
+    bool const displayChanged = displayText != stripJttyFillerText(line.text);
     auto const change = compareMessages(line.text, update.text);
     auto const options = inputs.display();
     if (!displayText.isEmpty()) {
@@ -54,6 +55,16 @@ void ReceiveResultController::apply(QVector<ReceiveUpdate> const& updates,
           }
         }
       }
+    }
+    // JTTYText leaves the dial frequency to Status, so text is sent only while the radio is still on the
+    // frequency it was heard on; a .wav source is off air. This uses the receive context rather than the
+    // band-change timer, which in JTTY holds for 0.6 of the 180 s legacy period after every retune.
+    if (!displayText.isEmpty() && reception.source != Source::Review
+        && (displayChanged || update.terminal != ReceiveTerminal::Growing)
+        && (reception.source == Source::Wav || line.context.periodFrequency == inputs.rxFrequency())) {
+      effects.jttyText(update.messageId, line.context.sequenceStart.toUTC(), qRound(update.frequency),
+                       update.snr, displayText, update.terminal != ReceiveTerminal::Growing,
+                       reception.source == Source::Wav);
     }
     line.text = update.text;
     if (reception.source == Source::Live) {
