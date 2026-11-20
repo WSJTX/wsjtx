@@ -9,7 +9,8 @@
 # for it: applying the label, or opening or reopening a PR that carries it. A
 # push to a PR that still carries full-ci gets the routine run. PRs into or out
 # of release/* keep label-presence semantics and always run the runtime tests.
-# Develop pushes leave the runtime tests to nightly-runtime-tests.yml, and a beta cut takes only a develop commit that passed both.
+# Develop pushes leave the runtime tests to nightly-runtime-tests.yml, and a
+# beta cut takes only a develop commit that passed both.
 #
 # Labels and the release/ prefix match without regard to case, as contains(),
 # == and startsWith() do in ci.yml.

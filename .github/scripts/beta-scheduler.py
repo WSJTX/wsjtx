@@ -71,6 +71,8 @@ COUNTED_CONCLUSIONS = ("success", "failure")
 RESTART_DAYS = {2, 3}
 # The continuation starts within minutes of the run it follows; a longer gap means it was lost.
 LOST_AFTER = timedelta(minutes=15)
+# Nothing else reports a failed public build, so a restart reports it and leaves its number this long for a re-run.
+PUBLIC_HOLD = timedelta(days=1)
 
 
 class Skip(Exception):
@@ -97,10 +99,11 @@ class Undispatched(Stop):
 class Spent(Exception):
     """The candidate or the public build failed after its tag was pushed; tags never move, so the number is used up."""
 
-    def __init__(self, stage: str, reason: str, link: str | None = None) -> None:
+    def __init__(self, stage: str, reason: str, run: dict) -> None:
         super().__init__(reason)
         self.stage = stage
-        self.link = link
+        self.run = run
+        self.link = run.get("html_url")
 
 
 class Line(NamedTuple):
@@ -140,11 +143,17 @@ def counted(run: dict) -> bool:
     return run.get("status") == "completed" and run.get("conclusion") in COUNTED_CONCLUSIONS
 
 
-def finished_before(run: dict, moment: datetime) -> bool:
+def finished_at(run: dict) -> datetime | None:
     # A completed run's updated_at is when it finished; the API reports no completion time for runs.
     updated = run.get("updated_at")
-    return (not in_flight(run) and bool(updated)
-            and datetime.fromisoformat(updated.replace("Z", "+00:00")) < moment)
+    if in_flight(run) or not updated:
+        return None
+    return datetime.fromisoformat(updated.replace("Z", "+00:00"))
+
+
+def finished_before(run: dict, moment: datetime) -> bool:
+    finished = finished_at(run)
+    return finished is not None and finished < moment
 
 
 def newest(runs: list[dict]) -> dict | None:
@@ -275,6 +284,16 @@ class Scheduler:
                     and finished_before(outcome.run, now - LOST_AFTER)):
                 raise outcome
             raise Skip(f"Nothing is spent, so the restart leaves {version} as it is: {outcome}")
+        failed = finished_at(outcome.run) if outcome.stage == "publication" else None
+        if failed is not None and now - failed < PUBLIC_HOLD:
+            held = failed + PUBLIC_HOLD
+            raise Stop("publication", f"The public release run for `{public_tag}` concluded "
+                                      f"{outcome.run.get('conclusion')} at {failed:%Y-%m-%d %H:%M} UTC. Re-run its "
+                                      "failed jobs if the failure was transient: a re-run that succeeds publishes "
+                                      f"{version}. The restart leaves {version} until {held:%Y-%m-%d %H:%M} UTC, "
+                                      "a day after the failure. After that a restart, which runs only on Wednesday or "
+                                      "Thursday, treats it as spent; a cut, on Tuesday or dispatched, does so at once.",
+                                      outcome.link)
         previous = line.prerelease(line.number - 1)
         if line.number > 1 and not self.public.release_published(f"v{previous}"):
             raise Skip(f"{outcome} {previous} was not published either, so after two spent numbers the restart "
@@ -392,7 +411,7 @@ class Scheduler:
             return Spent("candidate",
                          f"The candidate run for `{candidate_tag(version)}` concluded {failed.get('conclusion')} after "
                          f"the tag was pushed. Build tags never move, so {version} is spent and the next cut is "
-                         f"BETA {line.number + 1}.", failed.get("html_url"))
+                         f"BETA {line.number + 1}.", failed)
         promotion = promoted or newest(stages["promotion"])
         if promotion is None:
             return Undispatched("promotion", f"The candidate for {version} succeeded, but Promote Release Source was "
@@ -408,7 +427,7 @@ class Scheduler:
         if publication.get("conclusion") != "success":
             return Spent("publication", f"The public release run for `{public_tag}` concluded "
                                         f"{publication.get('conclusion')}. Tags never move, so {version} is spent and "
-                                        f"the next cut is BETA {line.number + 1}.", publication.get("html_url"))
+                                        f"the next cut is BETA {line.number + 1}.", publication)
         return Stop("publication", f"The public release run for `{public_tag}` succeeded, but the release is not "
                                    "published.", publication.get("html_url"))
 
