@@ -26,7 +26,7 @@ namespace WaterfallCalls
   {
     QString call;
     float freq {};              // Hz, lowest tone of the signal
-    float width {};             // Hz, from the lowest tone to the top of the signal
+    float width {};             // Hz, from the lowest tone to the highest tone
     Kind kind {Kind::Other};
     qint64 id {};               // message id (JTTY), 0 when none
     qint64 heardMs {};          // last update
@@ -34,8 +34,12 @@ namespace WaterfallCalls
     qint64 untilMs {};          // gone after this time
   };
 
-  // JTTY: 4-GFSK, 31.25 baud.
-  constexpr float jttySignalWidth = 127.0f;
+  // JTTY: 4-GFSK, 31.25 baud, tone spacing 31.25 Hz. A signal's frequency is
+  // its lowest tone, so its centre (midway between tones 1 and 2) is 1.5 tone
+  // spacings above it. This is the span from the lowest to the highest tone
+  // (3 x 31.25 Hz), not the 127 Hz occupied bandwidth, which reaches beyond
+  // both outer tones and would put a label about 17 Hz too far to the right.
+  constexpr float jttySignalWidth = 3 * 31.25f;
   // A label is dropped this long after the last update of its message.
   constexpr qint64 holdMs = 60000;
 

@@ -159,6 +159,19 @@ private slots:
     }
   }
 
+  void aLabelIsCentredBetweenToneOneAndToneTwo ()
+  {
+    // freq is the lowest tone (tone 0); tones are 31.25 Hz apart, so the middle
+    // of the signal is 46.875 Hz above it, not 63.5 Hz (half the 127 Hz
+    // occupied bandwidth)
+    Label l;
+    l.call = "K1ABC"; l.freq = 1000; l.width = jttySignalWidth;
+    auto const placed = place ({l}, [] (double f) {return f;},
+                               [] (QString const&) {return 20.0;}, 5000);
+    QCOMPARE (placed.size (), 1);
+    QCOMPARE (placed[0].xCentre, 1000.0 + 1.5 * 31.25);
+  }
+
   void placementTwoRowsOverlapAndEdges ()
   {
     auto const x = [] (double f) {return f / 5.0;};    // 5 Hz per pixel
