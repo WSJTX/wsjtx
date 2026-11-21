@@ -335,8 +335,10 @@ private slots:
     QVERIFY (!network_rig_.isEmpty ());
     // OmniRig's Windows COM transport is unavailable here; use its registered capabilities.
     if (!rigs.contains ("OmniRig Rig 1"))
-      rigs.insert ("OmniRig Rig 1", Caps {99904, Caps::none, true, false, true, true});
-    d.enumerate_rigs ();
+      {
+        rigs.insert ("OmniRig Rig 1", Caps {99904, Caps::none, true, false, true, true});
+        ui ().rig_combo_box->addItem ("OmniRig Rig 1", 99904);
+      }
     d.rig_params_.rig_name = serial_rig_;
     d.rig_params_.serial_port = "/dev/test-cat";
     d.rig_params_.network_port = "localhost:4532";
@@ -1150,6 +1152,42 @@ private slots:
     QVERIFY (!u.force_RTS_combo_box->isEnabled ());
   }
 
+  void rebuildingRigListPreservesEntriesWithoutApplyingRigChanges ()
+  {
+    auto& d = dialog ();
+    auto rigs = d.transceiver_factory_.supported_transceivers ();
+    using Caps = TransceiverFactory::Capabilities;
+    rigs.insert ("Test Rig", Caps {99001, Caps::serial});
+    rigs.insert ("test rig", Caps {99002, Caps::network});
+    QComboBox combo;
+    QSignalSpy changes {&combo, QOverload<int>::of (&QComboBox::currentIndexChanged)};
+    d.populate_rig_selector (combo, rigs, "test rig");
+    QCOMPARE (changes.count (), 0);
+    QCOMPARE (combo.count (), rigs.size ());
+    QCOMPARE (combo.itemText (0), QString {"None"});
+    QCOMPARE (combo.currentText (), QString {"test rig"});
+    auto index = combo.currentIndex ();
+    QCOMPARE (combo.itemData (index).toUInt (), 99002u);
+    QCOMPARE (combo.itemText (index + 1), QString {"Test Rig"});
+    QCOMPARE (combo.itemData (index + 1).toUInt (), 99001u);
+
+    d.populate_rig_selector (combo, rigs, "Missing test rig");
+    QCOMPARE (combo.currentText (), rigs.firstKey ());
+    QCOMPARE (changes.count (), 0);
+  }
+
+  void startupWithoutRigRetainsConfiguredSerialPort ()
+  {
+    configuration_.reset ();
+    settings_->setValue ("Configuration/Rig", "None");
+    settings_->setValue ("Configuration/CATSerialPort", "/dev/saved-cat");
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QCOMPARE (ui ().rig_combo_box->currentText (), QString {"None"});
+    QCOMPARE (dialog ().gather_rig_data ().serial_port, QString {"/dev/saved-cat"});
+    ui ().rig_combo_box->setCurrentText (serial_rig_);
+    QCOMPARE (ui ().CAT_port_combo_box->currentText (), QString {"/dev/saved-cat"});
+  }
+
   void noneAfterNetworkRigKeepsSerialPortOnAccept ()
   {
     auto& u = ui ();
@@ -1162,6 +1200,22 @@ private slots:
     QCOMPARE (settings_->value ("Configuration/CATSerialPort").toString (), QString {"/dev/test-cat"});
     u.rig_combo_box->setCurrentText (serial_rig_);
     QCOMPARE (u.CAT_port_combo_box->currentText (), QString {"/dev/test-cat"});
+  }
+
+  void serialRigSharesDiscoveryDuringStartupAndOpen ()
+  {
+    configuration_.reset ();
+    settings_->setValue ("Configuration/Rig", serial_rig_);
+    static int scans;
+    scans = 0;
+    auto ports = [] { ++scans; return QList<QSerialPortInfo> {}; };
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (),
+                                             nullptr, nullptr, ports});
+    QCOMPARE (scans, 1);
+    scans = 0;
+    QTimer::singleShot (0, &dialog (), [&] { dialog ().done (QDialog::Rejected); });
+    configuration_->exec ();
+    QCOMPARE (scans, 1);
   }
 
   void noneRetainsSerialPortSelection ()

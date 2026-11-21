@@ -28,6 +28,7 @@ using TxRawPlayoutSnapshot = TxEvidence::TxRawPlayoutSnapshot;
 
 #include "pimpl_h.hpp"
 
+class QSerialPortInfo;
 class QSettings;
 class QWidget;
 class QAudioDeviceInfo;
@@ -83,13 +84,16 @@ public:
   using Frequency = Radio::Frequency;
   using port_type = quint16;
 
+  using SerialPortEnumerator = QList<QSerialPortInfo> (*) ();
+
   enum DataMode {data_mode_none, data_mode_USB, data_mode_data};
   Q_ENUM (DataMode)
   enum Type2MsgGen {type_2_msg_1_full, type_2_msg_3_full, type_2_msg_5_only};
   Q_ENUM (Type2MsgGen)
 
   explicit Configuration (QNetworkAccessManager *, QDir const& temp_directory, QSettings * settings,
-                          LogBook * logbook, QWidget * parent = nullptr);
+                          LogBook * logbook, QWidget * parent = nullptr,
+                          SerialPortEnumerator enumerate_ports = nullptr);
   ~Configuration ();
 
   void set_ui_language_preference (QString const&);
