@@ -59,6 +59,8 @@ public:
   HeardByWindow (QSettings *, QFont const&, ContextProvider,
                  HeardByModel::BandOf, HeardByModel::DistanceTo, QWidget * parent = nullptr);
 
+  ~HeardByWindow () override;
+
   void change_font (QFont const&);
 
   // for tests

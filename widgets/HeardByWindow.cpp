@@ -83,6 +83,17 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
   update_status ();
 }
 
+// Children and members outlive each other in the wrong order (the feed is
+// destroyed after members declared later, the table after model_), so let go
+// first: no signal may reach a half-destroyed window.
+HeardByWindow::~HeardByWindow ()
+{
+  timer_.stop ();
+  disconnect (&mqtt_, nullptr, this, nullptr);     // ~HeardByMqtt () still reports "stopped"
+  table_->horizontalHeader ()->disconnect (this);
+  table_->setModel (nullptr);
+}
+
 void HeardByWindow::set_mqtt (HeardByMqtt::Options const& feed, Timing const& timing)
 {
   mqtt_.set_options (feed);
