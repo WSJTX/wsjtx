@@ -18,9 +18,9 @@
  *     A file whose name is shorter than wsprd's date and time decodes, with
  *     both blank.
  *   test_wsprd_decode unresolved_type3
- *     A type 3 message whose call the table lacks is subtracted as sent: the
- *     decode's hard errors are counted against the symbols sent, not those of
- *     its printed text, <...>, whose hash differs.
+ *     A type 3 message with a four-character locator retains the locator
+ *     with or without a callsign in the hash table. Hard errors are counted
+ *     against the symbols sent, including the original callsign hash.
  *   test_wsprd_decode type2_grid <scratch dir>
  *     A type 2 decode into a slot that held another station's call and grid
  *     leaves that slot with no grid.
@@ -75,6 +75,7 @@
 #include "lib/wsprd/nhash.h"
 #include "lib/wsprd/fano.h"
 #include "lib/wsprd/wsprsim_utils.h"
+#include "lib/wsprd/wspr_pack.h"
 
 extern void osdwspr_(float [], unsigned char [], int *, unsigned char [], int *, float *, int []);
 extern int wspr_parallel_threads(int requested);
@@ -160,7 +161,6 @@ struct signal {
    Gaussian noise of standard deviation sigma (fixed seed). */
 static short *synthesize_signals(struct signal const *signals, int count, double sigma)
 {
-    static char hashtab[32768 * 13], loctab[32768 * 5];
     size_t n = wsprd_downsample_points(2);
     short *pcm = calloc(n, sizeof *pcm);
     double *sum = calloc(n, sizeof *sum);
@@ -173,19 +173,19 @@ static short *synthesize_signals(struct signal const *signals, int count, double
     for( int s = 0; s < count; s++ ) {
         unsigned char symbols[162];
         struct signal const *g = &signals[s];
+        unsigned char data[WSPR_PACKED_SIZE] = {0};
         if( g->text ) {
-            if( !get_wspr_channel_symbols((char *)g->text, hashtab, loctab, symbols) ) {
+            if( wspr_pack_message(g->text, strlen(g->text), data) == WSPR_PACK_INVALID ) {
                 free(pcm);
                 free(sum);
                 return NULL;
             }
         } else {
-            unsigned char data[11] = {0};
             data[0] = 0xFF & (g->n >> 20); data[1] = 0xFF & (g->n >> 12); data[2] = 0xFF & (g->n >> 4);
             data[3] = ((g->n & 0x0F) << 4) + ((g->m >> 18) & 0x0F);
             data[4] = 0xFF & (g->m >> 10); data[5] = 0xFF & (g->m >> 2); data[6] = (g->m & 0x03) << 6;
-            wspr_channel_symbols_from_data(data, symbols);
         }
+        wspr_channel_symbols_from_data(data, symbols);
         double phase = 0;
         for( long k = 0; k < 162L * 8192; k++ ) {
             double f = 1500.0 + g->hz + (symbols[k / 8192] - 1.5) * 12000.0 / 8192.0;
@@ -507,24 +507,31 @@ static int row_short_name(char const *wav, char const *dir)
 
 static int row_unresolved_type3(void)
 {
-    short *pcm = synthesize("<K1ABC> FN42AA 33", -10);
+    /* <K1ABC> FN20 37, with the two omitted subsquare letters packed as spaces. */
+    const struct signal signal = {NULL, 163388561, 834714, 0, 1000};
+    short *pcm = synthesize_signals(&signal, 1, 3000.0);
     CHECK(pcm != NULL, "cannot synthesize the message");
     if( !pcm ) return 1;
-    struct wsprd_context *ctx = wsprd_context_new(NULL);
+
     struct wsprd_decode_options opt;
     wsprd_decode_options_init(&opt);
     static struct wsprd_decode_result results[WSPRD_DECODE_MAX_RESULTS];
-    int n = ctx ? decode_once(pcm, wsprd_downsample_points(2), &opt, NULL, ctx, results) : -1;
-    CHECK(n == 1, "%d decodes, expected 1", n);
-    if( n == 1 ) {
-        CHECK(strcmp(results[0].message, "<...> FN42AA 33") == 0, "decoded '%s'", results[0].message);
-        CHECK(results[0].decodetype == 0, "decoded by OSD, not Fano");
-        /* The symbols sent, at -10 dB: a few hard errors at most. The printed
-           text's symbols differ from them in 48 of 162. */
-        CHECK(results[0].nhardmin <= 5, "%d hard errors against the symbols subtracted",
-              results[0].nhardmin);
+    for (int known = 0; known <= 1; ++known) {
+        struct wsprd_context *ctx = wsprd_context_new(NULL);
+        CHECK(ctx != NULL, "cannot make a context");
+        if( !ctx ) break;
+        if( known ) CHECK(wsprd_hash_load_line(ctx, "6521 K1ABC FN20") == 0, "loading K1ABC");
+        int n = decode_once(pcm, wsprd_downsample_points(2), &opt, NULL, ctx, results);
+        CHECK(n == 1, "%d decodes, expected 1", n);
+        if( n == 1 ) {
+            CHECK(strcmp(results[0].message, known ? "<K1ABC> FN20 37" : "<...> FN20 37") == 0,
+                  "decoded '%s'", results[0].message);
+            CHECK(results[0].decodetype == 0, "decoded by OSD, not Fano");
+            CHECK(results[0].nhardmin <= 5, "%d hard errors against the symbols subtracted",
+                  results[0].nhardmin);
+        }
+        wsprd_context_free(ctx);
     }
-    wsprd_context_free(ctx);
     free(pcm);
     return 0;
 }
@@ -559,6 +566,27 @@ static int row_type2_grid(char const *dir)
     CHECK(text && strcmp(text, expected) == 0, "saved '%s', expected '%s'",
           text ? text : "(unreadable)", expected);
     free(text);
+    wsprd_context_free(ctx);
+    free(pcm);
+
+    /* NYN's encoded prefix is exactly 32768. Generate the received bits
+       directly so the decoder's text re-encoder cannot mask a mismatch. */
+    struct signal boundary = {NULL, 259047992UL, 103UL, 0.0, 1000.0};
+    pcm = synthesize_signals(&boundary, 1, sqrt(12000000.0));
+    ctx = wsprd_context_new(NULL);
+    CHECK(pcm && ctx, "cannot synthesize the boundary message or make a context");
+    if( pcm && ctx ) {
+        n = decode_once(pcm, wsprd_downsample_points(2), &opt, NULL, ctx, results);
+        CHECK(n == 1 && strcmp(results[0].message, "NYN/K1ABC 37") == 0,
+              "%d decodes, first '%s'", n, n > 0 ? results[0].message : "");
+        CHECK(wsprd_hash_save(ctx, path) == 0, "saving '%s'", path);
+        slot = (int)nhash("NYN/K1ABC", strlen("NYN/K1ABC"), 146);
+        snprintf(expected, sizeof expected, "%5d NYN/K1ABC \n", slot);
+        text = slurp(path);
+        CHECK(text && strcmp(text, expected) == 0, "saved '%s', expected '%s'",
+              text ? text : "(unreadable)", expected);
+        free(text);
+    }
     wsprd_context_free(ctx);
     free(pcm);
     return 0;

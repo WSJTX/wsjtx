@@ -27,6 +27,11 @@ program test_wspr
 
      data0=0
      call wqencode(msg,ntype0,data0)             !Source encoding
+     if(ntype0.eq.-999) then
+        write(*,'(a)') 'Invalid WSPR message: '//trim(msg)
+        if(.not.lfile) stop 1
+        cycle
+     endif
 !     write(*,1002) data0(1:7)
 !1002 format('Source-encoded message (50 bits, hex):',7z3.2)
 !     data0(8:11)=0

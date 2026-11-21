@@ -44,6 +44,10 @@ program wspr_test_audio
         call get_command_argument(i + 3, arg)
         read(arg, *) start
         call genwspr(message, msgsent, itone)
+        if (msgsent == '*** bad message ***') then
+           write(error_unit, '(a)') 'wspr_test_audio: invalid WSPR message: ' // trim(message)
+           stop 1
+        endif
         call render_fsk(itone, NSPS, 12000.d0, 12000.d0/NSPS, freq, wave=wave)
         ! A tone of amplitude amp has power amp**2/2; the noise puts SIGMA**2*2500/6000 in 2500 Hz.
         amp = sqrt(2.d0*SIGMA**2*2500.d0/6000.d0*10.d0**(snr/10.d0))

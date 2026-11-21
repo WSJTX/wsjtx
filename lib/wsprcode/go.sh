@@ -1,1 +1,3 @@
- gfortran -o wsprcode -fbounds-check wsprcode.f90 nhash.c ../lookup3.c
+#!/bin/sh
+# Build wsprcode through the project so it uses the shared WSPR packer.
+cmake --build "${1:-../../build}" --target wsprcode

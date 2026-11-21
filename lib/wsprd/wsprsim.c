@@ -6,11 +6,10 @@
 #include <math.h>
 #include <string.h>
 
-#include "wsprsim_utils.h"
-#include "wsprd_utils.h"
-#include "fano.h"
+#include <unistd.h>
 
-int printdata=0;
+#include "wsprsim_utils.h"
+#include "wspr_pack.h"
 
 void usage() {
     printf("Usage: wsprsim [options] message\n");
@@ -128,17 +127,8 @@ int main(int argc, char *argv[])
     int i, c, printchannel=0, writec2=0;
     float snr=50.0;
     float f0=0.0, t0=1.0;
-    char *message, *c2filename, *hashtab, *loctab;
-    c2filename=malloc(sizeof(char)*15);
-    hashtab=malloc(sizeof(char)*32768*13);
-    loctab=malloc(sizeof(char)*32768*5);
-    memset(hashtab,0,sizeof(char)*32768*13);
-    memset(hashtab,0,sizeof(char)*32768*5);
-
-    // message length is 22 characters
-    message=malloc(sizeof(char)*23);
-    
-    strcpy(c2filename,"000000_0001.c2");
+    int printdata=0;
+    char *c2filename=NULL;
 
     srand(getpid());
 
@@ -167,12 +157,22 @@ int main(int argc, char *argv[])
     if( optind+1 > argc ) {
         usage();
         return 0;
-    } else {
-        message=argv[optind];
     }
-    
+
+    const char *message=argv[optind];
+    unsigned char data[WSPR_PACKED_SIZE];
+    if( wspr_pack_message(message, strlen(message), data) == WSPR_PACK_INVALID ) {
+        fprintf(stderr, "Invalid WSPR message: %s\n", message);
+        return EXIT_FAILURE;
+    }
+    if( printdata ) {
+        printf("Data is :");
+        for (i=0; i<WSPR_PACKED_SIZE; i++) printf("%02X ", data[i]);
+        printf("\n");
+    }
+
     unsigned char channel_symbols[162];
-    get_wspr_channel_symbols_verbose(message, hashtab, loctab, channel_symbols, printdata);
+    wspr_channel_symbols_from_data(data, channel_symbols);
     
     if( printchannel ) {
         printf("Channel symbols:\n");
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
         double carrierfreq=10.1387;
         int wsprtype=2;
         printf("Writing %s\n",c2filename);
-        writec2file(c2filename, wsprtype, carrierfreq, isig, qsig);
+        if( !writec2file(c2filename, wsprtype, carrierfreq, isig, qsig) ) return EXIT_FAILURE;
     }
-    return 1;
+    return EXIT_SUCCESS;
 }

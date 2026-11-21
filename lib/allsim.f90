@@ -61,7 +61,7 @@ program allsim
   endif
 
   if(isig.eq.0 .or. isig.eq.3) then
-     call genwspr(message,msgsent,itone)
+     call genwspr('KA2ABC FN20 30        ',msgsent,itone)
      call addit(itone,12000,86,8192,800,sig,dat)    !3 WSPR (only 59 s of data)
   endif
 

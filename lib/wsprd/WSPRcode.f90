@@ -7,7 +7,7 @@ program wsprcode
   parameter (NSYM=162)
   parameter (MAXSYM=176)
   character*22 msg,msg2
-  integer*1 data0(7)
+  integer*1 data0(11)
   integer*1 data1(7)
   integer*1 dat(NSYM)
   integer*1 softsym(NSYM)
@@ -98,7 +98,11 @@ program wsprcode
 
   data0=0
   call wqencode(msg,ntype0,data0)             !Source encoding
-  write(*,1002) data0
+  if(ntype0.eq.-999) then
+     write(*,'(a)') 'Invalid WSPR message'
+     stop 1
+  endif
+  write(*,1002) data0(1:7)
 1002 format(/'Source-encoded message (50 bits, hex):',7z3.2)
 
   call encode232(data0,nbytes,dat,MAXSYM)     !Convolutional encoding

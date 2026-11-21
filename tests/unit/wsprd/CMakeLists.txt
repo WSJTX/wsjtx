@@ -133,3 +133,18 @@ foreach (component noncoherent demodulation)
   add_test (NAME test_wspr_${component} COMMAND test_wspr_${component})
   set_tests_properties (test_wspr_${component} PROPERTIES LABELS "decoder;wspr" TIMEOUT 60)
 endforeach ()
+
+add_executable (test_wspr_packing test_wspr_packing.f90)
+wsjt_link_common_fortran (test_wspr_packing)
+add_test (NAME test_wspr_packing COMMAND test_wspr_packing)
+set_tests_properties (test_wspr_packing PROPERTIES LABELS "wspr;encoder" TIMEOUT 30)
+
+if (WSJT_BUILD_UTILS)
+  add_test (NAME test_wsprcode_packing
+    COMMAND ${CMAKE_COMMAND} -DWSPRCODE=$<TARGET_FILE:wsprcode>
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/test_wsprcode_packing.cmake)
+  add_test (NAME test_wsprsim_packing
+    COMMAND ${CMAKE_COMMAND} -DWSPRSIM=$<TARGET_FILE:wsprsim>
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/test_wsprsim_packing.cmake)
+  set_tests_properties (test_wsprcode_packing test_wsprsim_packing PROPERTIES LABELS "wspr;encoder" TIMEOUT 30)
+endif ()

@@ -1,65 +1,19 @@
 subroutine wqencode(msg,ntype,data0)
+  use, intrinsic :: iso_c_binding, only: c_char,c_int,c_int8_t,c_size_t,c_ptr,c_loc
+  implicit none
 
-!  Parse and encode a WSPR message.
+  character(kind=c_char,len=22), intent(in) :: msg
+  integer, intent(out) :: ntype
+  integer(c_int8_t), target, intent(out) :: data0(11)
 
-  use packjt
-  parameter (MASK15=32767)
-  character*22 msg
-  character*12 call1,call2
-  character grid4*4
-  logical lbad1,lbad2
-  integer*1 data0(11)
-  integer nu(0:9)
-  data nu/0,-1,1,0,-1,2,1,0,-1,1/
+  interface
+     integer(c_int) function wspr_pack_message(text,length,data) bind(C)
+       import c_char,c_int,c_size_t,c_ptr
+       character(kind=c_char), intent(in) :: text(*)
+       integer(c_size_t), value :: length
+       type(c_ptr), value :: data
+     end function wspr_pack_message
+  end interface
 
-! Standard WSPR message (types 0 3 7 10 13 17 ... 60)
-  i1=index(msg,' ')
-  i2=index(msg,'/')
-  i3=index(msg,'<')
-  call1=msg(:i1-1)
-  if(i1.lt.3 .or. i1.gt.7 .or. i2.gt.0 .or. i3.gt.0) go to 10
-  grid4=msg(i1+1:i1+4)
-  call packcall(call1(1:6),n1,lbad1)
-  call packgrid(grid4,ng,lbad2)
-  if(lbad1 .or. lbad2) go to 10
-  ndbm=0
-  read(msg(i1+5:),*) ndbm
-  if(ndbm.lt.0) ndbm=0
-  if(ndbm.gt.60) ndbm=60
-  ndbm=ndbm+nu(mod(ndbm,10))
-  n2=128*ng + (ndbm+64)
-  call pack50(n1,n2,data0)
-  ntype=ndbm
-  go to 900
-
-10 if(i2.ge.2 .and. i3.lt.1) then
-     call packpfx(call1,n1,ng,nadd)
-     ndbm=0
-     read(msg(i1+1:),*) ndbm
-     if(ndbm.lt.0) ndbm=0
-     if(ndbm.gt.60) ndbm=60
-     ndbm=ndbm+nu(mod(ndbm,10))
-     ntype=ndbm + 1 + nadd
-     n2=128*ng + ntype + 64
-     call pack50(n1,n2,data0)
-  else if(i3.eq.1) then
-     i4=index(msg,'>')
-     call1=msg(2:i4-1)
-     call hash(call1,i4-2,ih)
-     i5=index(trim(msg(i1+1:)),' ')
-! Convert grid to valid callsign format - first character moved to end
-     call2=msg(i1+2:i1+i5-1)//msg(i1+1:i1+1)//'        '
-     call packcall(call2(1:6),n1,lbad1)
-     ndbm=0
-     read(msg(i1+i5+1:),*) ndbm
-     if(ndbm.lt.0) ndbm=0
-     if(ndbm.gt.60) ndbm=60
-     ndbm=ndbm+nu(mod(ndbm,10))
-     ntype=-(ndbm+1)
-     n2=128*ih + ntype + 64
-     call pack50(n1,n2,data0)
-  endif
-900 continue
-  
-  return
+  ntype=wspr_pack_message(msg,len(msg,kind=c_size_t),c_loc(data0))
 end subroutine wqencode

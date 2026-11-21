@@ -767,7 +767,7 @@ set (wsprsim_CSRCS
   lib/lookup3.c
   lib/wsprd/wsprsim.c
   lib/wsprd/wsprsim_utils.c
-  lib/wsprd/wsprd_utils.c
+  lib/wsprd/wspr_pack.c
   lib/wsprd/fano.c
   lib/wsprd/tab.c
   lib/wsprd/nhash.c
@@ -779,6 +779,7 @@ set (wspr_decoder_CSRCS
   lib/wsprd/wspr_noncoherent.c
   lib/wsprd/wspr_demodulation.c
   lib/wsprd/wsprsim_utils.c
+  lib/wsprd/wspr_pack.c
   lib/wsprd/wsprd_utils.c
   lib/wsprd/fano.c
   lib/wsprd/jelinek.c
