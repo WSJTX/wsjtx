@@ -488,6 +488,11 @@ add_test (NAME test_configuration_preferences COMMAND test_configuration_prefere
 set_tests_properties (test_configuration_preferences PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   TIMEOUT 60)
+if (CMAKE_HOST_WIN32 AND WIN32)
+  # The offscreen plugin uses FreeType and needs a font directory for the chooser.
+  set_property (TEST test_configuration_preferences APPEND PROPERTY ENVIRONMENT
+    "QT_QPA_FONTDIR=$ENV{SystemRoot}/Fonts")
+endif ()
 
 foreach (target test_displaytext test_frequency_editors)
   add_dependencies (${target} translations)

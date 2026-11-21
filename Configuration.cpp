@@ -3387,6 +3387,9 @@ void Configuration::impl::initialize_models ()
 {
   QScopedValueRollback<bool> initializing_models {initializing_models_, true};
 
+  next_font_ = font_;
+  next_decoded_text_font_ = decoded_text_font_;
+
   ui_->language_combo_box->setCurrentIndex (ui_->language_combo_box->findData (ui_language_preference_));
   next_audio_input_device_ = audio_input_device_;
   next_audio_input_channel_ = audio_input_channel_;
@@ -5790,7 +5793,7 @@ void Configuration::impl::on_LotW_CSV_fetch_push_button_clicked (bool /*checked*
 
 void Configuration::impl::on_decoded_text_font_push_button_clicked ()
 {
-  next_decoded_text_font_ = QFontDialog::getFont (0, decoded_text_font_ , this
+  next_decoded_text_font_ = QFontDialog::getFont (0, next_decoded_text_font_, this
                                                   , tr ("WSJT-X Decoded Text Font Chooser")
                                                   , QFontDialog::MonospacedFonts
                                                   );

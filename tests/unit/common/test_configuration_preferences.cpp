@@ -3,8 +3,10 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QDialog>
+#include <QFontDialog>
 #include <QLineEdit>
 #include <QNetworkAccessManager>
+#include <QPushButton>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -41,6 +43,11 @@ class TestConfigurationPreferences final : public QObject
     QVERIFY (dialog_);
     language_ = dialog_->findChild<QComboBox *> ("language_combo_box");
     QVERIFY (language_);
+    ensureAudioChoices ();
+  }
+
+  void ensureAudioChoices ()
+  {
     for (auto name : {"sound_input_combo_box", "sound_input_channel_combo_box",
                       "sound_output_combo_box", "sound_output_channel_combo_box"})
       {
@@ -50,9 +57,37 @@ class TestConfigurationPreferences final : public QObject
       }
   }
 
+  // Return the displayed size, accepting a new size or cancelling the chooser.
+  int visitFontChooser (char const * buttonName, int newSize = 0)
+  {
+    auto button = dialog_->findChild<QPushButton *> (buttonName);
+    if (!button) return -1;
+    int initialSize = -1;
+    QObject lifetime;
+    QTimer::singleShot (0, &lifetime, [&] {
+        auto modal = qobject_cast<QDialog *> (QApplication::activeModalWidget ());
+        if (auto chooser = qobject_cast<QFontDialog *> (modal))
+          {
+            auto font = chooser->currentFont ();
+            initialSize = font.pointSize ();
+            if (newSize > 0)
+              {
+                font.setPointSize (newSize);
+                chooser->setCurrentFont (font);
+                chooser->accept ();
+                return;
+              }
+          }
+        if (modal) modal->reject ();
+      });
+    button->click ();
+    return initialSize;
+  }
+
 private Q_SLOTS:
   void initTestCase ()
   {
+    QApplication::setAttribute (Qt::AA_DontUseNativeDialogs);
     register_types ();
     QStandardPaths::setTestModeEnabled (true);
     QCoreApplication::setApplicationName ("test_configuration_preferences");
@@ -70,6 +105,48 @@ private Q_SLOTS:
   {
     configuration_.reset ();
     settings_.reset ();
+  }
+
+  void cancellingDecodedFontChooserKeepsPendingChoice ()
+  {
+    auto const original = configuration_->decoded_text_font ();
+    auto const textFont = configuration_->text_font ();
+    int const size = original.pointSize () + 4;
+    QSignalSpy changes {configuration_.get (), &Configuration::decoded_text_font_changed};
+    QVERIFY (visitFontChooser ("decoded_text_font_push_button", size) > 0);
+    QCOMPARE (visitFontChooser ("decoded_text_font_push_button"), size);
+    QCOMPARE (configuration_->decoded_text_font (), original);
+    QCOMPARE (changes.count (), 0);
+    dialog_->accept ();
+    QCOMPARE (configuration_->decoded_text_font ().pointSize (), size);
+    QCOMPARE (changes.count (), 1);
+    QCOMPARE (configuration_->text_font (), textFont);
+    QCOMPARE (settings_->value ("Configuration/DecodedTextFont").toString (),
+              configuration_->decoded_text_font ().toString ());
+  }
+
+  void cancellingSettingsDiscardsBothFontChoices ()
+  {
+    dialog_->accept ();
+    auto const textFont = configuration_->text_font ();
+    auto const decodedFont = configuration_->decoded_text_font ();
+    QSignalSpy textChanges {configuration_.get (), &Configuration::text_font_changed};
+    QSignalSpy decodedChanges {configuration_.get (), &Configuration::decoded_text_font_changed};
+    QVERIFY (visitFontChooser ("font_push_button", textFont.pointSize () + 4) > 0);
+    QVERIFY (visitFontChooser ("decoded_text_font_push_button", decodedFont.pointSize () + 4) > 0);
+    dialog_->reject ();
+
+    QTimer::singleShot (0, dialog_, [this] {
+        ensureAudioChoices ();
+        dialog_->accept ();
+      });
+    QCOMPARE (configuration_->exec (), int (QDialog::Accepted));
+    QCOMPARE (configuration_->text_font (), textFont);
+    QCOMPARE (configuration_->decoded_text_font (), decodedFont);
+    QCOMPARE (textChanges.count (), 0);
+    QCOMPARE (decodedChanges.count (), 0);
+    QCOMPARE (settings_->value ("Configuration/Font").toString (), textFont.toString ());
+    QCOMPARE (settings_->value ("Configuration/DecodedTextFont").toString (), decodedFont.toString ());
   }
 
   void preferenceInitialization ()
