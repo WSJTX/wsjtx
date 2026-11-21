@@ -170,7 +170,6 @@ set (wsjtx_CXXSRCS
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
   Network/PSKReporterIPFIX.cpp
-  Network/HeardByRecords.cpp
   Network/HeardByMqtt.cpp
   models/HeardByModel.cpp
   Audio/WavLoadCoordinator.cpp

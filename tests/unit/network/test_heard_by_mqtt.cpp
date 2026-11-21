@@ -51,7 +51,7 @@ private Q_SLOTS:
     QVERIFY2 (QRegularExpression {"^WSJT-X-PJ4\\.K1ABC-[0-9a-f]{6}$"}.match (id).hasMatch (), qPrintable (id));
     QVERIFY (HeardByMqtt::client_id ("WSJT-X", "K1ABC") != HeardByMqtt::client_id ("WSJT-X", "K1ABC"));
     QCOMPARE (HeardByMqtt::Options {}.backoff_max_ms, 120000);
-    // a spot becomes the same report (and id) as the records give
+    // a spot becomes a report with a stable id
     QJsonObject s {{"sc", "K1ABC"}, {"rc", "F6BLP"}, {"rl", "IN94KP"}, {"md", "FT8"},
                    {"f", 10489541745.0}, {"rp", 11}, {"t", 1763460000.0}};
     auto const r = HeardByMqtt::report (s);
@@ -61,7 +61,7 @@ private Q_SLOTS:
     QCOMPARE (r.frequency, quint64 {10489541745ULL});
     QCOMPARE (r.snr, 11);
     QCOMPARE (r.when, qint64 {1763460000});
-    QCOMPARE (r.id, HeardByRecords::report_id ("F6BLP", 1763460000, 10489541745ULL));
+    QCOMPARE (r.id, HeardByReport::id_of ("F6BLP", 1763460000, 10489541745ULL));
   }
 
   void pieces_glued_long_bad_retained ()

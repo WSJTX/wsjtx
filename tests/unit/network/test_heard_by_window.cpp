@@ -1,11 +1,7 @@
 // Tests for HeardByWindow: nothing is asked until it is shown, then the
-// reports of the call in use appear, filtered to the mode and band in use.
+// reports of the call in use arrive over the live feed and are all shown.
 #include <QDateTime>
-#include <QHash>
-#include <QNetworkAccessManager>
 #include <QSettings>
-#include <QTcpServer>
-#include <QTcpSocket>
 #include <QTemporaryFile>
 #include <QtTest>
 
@@ -14,46 +10,30 @@
 
 namespace
 {
-  class HttpStub final : public QObject
+  QString band_of (quint64 f)
   {
-  public:
-    explicit HttpStub (QByteArray const& body) : body_ {body}
-    {
-      server_.listen (QHostAddress::LocalHost, 0);
-      connect (&server_, &QTcpServer::newConnection, this, [this] {
-          while (auto * s = server_.nextPendingConnection ())
-            connect (s, &QTcpSocket::readyRead, this, [this, s] {
-                buffer_[s] += s->readAll ();
-                if (!buffer_[s].contains ("\r\n\r\n")) return;
-                ++requests;
-                last_request = QString::fromLatin1 (buffer_[s].left (buffer_[s].indexOf ("\r\n")));
-                buffer_.remove (s);
-                s->write ("HTTP/1.1 200 OK\r\nContent-Type: text/xml\r\nContent-Length: "
-                          + QByteArray::number (body_.size ()) + "\r\nConnection: close\r\n\r\n" + body_);
-                s->disconnectFromHost ();
-              });
-        });
-    }
-    QString url () const {return QString {"http://127.0.0.1:%1/query"}.arg (server_.serverPort ());}
-    int requests {0};
-    QString last_request;
-  private:
-    QTcpServer server_;
-    QByteArray body_;
-    QHash<QTcpSocket *, QByteArray> buffer_;
-  };
+    return f > 10000000000ULL ? QString {"3cm"} : f > 2300000000ULL && f < 2450000000ULL ? QString {"13cm"}
+      : f > 14000000 && f < 14350000 ? QString {"20m"} : QString {};
+  }
 
-  QByteArray body (qint64 now)
+  HeardByReport report (QString const& rx, QString const& grid, QString const& mode, quint64 f, int snr, qint64 when)
   {
-    auto one = [] (char const * rx, char const * grid, quint64 f, qint64 t, char const * mode, int snr) {
-      return QByteArray {"<receptionReport receiverCallsign=\""} + rx + "\" receiverLocator=\"" + grid
-        + "\" senderCallsign=\"K1ABC\" frequency=\"" + QByteArray::number (f) + "\" flowStartSeconds=\""
-        + QByteArray::number (t) + "\" mode=\"" + mode + "\" sNR=\"" + QByteArray::number (snr) + "\"/>\n";
-    };
-    return "<?xml version=\"1.0\"?><receptionReports>\n"
-      + one ("DK3RW", "JO40PS", 10489541745ULL, now - 120, "FT8", 4)
-      + one ("F6BLP", "IN94KP", 10489541745ULL, now - 60, "FT8", 11)
-      + "</receptionReports>";
+    HeardByReport r;
+    r.receiver = rx; r.locator = grid; r.mode = mode; r.frequency = f; r.snr = snr; r.when = when;
+    r.id = HeardByReport::id_of (rx, when, f);
+    return r;
+  }
+
+  QByteArray spot (QString const& rx, QString const& grid, int snr, qint64 when)
+  {
+    return fake_broker::json ({{"sc", "K1ABC"}, {"rc", rx}, {"rl", grid}, {"md", "FT8"},
+                               {"f", 10489541745.0}, {"rp", snr}, {"t", double (when)}});
+  }
+
+  // nothing listens here: for the tests that never show the window
+  HeardByMqtt::Options nowhere ()
+  {
+    return fake_broker::fast (1);
   }
 }
 
@@ -62,56 +42,22 @@ class TestHeardByWindow : public QObject
   Q_OBJECT
 
 private Q_SLOTS:
-  void nothing_is_asked_until_shown ()
-  {
-    HttpStub http {body (QDateTime::currentSecsSinceEpoch ())};
-    QTemporaryFile ini;
-    QVERIFY (ini.open ());
-    QSettings settings {ini.fileName (), QSettings::IniFormat};
-    QNetworkAccessManager nam;
-    HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
-    auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : f > 14000000 && f < 14350000 ? QString {"20m"} : QString {};};
-    auto distance_to = [] (QString const& g) {return g.startsWith ("IN") ? 1000.0 : -1.0;};
-    HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of, distance_to, nullptr, http.url ()};
-    w.set_source (HeardByWindow::Source::Records);
-    w.tick ();                                           // not shown: nothing is asked
-    QTest::qWait (200);
-    QCOMPARE (http.requests, 0);
-    w.show ();
-    QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 2, 5000);   // DK3RW, F6BLP
-    QCOMPARE (http.requests, 1);
-    QVERIFY (http.last_request.contains ("senderCallsign=K1ABC"));
-    QVERIFY (http.last_request.contains ("flowStartSeconds=-21600"));   // first look: 6 hours
-    QCOMPARE (w.model ()->visible (0).receiver, QString {"F6BLP"});
-    QCOMPARE (w.model ()->index (0, HeardByModel::Distance).data ().toInt (), 1000);
-    QVERIFY (w.status_text ().contains ("2 stations heard K1ABC"));
-    w.tick ();
-    QTest::qWait (200);
-    QCOMPARE (http.requests, 1);                         // not again within 5 minutes
-    w.close ();
-    settings.sync ();
-    QVERIFY (settings.value ("HeardBy/LastQueryMs").toLongLong () > 0);
-  }
-
   void shows_every_report_in_this_order_and_the_label_follows_the_main_window ()
   {
     QTemporaryFile ini;
     QVERIFY (ini.open ());
     QSettings settings {ini.fileName (), QSettings::IniFormat};
-    QNetworkAccessManager nam;
     HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
-    auto band_of = [] (quint64 f) {
-      return f > 10000000000ULL ? QString {"3cm"} : f > 2300000000ULL && f < 2450000000ULL ? QString {"13cm"}
-        : f > 14000000 && f < 14350000 ? QString {"20m"} : QString {};
-    };
-    HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of, [] (QString const&) {return -1.0;}};
-    w.set_source (HeardByWindow::Source::Records);
+    HeardByWindow w {&settings, QFont {}, [&ctx] {return ctx;}, band_of, [] (QString const&) {return -1.0;}};
+    w.set_mqtt (nowhere (), {});
     auto const now = QDateTime::currentSecsSinceEpoch ();
     w.tick ();                                           // first sight of the call (hidden: asks nothing)
-    for (auto const& r : HeardByRecords::parse (body (now)).reports) w.model ()->add_report (r);
-    w.model ()->add_report ({"W1AW", "FN31", "FT8", 14074500, -5, now - 30, 1001});
-    w.model ()->add_report ({"K2ZZ", "FN20", "Q65", 10489541745ULL, 2, now - 20, 1002});
-    w.model ()->add_report ({"UPLINKER", "JO40", "FT8", 2400041745ULL, 3, now - 10, 1003});
+    QVERIFY (!w.mqtt ()->running ());
+    w.model ()->add_report (report ("DK3RW", "JO40PS", "FT8", 10489541745ULL, 4, now - 120));
+    w.model ()->add_report (report ("F6BLP", "IN94KP", "FT8", 10489541745ULL, 11, now - 60));
+    w.model ()->add_report (report ("W1AW", "FN31", "FT8", 14074500, -5, now - 30));
+    w.model ()->add_report (report ("K2ZZ", "FN20", "Q65", 10489541745ULL, 2, now - 20));
+    w.model ()->add_report (report ("UPLINKER", "JO40", "FT8", 2400041745ULL, 3, now - 10));
     w.tick ();
     QCOMPARE (w.model ()->rowCount (), 5);               // nothing is hidden, whatever the main window uses
     QCOMPARE (w.in_use_text (), QString {"WSJT-X: FT8 on 3cm"});
@@ -137,18 +83,18 @@ private Q_SLOTS:
     QTemporaryFile ini;
     QVERIFY (ini.open ());
     QSettings settings {ini.fileName (), QSettings::IniFormat};
-    QNetworkAccessManager nam;
-    HeardByWindow w {&settings, QFont {}, &nam, [] {return HeardByWindow::Context {"K1ABC", "FN42", "FT8", "3cm"};},
+    HeardByWindow w {&settings, QFont {}, [] {return HeardByWindow::Context {"K1ABC", "FN42", "FT8", "3cm"};},
                      [] (quint64) {return QString {"3cm"};}, [] (QString const&) {return 100.0;}};
-    w.set_source (HeardByWindow::Source::Records);
+    w.set_mqtt (nowhere (), {});
     w.tick ();
-    for (auto const& r : HeardByRecords::parse (body (QDateTime::currentSecsSinceEpoch ())).reports)
-      w.model ()->add_report (r);
+    auto const now = QDateTime::currentSecsSinceEpoch ();
+    w.model ()->add_report (report ("DK3RW", "JO40PS", "FT8", 10489541745ULL, 4, now - 120));
+    w.model ()->add_report (report ("F6BLP", "IN94KP", "FT8", 10489541745ULL, 11, now - 60));
     w.show ();
     w.tick ();
     QTest::qWait (100);
     w.tick ();
-    // no label or box keeps the window wide: UTC, Ago, Heard by and Grid fit
+    // no label keeps the window wide: UTC, Ago, Heard by and Grid fit
     QVERIFY2 (w.minimumSizeHint ().width () < 330, qPrintable (QString::number (w.minimumSizeHint ().width ())));
     // and it cannot be stretched into empty space beyond the last column
     QVERIFY (w.maximumWidth () < QWIDGETSIZE_MAX);
@@ -156,137 +102,87 @@ private Q_SLOTS:
     w.resize (3000, 400);
     QVERIFY (w.width () <= w.maximumWidth ());
   }
-  void mqtt_source_history_once_then_live_spots ()
+
+  // Nothing is asked until the window is shown; then our own call's
+  // topic and nothing else.  Closed, the feed is let go but the list is
+  // kept, and a report repeated after opening again is counted once.
+  void live_spots_only_while_shown_and_the_list_is_kept ()
   {
     using namespace fake_broker;
     auto const now = QDateTime::currentSecsSinceEpoch ();
-    HttpStub http {body (now)};
-    // the live feed: a new report, and one the records already gave (counted once)
-    auto const live = json ({{"sc", "K1ABC"}, {"rc", "G4XYZ"}, {"rl", "IO91"}, {"md", "FT8"},
-                             {"f", 10489541745.0}, {"rp", 7}, {"t", double (now - 5)}});
-    auto const again = json ({{"sc", "K1ABC"}, {"rc", "DK3RW"}, {"rl", "JO40PS"}, {"md", "FT8"},
-                              {"f", 10489541745.0}, {"rp", 4}, {"t", double (now - 120)}});
-    Broker feed {{[live, again] (Broker& br, Conn& c) {
+    auto const first = spot ("DK3RW", "JO40PS", 4, now - 120);
+    auto const second = spot ("G4XYZ", "IO91", 7, now - 5);
+    Broker feed {{[first] (Broker& br, Conn& c) {
         if (!br.handshake (c)) return;
-        br.sleep (1500);                                 // after the history
-        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/G4XYZ/FN42/IO91/291/223", live));
-        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/DK3RW/FN42/JO40/291/230", again));
+        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/DK3RW/FN42/JO40/291/230", first));
+        br.listen (c, 30000);
+      },
+      [first, second] (Broker& br, Conn& c) {
+        if (!br.handshake (c)) return;
+        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/DK3RW/FN42/JO40/291/230", first));
+        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/G4XYZ/FN42/IO91/291/223", second));
         br.listen (c, 30000);
       }}};
     feed.start_and_wait ();
     QTemporaryFile ini;
     QVERIFY (ini.open ());
     QSettings settings {ini.fileName (), QSettings::IniFormat};
-    QNetworkAccessManager nam;
     HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
-    auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : QString {};};
-    HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of,
-                     [] (QString const&) {return -1.0;}, nullptr, http.url ()};
-    QCOMPARE (w.source (), HeardByWindow::Source::Mqtt);   // the default
+    HeardByWindow w {&settings, QFont {}, [&ctx] {return ctx;}, band_of,
+                     [] (QString const& g) {return g.startsWith ("IO") ? 1000.0 : -1.0;}};
     HeardByWindow::Timing timing;
     timing.silent_after_ms = 60000;                      // no feed check in this test
     w.set_mqtt (fast (feed.port ()), timing);
-    w.set_source (HeardByWindow::Source::Mqtt);
     w.tick ();                                           // hidden: nothing is asked
     QTest::qWait (200);
     QCOMPARE (feed.connections (), 0);
-    QCOMPARE (http.requests, 0);
     w.show ();
-    QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 2, 5000);   // history: DK3RW, F6BLP
-    QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 3, 8000);   // + G4XYZ live
-    QCOMPARE (w.model ()->visible (0).receiver, QString {"G4XYZ"});
-    for (int i = 0; i < w.model ()->rowCount (); ++i) QCOMPARE (w.model ()->visible (i).count, 1);
+    QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 1, 5000);   // DK3RW
     QCOMPARE (feed.topics (), QStringList {HeardByMqtt::topic_for_sender ("K1ABC")});
     QVERIFY (feed.client_ids ().value (0).startsWith ("WSJT-X-K1ABC-"));
+    QVERIFY (w.status_text ().contains ("1 stations heard K1ABC"));
     QVERIFY (w.status_text ().contains ("Live feed: subscribed"));
-    for (int i = 0; i < 3; ++i) w.tick ();
-    QCOMPARE (http.requests, 1);                         // the records only once
     QVERIFY (w.banner_text ().isEmpty ());
-    w.close ();                                          // closed: the feed is let go
+    w.close ();                                          // closed: the feed is let go, the list is kept
     QVERIFY (!w.mqtt ()->running ());
-    settings.sync ();
-    QCOMPARE (settings.value ("HeardBy/Source").toString (), QString {"mqtt"});
-    feed.finish ();
-  }
-
-  void switching_source_clears_the_list ()
-  {
-    using namespace fake_broker;
-    auto const now = QDateTime::currentSecsSinceEpoch ();
-    HttpStub http {body (now)};
-    // over the feed: one the records already gave (counted again after the switch)
-    auto const again = json ({{"sc", "K1ABC"}, {"rc", "DK3RW"}, {"rl", "JO40PS"}, {"md", "FT8"},
-                              {"f", 10489541745.0}, {"rp", 4}, {"t", double (now - 120)}});
-    Broker feed {{[again] (Broker& br, Conn& c) {
-        if (!br.handshake (c)) return;
-        br.sleep (500);
-        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/DK3RW/FN42/JO40/291/230", again));
-        br.listen (c, 30000);
-      }}};
-    feed.start_and_wait ();
-    QTemporaryFile ini;
-    QVERIFY (ini.open ());
-    QSettings settings {ini.fileName (), QSettings::IniFormat};
-    QNetworkAccessManager nam;
-    HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
-    auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : QString {};};
-    HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of,
-                     [] (QString const&) {return -1.0;}, nullptr, http.url ()};
-    w.set_source (HeardByWindow::Source::Records);
-    HeardByWindow::Timing timing;
-    timing.silent_after_ms = 60000;
-    w.set_mqtt (fast (feed.port ()), timing);
+    QCOMPARE (w.model ()->all_rows (), 1);
     w.show ();
-    QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 2, 5000);   // records: DK3RW, F6BLP
-    w.set_source (HeardByWindow::Source::Mqtt);          // in view: live rows only
-    QCOMPARE (w.model ()->all_rows (), 0);
-    QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 1, 5000);   // DK3RW, over the feed
-    QCOMPARE (w.model ()->visible (0).receiver, QString {"DK3RW"});
-    for (int i = 0; i < 3; ++i) w.tick ();
-    QCOMPARE (http.requests, 1);                         // no records query after the switch
-    QCOMPARE (w.model ()->rowCount (), 1);
-    w.set_source (HeardByWindow::Source::Records);       // back: cleared, the feed let go
-    QCOMPARE (w.model ()->all_rows (), 0);
-    QVERIFY (!w.mqtt ()->running ());
-    QVERIFY (w.status_text ().contains ("Next check in"));   // PSK Reporter's 5 minutes
+    QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 2, 5000);   // + G4XYZ
+    QCOMPARE (feed.connections (), 2);
+    QCOMPARE (w.model ()->visible (0).receiver, QString {"G4XYZ"});
+    QCOMPARE (w.model ()->index (0, HeardByModel::Distance).data ().toInt (), 1000);
+    for (int i = 0; i < w.model ()->rowCount (); ++i) QCOMPARE (w.model ()->visible (i).count, 1);
     w.close ();
     feed.finish ();
   }
 
-  void mqtt_silent_feed_banner_clears_when_spots_return ()
+  void silent_feed_banner_clears_when_spots_return ()
   {
     using namespace fake_broker;
     auto const now = QDateTime::currentSecsSinceEpoch ();
-    HttpStub http {"<?xml version=\"1.0\"?><receptionReports></receptionReports>"};
-    auto const spot = json ({{"sc", "K1ABC"}, {"rc", "OH2LIY"}, {"rl", "KP20"}, {"md", "FT8"},
-                             {"f", 10489541745.0}, {"rp", -3}, {"t", double (now)}});
+    auto const own = spot ("OH2LIY", "KP20", -3, now);
     std::atomic<bool> release {false};
     // quiet until released; the broker's "last spot" time does not move
-    Broker feed {{[spot, &release] (Broker& br, Conn& c) {
+    Broker feed {{[own, &release] (Broker& br, Conn& c) {
         if (!br.handshake (c)) return;
         while (!release && br.running ())
           br.listen (c, 50, [] (Conn& c, QString const& topic) {
               for (int i = 0; i < 2; ++i) Broker::send (c, Broker::publish (topic, "2026-11-21T10:00:00.000Z"));
             });
-        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/OH2LIY/FN42/KP20/291/224", spot));
+        Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/OH2LIY/FN42/KP20/291/224", own));
         br.listen (c, 30000);
       }}};
     feed.start_and_wait ();
     QTemporaryFile ini;
     QVERIFY (ini.open ());
     QSettings settings {ini.fileName (), QSettings::IniFormat};
-    QNetworkAccessManager nam;
     HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
-    auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : QString {};};
-    HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of,
-                     [] (QString const&) {return -1.0;}, nullptr, http.url ()};
-    w.set_source (HeardByWindow::Source::Records);
+    HeardByWindow w {&settings, QFont {}, [&ctx] {return ctx;}, band_of, [] (QString const&) {return -1.0;}};
     HeardByWindow::Timing timing;
     timing.silent_after_ms = 500;
     timing.check_window_ms = 800;
     timing.check_every_ms = 600000;                      // one check only
     w.set_mqtt (fast (feed.port ()), timing);
-    w.set_source (HeardByWindow::Source::Mqtt);
     w.show ();
     QTRY_VERIFY_WITH_TIMEOUT (w.mqtt ()->subscribed (), 5000);
     QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("checking"), 5000);

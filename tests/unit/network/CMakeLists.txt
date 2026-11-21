@@ -26,7 +26,6 @@ add_test (NAME test_pskreporter_transport COMMAND test_pskreporter_transport)
 
 add_executable (test_heard_by
   test_heard_by.cpp
-  ${CMAKE_SOURCE_DIR}/Network/HeardByRecords.cpp
   ${CMAKE_SOURCE_DIR}/models/HeardByModel.cpp
   )
 target_include_directories (test_heard_by PRIVATE ${CMAKE_SOURCE_DIR})
@@ -36,7 +35,6 @@ add_test (NAME test_heard_by COMMAND test_heard_by)
 add_executable (test_heard_by_mqtt
   test_heard_by_mqtt.cpp
   ${CMAKE_SOURCE_DIR}/Network/HeardByMqtt.cpp
-  ${CMAKE_SOURCE_DIR}/Network/HeardByRecords.cpp
   )
 target_include_directories (test_heard_by_mqtt PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries (test_heard_by_mqtt Qt5::Test Qt5::Network)
@@ -46,7 +44,6 @@ add_executable (test_heard_by_window
   test_heard_by_window.cpp
   ${CMAKE_SOURCE_DIR}/widgets/HeardByWindow.cpp
   ${CMAKE_SOURCE_DIR}/Network/HeardByMqtt.cpp
-  ${CMAKE_SOURCE_DIR}/Network/HeardByRecords.cpp
   ${CMAKE_SOURCE_DIR}/models/HeardByModel.cpp
   ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
   )

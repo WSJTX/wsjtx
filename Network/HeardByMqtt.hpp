@@ -8,7 +8,7 @@
 #include <QPointer>
 #include <QString>
 
-#include "Network/HeardByRecords.hpp"
+#include "Network/HeardByReport.hpp"
 
 class QTcpSocket;
 class QTimer;
@@ -107,8 +107,8 @@ public:
   static QString topic_for_sender (QString const& call);
   static QString client_id (QString const& prefix, QString const& call);
 
-  // A spot as a report for HeardByModel (same id as the records give).
-  static HeardByRecords::Report report (QJsonObject const& spot);
+  // A spot as a report for HeardByModel.
+  static HeardByReport report (QJsonObject const& spot);
 
   // Packet helpers (public for the tests).
   struct Packet

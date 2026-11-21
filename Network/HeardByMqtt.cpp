@@ -83,9 +83,9 @@ QString HeardByMqtt::client_id (QString const& prefix, QString const& call)
     + QString {"-%1"}.arg (QRandomGenerator::global ()->generate () & 0xffffff, 6, 16, QChar {'0'});
 }
 
-HeardByRecords::Report HeardByMqtt::report (QJsonObject const& spot)
+HeardByReport HeardByMqtt::report (QJsonObject const& spot)
 {
-  HeardByRecords::Report r;
+  HeardByReport r;
   r.receiver = spot["rc"].toString ();
   r.locator = spot["rl"].toString ();
   r.mode = spot["md"].toString ();
@@ -93,7 +93,7 @@ HeardByRecords::Report HeardByMqtt::report (QJsonObject const& spot)
   r.snr = spot["rp"].toInt ();
   r.when = static_cast<qint64> (spot["t"].toDouble ());
   if (!r.when) r.when = static_cast<qint64> (spot["rx"].toDouble () / 1000.0);
-  if (!r.receiver.isEmpty () && r.when) r.id = HeardByRecords::report_id (r.receiver, r.when, r.frequency);
+  if (!r.receiver.isEmpty () && r.when) r.id = HeardByReport::id_of (r.receiver, r.when, r.frequency);
   return r;
 }
 

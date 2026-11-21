@@ -5122,7 +5122,7 @@ void MainWindow::on_actionHeard_by_triggered()
                &nAz, &nEl, &nDmiles, &nDkm, &nHotAz, &nHotABetter, (fortran_charlen_t)6, (fortran_charlen_t)6);
       return static_cast<double> (nDkm);
     };
-    m_heardByWindow.reset (new HeardByWindow {m_settings, m_config.decoded_text_font (), &m_network_manager,
+    m_heardByWindow.reset (new HeardByWindow {m_settings, m_config.decoded_text_font (),
                                               context, band_of, distance_to});
     connect (this, &MainWindow::finished, m_heardByWindow.data (), &HeardByWindow::close);
   }

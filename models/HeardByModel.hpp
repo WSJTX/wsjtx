@@ -9,7 +9,7 @@
 #include <QString>
 #include <QStringList>
 
-#include "Network/HeardByRecords.hpp"
+#include "Network/HeardByReport.hpp"
 
 //
 // HeardByModel - the stations that heard us: one row per receiver,
@@ -62,9 +62,9 @@ public:
   // Distances depend on our grid: call when it changes.
   void recompute_distances ();
 
-  // False if the report was already counted (a poll repeats recent
-  // ones).  An older report than the row's latest only counts.
-  bool add_report (HeardByRecords::Report const&);
+  // False if the report was already counted (a reconnect may repeat
+  // some).  An older report than the row's latest only counts.
+  bool add_report (HeardByReport const&);
 
   // Drop old rows, apply the filter, sort newest first.  now_secs < 0 = now.
   void refresh (qint64 now_secs = -1);

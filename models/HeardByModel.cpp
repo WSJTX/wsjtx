@@ -46,7 +46,7 @@ void HeardByModel::set_filter (QString const& mode, QStringList const& bands)
   refresh (now_ ? now_ : -1);    // same clock as the last refresh
 }
 
-bool HeardByModel::add_report (HeardByRecords::Report const& report)
+bool HeardByModel::add_report (HeardByReport const& report)
 {
   if (report.receiver.isEmpty ()) return false;
   if (report.id)
