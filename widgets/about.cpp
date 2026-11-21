@@ -24,7 +24,7 @@ CAboutDlg::CAboutDlg(QWidget *parent) :
     "Uwe Risse, DG2YCB, Brian Moran, N9ADG, <br />"
     "Roger Rehr, W3SZ, John Nelson, G4KLA, <br />"
     "Charlie Suckling, DL3WDG, Terrell Deppe, KJ5HST,<br />"
-    "and David Christle, KD0BTO <br /><br />"
+    "David Christle, KD0BTO, and Yoshiharu Tsukuura, JP1LRT <br /><br />"
     "We gratefully acknowledge contributions from AC6SL, AE4JY,<br />"
     "DF2ET, DJ0OT, DL3WDG, EA4AC, G4KLA, IW3RAB, JA7UDE,<br />"
     "K3WYC, KA1GT, KA6MAL, KA9Q, KB1ZMX, KD6EKQ, KG4IYS, KI7MT,<br />"
