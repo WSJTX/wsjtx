@@ -188,6 +188,69 @@ private Q_SLOTS:
     b.finish ();
   }
 
+  // The broker's keep-alive counts what the client SENDS: spots coming
+  // in must not stop the pings.
+  void pings_while_spots_arrive ()
+  {
+    Broker b {{[] (Broker& br, Conn& c) {
+                 if (!br.handshake (c)) return;
+                 for (int i = 0; i < 15 && br.running (); ++i)
+                   {
+                     Broker::send (c, Broker::publish ("t", json (sp ("BUSY", i))));
+                     br.listen (c, 100);
+                   }
+               }}};
+    b.start_and_wait ();
+    auto o = fast (b.port ());
+    o.ping_every_ms = 300;
+    HeardByMqtt c {o};
+    QSignalSpy spy {&c, &HeardByMqtt::spot};
+    c.start ("t");
+    QTRY_VERIFY_WITH_TIMEOUT (spy.count () >= 12, 5000);
+    QVERIFY2 (b.pings () >= 2, qPrintable (QString::number (b.pings ())));
+    c.stop ();
+    b.finish ();
+  }
+
+  // check_feed: the status topic's value moves = delivering; it stands
+  // still, or nothing comes = not.  Same connection, then unsubscribed.
+  void feed_check ()
+  {
+    std::atomic<bool> moving {true};
+    Broker b {{[&moving] (Broker& br, Conn& c) {
+                 if (!br.handshake (c)) return;
+                 br.listen (c, 10000, [&moving] (Conn& c, QString const& topic) {
+                     Broker::send (c, Broker::publish (topic, "2026-11-21T10:00:00.000Z"));
+                     Broker::send (c, Broker::publish (topic, moving ? "2026-11-21T10:00:01.000Z"
+                                                                     : "2026-11-21T10:00:00.000Z"));
+                   });
+               }}};
+    b.start_and_wait ();
+    HeardByMqtt c {fast (b.port ())};
+    QSignalSpy checked {&c, &HeardByMqtt::feed_checked};
+    QSignalSpy spots {&c, &HeardByMqtt::spot};
+    c.check_feed (500);                                  // not subscribed: nothing happens
+    QVERIFY (!c.checking ());
+    c.start ("t");
+    QTRY_VERIFY_WITH_TIMEOUT (c.subscribed (), 5000);
+    c.check_feed (2000);
+    QVERIFY (c.checking ());
+    QTRY_COMPARE_WITH_TIMEOUT (checked.count (), 1, 3000);
+    QCOMPARE (checked.at (0).at (0).toBool (), true);
+    QVERIFY (!c.checking ());
+    moving = false;
+    c.check_feed (500);
+    QTRY_COMPARE_WITH_TIMEOUT (checked.count (), 2, 3000);
+    QCOMPARE (checked.at (1).at (0).toBool (), false);
+    QTRY_COMPARE_WITH_TIMEOUT (b.unsubscribes (), 2, 3000);
+    QCOMPARE (b.topics (), (QStringList {"t", c.options ().status_topic, c.options ().status_topic}));
+    QCOMPARE (spots.count (), 0);                        // status values are not spots
+    QCOMPARE (c.stats ().bad_payloads, 0);
+    QCOMPARE (b.connections (), 1);
+    c.stop ();
+    b.finish ();
+  }
+
   void half_packet_then_cut_leaves_nothing_behind ()
   {
     Broker b {{[] (Broker& br, Conn& c) {

@@ -34,10 +34,16 @@ HeardByMqtt::HeardByMqtt (Options const& options, QObject * parent)
   , phase_timer_ {new QTimer {this}}
   , watchdog_timer_ {new QTimer {this}}
   , retry_timer_ {new QTimer {this}}
+  , check_timer_ {new QTimer {this}}
 {
   clock_.start ();
   phase_timer_->setSingleShot (true);
   retry_timer_->setSingleShot (true);
+  check_timer_->setSingleShot (true);
+  connect (check_timer_, &QTimer::timeout, this, [this] {
+      cancel_check ();
+      Q_EMIT feed_checked (false);
+    });
   connect (phase_timer_, &QTimer::timeout, this, [this] {
       switch (state_)
         {
@@ -152,7 +158,35 @@ QByteArray HeardByMqtt::subscribe_packet (quint16 id, QString const& topic)
   return p + encode_length (body.size ()) + body;
 }
 
+QByteArray HeardByMqtt::unsubscribe_packet (quint16 id, QString const& topic)
+{
+  QByteArray body;
+  body.append (char (id >> 8));
+  body.append (char (id & 0xff));
+  body += utf8_string (topic);
+  QByteArray p;
+  p.append (char (0xa2));                       // UNSUBSCRIBE, flags 0010
+  return p + encode_length (body.size ()) + body;
+}
+
 // ---- control ---------------------------------------------------------------
+
+void HeardByMqtt::check_feed (int window_ms)
+{
+  if (State::Subscribed != state_ || checking_) return;
+  checking_ = true;
+  check_first_.clear ();
+  check_timer_->start (window_ms);
+  write (subscribe_packet (2, options_.status_topic));
+}
+
+void HeardByMqtt::cancel_check ()
+{
+  if (!checking_) return;
+  checking_ = false;
+  check_timer_->stop ();
+  if (State::Subscribed == state_) write (unsubscribe_packet (3, options_.status_topic));
+}
 
 void HeardByMqtt::start (QString const& topic, QString const& call)
 {
@@ -191,6 +225,8 @@ void HeardByMqtt::teardown ()
 {
   phase_timer_->stop ();
   watchdog_timer_->stop ();
+  check_timer_->stop ();
+  checking_ = false;
   buffer_.clear ();                             // never carried to the next connection
   if (socket_)
     {
@@ -226,11 +262,15 @@ void HeardByMqtt::fail (QString const& reason)
   ++stats_.failures;
   stats_.last_error = reason;
   teardown ();
+  auto const rnd = QRandomGenerator::global ()->generateDouble ();
+  auto wait = int (delay_ms_ * (0.8 + 0.4 * rnd));
   if (was_subscribed && clock_.elapsed () - subscribed_at_ >= options_.stable_after_ms)
     {
-      delay_ms_ = options_.backoff_min_ms;      // it was a good connection
+      // It was a good connection.  Everyone else's dropped with it, so
+      // do not all come back in the same second.
+      delay_ms_ = options_.backoff_min_ms;
+      wait = delay_ms_ + int (rnd * qMax (0, options_.first_retry_max_ms - delay_ms_));
     }
-  auto const wait = int (delay_ms_ * (0.8 + 0.4 * QRandomGenerator::global ()->generateDouble ()));
   delay_ms_ = qMin (delay_ms_ * 2, options_.backoff_max_ms);
   state_ = State::Backoff;
   set_status (tr ("disconnected (%1) - retry in %2 s").arg (reason).arg (wait / 1000.0, 0, 'f', 1));
@@ -347,6 +387,20 @@ bool HeardByMqtt::handle_publish (quint8 flags, QByteArray const& body)
   auto const topic = QString::fromUtf8 (body.mid (2, n));
   int pos = 2 + n;
   if ((flags >> 1) & 3) pos += 2;               // QoS > 0 has a packet id
+  if (topic == options_.status_topic)
+    {
+      // the time of the broker's last spot: a second, different value
+      // means spots are flowing
+      auto const value = body.mid (pos);
+      if (!checking_) return true;
+      if (check_first_.isEmpty ()) check_first_ = value;
+      else if (value != check_first_)
+        {
+          cancel_check ();
+          Q_EMIT feed_checked (true);
+        }
+      return state_ == State::Subscribed;
+    }
   QJsonParseError err;
   auto const doc = QJsonDocument::fromJson (body.mid (pos), &err);
   if (err.error != QJsonParseError::NoError || !doc.isObject ())
@@ -373,7 +427,8 @@ void HeardByMqtt::watchdog ()
       fail (tr ("nothing received for %1 s").arg (options_.dead_after_ms / 1000.0));
       return;
     }
-  if (now - qMax (last_rx_, last_tx_) >= options_.ping_every_ms)
+  // by what we SENT: the broker's keep-alive does not count its own spots
+  if (now - last_tx_ >= options_.ping_every_ms)
     {
       write (QByteArray {"\xc0\x00", 2});       // PINGREQ
     }

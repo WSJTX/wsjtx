@@ -21,12 +21,15 @@ class QTimer;
 // Built so that it never sits "connected" while dead:
 //   - one connection path and one reconnect path, with exponential
 //     backoff (5 s .. 2 min, +-20 %), reset after a connection that
-//     lasted;
+//     lasted; after one that lasted the first retry is spread over
+//     5 s .. 1 min, so that a broker restart does not bring every
+//     station back at once;
 //   - every connection starts with a NEW socket and an EMPTY buffer;
 //   - timeouts on connect, CONNACK and SUBACK;
-//   - keep-alive: PINGREQ after ping_every_ms of silence; if NOTHING
-//     (spot or PINGRESP) arrives for dead_after_ms the connection is
-//     dropped and made again;
+//   - keep-alive: PINGREQ every ping_every_ms, spots or not (the
+//     broker drops a client that SENDS nothing for 1.5 x keep-alive);
+//     if NOTHING (spot or PINGRESP) arrives for dead_after_ms the
+//     connection is dropped and made again;
 //   - a malformed packet drops the connection (it is never skipped);
 //   - a new client id per connection: WSJT-X-<CALL>-<random>.
 //
@@ -37,6 +40,11 @@ class QTimer;
 //   payload JSON: sq f md rp t t_tx sc sl rc rl sa ra b
 // One busy band and mode carries ~40 spots/s, so subscribe ONLY to the
 // topic of the user's own call (topic_for_sender).
+//
+// Is the feed delivering at all?  The broker publishes the time of its
+// last spot once a second on status_topic.  check_feed() subscribes to
+// it on the same connection for a moment: a value that changes means
+// spots are flowing.  No second connection, no spots of other stations.
 //
 class HeardByMqtt final
   : public QObject
@@ -57,6 +65,8 @@ public:
     int backoff_min_ms {5000};
     int backoff_max_ms {120000};
     int stable_after_ms {60000};        // a subscription this long resets the backoff
+    int first_retry_max_ms {60000};     // first retry after such a one: backoff_min .. this
+    QString status_topic {"pskr2mqtt/stats/last_spot_published_to_broker"};
   };
 
   struct Stats
@@ -84,6 +94,12 @@ public:
   bool subscribed () const {return state_ == State::Subscribed;}
   QString topic () const {return topic_;}
   QString status () const {return status_;}
+
+  // Watch status_topic for window_ms at most; feed_checked says whether
+  // its value changed.  Does nothing unless subscribed.
+  void check_feed (int window_ms);
+  void cancel_check ();                         // no feed_checked follows
+  bool checking () const {return checking_;}
   Stats const& stats () const {return stats_;}
 
   // A callsign as a topic level: "/" becomes ".".
@@ -107,11 +123,13 @@ public:
   static QByteArray encode_length (int length);
   static QByteArray connect_packet (QString const& client_id, int keep_alive);
   static QByteArray subscribe_packet (quint16 packet_id, QString const& topic);
+  static QByteArray unsubscribe_packet (quint16 packet_id, QString const& topic);
 
   // The payload's JSON object plus "topic" and "rx" (receive time,
   // epoch ms).  retained = the broker's stored copy at subscribe time.
   Q_SIGNAL void spot (QJsonObject const& spot, bool retained);
   Q_SIGNAL void status_changed (QString const& status);
+  Q_SIGNAL void feed_checked (bool delivering);
 
 private:
   enum class State {Idle, Connecting, WaitConnAck, WaitSubAck, Subscribed, Backoff};
@@ -139,6 +157,9 @@ private:
   QTimer * phase_timer_;                      // connect / CONNACK / SUBACK
   QTimer * watchdog_timer_;
   QTimer * retry_timer_;
+  QTimer * check_timer_;
+  QByteArray check_first_;                    // first value seen in this check
+  bool checking_ {false};
   QElapsedTimer clock_;
   qint64 last_rx_ {0};
   qint64 last_tx_ {0};

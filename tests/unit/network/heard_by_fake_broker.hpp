@@ -41,6 +41,7 @@ namespace fake_broker
     QStringList client_ids () const {QMutexLocker l {&m_}; return ids_;}
     QStringList topics () const {QMutexLocker l {&m_}; return topics_;}
     int pings () const {return pings_;}
+    int unsubscribes () const {return unsubscribes_;}
     bool running () const {return running_;}
 
     void start_and_wait ()
@@ -113,14 +114,30 @@ namespace fake_broker
       return p + HeardByMqtt::encode_length (body.size ()) + body;
     }
     // Read and count PINGREQs (answering none) until ms have passed.
-    void listen (Conn& c, int ms)
+    // A further SUBSCRIBE is noted in topics() and, if on_subscribe is
+    // given, answered by it.
+    void listen (Conn& c, int ms, std::function<void (Conn&, QString const&)> on_subscribe = {})
     {
       QElapsedTimer t;
       t.start ();
       Packet p;
       while (running_ && t.elapsed () < ms)
         {
-          if (read (c, p, 100) && p.type == 12) ++pings_;
+          if (read (c, p, 100))
+            {
+              if (p.type == 12) ++pings_;
+              else if (p.type == 10) ++unsubscribes_;
+              else if (p.type == 8)
+                {
+                  int const tn = (quint8 (p.body[2]) << 8) | quint8 (p.body[3]);
+                  auto const topic = QString::fromUtf8 (p.body.mid (4, tn));
+                  {
+                    QMutexLocker l {&m_};
+                    topics_ << topic;
+                  }
+                  if (on_subscribe) on_subscribe (c, topic);
+                }
+            }
           else if (c.s->state () != QAbstractSocket::ConnectedState) break;
         }
     }
@@ -158,6 +175,7 @@ namespace fake_broker
     std::atomic<bool> running_ {true};
     std::atomic<int> connections_ {0};
     std::atomic<int> pings_ {0};
+    std::atomic<int> unsubscribes_ {0};
     quint16 port_ {0};
   };
 
@@ -171,6 +189,7 @@ namespace fake_broker
     o.backoff_min_ms = 100;
     o.backoff_max_ms = 400;
     o.stable_after_ms = 300;
+    o.first_retry_max_ms = 200;
     return o;
   }
 }

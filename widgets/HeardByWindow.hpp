@@ -23,14 +23,16 @@ class QTableView;
 // HeardByWindow - which stations report our signal on PSK Reporter.
 //
 // Two sources for the same list, the user's choice:
-//   - PSK Reporter's records (the default): polled at most once per 5
-//     minutes (see HeardByRecords);
-//   - the live MQTT feed (HeardByMqtt): reports within a few minutes,
-//     but the feed can stop delivering while the connection stays up.
-//     After silent_after_ms without a report of our own a short
-//     subscription to a busy band (the canary) tells "nobody reports
-//     you" from "the feed is silent", shown in a banner.  One records
-//     query fills the list with what came before.
+//   - the live MQTT feed (HeardByMqtt, the default): reports within a
+//     few minutes, but the feed can stop delivering while the
+//     connection stays up.
+//     After silent_after_ms without a report of our own a look at
+//     the broker's own status topic (HeardByMqtt::check_feed) tells
+//     "nobody reports you" from "the feed is silent", shown in a
+//     banner.  Only our own call's spots are ever subscribed to.  One
+//     records query fills the list with what came before;
+//   - PSK Reporter's records: polled at most once per 5 minutes (see
+//     HeardByRecords).
 // Nothing is asked of PSK Reporter unless this window is open.  Call,
 // grid, mode and band come from the main window through the context
 // callback, once a second.
@@ -46,10 +48,9 @@ public:
   struct Timing
   {
     int silent_after_ms {5 * 60 * 1000};    // own spots quiet this long: check the feed
-    int canary_window_ms {20 * 1000};       // how long the busy band is watched
-    int canary_every_ms {10 * 60 * 1000};   // and how often at most
+    int check_window_ms {5 * 1000};         // how long the status topic is watched
+    int check_every_ms {10 * 60 * 1000};    // and how often at most
   };
-  static char const * const canary_topic;
 
   struct Context
   {
@@ -70,8 +71,7 @@ public:
   HeardByModel * model () {return &model_;}
   HeardByRecords * records () {return &records_;}
   HeardByMqtt * mqtt () {return &mqtt_;}
-  HeardByMqtt * canary () {return &canary_;}
-  void set_mqtt (HeardByMqtt::Options const& feed, HeardByMqtt::Options const& canary, Timing const&);
+  void set_mqtt (HeardByMqtt::Options const& feed, Timing const&);
   Source source () const;
   void set_source (Source);
   QString status_text () const;
@@ -93,8 +93,7 @@ private:
   void restart ();              // the call or the source changed
   void stop_feed ();
   void on_spot (QJsonObject const&);
-  void start_canary ();
-  void canary_done (bool got_spot);
+  void feed_checked (bool delivering);
 
   enum class Feed {Unknown, Alive, Silent};
 
@@ -103,7 +102,6 @@ private:
   HeardByModel::BandOf band_of_;
   HeardByRecords records_;
   HeardByMqtt mqtt_;
-  HeardByMqtt canary_;
   Timing timing_;
   HeardByModel model_;
   QComboBox * source_box_;
@@ -113,7 +111,6 @@ private:
   QLabel * credit_;
   QLabel * in_use_;             // mode and band read from the main window
   QTimer timer_;
-  QTimer canary_timer_;
   Context last_;
   QString error_;
   qint64 next_poll_ms_ {0};     // epoch ms
@@ -122,7 +119,7 @@ private:
   bool skip_history_ {false};   // switched to MQTT in view: live rows only
   QElapsedTimer clock_;
   qint64 own_ref_ms_ {0};       // MQTT: last own spot, or when the subscription began
-  qint64 last_canary_ms_ {-1};
+  qint64 last_check_ms_ {-1};
   Feed feed_ {Feed::Unknown};
   QString feed_checked_;        // "HH:mm" UTC of the last check
 };

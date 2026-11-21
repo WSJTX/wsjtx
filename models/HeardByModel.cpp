@@ -103,6 +103,13 @@ void HeardByModel::refresh (qint64 now_secs)
   std::sort (list.begin (), list.end (), [] (Row const& a, Row const& b) {
       return a.when != b.when ? a.when > b.when : a.receiver < b.receiver;
     });
+  if (list.size () == shown_.size ())
+    {
+      // same rows: no reset, so a scrolled list stays where it is
+      shown_ = list;
+      if (!shown_.isEmpty ()) Q_EMIT dataChanged (index (0, 0), index (shown_.size () - 1, ColumnCount - 1));
+      return;
+    }
   beginResetModel ();
   shown_ = list;
   endResetModel ();

@@ -28,9 +28,6 @@ namespace
   }
 }
 
-// A busy band and mode: if nothing arrives here, the feed is silent.
-char const * const HeardByWindow::canary_topic = "pskr/filter/v2/20m/FT8/+/+/+/+/+/+";
-
 HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font, QNetworkAccessManager * network,
                               ContextProvider context, HeardByModel::BandOf band_of,
                               HeardByModel::DistanceTo distance_to, QWidget * parent,
@@ -49,17 +46,16 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font, QNetworkA
 {
   clock_.start ();
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Heard by"));
-  source_box_->addItem (tr ("PSK records"), "records");
   source_box_->addItem (tr ("Live feed"), "mqtt");
-  source_box_->setToolTip (tr ("PSK records: PSK Reporter's stored reports, read every 5 minutes.\n"
-                               "Live feed (MQTT): reports as PSK Reporter receives them, faster; the feed\n"
-                               "can stop for a while, which the window then says."));
+  source_box_->addItem (tr ("PSK records"), "records");
+  source_box_->setToolTip (tr ("Live feed (MQTT): reports as PSK Reporter receives them; the feed can\n"
+                               "stop for a while, which the window then says.\n"
+                               "PSK records: PSK Reporter's stored reports, read every 5 minutes."));
   banner_->setWordWrap (true);
   banner_->hide ();
   credit_->setText (tr ("Reports from <a href=\"https://pskreporter.info/\">PSK Reporter</a>"));
   credit_->setOpenExternalLinks (true);
   credit_->setWordWrap (true);               // so it can shrink with the window
-  canary_timer_.setSingleShot (true);
   model_.set_band_of (std::move (band_of));
   model_.set_distance_to (std::move (distance_to));
   table_->setModel (&model_);
@@ -111,20 +107,15 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font, QNetworkA
       if (mqtt_.subscribed ()) own_ref_ms_ = clock_.elapsed ();      // a new silence starts now
       update_status ();
     });
-  connect (&canary_, &HeardByMqtt::spot, this, [this] {
-      if (canary_.running () && canary_timer_.isActive ()) canary_done (true);
-    });
-  connect (&canary_timer_, &QTimer::timeout, this, [this] {canary_done (false); });
+  connect (&mqtt_, &HeardByMqtt::feed_checked, this, &HeardByWindow::feed_checked);
   timer_.setInterval (1000);
   connect (&timer_, &QTimer::timeout, this, &HeardByWindow::tick);
   update_status ();
 }
 
-void HeardByWindow::set_mqtt (HeardByMqtt::Options const& feed, HeardByMqtt::Options const& canary,
-                              Timing const& timing)
+void HeardByWindow::set_mqtt (HeardByMqtt::Options const& feed, Timing const& timing)
 {
   mqtt_.set_options (feed);
-  canary_.set_options (canary);
   timing_ = timing;
 }
 
@@ -135,13 +126,11 @@ HeardByWindow::Source HeardByWindow::source () const
 
 void HeardByWindow::set_source (Source s)
 {
-  source_box_->setCurrentIndex (Source::Mqtt == s ? 1 : 0);
+  source_box_->setCurrentIndex (source_box_->findData (Source::Mqtt == s ? "mqtt" : "records"));
 }
 
 void HeardByWindow::stop_feed ()
 {
-  canary_timer_.stop ();
-  canary_.stop ();
   mqtt_.stop ();
   feed_ = Feed::Unknown;
 }
@@ -150,7 +139,7 @@ void HeardByWindow::restart ()
 {
   stop_feed ();
   own_ref_ms_ = clock_.elapsed ();
-  last_canary_ms_ = -1;
+  last_check_ms_ = -1;
   if (isVisible ()) tick ();
   else update_status ();
 }
@@ -161,29 +150,13 @@ void HeardByWindow::on_spot (QJsonObject const& spot)
   own_ref_ms_ = clock_.elapsed ();
   feed_ = Feed::Alive;
   feed_checked_ = utc_now_hhmm ();
-  if (canary_.running ())
-    {
-      canary_timer_.stop ();
-      canary_.stop ();
-    }
+  mqtt_.cancel_check ();                        // a spot of our own answers it
 }
 
-void HeardByWindow::start_canary ()
+void HeardByWindow::feed_checked (bool delivering)
 {
-  last_canary_ms_ = clock_.elapsed ();
-  canary_.start (QString::fromLatin1 (canary_topic), last_.call);
-  canary_timer_.start (timing_.canary_window_ms);
-}
-
-void HeardByWindow::canary_done (bool got_spot)
-{
-  canary_timer_.stop ();
-  bool const connected = canary_.subscribed ();
-  canary_.stop ();
   feed_checked_ = utc_now_hhmm ();
-  if (got_spot) feed_ = Feed::Alive;
-  else if (connected) feed_ = Feed::Silent;     // subscribed to a busy band, and nothing
-  else feed_ = Feed::Unknown;                   // could not even connect: no verdict
+  feed_ = delivering ? Feed::Alive : Feed::Silent;
   update_status ();
 }
 
@@ -203,7 +176,7 @@ void HeardByWindow::read_settings ()
   SettingsGroup g {settings_, "HeardBy"};
   move (settings_->value ("window/pos", pos ()).toPoint ());
   restoreGeometry (settings_->value ("geometry").toByteArray ());
-  set_source (settings_->value ("Source", "records").toString () == "mqtt" ? Source::Mqtt : Source::Records);
+  set_source (settings_->value ("Source", "mqtt").toString () == "records" ? Source::Records : Source::Mqtt);
   records_.set_last_query_ms (settings_->value ("LastQueryMs", 0).toLongLong ());
 }
 
@@ -255,7 +228,7 @@ void HeardByWindow::tick ()
       skip_history_ = false;
       stop_feed ();
       own_ref_ms_ = clock_.elapsed ();
-      last_canary_ms_ = -1;
+      last_check_ms_ = -1;
     }
   if (grid_changed) model_.recompute_distances ();
   in_use_->setText (tr ("WSJT-X: %1 on %2")
@@ -283,10 +256,13 @@ void HeardByWindow::tick ()
         }
       // our own subscription has been quiet for a while: is it the feed or us?
       auto const t = clock_.elapsed ();
-      if (mqtt_.subscribed () && !canary_.running ()
+      if (mqtt_.subscribed () && !mqtt_.checking ()
           && t - own_ref_ms_ >= timing_.silent_after_ms
-          && (last_canary_ms_ < 0 || t - last_canary_ms_ >= timing_.canary_every_ms))
-        start_canary ();
+          && (last_check_ms_ < 0 || t - last_check_ms_ >= timing_.check_every_ms))
+        {
+          last_check_ms_ = t;
+          mqtt_.check_feed (timing_.check_window_ms);
+        }
     }
   update_status ();
 }
@@ -372,12 +348,12 @@ void HeardByWindow::update_status ()
     {
       if (Feed::Silent == feed_)
         {
-          banner = tr ("PSK Reporter's live feed is silent (checked %1 UTC): nothing arrives even for "
-                       "a busy band, so your reports cannot be shown until it recovers. The \"PSK "
-                       "Reporter records\" source does not depend on it.").arg (feed_checked_);
+          banner = tr ("PSK Reporter's live feed is silent (checked %1 UTC), so your reports cannot "
+                       "be shown until it recovers. The \"PSK records\" source does not depend "
+                       "on it.").arg (feed_checked_);
           style = "color: #b00020; font-weight: bold";
         }
-      else if (canary_.running ())
+      else if (mqtt_.checking ())
         {
           banner = tr ("Nothing for %1 for a while - checking whether the feed delivers at all...").arg (last_.call);
         }

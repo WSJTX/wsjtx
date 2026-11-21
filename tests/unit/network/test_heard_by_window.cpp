@@ -73,6 +73,7 @@ private Q_SLOTS:
     auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : f > 14000000 && f < 14350000 ? QString {"20m"} : QString {};};
     auto distance_to = [] (QString const& g) {return g.startsWith ("IN") ? 1000.0 : -1.0;};
     HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of, distance_to, nullptr, http.url ()};
+    w.set_source (HeardByWindow::Source::Records);
     w.tick ();                                           // not shown: nothing is asked
     QTest::qWait (200);
     QCOMPARE (http.requests, 0);
@@ -104,6 +105,7 @@ private Q_SLOTS:
         : f > 14000000 && f < 14350000 ? QString {"20m"} : QString {};
     };
     HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of, [] (QString const&) {return -1.0;}};
+    w.set_source (HeardByWindow::Source::Records);
     auto const now = QDateTime::currentSecsSinceEpoch ();
     w.tick ();                                           // first sight of the call (hidden: asks nothing)
     for (auto const& r : HeardByRecords::parse (body (now)).reports) w.model ()->add_report (r);
@@ -138,6 +140,7 @@ private Q_SLOTS:
     QNetworkAccessManager nam;
     HeardByWindow w {&settings, QFont {}, &nam, [] {return HeardByWindow::Context {"K1ABC", "FN42", "FT8", "3cm"};},
                      [] (quint64) {return QString {"3cm"};}, [] (QString const&) {return 100.0;}};
+    w.set_source (HeardByWindow::Source::Records);
     w.tick ();
     for (auto const& r : HeardByRecords::parse (body (QDateTime::currentSecsSinceEpoch ())).reports)
       w.model ()->add_report (r);
@@ -179,10 +182,10 @@ private Q_SLOTS:
     auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : QString {};};
     HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of,
                      [] (QString const&) {return -1.0;}, nullptr, http.url ()};
-    QCOMPARE (w.source (), HeardByWindow::Source::Records);   // the default
+    QCOMPARE (w.source (), HeardByWindow::Source::Mqtt);   // the default
     HeardByWindow::Timing timing;
-    timing.silent_after_ms = 60000;                      // no canary in this test
-    w.set_mqtt (fast (feed.port ()), fast (1), timing);
+    timing.silent_after_ms = 60000;                      // no feed check in this test
+    w.set_mqtt (fast (feed.port ()), timing);
     w.set_source (HeardByWindow::Source::Mqtt);
     w.tick ();                                           // hidden: nothing is asked
     QTest::qWait (200);
@@ -229,9 +232,10 @@ private Q_SLOTS:
     auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : QString {};};
     HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of,
                      [] (QString const&) {return -1.0;}, nullptr, http.url ()};
+    w.set_source (HeardByWindow::Source::Records);
     HeardByWindow::Timing timing;
     timing.silent_after_ms = 60000;
-    w.set_mqtt (fast (feed.port ()), fast (1), timing);
+    w.set_mqtt (fast (feed.port ()), timing);
     w.show ();
     QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 2, 5000);   // records: DK3RW, F6BLP
     w.set_source (HeardByWindow::Source::Mqtt);          // in view: live rows only
@@ -257,17 +261,17 @@ private Q_SLOTS:
     auto const spot = json ({{"sc", "K1ABC"}, {"rc", "OH2LIY"}, {"rl", "KP20"}, {"md", "FT8"},
                              {"f", 10489541745.0}, {"rp", -3}, {"t", double (now)}});
     std::atomic<bool> release {false};
-    Broker feed {{[spot, &release] (Broker& br, Conn& c) {        // quiet until released
+    // quiet until released; the broker's "last spot" time does not move
+    Broker feed {{[spot, &release] (Broker& br, Conn& c) {
         if (!br.handshake (c)) return;
-        while (!release && br.running ()) br.sleep (50);
+        while (!release && br.running ())
+          br.listen (c, 50, [] (Conn& c, QString const& topic) {
+              for (int i = 0; i < 2; ++i) Broker::send (c, Broker::publish (topic, "2026-11-21T10:00:00.000Z"));
+            });
         Broker::send (c, Broker::publish ("pskr/filter/v2/3cm/FT8/K1ABC/OH2LIY/FN42/KP20/291/224", spot));
         br.listen (c, 30000);
       }}};
-    Broker canary {{[] (Broker& br, Conn& c) {                    // a busy band that is silent
-        if (br.handshake (c)) br.listen (c, 30000);
-      }}};
     feed.start_and_wait ();
-    canary.start_and_wait ();
     QTemporaryFile ini;
     QVERIFY (ini.open ());
     QSettings settings {ini.fileName (), QSettings::IniFormat};
@@ -276,27 +280,30 @@ private Q_SLOTS:
     auto band_of = [] (quint64 f) {return f > 10000000000ULL ? QString {"3cm"} : QString {};};
     HeardByWindow w {&settings, QFont {}, &nam, [&ctx] {return ctx;}, band_of,
                      [] (QString const&) {return -1.0;}, nullptr, http.url ()};
+    w.set_source (HeardByWindow::Source::Records);
     HeardByWindow::Timing timing;
     timing.silent_after_ms = 500;
-    timing.canary_window_ms = 800;
-    timing.canary_every_ms = 600000;                     // one check only
-    w.set_mqtt (fast (feed.port ()), fast (canary.port ()), timing);
+    timing.check_window_ms = 800;
+    timing.check_every_ms = 600000;                      // one check only
+    w.set_mqtt (fast (feed.port ()), timing);
     w.set_source (HeardByWindow::Source::Mqtt);
     w.show ();
     QTRY_VERIFY_WITH_TIMEOUT (w.mqtt ()->subscribed (), 5000);
     QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("checking"), 5000);
     QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("silent"), 5000);
-    QCOMPARE (canary.topics (), QStringList {HeardByWindow::canary_topic});
-    QVERIFY (!w.canary ()->running ());                  // the canary is short
+    // one connection; our own call and the broker's status topic, nothing else
+    QCOMPARE (feed.topics (), (QStringList {HeardByMqtt::topic_for_sender ("K1ABC"),
+                                            HeardByMqtt::Options {}.status_topic}));
+    QVERIFY (!w.mqtt ()->checking ());
     release = true;                                      // the feed recovers
     QTRY_COMPARE_WITH_TIMEOUT (w.model ()->rowCount (), 1, 5000);
     QVERIFY (!w.banner_text ().contains ("silent"));
     // quiet again: the feed is known to deliver, the check is not repeated
     QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("delivering"), 5000);
-    QCOMPARE (canary.connections (), 1);
+    QCOMPARE (feed.connections (), 1);
+    QCOMPARE (feed.topics ().size (), 2);                // no second check
     w.close ();
     feed.finish ();
-    canary.finish ();
   }
 };
 
