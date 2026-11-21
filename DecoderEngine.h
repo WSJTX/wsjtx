@@ -207,14 +207,14 @@ enum { DECODER_WSPR_2 = 2, DECODER_WSPR_15 = 15 };
 enum { DECODER_WSPR_DEFAULT = 0, DECODER_WSPR_FAST = 1,
        DECODER_WSPR_NORMAL = 2, DECODER_WSPR_DEEP = 3 };
 enum { DECODER_WSPR_STANDARD = 1, DECODER_WSPR_COMPOUND = 2, DECODER_WSPR_HASHED = 3 };
-/* Search bounds are uncalibrated audio signal-center frequencies in Hz, with
+/* Search bounds are audio signal-center frequencies in Hz, in the same
+   calibrated terms as the reported results, with
    0 <= low < high <= 6000. Preparation searches the fixed WSPR band around
    1500 Hz (WSPR-2) or 1612.5 Hz (WSPR-15); bounds filter those candidates.
    The candidate bands extend at most +/-150 Hz or +/-18.75 Hz respectively.
    calibration_error_hz is indicated dial frequency minus actual frequency.
-   Results subtract that error from the estimated audio frequency. For legacy
-   compatibility admission adds the error to internal bounds on each pass;
-   WSPR-15 retains that addition in its eightfold compressed coordinates. */
+   Results subtract that error from the estimated audio frequency. Candidate
+   admission shifts the search bounds by that error for every pass. */
 typedef struct {
   int32_t waveform, effort;
   float search_low_hz, search_high_hz, calibration_error_hz;

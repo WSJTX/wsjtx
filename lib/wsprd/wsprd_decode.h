@@ -44,7 +44,7 @@ struct wsprd_decode_options {
     int ndepth;              /* -o, -1 = OSD off */
     float fmin, fmax;        /* Hz, -110/110; -w -150/150 */
     float bias;              /* -z, 0.45 */
-    double dialfreq_error;   /* -e, Hz: shifts fmin and fmax once per pass */
+    double dialfreq_error;   /* -e, Hz: indicated dial frequency minus actual frequency */
 };
 
 /* wsprd's struct result, plus f1. */

@@ -27,6 +27,8 @@
  *   test_wsprd_decode unencodable_text
  *     A decode whose printed text no WSPR encoder makes (call "K1") is not
  *     printed, and a weaker signal after it still decodes.
+ *   test_wsprd_decode calibration_passes
+ *     A calibrated search retains a weaker signal for a later pass.
  *   test_wsprd_decode osd_distance
  *     Check the distance and ranking of WSPR codewords after a missed pivot.
  *   test_wsprd_decode decoder_api
@@ -558,6 +560,44 @@ static int row_unencodable_text(void)
     return 0;
 }
 
+static int row_calibration_passes(void)
+{
+    struct signal signals[] = {
+        {"K1ABC FN42 33", 0, 0, 20.0, 2000.0},
+        {"K9AN EN50 33", 0, 0, 21.0, 500.0},
+    };
+    short *pcm = synthesize_signals(signals, 2, 3000.0);
+    struct wsprd_context *ctx = wsprd_context_new(NULL);
+    CHECK(pcm && ctx, "cannot synthesize the period or make a context");
+    if( pcm && ctx ) {
+        struct wsprd_decode_options opt;
+        wsprd_decode_options_init(&opt);
+        opt.fmin = -30;
+        opt.fmax = 100;
+        opt.dialfreq_error = 45;
+        static struct wsprd_decode_result results[WSPRD_DECODE_MAX_RESULTS];
+        int n = decode_once(pcm, wsprd_downsample_points(2), &opt, NULL, ctx, results);
+        int found = 0;
+        for( int i = 0; i < n; i++ ) {
+            if( strcmp(results[i].message, "K9AN EN50 33") == 0 ) {
+                found = 1;
+                CHECK(results[i].ipass > 0, "weak signal decoded on pass %d", results[i].ipass);
+            }
+        }
+        CHECK(found, "weak signal was not decoded on a later pass (%d decodes)", n);
+        opt.fmin = -20;
+        n = decode_once(pcm, wsprd_downsample_points(2), &opt, NULL, ctx, results);
+        CHECK(n == 0, "%d decodes below the corrected lower bound", n);
+        opt.fmin = -30;
+        opt.fmax = -26;
+        n = decode_once(pcm, wsprd_downsample_points(2), &opt, NULL, ctx, results);
+        CHECK(n == 0, "%d decodes above the corrected upper bound", n);
+    }
+    wsprd_context_free(ctx);
+    free(pcm);
+    return 0;
+}
+
 static decoder_wspr_call wspr_call(char const *call, char const *grid)
 {
     decoder_wspr_call c;
@@ -692,6 +732,8 @@ int main(int argc, char **argv)
         rc = row_type2_grid(argv[2]);
     } else if( argc == 2 && strcmp(argv[1], "unencodable_text") == 0 ) {
         rc = row_unencodable_text();
+    } else if( argc == 2 && strcmp(argv[1], "calibration_passes") == 0 ) {
+        rc = row_calibration_passes();
     } else if( argc == 2 && strcmp(argv[1], "osd_distance") == 0 ) {
         rc = row_osd_distance();
     } else if( argc == 2 && strcmp(argv[1], "decoder_api") == 0 ) {
@@ -699,7 +741,7 @@ int main(int argc, char **argv)
     } else {
         fprintf(stderr, "usage: %s repeat <wav> | hash_roundtrip <wav> <dir> | run_file <wav> <dir>"
                 " | short_name <wav> <dir> | unresolved_type3 | type2_grid <dir>"
-                " | unencodable_text | osd_distance | decoder_api\n", argv[0]);
+                " | unencodable_text | calibration_passes | osd_distance | decoder_api\n", argv[0]);
         return 2;
     }
     if( rc == 0 && failures == 0 ) {

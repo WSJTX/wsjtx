@@ -631,8 +631,8 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
     int wspr_type=options->waveform;
     float scale=wspr_type == 15 ? 8.0f : 1.0f;
     float center=wspr_type == 15 ? 1612.5f : 1500.0f;
-    float fmin=(options->search_low_hz-center)*scale;
-    float fmax=(options->search_high_hz-center)*scale;
+    float fmin=(options->search_low_hz-center+dialfreq_error)*scale;
+    float fmax=(options->search_high_hz-center+dialfreq_error)*scale;
     int quickmode=tuning->quickmode,more_candidates=tuning->more_candidates;
     int subtraction=tuning->subtraction;
     int npasses=tuning->npasses,ndepth=tuning->ndepth,verbose=tuning->verbose;
@@ -764,10 +764,6 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
                 }
             }
         }
-
-        // Compute corrected fmin, fmax, accounting for dial frequency error
-        fmin += dialfreq_error;    // dialfreq_error is in units of Hz
-        fmax += dialfreq_error;
 
         // Don't waste time on signals outside of the range [fmin,fmax].
         i=0;
