@@ -322,7 +322,12 @@ private slots:
     app.wrongThread.store (false);
     settings_.reset (new QSettings {directory_.filePath ("settings.ini"), QSettings::IniFormat});
     settings_->clear ();
-    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    auto ports = [] {
+      static auto const snapshot = QSerialPortInfo::availablePorts ();
+      return snapshot;
+    };
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (),
+                                             nullptr, nullptr, ports});
     auto& d = dialog ();
     auto& rigs = const_cast<TransceiverFactory::Transceivers&> (d.transceiver_factory_.supported_transceivers ());
     using Caps = TransceiverFactory::Capabilities;

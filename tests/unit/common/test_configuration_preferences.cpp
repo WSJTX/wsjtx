@@ -8,6 +8,7 @@
 #include <QNetworkAccessManager>
 #include <QPushButton>
 #include <QSettings>
+#include <QSerialPortInfo>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -36,7 +37,12 @@ class TestConfigurationPreferences final : public QObject
 
   void loadConfiguration ()
   {
-    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    auto serial_ports = [] {
+      static auto const snapshot = QSerialPortInfo::availablePorts ();
+      return snapshot;
+    };
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (),
+                                             nullptr, nullptr, serial_ports});
     dialog_ = nullptr;
     for (auto widget : QApplication::topLevelWidgets ())
       if (widget->objectName () == "configuration_dialog") dialog_ = qobject_cast<QDialog *> (widget);
@@ -98,7 +104,6 @@ private Q_SLOTS:
   {
     settings_.reset (new QSettings {directory_.filePath ("settings.ini"), QSettings::IniFormat});
     settings_->clear ();
-    loadConfiguration ();
   }
 
   void cleanup ()
@@ -109,6 +114,7 @@ private Q_SLOTS:
 
   void cancellingDecodedFontChooserKeepsPendingChoice ()
   {
+    loadConfiguration ();
     auto const original = configuration_->decoded_text_font ();
     auto const textFont = configuration_->text_font ();
     int const size = original.pointSize () + 4;
@@ -127,6 +133,7 @@ private Q_SLOTS:
 
   void cancellingSettingsDiscardsBothFontChoices ()
   {
+    loadConfiguration ();
     dialog_->accept ();
     auto const textFont = configuration_->text_font ();
     auto const decodedFont = configuration_->decoded_text_font ();
@@ -151,6 +158,7 @@ private Q_SLOTS:
 
   void preferenceInitialization ()
   {
+    loadConfiguration ();
     QCOMPARE (language_->currentData ().toString (), QString {});
     configuration_->set_ui_language_preference ("en");
     QCOMPARE (language_->currentData ().toString (), QString {"en"});
@@ -160,6 +168,7 @@ private Q_SLOTS:
 
   void bestSpDefaultsAndAcceptCancel ()
   {
+    loadConfiguration ();
     QVERIFY (configuration_->best_sp_new_dxcc ());
     QVERIFY (configuration_->best_sp_new_call_on_band ());
     auto dxcc = dialog_->findChild<QCheckBox *> ("best_sp_new_dxcc_check_box");
@@ -182,8 +191,6 @@ private Q_SLOTS:
 
   void bestSpPartialProfileWithoutHighlightingUsesNewDefaults ()
   {
-    configuration_.reset ();
-    settings_->clear ();
     settings_->setValue ("Configuration/MyCall", QStringLiteral ("K1ABC"));
     QVERIFY (!settings_->contains ("Configuration/DecodeHighlighting"));
     loadConfiguration ();
@@ -206,8 +213,6 @@ private Q_SLOTS:
   {
     QFETCH (bool, dxcc);
     QFETCH (bool, call);
-    configuration_.reset ();
-    settings_->clear ();
     auto highlights = DecodeHighlightingModel::default_items ();
     for (auto& item : highlights)
       {
@@ -243,7 +248,6 @@ private Q_SLOTS:
         return QByteArray {context} == "IARURegions" ? QStringLiteral ("Duplicate label") : QString {};
       }
     } translator;
-    configuration_.reset ();
     QCoreApplication::installTranslator (&translator);
     loadConfiguration ();
     auto combo = dialog_->findChild<QComboBox *> ("region_combo_box");
@@ -264,6 +268,7 @@ private Q_SLOTS:
 
   void cancelDiscardsPendingPreference ()
   {
+    loadConfiguration ();
     configuration_->set_ui_language_preference ("en");
     QSignalSpy changes {configuration_.get (), &Configuration::ui_language_preference_changed};
     language_->setCurrentIndex (0);
@@ -274,6 +279,7 @@ private Q_SLOTS:
 
   void acceptanceEmitsOnlyChangedPreference ()
   {
+    loadConfiguration ();
     QSignalSpy changes {configuration_.get (), &Configuration::ui_language_preference_changed};
     language_->setCurrentIndex (language_->findData (QString {"en"}));
     dialog_->accept ();
@@ -288,6 +294,7 @@ private Q_SLOTS:
 
   void failedValidationDoesNotCommitPreference ()
   {
+    loadConfiguration ();
     configuration_->set_ui_language_preference ("en");
     QSignalSpy changes {configuration_.get (), &Configuration::ui_language_preference_changed};
     language_->setCurrentIndex (0);

@@ -12,6 +12,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QSerialPortInfo>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTemporaryDir>
@@ -43,7 +44,12 @@ class TestConfigurationUdpDestinations final : public QObject
 
   bool create_configuration ()
   {
-    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    auto serial_ports = [] {
+      static auto const snapshot = QSerialPortInfo::availablePorts ();
+      return snapshot;
+    };
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (),
+                                             nullptr, nullptr, serial_ports});
     for (auto widget : QApplication::topLevelWidgets ())
       if (widget->objectName () == "configuration_dialog") dialog_ = qobject_cast<QDialog *> (widget);
     if (!dialog_) return false;
