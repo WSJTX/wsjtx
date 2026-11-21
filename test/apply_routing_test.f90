@@ -785,6 +785,18 @@ contains
     call ok('cancel: an unchanged copy changes no identity', .not. ft8_identity_change(was, now))
     now = was; now%ndepth = was%ndepth + 1
     call setting('depth', was, now)
+    ! Bit 0x100 of ndepth is the JT9 window request, not a depth.
+    now = was; now%ndepth = ior(was%ndepth, 256)
+    call ok('cancel: setting the JT9 window bit alone is not an FT8 setting', &
+         .not. ft8_settings_change(was, now))
+    call ok('cancel: clearing the JT9 window bit alone is not an FT8 setting', &
+         .not. ft8_settings_change(now, was))
+    now = was; now%ndepth = ior(was%ndepth + 1, 256)
+    call setting('a depth change that also sets the window bit', was, now)
+    was%ndepth = ior(was%ndepth, 256)
+    now = was; now%ndepth = was%ndepth + 1
+    call setting('a depth change with the window bit already set', was, now)
+    call fresh(was)
     now = was; now%lmultift8 = .not. was%lmultift8
     call setting('multithreaded_ft8', was, now)
     now = was; now%nmt = was%nmt + 1

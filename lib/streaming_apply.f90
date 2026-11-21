@@ -402,7 +402,10 @@ contains
   ! Hound, single decode, VHF features, trials, decode after EME delay).
   pure logical function ft8_settings_change(was, now)
     type(params_block), intent(in) :: was, now
-    ft8_settings_change = was%ndepth .ne. now%ndepth .or.                  &
+    ! Bit 0x100 of ndepth is the JT9 window request, not a depth; make_op replaces
+    ! it from low_sidelobes, so a client's value reaches no decode.
+    ft8_settings_change = iand(was%ndepth, not(256)) .ne.                  &
+         iand(now%ndepth, not(256)) .or.                                   &
          (was%lmultift8 .neqv. now%lmultift8) .or. was%nmt .ne. now%nmt .or. &
          was%ndecoderstart .ne. now%ndecoderstart .or.                     &
          was%nft8cycles .ne. now%nft8cycles .or.                           &
