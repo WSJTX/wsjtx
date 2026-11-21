@@ -4379,9 +4379,10 @@ void Configuration::impl::normalize_rig_selections (bool restore)
   QSignalBlocker cat_signals {ui_->CAT_port_combo_box};
   QSignalBlocker ptt_signals {ui_->PTT_port_combo_box};
   auto const rig = ui_->rig_combo_box->currentText ();
-  auto const port_type = transceiver_factory_.CAT_port_type (rig);
-  if (TransceiverFactory::basic_transceiver_name_ != rig
-      && (restore || port_type != last_port_type_))
+  // Settings OK reads the serial CAT field even when CAT control is disabled.
+  auto const port_type = rig == TransceiverFactory::basic_transceiver_name_
+    ? TransceiverFactory::Capabilities::serial : transceiver_factory_.CAT_port_type (rig);
+  if (restore || port_type != last_port_type_)
     {
       last_port_type_ = port_type;
       switch (port_type)

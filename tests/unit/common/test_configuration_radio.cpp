@@ -1150,6 +1150,20 @@ private slots:
     QVERIFY (!u.force_RTS_combo_box->isEnabled ());
   }
 
+  void noneAfterNetworkRigKeepsSerialPortOnAccept ()
+  {
+    auto& u = ui ();
+    u.rig_combo_box->setCurrentText (network_rig_);
+    QCOMPARE (u.CAT_port_combo_box->currentText (), QString {"localhost:4532"});
+    u.rig_combo_box->setCurrentText ("None");
+    u.PTT_VOX_radio_button->setChecked (true);
+    dialog ().accept ();
+    QCOMPARE (dialog ().result (), int (QDialog::Accepted));
+    QCOMPARE (settings_->value ("Configuration/CATSerialPort").toString (), QString {"/dev/test-cat"});
+    u.rig_combo_box->setCurrentText (serial_rig_);
+    QCOMPARE (u.CAT_port_combo_box->currentText (), QString {"/dev/test-cat"});
+  }
+
   void noneRetainsSerialPortSelection ()
   {
     auto& u = ui ();
