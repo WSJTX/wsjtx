@@ -631,8 +631,10 @@ static int row_decoder_api(void)
 
 static int row_osd_distance(void)
 {
-    enum { symbols = 162 };
-    unsigned char message[11] = {0}, challenger[sizeof message * 16];
+    enum { symbols = 162, pivot_free_prefix = 98 };
+    unsigned char message[11] = {0};
+    // The encoder writes two symbols for every bit, including byte padding.
+    unsigned char challenger[sizeof message * 16];
     unsigned char apmask[symbols] = {0}, cw[symbols];
     int depth = 1;
 
@@ -641,12 +643,15 @@ static int row_osd_distance(void)
        A single input flip still generates its convolutional codeword. */
     message[6] = 0x40;
     encode(challenger, message, sizeof message);
+    CHECK(memcmp(challenger, (unsigned char[pivot_free_prefix]){0}, pivot_free_prefix) == 0,
+          "challenger has a nonzero symbol in the reliable prefix");
     int const prefix_weights[] = {2, 127};
     for( int profile = 0; profile < 2; profile++ ) {
         int weight = prefix_weights[profile], nhard;
         float received[symbols], reported;
         for( int i = 0; i < symbols; i++ )
-            received[i] = challenger[i] ? 1 : -(i < 98 ? weight : 1);
+            received[i] = challenger[i] ? 1 : -(i < pivot_free_prefix ? weight : 1);
+        // Make the hard decisions differ from the challenger by one symbol.
         received[symbols-1] *= -1;
 
         osdwspr_(received, apmask, &depth, cw, &nhard, &reported);
@@ -657,11 +662,12 @@ static int row_osd_distance(void)
                 hard++;
             }
         }
-        /* The challenger differs at one unit-weight symbol. Allow for float
-           normalization by 127 and one addition per hard disagreement. */
+        /* Allow for float normalization by 127 and one addition per hard
+           disagreement. */
         double expected = actual / 127.0;
         double tolerance = (hard + 1) * FLT_EPSILON * expected;
-        CHECK(actual <= 1, "prefix weight %d: winner costs %d, challenger costs 1", weight, actual);
+        CHECK(memcmp(cw, challenger, symbols) == 0,
+              "prefix weight %d: returned the wrong codeword at distance %d", weight, actual);
         CHECK(fabs(reported - expected) <= tolerance && nhard == hard,
               "prefix weight %d: reported distance %g and %d errors, expected %d/127 and %d",
               weight, reported, nhard, actual, hard);
