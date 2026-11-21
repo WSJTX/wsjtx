@@ -1,0 +1,150 @@
+#ifndef HEARD_BY_MQTT_HPP__
+#define HEARD_BY_MQTT_HPP__
+
+#include <QByteArray>
+#include <QElapsedTimer>
+#include <QJsonObject>
+#include <QObject>
+#include <QPointer>
+#include <QString>
+
+#include "Network/HeardByRecords.hpp"
+
+class QTcpSocket;
+class QTimer;
+
+//
+// HeardByMqtt - PSK Reporter's live spot feed (mqtt.pskreporter.info),
+// MQTT 3.1.1, subscribe only, QoS 0, plain TCP.  Qt Core + Network only
+// (no QtMqtt).  Everything runs on the object's thread.
+//
+// Built so that it never sits "connected" while dead:
+//   - one connection path and one reconnect path, with exponential
+//     backoff (5 s .. 2 min, +-20 %), reset after a connection that
+//     lasted;
+//   - every connection starts with a NEW socket and an EMPTY buffer;
+//   - timeouts on connect, CONNACK and SUBACK;
+//   - keep-alive: PINGREQ after ping_every_ms of silence; if NOTHING
+//     (spot or PINGRESP) arrives for dead_after_ms the connection is
+//     dropped and made again;
+//   - a malformed packet drops the connection (it is never skipped);
+//   - a new client id per connection: WSJT-X-<CALL>-<random>.
+//
+// The feed (seen 2026-11-18):
+//   topic   pskr/filter/v2/{band}/{mode}/{tx}/{rx}/{tx_grid}/{rx_grid}/
+//           {tx_dxcc}/{rx_dxcc}  (11 levels; "/" in a callsign is
+//           written "." in the topic, the payload keeps the real call)
+//   payload JSON: sq f md rp t t_tx sc sl rc rl sa ra b
+// One busy band and mode carries ~40 spots/s, so subscribe ONLY to the
+// topic of the user's own call (topic_for_sender).
+//
+class HeardByMqtt final
+  : public QObject
+{
+  Q_OBJECT
+
+public:
+  struct Options
+  {
+    QString host {"mqtt.pskreporter.info"};
+    quint16 port {1883};
+    QString client_prefix {"WSJT-X"};
+    int keep_alive_secs {60};           // sent in CONNECT
+    int ping_every_ms {30000};
+    int dead_after_ms {90000};
+    int connect_timeout_ms {10000};
+    int handshake_timeout_ms {10000};   // CONNACK, then SUBACK
+    int backoff_min_ms {5000};
+    int backoff_max_ms {120000};
+    int stable_after_ms {60000};        // a subscription this long resets the backoff
+  };
+
+  struct Stats
+  {
+    int connects {0};                   // subscriptions that succeeded
+    int failures {0};
+    int spots {0};
+    int bad_payloads {0};
+    qint64 bytes_in {0};
+    qint64 last_spot_ms {0};            // epoch ms
+    QString last_error;
+  };
+
+  explicit HeardByMqtt (QObject * parent = nullptr);
+  explicit HeardByMqtt (Options const&, QObject * parent = nullptr);
+  ~HeardByMqtt () override;
+
+  void set_options (Options const& o) {options_ = o;}
+  Options const& options () const {return options_;}
+
+  // Start (or restart) watching topic; call goes into the client id.
+  void start (QString const& topic, QString const& call = {});
+  void stop ();
+  bool running () const {return state_ != State::Idle;}
+  bool subscribed () const {return state_ == State::Subscribed;}
+  QString topic () const {return topic_;}
+  QString status () const {return status_;}
+  Stats const& stats () const {return stats_;}
+
+  // A callsign as a topic level: "/" becomes ".".
+  static QString call_in_topic (QString const& call);
+  static QString topic_for_sender (QString const& call);
+  static QString client_id (QString const& prefix, QString const& call);
+
+  // A spot as a report for HeardByModel (same id as the records give).
+  static HeardByRecords::Report report (QJsonObject const& spot);
+
+  // Packet helpers (public for the tests).
+  struct Packet
+  {
+    quint8 type {0};
+    quint8 flags {0};
+    QByteArray body;
+    int used {0};
+  };
+  enum class Take {NeedMore, Ok, Malformed};
+  static Take take_packet (QByteArray const& buffer, Packet& out);
+  static QByteArray encode_length (int length);
+  static QByteArray connect_packet (QString const& client_id, int keep_alive);
+  static QByteArray subscribe_packet (quint16 packet_id, QString const& topic);
+
+  // The payload's JSON object plus "topic" and "rx" (receive time,
+  // epoch ms).  retained = the broker's stored copy at subscribe time.
+  Q_SIGNAL void spot (QJsonObject const& spot, bool retained);
+  Q_SIGNAL void status_changed (QString const& status);
+
+private:
+  enum class State {Idle, Connecting, WaitConnAck, WaitSubAck, Subscribed, Backoff};
+
+  void start_connection ();
+  void teardown ();
+  void fail (QString const& reason);
+  void set_status (QString const&);
+  void on_connected ();
+  void on_ready_read ();
+  void process_packets ();
+  bool dispatch (Packet const&);              // false = connection ended
+  bool handle_publish (quint8 flags, QByteArray const& body);
+  void watchdog ();
+  void write (QByteArray const&);
+
+  Options options_;
+  State state_ {State::Idle};
+  QString topic_;
+  QString call_;
+  QString status_;
+  Stats stats_;
+  QPointer<QTcpSocket> socket_;
+  QByteArray buffer_;
+  QTimer * phase_timer_;                      // connect / CONNACK / SUBACK
+  QTimer * watchdog_timer_;
+  QTimer * retry_timer_;
+  QElapsedTimer clock_;
+  qint64 last_rx_ {0};
+  qint64 last_tx_ {0};
+  qint64 subscribed_at_ {0};
+  int delay_ms_ {0};
+  bool stopping_ {false};
+};
+
+#endif

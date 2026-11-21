@@ -24,6 +24,37 @@ add_executable (test_pskreporter_transport
 target_link_libraries (test_pskreporter_transport wsjt_cxx Qt5::Test Qt5::Network)
 add_test (NAME test_pskreporter_transport COMMAND test_pskreporter_transport)
 
+add_executable (test_heard_by
+  test_heard_by.cpp
+  ${CMAKE_SOURCE_DIR}/Network/HeardByRecords.cpp
+  ${CMAKE_SOURCE_DIR}/models/HeardByModel.cpp
+  )
+target_include_directories (test_heard_by PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_heard_by Qt5::Test Qt5::Network)
+add_test (NAME test_heard_by COMMAND test_heard_by)
+
+add_executable (test_heard_by_mqtt
+  test_heard_by_mqtt.cpp
+  ${CMAKE_SOURCE_DIR}/Network/HeardByMqtt.cpp
+  ${CMAKE_SOURCE_DIR}/Network/HeardByRecords.cpp
+  )
+target_include_directories (test_heard_by_mqtt PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries (test_heard_by_mqtt Qt5::Test Qt5::Network)
+add_test (NAME test_heard_by_mqtt COMMAND test_heard_by_mqtt)
+
+add_executable (test_heard_by_window
+  test_heard_by_window.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/HeardByWindow.cpp
+  ${CMAKE_SOURCE_DIR}/Network/HeardByMqtt.cpp
+  ${CMAKE_SOURCE_DIR}/Network/HeardByRecords.cpp
+  ${CMAKE_SOURCE_DIR}/models/HeardByModel.cpp
+  ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
+  )
+target_include_directories (test_heard_by_window PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/widgets ${CMAKE_BINARY_DIR})
+target_link_libraries (test_heard_by_window Qt5::Test Qt5::Network Qt5::Widgets)
+add_test (NAME test_heard_by_window COMMAND test_heard_by_window)
+set_tests_properties (test_heard_by_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable (test_map65_pskreporter_settings
   test_map65_pskreporter_settings.cpp
   ${CMAKE_SOURCE_DIR}/map65/pskreporter_settings.cpp

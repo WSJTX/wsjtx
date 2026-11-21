@@ -79,6 +79,7 @@ namespace DecoderIpc {class Session;}
 #include "widgets/QSYMessage.h"
 #include "widgets/displaytext.h"
 #include "widgets/qsymonitor.h"
+#include "widgets/HeardByWindow.hpp"
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "AutoRespondSelectionLatch.hpp"
@@ -680,6 +681,7 @@ private slots:
   void auto_tx_mode(bool);
   void on_actionMessage_averaging_triggered();
   void on_actionActiveStations_triggered();
+  void on_actionHeard_by_triggered();
   void on_contest_log_action_triggered ();
   void on_fox_log_action_triggered ();
   void on_actionColors_triggered();
@@ -1107,6 +1109,7 @@ private:
   QScopedPointer<HelpTextWindow> m_mouseCmnds;
   QScopedPointer<MessageAveraging> m_msgAvgWidget;
   QScopedPointer<ActiveStations> m_ActiveStationsWidget;
+  QScopedPointer<HeardByWindow> m_heardByWindow;
   QScopedPointer<FoxLogWindow> m_foxLogWindow;
   QScopedPointer<CabrilloLogWindow> m_contestLogWindow;
   QScopedPointer<ColorHighlighting> m_colorHighlighting;

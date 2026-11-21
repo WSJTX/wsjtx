@@ -1991,6 +1991,7 @@ MainWindow::~MainWindow()
   if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset ();
   if(m_QSYMessageWidget) m_QSYMessageWidget.reset ();
   if(m_qsymonitorWidget) m_qsymonitorWidget.reset ();
+  if(m_heardByWindow) m_heardByWindow.reset ();
   {
     PerformanceTrace::Phase wisdom_export {"fft_wisdom.export"};
     auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
@@ -2531,6 +2532,7 @@ void MainWindow::setDecodedTextFont (QFont const& font)
   if(m_ActiveStationsWidget != NULL) {
     m_ActiveStationsWidget->changeFont(font);
   }
+  if (m_heardByWindow) m_heardByWindow->change_font (font);
   updateGeometry ();
 }
 
@@ -4694,6 +4696,11 @@ void MainWindow::closeEvent(QCloseEvent * e)
     QApplication::sendEvent(m_QSYMessageWidget.data(), &closeEvent);
     m_QSYMessageWidget.reset ();
   }
+  if (m_heardByWindow) {
+    QCloseEvent closeEvent;
+    QApplication::sendEvent (m_heardByWindow.data (), &closeEvent);
+    m_heardByWindow.reset ();
+  }
   if(m_qsymonitorWidget) {
     QCloseEvent closeEvent;
     QApplication::sendEvent(m_qsymonitorWidget.data(), &closeEvent);
@@ -5093,6 +5100,35 @@ void MainWindow::on_actionMessage_averaging_triggered()
   m_msgAvgWidget->showNormal();
   m_msgAvgWidget->raise();
   m_msgAvgWidget->activateWindow();
+}
+
+void MainWindow::on_actionHeard_by_triggered()
+{
+  if (!m_heardByWindow) {
+    auto context = [this] {
+      return HeardByWindow::Context {m_config.my_callsign (), m_config.my_grid (), m_mode, nominalRxBand ()};
+    };
+    auto band_of = [this] (quint64 frequency) {return m_config.bands ()->find (frequency);};
+    auto distance_to = [this] (QString const& grid) {
+      auto const mine = m_config.my_grid ();
+      // receivers may report 8 or 10 characters; the first 6 are enough here
+      auto const theirs = grid.left (6);
+      if (mine.length () < 4 || !theirs.contains (MainWindow::grid_regexp)) return -1.0;
+      double utch = 0.0;
+      int nAz, nEl, nDmiles, nDkm, nHotAz, nHotABetter;
+      auto const my_grid = (mine + "      ").left (6).toLatin1 ();
+      auto const his_grid = (theirs + "      ").left (6).toLatin1 ();
+      azdist_ (const_cast<char *> (my_grid.constData ()), const_cast<char *> (his_grid.constData ()), &utch,
+               &nAz, &nEl, &nDmiles, &nDkm, &nHotAz, &nHotABetter, (fortran_charlen_t)6, (fortran_charlen_t)6);
+      return static_cast<double> (nDkm);
+    };
+    m_heardByWindow.reset (new HeardByWindow {m_settings, m_config.decoded_text_font (), &m_network_manager,
+                                              context, band_of, distance_to});
+    connect (this, &MainWindow::finished, m_heardByWindow.data (), &HeardByWindow::close);
+  }
+  m_heardByWindow->showNormal ();
+  m_heardByWindow->raise ();
+  m_heardByWindow->activateWindow ();
 }
 
 void MainWindow::on_actionActiveStations_triggered()
