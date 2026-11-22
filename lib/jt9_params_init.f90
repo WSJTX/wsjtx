@@ -32,7 +32,6 @@ module jt9_params_init
      character(len=6)  :: mygrid  = '      '
      character(len=6)  :: hisgrid = '      '
      character(len=20) :: datetime = '2026-Apr-25 00:00   '
-     logical :: tx9              = .false.
      logical :: multift8         = .false.
      logical :: hidedupes        = .false.
      logical :: lft8lowth        = .true.
@@ -118,11 +117,7 @@ contains
     params%lapcqonly       = .false.
     params%ljt65apon       = .true.
     params%napwid          = 75
-    if (args%tx9) then
-       params%ntxmode      = 9
-    else
-       params%ntxmode      = 65
-    end if
+    params%ntxmode      = 65
     params%nmode           = mode
     if (mode == 9 .and. args%low_sidelobes) params%ndepth = ior(params%ndepth, 256)
     params%minw            = 0

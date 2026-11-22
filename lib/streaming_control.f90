@@ -81,9 +81,6 @@ module streaming_control
   integer, parameter, public :: ECHO_TONE = 1
   integer, parameter, public :: ECHO_MESSAGE = 2
   integer, parameter, public :: ECHO_CW = 3
-  ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
-  integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
-  integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
 
   type, public :: configure_fields
      ! Each "*_set" flag indicates whether the JSON contained that key.
@@ -164,40 +161,14 @@ module streaming_control
      logical                :: my_call_standard      = .false.
      logical                :: his_call_standard_set = .false.
      logical                :: his_call_standard     = .false.
-     ! Frequency-window ints. tx_audio_offset_hz -> nftx DECOUPLES the tx side
-     ! from rxfreq (which sets both nfqso AND nftx), so it must apply AFTER the
-     ! rxfreq block. jt65_jt9_split_hz -> nfsplit (a mid-stream mode switch
-     ! does not auto-replay init-time fsplit).
-     ! max_drift_hz -> max_drift (Q65 drift search; default 0).
+     ! The transmit offset overrides the transmit frequency set by rxfreq.
      logical                :: tx_audio_offset_hz_set = .false.
      integer                :: tx_audio_offset_hz     = 0
-     logical                :: jt65_jt9_split_hz_set  = .false.
-     integer                :: jt65_jt9_split_hz      = 0
      logical                :: max_drift_hz_set       = .false.
      integer                :: max_drift_hz           = 0
-     ! decoder-tuning basic fields, flat 1:1 onto
-     ! params_block. dt_tolerance_seconds/eme_delay_seconds are the schema's
-     ! first real(8) members; they narrow to real(c_float) dttol/emedelay at
-     ! apply (narrowing documented in streaming_apply.f90 apply_configure_fields).
-     ! robust_mode/nagain_flag/clear_average are BOOLEANS -> logical(c_bool)
-     ! nrobust/nagain/nclearave (reuse the get_bool_/accept_bool path).
-     ! tx_mode is an enum (JT9->9 / JT65->65, or a raw int) -> ntxmode, mirroring
-     ! the "mode" parse. The stream host sets kin and nzhsym before each decode
-     ! (streaming_io.f90), so kin_samples/nzhsym_per_period do not reach the
-     ! decoder. The host sets emedelay as the GUI does (2.5 with
-     ! decode_after_eme_delay, else 0): 0 at start, and again when a frame sets
-     ! the mode, the TR period or that key, unless the frame gives
-     ! eme_delay_seconds. min_width is JT4's; min_sync JT4's, JT65's and
-     ! JT65+JT9's; n_2pass and aggressive (the GUI's Aggressive setting, 0 to
-     ! 10, which the stream holds it to; the engine takes 11) JT65's and JT65+JT9's; clear_average JT4's, JT65's, JT65+JT9's and
-     ! Q65's, and only the next decode that runs (a decode again included), as
-     ! the GUI's Clear Avg; robust_mode, tx_mode and npts_c0_array reach only
-     ! JT65+JT9; no decoder reads dt_tolerance_seconds. nagain_flag asks once to
-     ! decode the last period again, or with none the period in flight
-     ! (streaming_io.f90). With live audio it is
-     ! refused while the decoder is busy (decode_again_unavailable, detail "the
-     ! decoder is busy"), as the GUI's Decode button is; send it again after a
-     ! decode_finished.
+     ! The stream host supplies kin and nzhsym for each decode. Clear
+     ! averaging applies to the next JT4, JT65 or Q65 decode that runs.
+     ! With live audio, a busy decoder refuses requests to decode again.
      logical                :: dt_tolerance_seconds_set = .false.
      real(8)                :: dt_tolerance_seconds     = 0.d0
      logical                :: eme_delay_seconds_set    = .false.
@@ -206,11 +177,6 @@ module streaming_control
      integer                :: kin_samples              = 0
      logical                :: nzhsym_per_period_set    = .false.
      integer                :: nzhsym_per_period        = 0
-     logical                :: npts_c0_array_set        = .false.
-     integer                :: npts_c0_array            = 0
-     ! An npts_c0_array outside NPTS_C0_ARRAY_MIN to NPTS_C0_ARRAY_MAX, which
-     ! the stream declines (configure_range_error).
-     logical                :: npts_c0_array_out_of_range = .false.
      logical                :: min_width_set            = .false.
      integer                :: min_width                = 0
      logical                :: min_sync_set             = .false.
@@ -219,12 +185,8 @@ module streaming_control
      integer                :: n_2pass                  = 0
      logical                :: aggressive_set           = .false.
      integer                :: aggressive               = 0
-     logical                :: robust_mode_set          = .false.
-     logical                :: robust_mode              = .false.
      logical                :: nagain_flag_set          = .false.
      logical                :: nagain_flag              = .false.
-     logical                :: tx_mode_set              = .false.
-     integer                :: tx_mode                  = 0
      logical                :: clear_average_set        = .false.
      logical                :: clear_average            = .false.
      ! The GUI's "Decode after EME delay" (later stop points, 2.5 s EME delay)
@@ -989,16 +951,6 @@ contains
        end if
     end if
 
-    call check_type_(buf, '"jt65_jt9_split_hz"', 'jt65_jt9_split_hz', 'int',     &
-         .false., .true., terr, proceed)
-    if (proceed) then
-       call get_int_(buf, '"jt65_jt9_split_hz"', int_val, ok)
-       if (ok) then
-          cfg%jt65_jt9_split_hz_set = .true.
-          cfg%jt65_jt9_split_hz     = int_val
-       end if
-    end if
-
     call check_type_(buf, '"max_drift_hz"', 'max_drift_hz', 'int',               &
          .false., .true., terr, proceed)
     if (proceed) then
@@ -1068,19 +1020,6 @@ contains
        end if
     end if
 
-    call check_type_(buf, '"npts_c0_array"', 'npts_c0_array', 'int',             &
-         .false., .true., terr, proceed)
-    if (proceed) then
-       call get_int_(buf, '"npts_c0_array"', int_val, ok)
-       if (ok .and. int_val .ge. NPTS_C0_ARRAY_MIN .and.                   &
-            int_val .le. NPTS_C0_ARRAY_MAX) then
-          cfg%npts_c0_array_set = .true.
-          cfg%npts_c0_array     = int_val
-       else if (ok) then
-          cfg%npts_c0_array_out_of_range = .true.
-       end if
-    end if
-
     call check_type_(buf, '"min_width"', 'min_width', 'int',                     &
          .false., .true., terr, proceed)
     if (proceed) then
@@ -1118,17 +1057,6 @@ contains
        if (ok) then
           cfg%aggressive_set = .true.
           cfg%aggressive     = int_val
-       end if
-    end if
-
-    ! Three bool keys (reuse the get_bool_ / accept_bool path).
-    call check_type_(buf, '"robust_mode"', 'robust_mode', 'bool',                &
-         .false., .false., terr, proceed, accept_bool=.true.)
-    if (proceed) then
-       call get_bool_(buf, '"robust_mode"', lval, ok)
-       if (ok) then
-          cfg%robust_mode_set = .true.
-          cfg%robust_mode     = lval
        end if
     end if
 
@@ -1324,28 +1252,6 @@ contains
     cfg%phase_eq_out_of_range = numbers_problem .eq. 'range'
     if (numbers_problem .eq. 'type')                                             &
          call set_type_error_(terr, 'phase_eq', 'array of numbers', numbers_got)
-
-    ! tx_mode: enum string ("JT9"/"JT65") or int (9/65) -> ntxmode. Mirrors the
-    ! "mode" block (string|int via mode_string_to_int). A negative map (unknown
-    ! name) leaves tx_mode unset, like "mode".
-    call check_type_(buf, '"tx_mode"', 'tx_mode', 'string|int', .true., .true.,  &
-         terr, proceed)
-    if (proceed) then
-       call get_string_(buf, '"tx_mode"', str_val, ok)
-       if (ok) then
-          int_val = mode_string_to_int(trim(str_val))
-          if (int_val .ge. 0) then
-             cfg%tx_mode_set = .true.
-             cfg%tx_mode     = int_val
-          end if
-       else
-          call get_int_(buf, '"tx_mode"', int_val, ok)
-          if (ok) then
-             cfg%tx_mode_set = .true.
-             cfg%tx_mode     = int_val
-          end if
-       end if
-    end if
 
     ! ===== FT8/FT4 specifics cluster ==================
     ! 19 bools + 5 ints, flat 1:1. Bools reuse the get_bool_/accept_bool path;
@@ -1932,7 +1838,6 @@ contains
     case ('FT4');     mode_int = 5
     case ('JT9');     mode_int = 9
     case ('JT65');    mode_int = 65
-    case ('JT65+JT9'); mode_int = 74
     case ('JT4');     mode_int = 4
     case ('FST4');    mode_int = 240
     case ('FST4W');   mode_int = 241
@@ -1946,7 +1851,7 @@ contains
     logical             :: valid
 
     select case (mode_int)
-    case (4, 5, 8, 9, 65, 66, 74, 144, 240, 241, 242)
+    case (4, 5, 8, 9, 65, 66, 144, 240, 241, 242)
        valid = .true.
     case default
        valid = .false.

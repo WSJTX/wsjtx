@@ -213,10 +213,6 @@ Mode modeOf (QString const& name)
     return {inSamples ("JT65/JT65B/000000_0004.wav"), {{"mode", "JT65"}, {"trperiod", 60}, {"submode", 1},
                                                         {"rxfreq", 1700}, {"nutc", 4}, {"depth", 3}},
             60 * SampleRate, "JT65", 60, false};
-  if ("jt65jt9" == name)
-    return {inSamples ("JT9/130418_1742.wav"), {{"mode", "JT65+JT9"}, {"trperiod", 60}, {"nutc", 1742},
-                                                 {"jt65_jt9_split_hz", 1000}, {"tx_mode", "JT9"}, {"depth", 3}},
-            60 * SampleRate, "JT65+JT9", 60, false};
   if ("fst4-60" == name)
     return {fst4Sample, with (fst4, {{"nfa", 1000}, {"nfb", 1400}}), 60 * SampleRate, "FST4", 60, false};
   if ("fst4-60-wide" == name)
@@ -1022,7 +1018,7 @@ QList<Expiry> liveness (QList<Line> const& lines, QList<SentPeriod> const& sent,
       else if ("decode" == type)
         {
           auto const mode = json (text).value ("mode").toString ();
-          if (mode == busyMode || ("JT65+JT9" == busyMode && ("JT9" == mode || "JT65" == mode))) progress (t);
+          if (mode == busyMode) progress (t);
         }
     }
   check (end);
@@ -1290,7 +1286,7 @@ private slots:
   {
     QTest::addColumn<QString> ("decode");
     QTest::addColumn<bool> ("answeredDuring");
-    for (auto const name : {"ft8", "ft8-mtd", "ft4", "fst4", "q65", "jt4", "jt9", "jt65", "jt65jt9"})
+    for (auto const name : {"ft8", "ft8-mtd", "ft4", "fst4", "q65", "jt4", "jt9", "jt65"})
       QTest::newRow (name) << QString {name} << (QString {name} != "q65" && QString {name} != "jt4");
   }
 
@@ -1430,14 +1426,12 @@ private slots:
     QVERIFY2 (during > 0, "no Fox render was answered during the decode");
   }
 
-  // Multithreaded FT8 and JT65+JT9 decode on the decode thread as they
-  // do inline, and as the build WSJT_CODEC_REFERENCE names does (develop's).
+  // Multithreaded FT8 decodes match inline and WSJT_CODEC_REFERENCE.
   void decodesMatchTheReference_data ()
   {
     QTest::addColumn<QString> ("decode");
     QTest::addColumn<int> ("periods");
     QTest::newRow ("ft8-mtd") << QString {"ft8-mtd"} << 2;
-    QTest::newRow ("jt65jt9") << QString {"jt65jt9"} << 1;
   }
 
   void decodesMatchTheReference ()
@@ -1632,8 +1626,7 @@ private slots:
   void deepestDecodeOnTheDecodeThread_data ()
   {
     QTest::addColumn<QString> ("decode");
-    for (auto const name : {"ft8", "ft8-mtd", "ft4", "fst4-60", "fst4w-1800", "q65-300a", "jt4", "jt9", "jt65",
-                            "jt65jt9"})
+    for (auto const name : {"ft8", "ft8-mtd", "ft4", "fst4-60", "fst4w-1800", "q65-300a", "jt4", "jt9", "jt65"})
       QTest::newRow (name) << QString {name};
   }
 
@@ -1953,13 +1946,12 @@ private slots:
     else QVERIFY2 (decodes > 1, qPrintable (codec.report ()));
   }
 
-  // On the stream the decoders write no result files, JT65+JT9's legacy
-  // decoder included; jt9's WAV mode writes them (test_streaming_side).
+  // The stream writes no result files. See test_streaming_side for WAV output.
   void streamWritesNoResultFiles ()
   {
     auto const pcm = period (wavPcm (inSamples ("JT65/JT65B/000000_0004.wav")), 60 * 12000);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
-    auto const run = runInput (sessionHeader () + configure ({{"mode", "JT65+JT9"}, {"utc", "00:00:00"}})
+    auto const run = runInput (sessionHeader () + configure ({{"mode", "JT65"}, {"utc", "00:00:00"}})
                                + audio (pcm) + halt ());
     QVERIFY2 (run->clean (), qPrintable (run->report ()));
     QCOMPARE (count (run->lines, outType ("decode_finished")), 1);

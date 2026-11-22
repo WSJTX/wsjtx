@@ -39,10 +39,8 @@
 !                       Q65: "q" (the qN code), "avg" (periods averaged) and
 !                       "copied" (jt9's #: the spare 78th bit, the sender
 !                       copied our last message).
-!                       JT4, JT9 (fast JT9 too), JT65 and Q65, and
-!                       JT65+JT9's JT65 lines: "submode", the letter the
-!                       decode pass decoded with (configure's submode as it
-!                       stood); JT65+JT9's JT9 decoder reads none.
+!                       JT4, JT9 (fast JT9 too), JT65 and Q65: "submode", the
+!                       submode letter in force for the decode pass.
 !                       FST4, FST4W, Q65, fast JT9, MSK144: "period", the TR
 !                       period in seconds (MSK144: trperiod's whole seconds,
 !                       as the GUI passes it to hspec).
@@ -88,11 +86,9 @@
 !                      "key":"depth","expected":"int","got":"string"}
 !   error (range)     {"v":1,"t":"error","code":"configure_range_error",
 !                      "key":"rxfreq","mode":"JT65","detail":"..."}
-!                     A configure whose result the decoder would refuse (for
-!                     JT65+JT9, the stream's rule), or that would leave JT9
-!                     at a trperiod other than 60 (checked first); the frame
-!                     is declined whole, naming the first refused key in the
-!                     decoder's order (a carried one when a mode change made
+!                     A configure whose result the decoder or stream would
+!                     refuse. The frame is declined whole, naming the first
+!                     refused key in the decoder's order (a carried one when a mode change made
 !                     it invalid). "mode" is the mode the frame would leave,
 !                     and the stream stays in the one it had. Also sent once
 !                     after ready for a command-line value, and in place of
@@ -277,10 +273,10 @@
 ! With busy_events a client can tell a slow decode from a hung one, as the
 ! GUI's watchdog does:
 !   - While busy is true, progress is a busy, pass_progress or pass_skipped
-!     line, or a decode whose mode is the last busy line's (JT65+JT9's decodes
-!     say JT9 or JT65); MSK144's lines, rows (below), replies and the rest
-!     are not. A pass is allowed the GUI's time between progress lines: on
-!     live audio, not a decode again, after the first completion, FT8 10 s
+!     line, or a decode whose mode is the last busy line's; MSK144's lines,
+!     rows (below), replies and the rest are not progress. A pass is allowed
+!     the GUI's time between progress lines: on live audio, not a decode again,
+!     after the first completion, FT8 10 s
 !     and FT4 6 s; otherwise the greater of 60 s and four periods, or of
 !     300 s and four periods before the first completion. A pass ends, and
 !     completes, at its decode_finished or the next busy line (early FT8
@@ -310,7 +306,7 @@
 !                       signal meter.
 !   low_sidelobes       boolean, true at the start: the GUI's "Low sidelobes" (a
 !                       Nuttall window on each spectrum row's FFT and on the
-!                       symbol spectra slow JT9 and JT65+JT9 decode from;
+!                       symbol spectra slow JT9 decodes from;
 !                       fast_spectrum and fast JT9 have no window, as in the
 !                       GUI).
 !   ref_spectrum        "off" (the start), "measure" or "apply": the GUI's
@@ -378,10 +374,9 @@
 !                      "peak":Q,"df":D,"bins":N,"data":"..."}
 !                     A period mode's row, one per 3456-sample block of the
 !                     period: live every block, from a file those up to the
-!                     stop (JT65+JT9, which has none, every block). K: the
-!                     block's end in samples from the period's start; H: its
-!                     index from 1; P and Q: the power and peak in dB of the
-!                     block's samples, less the period's first 10 (the GUI's
+!                     stop. K: the block's end in samples from the period's
+!                     start; H: its index from 1; P and Q: the block's power
+!                     and peak in dB, less the period's first 10 samples (the GUI's
 !                     signal meter); D: the bin width in Hz
 !                     (12000/16384); data: N bins (6827, 0 to 5000 Hz), the
 !                     power spectrum of the last 16384 samples (zeros before
@@ -457,8 +452,7 @@
 !                     the stop and MSK144's a block at a time: one
 !                     line per 3456-sample block (MSK144's 3584) from the
 !                     period's start, past the stop, through its last whole
-!                     block (JT65+JT9, which has no stop, through its last
-!                     sample). K: the end of its samples in samples from the
+!                     block. K: the end of its samples in samples from the
 !                     period's start, rising by N within a period and
 !                     starting again with the next (the lines carry no
 !                     label); data: N int16 little-endian samples, base64, as
@@ -539,10 +533,8 @@ module streaming_emit
   real(8), save :: finished_at_ = -huge(1.d0)
   ! The half-symbol stop of the stream host's decode pass (0: none yet).
   integer, save :: pass_ = 0
-  ! The submode its decodes carry, 0 for A (< 0: none), and whether its JT9
-  ! decodes carry it (not in JT65+JT9, whose JT9 decoder reads none).
+  ! The submode its decodes carry, 0 for A (< 0: none).
   integer, save :: submode_ = -1
-  logical, save :: submode_jt9_ = .true.
   ! WSJT-X's FT8 duplicate rule (streaming_emit_set_repeats): whether the
   ! running pass drops a message already sent, the period whose messages
   ! count (repeats_window_), and the keys sent under one label, the period's
@@ -697,9 +689,7 @@ contains
 
   subroutine streaming_emit_ready()
     if (.not. enabled_) return
-    ! modes: the modes a configure decodes, jt9's ten, Echo, JTTY, FreqCal
-    ! and WSPR; encodes: the modes pack and render encode.
-    call put_('{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W",' // &
+    call put_('{"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W",' // &
        '"Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],' // &
        '"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144",' // &
        '"ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1}')
@@ -772,8 +762,7 @@ contains
     if (present(q)) marks = marks // ',"q":' // int_text_(q)
     if (present(avg)) marks = marks // ',"avg":' // int_text_(avg)
     if (present(copied)) marks = marks // ',"copied":' // trim(merge('true ', 'false', copied))
-    if (.not. present(training) .and. submode_ .ge. 0 .and. submode_ .le. 25 .and. &
-         (submode_jt9_ .or. trim(mode_str) .ne. 'JT9'))                          &
+    if (.not. present(training) .and. submode_ .ge. 0 .and. submode_ .le. 25) &
          marks = marks // ',"submode":"' // achar(iachar('A') + submode_) // '"'
     if (present(period) .and. .not. present(training)) marks = marks // ',"period":' // int_text_(period)
     if (present(spread)) marks = marks // ',"spread":' // real_text_(spread)
@@ -810,14 +799,10 @@ contains
     pass_ = nzhsym
   end subroutine streaming_emit_set_pass
 
-  ! The submode the stream host's next decode pass decodes with, 0 for A, in
-  ! the modes whose decodes carry it (< 0: none); jt9 false: its JT9 decodes
-  ! carry none.
-  subroutine streaming_emit_set_submode(submode, jt9)
+  ! The submode for the next decode pass, 0 for A (< 0: none).
+  subroutine streaming_emit_set_submode(submode)
     integer, intent(in) :: submode
-    logical, intent(in) :: jt9
     submode_ = submode
-    submode_jt9_ = jt9
   end subroutine streaming_emit_set_submode
 
   ! WSJT-X's FT8 duplicate rule for the stream host's next decode pass: with
@@ -1890,7 +1875,6 @@ contains
     case (9);       name = 'JT9'
     case (65);      name = 'JT65'
     case (66);      name = 'Q65'
-    case (74);      name = 'JT65+JT9'
     case (144);     name = 'MSK144'
     case (240);     name = 'FST4'
     case (241, 242); name = 'FST4W'

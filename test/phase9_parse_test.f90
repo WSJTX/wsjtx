@@ -11,7 +11,7 @@
 ! clamp.
 !
 ! WHY a Fortran unit driver (not only fixtures through jt9): only depth_level is
-! decode-observable on FT8/JT9 (Gate 24); the other 8 keys are inert (Q65/JT65/
+! decode-observable on FT8/JT9 (Gate 23); the other 8 keys are inert (Q65/JT65/
 ! FST4/JT4 or contest-branch only), and the bit-PACKING of even
 ! depth_level is invisible to a decode-count gate (ndepth=3 and ndepth=3|16 both
 ! decode 21 on FT8). This driver + run-apply-routing-unit.sh (the packed-int APPLY

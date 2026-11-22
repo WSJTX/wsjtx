@@ -198,7 +198,6 @@ contains
 
     nf0=0
     nf1=nfa
-    if(nmode.eq.65+9) nf1=nfsplit
     ia=max(1,nint((nf1-nf0)/df3))
     ib=min(NSMAX,nint((nfb-nf0)/df3))
     if(ib.le.ia) go to 999

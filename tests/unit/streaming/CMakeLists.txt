@@ -320,7 +320,7 @@ function (wsjt_add_streaming_render_test name function fixtures)
 endfunction ()
 set (streaming_render_rows fst4-15 fst4-15-doppler q65-15)
 set (streaming_render_sample_rows ft8 ft8-d3 ft8-mtd ft4 jt9 jt9-d3 jt65 jt65-seq jt65-seq-avg
-  jt65-seq-avg-utc jt65-seq-vhf-avg jt65jt9 jt4f jt4a jt4a-avg q65-30a q65-30a-ap q65-30a-seq
+  jt65-seq-avg-utc jt65-seq-vhf-avg jt4f jt4a jt4a-avg q65-30a q65-30a-ap q65-30a-seq
   q65-30a-seq-avg q65-60a q65-60b-seq-avg q65-60d q65-120d q65-120e-seq-avg-counts q65-300a fst4
   fst4-doppler fst4w)
 set (streaming_render_ap_rows ft8-ap ft4-ap q65-pileup-ap q65-pileup-off-counts)
@@ -689,7 +689,7 @@ if (decode_thread_samples)
   # On the sanitizer legs: encodes beside every decode, a halt during one,
   # MSK144 and JTTY beside one, and FT8's repeats, which the multithreaded
   # decoder's workers send.
-  foreach (row ft8 ft8-mtd ft4 fst4 q65 jt4 jt9 jt65 jt65jt9)
+  foreach (row ft8 ft8-mtd ft4 fst4 q65 jt4 jt9 jt65)
     wsjt_add_decode_thread_test (encodes_${row} "encodesDuringEachDecode:${row}" SERIAL PROCESSORS 2)
   endforeach ()
   foreach (row ft8 ft8-mtd)
@@ -716,10 +716,9 @@ if (decode_thread_samples)
     endforeach ()
     wsjt_add_decode_thread_test (fox_fst4 "foxRendersLeaveLiveDecodes:fst4" LONG)
     wsjt_add_decode_thread_test (reference_ft8-mtd "decodesMatchTheReference:ft8-mtd" PROCESSORS 2 LONG)
-    wsjt_add_decode_thread_test (reference_jt65jt9 "decodesMatchTheReference:jt65jt9" PROCESSORS 2)
     wsjt_add_decode_thread_test (mtd_labels multithreadedDecodesCarryTheirPassAndTime PROCESSORS 2)
     # Each mode's deepest decode against inline, up to about 80 s each on the Linux CI image: run before a merge.
-    foreach (row ft8 ft8-mtd ft4 fst4-60 fst4w-1800 q65-300a jt4 jt9 jt65 jt65jt9)
+    foreach (row ft8 ft8-mtd ft4 fst4-60 fst4w-1800 q65-300a jt4 jt9 jt65)
       wsjt_add_decode_thread_test (deepest_${row} "deepestDecodeOnTheDecodeThread:${row}" PROCESSORS 2 TIMING)
     endforeach ()
     wsjt_add_decode_thread_test (marker markerDuringADecodeFollowsIt)
@@ -962,7 +961,7 @@ foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav 
 endforeach ()
 if (streaming_spectrum_samples)
   foreach (row "ft8 live" "ft8 live low sidelobes" "ft8 live and a half" "ft8 file" "ft8 file short" "ft8-mtd file"
-      "ft4 live" "ft4 file low sidelobes" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 file" "fst4 file"
+      "ft4 live" "ft4 file low sidelobes" "jt4 file" "jt9 file" "jt65 file" "q65 file" "fst4 file"
       "fst4w file" "fst4-60 live low sidelobes" "wspr live" "wspr file")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (rows_${name} "periodRowsMatchTheGui:${row}")
@@ -973,8 +972,8 @@ if (streaming_spectrum_samples)
   wsjt_add_spectrum_test (rows_after_a_one_block_period "rowsAfterAOneBlockPeriod:ft8")
   wsjt_add_spectrum_test (fast_after_a_one_block_period "rowsAfterAOneBlockPeriod:msk144")
   wsjt_add_spectrum_test (rows_after_spectrum_off_at_block_1 periodRowsAfterSpectrumOffAtBlock1)
-  wsjt_add_spectrum_test (rows_jt65jt9_after_a_period_mode_row jt65jt9RowsAfterAPeriodModeRow)
-  wsjt_add_spectrum_test (rows_after_a_jt65jt9_period periodRowsAfterAJt65jt9Period)
+  wsjt_add_spectrum_test (rows_jt9_after_a_period_mode_row jt9RowsAfterAPeriodModeRow)
+  wsjt_add_spectrum_test (rows_after_a_jt9_period periodRowsAfterAJt9Period)
   wsjt_add_spectrum_test (jtty_on_mid_block_while_equalizing jttyRowsOnMidBlockWhileEqualizing)
   wsjt_add_spectrum_test (queue_drops_the_oldest rowsPastTheCapDropTheOldest)
   wsjt_add_spectrum_test (queue_file_drops_nothing fileRowsPastTheCapAreAllKept)
@@ -1030,7 +1029,7 @@ if (streaming_spectrum_samples)
   endforeach ()
   wsjt_add_spectrum_test (equalized_decodes equalizedDecodesMatchTheFilteredInput)
   wsjt_add_spectrum_test (file_input_never_equalized fileInputIsNeverEqualized)
-  foreach (row "ft8 apply" "ft8 apply without rows" "ft8 off" "ft8 measure" "msk144 apply" "msk144 off" "jt65jt9 off"
+  foreach (row "ft8 apply" "ft8 apply without rows" "ft8 off" "ft8 measure" "msk144 apply" "msk144 off"
       "jtty apply" "jtty off" "wspr apply")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (prepared_audio_${name} "preparedAudioMatchesTheGui:${row}")
@@ -1050,7 +1049,7 @@ if (streaming_spectrum_samples)
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (keys_${name} "newKeysDeclineBadValues:${row}")
   endforeach ()
-  foreach (row "ft8 file" "ft8-mtd file" "ft4 live" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 live"
+  foreach (row "ft8 file" "ft8-mtd file" "ft4 live" "jt4 file" "jt9 file" "jt65 file" "q65 live"
       "fst4 file" "fst4w file" "msk144 live" "jtty" "wspr live")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (decodes_${name} "decodesUnchangedByRows:${row}")
@@ -1058,7 +1057,6 @@ if (streaming_spectrum_samples)
   endforeach ()
   wsjt_add_spectrum_test (decodes_deferred_final deferredFinalUnchangedByRows PROCESSORS 2)
   wsjt_add_spectrum_test (decodes_again_after_the_stop decodeAgainAfterTheStopUnchangedByRows)
-  wsjt_add_spectrum_test (low_sidelobes_jt65jt9_decodes lowSidelobesReachesTheJt65Jt9Decoder)
   wsjt_add_spectrum_test (low_sidelobes_jt9_decodes lowSidelobesReachesTheJt9Decoder)
   foreach (row "spectrum" "fast_spectrum" "ref_spectrum" "spectrum jtty" "prepared_audio" "prepared_audio jtty")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
@@ -1360,7 +1358,7 @@ if (streaming_side_samples)
     wsjt_add_side_test (equal_jt9_${name} "eventsEqualJt9sSideFiles:${row}" "")
   endforeach ()
   foreach (row "jt4 A then F" "q65 A then D" "jt65 B" "jt9 A then fast E then fast H" "msk144 15 then 30"
-      "jt65jt9 JT65 lines only" "ft8 none")
+      "ft8 none")
     string (TOLOWER "${row}" name)
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${name}")
     wsjt_add_side_test (labels_${name} "decodesCarryTheirLabels:${row}" "")

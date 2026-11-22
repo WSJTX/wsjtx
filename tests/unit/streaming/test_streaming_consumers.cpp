@@ -26,7 +26,7 @@ constexpr int Jt9DrainBytes = 4096;
 constexpr int Jt9ControlCapacityBytes = 262144;
 
 constexpr char ReadyLine[] =
-  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT65+JT9","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1})";
+  R"({"v":1,"t":"ready","modes":["FT8","FT4","JT9","JT65","JT4","FST4","FST4W","Q65","MSK144","ECHO","JTTY","FREQCAL","WSPR"],"encodes":["FT8","FT4","JT4","JT9","JT65","Q65","FST4","FST4W","WSPR","MSK144","ECHO","TUNE","FOX","SUPERFOX","JTTY"],"protocol":1})";
 constexpr char OddAudioFrameLine[] =
   R"({"v":1,"t":"error","code":"odd_audio_frame","detail":"audio frame length must contain whole int16 samples"})";
 constexpr char ControlFrameTooLargeLine[] =
@@ -643,6 +643,10 @@ private slots:
     QTest::addColumn<QByteArray> ("configure");
     QTest::newRow ("string")
       << QByteArray {R"({"t":"configure","mode":"BOGUS","trperiod":30})"};
+    QTest::newRow ("retired combined name")
+      << QByteArray {R"({"t":"configure","mode":"JT65+JT9","trperiod":30})"};
+    QTest::newRow ("retired combined number")
+      << QByteArray {R"({"t":"configure","mode":74,"trperiod":30})"};
     QTest::newRow ("numeric")
       << QByteArray {R"({"t":"configure","mode":999,"trperiod":30})"};
   }
@@ -700,7 +704,7 @@ private slots:
     QCOMPARE (eventsMatching (events.values, "decode").size (), 0);
   }
 
-  // JT9 without fast, JT4, JT65 and JT65+JT9 decode only at 60 s, and fast
+  // JT9 without fast, JT4 and JT65 decode only at 60 s, and fast
   // JT9 only at 5, 10, 15 or 30 s in submodes E to H: a configure that would
   // leave the stream otherwise is declined whole, and the FT8 audio after it
   // decodes as FT8.
@@ -734,9 +738,6 @@ private slots:
       << "trperiod" << "JT65" << "trperiod must be 60 s in JT65";
     QTest::newRow ("JT65 120 s") << QJsonObject {{"mode", "JT65"}, {"trperiod", 120}}
       << "trperiod" << "JT65" << "trperiod must be 60 s in JT65";
-    QTest::newRow ("JT65+JT9 30 s") << QJsonObject {{"mode", "JT65+JT9"}, {"trperiod", 30}}
-      << "trperiod" << "JT65+JT9" << "trperiod must be 60 s in JT65+JT9";
-    // A mode key without trperiod sets the mode's 60 s.
     QTest::newRow ("fast JT9 60 s") << QJsonObject {{"mode", "JT9"}, {"fast", true}, {"submode", "E"}}
       << "trperiod" << "JT9" << fastRule;
     QTest::newRow ("fast JT9 20 s") << QJsonObject {{"mode", "JT9"}, {"fast", true}, {"submode", "E"}, {"trperiod", 20}}
@@ -868,7 +869,7 @@ private slots:
       }
   }
 
-  // A session the command line starts in JT9, JT4, JT65 or JT65+JT9 at a
+  // A session the command line starts in JT9, JT4 or JT65 at a
   // period other than 60 s gets the refusal in place of ready, and the codec
   // exits with status 2.
   void wsjtCodecRefusesJt9AtOtherPeriodsAtStart_data ()
@@ -885,9 +886,6 @@ private slots:
     QTest::newRow ("-6 -p 30") << QStringList {"-6", "-p", "30"} << "JT65";
     QTest::newRow ("-6 -p 30 --stream") << QStringList {"-6", "-p", "30", "--stream"} << "JT65";
     QTest::newRow ("-6") << QStringList {"-6"} << QString {};
-    QTest::newRow ("-6 -9 -p 30") << QStringList {"-6", "-9", "-p", "30"} << "JT65+JT9";
-    QTest::newRow ("-6 -9 -p 30 --stream") << QStringList {"-6", "-9", "-p", "30", "--stream"} << "JT65+JT9";
-    QTest::newRow ("-6 -9") << QStringList {"-6", "-9"} << QString {};
   }
 
   void wsjtCodecRefusesJt9AtOtherPeriodsAtStart ()
@@ -1471,9 +1469,6 @@ private slots:
       << controlFrame (R"({"t":"configure","mode":"JT9","utc":"05:11:30"})") << 60 * 12000 << QString {"051100"};
     QTest::newRow ("JT65 05:11:30")
       << controlFrame (R"({"t":"configure","mode":"JT65","utc":"05:11:30"})") << 60 * 12000 << QString {"051100"};
-    QTest::newRow ("JT65+JT9 05:11:30")
-      << controlFrame (R"({"t":"configure","mode":"JT65+JT9","trperiod":60,"utc":"05:11:30"})") << 60 * 12000
-      << QString {"051100"};
     QTest::newRow ("JT4 05:11:00")
       << controlFrame (R"({"t":"configure","mode":"JT4","utc":"05:11:00"})") << 60 * 12000 << QString {"051100"};
     QTest::newRow ("FST4-60 05:11:00")
@@ -1623,19 +1618,11 @@ private slots:
       << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"aggressive", -1}} << jt65Keys
       << QString {"aggressive"} << QString {"JT65"}
       << QString {"aggressive must be from 0 to 10 in JT65; it was set before this frame"} << cq << QStringList {};
-    QTest::newRow ("JT65+JT9 aggressive 11") << jt65
-      << QJsonObject {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"trperiod", 60}, {"depth_level", 1},
-                      {"nfa", 1300}, {"nfb", 1700}}
-      << QJsonObject {{"aggressive", 11}} << QString {"aggressive"} << QString {"JT65+JT9"}
-      << QString {"aggressive must be from 0 to 10 in JT65+JT9"} << k1abc << QStringList {};
     // Values no decoder setting has: declined in any mode.
     QTest::newRow ("FT8 contest_type NA_VHF") << ft8 << ft8Keys << QJsonObject {{"contest_type", "NA_VHF"}}
       << QString {"contest_type"} << QString {"FT8"}
       << QString {"contest_type must be none, na_vhf, eu_vhf, field_day, rtty, ww_digi, fox, hound, arrl_digi "
                   "or q65_pileup"} << cq << QStringList {};
-    QTest::newRow ("FT8 npts_c0_array 0") << ft8 << ft8Keys << QJsonObject {{"npts_c0_array", 0}}
-      << QString {"npts_c0_array"} << QString {"FT8"} << QString {"npts_c0_array must be from 1 to 81648"}
-      << cq << QStringList {};
     QTest::newRow ("JT65 submode 3") << jt65 << jt65Keys << QJsonObject {{"submode", 3}}
       << QString {"submode"} << QString {"JT65"} << QString {"submode must be from 0 to 2 in JT65"} << k1abc << QStringList {};
     // An unpacked depth key alone leaves the depth level at 0.
@@ -1644,12 +1631,6 @@ private slots:
       << k1abc << QStringList {};
     // A carried rxfreq is held to 200..5000 Hz on entry, as WSJT-X's Rx Freq,
     // so it is never declined there (test/apply_routing_test.f90, frame RX/TX).
-    // JT65+JT9 runs JT65 when the transmit mode is JT9.
-    QTest::newRow ("JT65+JT9 n_trials 3000000") << jt65
-      << QJsonObject {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"trperiod", 60}, {"depth_level", 1},
-                      {"nfa", 1300}, {"nfb", 1700}}
-      << QJsonObject {{"n_trials", 3000000}} << QString {"n_trials"} << QString {"JT65+JT9"}
-      << QString {"n_trials must be at most 1000000 in JT65+JT9"} << k1abc << QStringList {};
     QTest::newRow ("Q65 trperiod 45") << q65 << q65Keys << QJsonObject {{"trperiod", 45}} << QString {"trperiod"} << QString {"Q65"}
       << QString {"trperiod must be one of 15, 30, 60, 120 or 300 s in Q65"} << k1abc << QStringList {};
     QTest::newRow ("FST4 noise_blanker_level 30") << fst4 << fst4Keys << QJsonObject {{"noise_blanker_level", 30}}
@@ -1821,11 +1802,6 @@ private slots:
       << QJsonObject {{"mode", "FT4"}, {"utc", "05:11:15"}, {"eme_delay_seconds", 7.5}} << QString {};
     QTest::newRow ("FT8 eme_delay_seconds 0") << QString::fromUtf8 (FT8_ENGINE_WAV)
       << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"eme_delay_seconds", 0}} << QString {"CQ K1JT FN20"};
-    // JT65+JT9 runs only JT9 unless the transmit mode is JT9, and JT9 takes no trials.
-    QTest::newRow ("JT65+JT9 n_trials 3000000") << QString::fromUtf8 (JT65_ENGINE_WAV)
-      << QJsonObject {{"mode", "JT65+JT9"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
-                      {"n_trials", 3000000}}
-      << QString {};
     QTest::newRow ("JT9 rxfreq 5000") << QString::fromUtf8 (FT8_ENGINE_WAV)
       << QJsonObject {{"mode", "JT9"}, {"trperiod", 60}, {"rxfreq", 5000}} << QString {};
     QTest::newRow ("Q65 trperiod 60") << QString::fromUtf8 (Q65_ENGINE_WAV)

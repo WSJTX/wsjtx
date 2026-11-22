@@ -40,7 +40,6 @@ program apply_routing_test
 
   call frame_flat()
   call frame_call_flags()
-  call frame_npts_c0_guard()
   call frame_rxfreq()
   call frame_decouple()
   call frame_emedelay_survive()
@@ -88,29 +87,7 @@ contains
     call init_streaming_extra_fields(p, args)
   end subroutine fresh
 
-  subroutine frame_npts_c0_guard()
-    type(configure_fields) :: cfg
-    type(params_block) :: p
-    integer :: md
-    real(8) :: tr
-    write(*,'(a)') 'Frame npts_c0_array domain guard'
-    call fresh(p)
-    md = 9; tr = 60.d0
-    p%npts8 = 74736
-    cfg%npts_c0_array_set = .true.
-    cfg%npts_c0_array = -1
-    call apply(cfg, md, tr, p)
-    call ok('negative npts_c0_array not applied', p%npts8 .eq. 74736)
-    cfg%npts_c0_array = 0
-    call apply(cfg, md, tr, p)
-    call ok('zero npts_c0_array not applied', p%npts8 .eq. 74736)
-    cfg%npts_c0_array = 81649
-    call apply(cfg, md, tr, p)
-    call ok('oversize npts_c0_array not applied', p%npts8 .eq. 74736)
-    cfg%npts_c0_array = 81648
-    call apply(cfg, md, tr, p)
-    call ok('max npts_c0_array applied', p%npts8 .eq. 81648)
-  end subroutine frame_npts_c0_guard
+
 
   ! Read back a c_char(N) params field as a fixed-length string (inverse of the
   ! transfer() the apply does).
@@ -207,20 +184,16 @@ contains
     cfg%my_call_standard_set = .true.;  cfg%my_call_standard = .true.
     cfg%his_call_standard_set = .true.; cfg%his_call_standard = .false.
     cfg%tx_audio_offset_hz_set = .true.; cfg%tx_audio_offset_hz = 1234
-    cfg%jt65_jt9_split_hz_set = .true.;  cfg%jt65_jt9_split_hz = 2345
     cfg%max_drift_hz_set = .true.;       cfg%max_drift_hz = 55
     cfg%dt_tolerance_seconds_set = .true.; cfg%dt_tolerance_seconds = 0.7d0
     cfg%eme_delay_seconds_set = .true.;    cfg%eme_delay_seconds = 1.3d0
     cfg%kin_samples_set = .true.;      cfg%kin_samples = 99000
     cfg%nzhsym_per_period_set = .true.; cfg%nzhsym_per_period = 42
-    cfg%npts_c0_array_set = .true.;    cfg%npts_c0_array = 60000
     cfg%min_width_set = .true.;        cfg%min_width = 3
     cfg%min_sync_set = .true.;         cfg%min_sync = 4
     cfg%n_2pass_set = .true.;          cfg%n_2pass = 1
     cfg%aggressive_set = .true.;       cfg%aggressive = 7
-    cfg%robust_mode_set = .true.;      cfg%robust_mode = .true.
     cfg%nagain_flag_set = .true.;      cfg%nagain_flag = .true.
-    cfg%tx_mode_set = .true.;          cfg%tx_mode = 9
     cfg%clear_average_set = .true.;    cfg%clear_average = .true.
     cfg%nutc_set = .true.;             cfg%nutc = 133430
     cfg%ntol_set = .true.;             cfg%ntol = 250
@@ -279,20 +252,16 @@ contains
     call ok('my_call_standard -> lmycallstd true',       logical(p%lmycallstd))
     call ok('his_call_standard -> lhiscallstd false', .not. logical(p%lhiscallstd))
     call ok('tx_audio_offset_hz -> nftx = 1234 (not nfsplit)', p%nftx     .eq. 1234)
-    call ok('jt65_jt9_split_hz -> nfsplit = 2345 (not nftx)',  p%nfsplit  .eq. 2345)
     call ok('max_drift_hz -> max_drift = 55',  p%max_drift .eq. 55)
     call ok('dt_tolerance_seconds -> dttol = 0.7', abs(p%dttol - 0.7) .lt. 1.0e-6)
     call ok('eme_delay_seconds -> emedelay = 1.3 (survives)', abs(p%emedelay - 1.3) .lt. 1.0e-6)
     call ok('kin_samples -> kin = 99000',      p%kin     .eq. 99000)
     call ok('nzhsym_per_period -> nzhsym = 42', p%nzhsym .eq. 42)
-    call ok('npts_c0_array -> npts8 = 60000',  p%npts8   .eq. 60000)
     call ok('min_width -> minw = 3 (not minsync)',  p%minw    .eq. 3)
     call ok('min_sync -> minsync = 4 (not minw)',   p%minsync .eq. 4)
     call ok('n_2pass -> n2pass = 1',           p%n2pass  .eq. 1)
     call ok('aggressive -> naggressive = 7',   p%naggressive .eq. 7)
-    call ok('robust_mode -> nrobust true',     logical(p%nrobust))
     call ok('nagain_flag -> nagain true',      logical(p%nagain))
-    call ok('tx_mode -> ntxmode = 9',          p%ntxmode .eq. 9)
     call ok('clear_average -> nclearave true', logical(p%nclearave))
     call ok('nutc -> nutc = 133430',           p%nutc    .eq. 133430)
     call ok('ntol -> ntol = 250 (no policy)',  p%ntol    .eq. 250)
@@ -615,12 +584,6 @@ contains
     call ok('-> FT8 -> its saved 40', p%ntol .eq. 40)
     call step(c, p, MODE_JTTY, .true., -1)
     call ok('-> JTTY -> its own 60', p%ntol .eq. 60)
-    ! JT65+JT9 keeps the codec's rule: 20 with mode, what a frame without it says.
-    call step(c, p, 74, .true., 999)
-    call ok('JT65+JT9 with mode and ntol 999 -> 20', p%ntol .eq. 20)
-    call step(c, p, 74, .false., 999)
-    call ok('JT65+JT9 ntol 999 alone -> 999', p%ntol .eq. 999)
-
     ! SuperFox Hound: Rx Freq 750 on entry unless 700 to 800, held to
     ! 200..1400; F Tol held to 100 and saved so.
     call fresh(p); p%ntol = NTOL_UNSET
@@ -690,13 +653,6 @@ contains
     call step(c, p, 5, .true., -1)
     call ok('FT8 ntol 0 alone -> FT4 entry holds to 1', p%ntol .eq. 1)
 
-    ! JT65+JT9 takes -F at the start, at most 1000.
-    call fresh(p); p%ntol = 50
-    call start_search_controls(c, 74, p)
-    call ok('start JT65+JT9 -F 50 -> 50', p%ntol .eq. 50)
-    call fresh(p); p%ntol = NTOL_UNSET
-    call start_search_controls(c, 74, p)
-    call ok('start JT65+JT9 -> 20', p%ntol .eq. 20)
     ! A negative -F is -F.
     call fresh(p); p%ntol = -5
     call start_search_controls(c, 8, p)

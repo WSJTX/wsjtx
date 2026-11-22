@@ -180,6 +180,18 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
     message (FATAL_ERROR "${program_name} --help gives the wrong -Q default: ${help}")
   endif ()
 
+  foreach (option -T --tx-jt9)
+    execute_process (
+      COMMAND "${program}" "${option}" --ft8 "${missing_wav}"
+      OUTPUT_VARIABLE stdout
+      ERROR_VARIABLE stderr
+      TIMEOUT 10)
+    if (NOT stderr MATCHES "error: unrecognised option: ${option}([\r\n]|$)" OR
+        NOT stdout MATCHES "Usage: ${program_name}" OR stdout MATCHES "--tx-jt9")
+      message (FATAL_ERROR "${program_name} did not reject retired option ${option}: ${stdout}${stderr}")
+    endif ()
+  endforeach ()
+
   foreach (option -c --my-call -x --his-call)
     require_text_acceptance ("${option}" "\tPJ4/K1ABC\t")
     require_rejection ("${option}" K1ABC/P123456)
@@ -252,15 +264,17 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
     if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "invalid value for -b: D.*A-C for JT65")
       message (FATAL_ERROR "wsjt-codec did not reject its invalid startup submode: ${stderr}")
     endif ()
-    foreach (mode_flags "-6;-9" "-9;-6")
+    foreach (mode_flags "-6;-9" "-9;-6" "--jt65;--jt9" "--jt9;--jt65")
       execute_process (
-        COMMAND "${program}" ${mode_flags} -T -b D
+        COMMAND "${program}" ${mode_flags}
         INPUT_FILE "${empty_stdin}"
         RESULT_VARIABLE result
+        OUTPUT_VARIABLE stdout
         ERROR_VARIABLE stderr
         TIMEOUT 10)
-      if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "invalid value for -b: D.*A-C for JT9[+]JT65")
-        message (FATAL_ERROR "wsjt-codec lost combined-mode startup for ${mode_flags}: ${stderr}")
+      if (NOT "${result}" STREQUAL "2" OR NOT stderr MATCHES "-6 and -9 cannot be combined" OR
+          NOT stdout STREQUAL "")
+        message (FATAL_ERROR "wsjt-codec accepted combined-mode startup for ${mode_flags}: ${stderr}")
       endif ()
     endforeach ()
   endif ()

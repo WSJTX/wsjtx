@@ -77,13 +77,14 @@ program jt9
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0,ncycles=3,  &
        nft8rxfsens=3,nmt=0,nmtft8decsens=3,ndecoderstart=3, samples_read, wav_status
-  logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
+  logical :: read_files = .true., jt65_selected = .false., jt9_selected = .false., &
+       display_help = .false.,     &
        display_version = .false.,                                            &
        nexp_decode_set = .false.,                                             &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lwidedxcsearch = .true., low_sidelobes = .false.,                  &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
-  type (option) :: long_options(48) = [                                      &
+  type (option) :: long_options(47) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use native shared memory for sample data','NAME'), &
@@ -161,8 +162,6 @@ program jt9
         'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
     option ('low-sidelobes', .false., 'l',                                  &
         'Low-sidelobe (Nuttall) window on JT9 spectra when decoding files', ''), &
-    option ('tx-jt9', .false., 'T',                                         &
-        'Tx mode is JT9 (combined-mode streaming only)', ''),                &
     option ('my-call', .true., 'c', 'my callsign', 'CALL'),                  &
     option ('my-grid', .true., 'G', 'my grid locator', 'GRID'),              &
     option ('his-call', .true., 'x', 'his callsign', 'CALL'),                &
@@ -188,7 +187,7 @@ program jt9
   wspr_dial=0.d0
 
   do
-     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklTMUZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:2O:', &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklMUZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:2O:', &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -281,7 +280,8 @@ program jt9
            mode = 5
            wav_mode = mode
         case ('6')
-           if (mode.lt.65) mode = mode + 65
+           jt65_selected = .true.
+           mode = 65
            wav_mode = 65
         case ('7')
            mode = 240
@@ -290,15 +290,14 @@ program jt9
            mode = 8
            wav_mode = mode
         case ('9')
-           if (mode.lt.9.or.mode.eq.65) mode = mode + 9
+           jt9_selected = .true.
+           mode = 9
            wav_mode = 9
         case ('2')
            mode = MODE_WSPR
            wav_mode = mode
         case ('O')
            call require_real('O', optarg(:arglen), wspr_dial)
-        case ('T')
-           tx9 = .true.
         case ('w')
            call require_integer('w', optarg(:arglen), npatience)
         case ('W')
@@ -367,7 +366,12 @@ program jt9
      stop
   endif
 
-  ! WAV decoding selects one mode; stream startup retains the legacy mode combinations.
+  if (stream_mode .and. jt65_selected .and. jt9_selected) then
+     write(error_unit, '(A)') trim(program_name) // ': -6 and -9 cannot be combined'
+     stop 2
+  end if
+
+  ! WAV decoding selects the last mode.
   if (read_files) mode = wav_mode
   if (read_files .and. mode == 0) then
      write(error_unit, '(A)') trim(program_name) // ': WAV decoding requires a mode (for example, --ft8)'
@@ -443,7 +447,7 @@ program jt9
              nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,                &
              mygrid=mygrid, hisgrid=hisgrid,                                    &
              datetime='2026-Apr-25 00:00   ',                                  &
-             tx9=tx9, multift8=.false., hidedupes=.true.,                      &
+             multift8=.false., hidedupes=.true.,                              &
              lft8lowth=.true., lft8subpass=.true.,                             &
              lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,               &
              nexp_decode_set=nexp_decode_set)
@@ -630,7 +634,6 @@ contains
     character(len=64) :: reason
 
     maximum = submode_limit(selected_mode)
-    if (selected_mode == 74 .and. tx9) maximum = submode_limit(65)
     if (nsubmode <= maximum) return
     select case (selected_mode)
     case (4)
@@ -639,8 +642,6 @@ contains
        mode_name = 'JT65'
     case (66)
        mode_name = 'Q65'
-    case (74)
-       mode_name = 'JT9+JT65'
     case default
        mode_name = 'selected mode'
     end select

@@ -25,8 +25,6 @@ WSJT_TSAN_SYNC(ft8_mtd)
 WSJT_TSAN_SYNC(four2avar_setup)
 WSJT_TSAN_SYNC(ft8_find_dupes)
 WSJT_TSAN_SYNC(ft8_update_structures)
-WSJT_TSAN_SYNC(decoder_section_primary)
-WSJT_TSAN_SYNC(decoder_section_secondary)
 WSJT_TSAN_SYNC(msk40_sync)
 
 WSJT_TSAN_SYNC(fftw)

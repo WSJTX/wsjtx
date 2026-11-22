@@ -141,7 +141,7 @@ contains
     b = '{"t":"configure","n_trials":' // trim(ns) // '}'
     call parse_control_frame(trim(b), action, cfg, terr)
     ! Assert the FULL envelope incl. expected, so the 'int 10^N|3*10^N' constraint
-    ! string is guarded at the parse-unit level (not only by Gate 21's cross-file
+    ! string is guarded at the parse-unit level (not only by Gate 20's cross-file
     ! grep — a brittle coupling).
     call ok(label, terr%present .and. (.not. cfg%n_trials_set) .and. &
          trim(terr%key) .eq. 'n_trials' .and. &

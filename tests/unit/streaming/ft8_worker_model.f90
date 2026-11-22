@@ -66,5 +66,5 @@ program ft8_worker_model
   if (shared%params%lmultift8) samples = min(samples, nzhsym * 3456)
   read(unit, pos=45) shared%id2(1:samples)
   close(unit)
-  call multimode_decoder(shared%ss, shared%id2, shared%params, 12000)
+  call multimode_decoder(shared%id2, shared%params, 12000)
 end program ft8_worker_model

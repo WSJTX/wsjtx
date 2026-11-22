@@ -1,29 +1,6 @@
 #!/usr/bin/env bash
-# Phase 5 parse-unit regression (streaming-schema unit parse->pack assert).
-# Run by hand, not by ctest or CI: test/run-phase5-parse-unit.sh, from any directory (it finds the source from its own path); it needs gfortran, or the compiler $FC names.
-# Compiles lib/streaming_control.f90 and the driver
-# test/phase5_parse_test.f90 into an ISOLATED module dir and runs it. Guards the
-# PARSE side of the 12 Phase 5 decoder-tuning keys: each key -> correct
-# configure_fields member + value, real(8) keys, the tx_mode enum (JT9/JT65 -> 9/
-# 65 and raw int), bool true/false, wrong-type detection (real/int/bool), the
-# "mode" vs "tx_mode" + "min_width" vs "min_sync" substring non-collision, and
-# the value-vs-key aliasing guard.
-#
-# WHY a Fortran unit driver (not only a fixture through jt9): 10 of the 12 Phase 5
-# fields are observably INERT on the FT8/JT9 fixtures (kin/nzhsym
-# are recomputed per period; dttol/minw/minsync/n2pass/nrobust/nclearave are
-# JT4/JT65/Q65-only; emedelay is forced to 0 on a mode-setting frame; ntxmode is
-# read only in mode 65+9), so no decode-output gate can assert those values
-# landed. This unit driver is the parse->pack assert for them.
-# npts_c0_array has a decode-effect gate in run-schema-v1-fixtures.sh (Gate 12, on
-# JT9 alone, which decodes without npts8 in the engine, so the gate fails);
-# nagain_flag, a decode-again request, gets a refusal gate (Gate 11).
-#
-# SCOPE: this guards JSON -> configure_fields PARSE only (the module-public entry
-# point). The configure_fields -> params APPLY routing now lives in the module-
-# public streaming_apply::apply_configure_fields and is asserted by
-# test/run-apply-routing-unit.sh — so the 10 inert keys' apply routing IS now
-# unit-guarded, not just code-review + no-regression.
+# Compile and run the Phase 5 configure parser checks in isolation.
+# Apply routing is covered by run-apply-routing-unit.sh.
 #
 # Usage:
 #   test/run-phase5-parse-unit.sh        (no build dir; compiles from source)
@@ -63,10 +40,6 @@ echo ""
 # shadow the fresh compile.
 # -J/-I alone do NOT remove cwd from the search order; the cd does.
 cd "$WORK"
-# streaming_control uses q65_callers (Q65_MAX_CALLERS), which uses types.
-"$FC" -c "$REPO_ROOT/lib/types.f90" -J"$WORK" -o "$WORK/types.o"
-"$FC" -c -cpp -I"$REPO_ROOT/lib/qra/q65" "$REPO_ROOT/lib/qra/q65/q65_callers.F90" -J"$WORK" \
-  -o "$WORK/q65_callers.o"
-"$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
+source "$REPO_ROOT/test/compile-streaming-control.sh"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p5drv"
 "$WORK/p5drv"

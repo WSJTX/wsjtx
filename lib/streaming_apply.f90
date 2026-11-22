@@ -18,8 +18,7 @@
 !   include jt9com.f90 -> params_block (+ iso_c_binding / constants.f90)
 
 module streaming_apply
-  use streaming_control, only: configure_fields, NPTS_C0_ARRAY_MIN,         &
-       NPTS_C0_ARRAY_MAX, MODE_JTTY, MODE_ECHO, MODE_FREQCAL, MODE_WSPR
+  use streaming_control, only: configure_fields, MODE_JTTY, MODE_ECHO, MODE_FREQCAL, MODE_WSPR
   use jt9_params_init,   only: apply_per_mode_policy, standard_call
   use msk144_stream,     only: msk144_settings
 
@@ -36,14 +35,12 @@ module streaming_apply
   ! each mode puts back on entry (saved, 50 until set; saved_slot), FST4W's
   ! and JTTY's own F Tol boxes (100 and 20 until set), the waterfall's range
   ! (wide_nfa, wide_nfb), FST4's F Low and F High (600 and 1400 until set)
-  ! and the Rx and Tx Freq some modes put back. JT65+JT9, which WSJT-X no
-  ! longer has, keeps the codec's own value.
+  ! and the Rx and Tx Freq some modes put back.
   type, public :: search_controls
      integer :: ftol = 50
      integer :: saved(6) = 50
      integer :: fst4w_ftol = 100
      integer :: jtty_ftol = 20
-     integer :: jt65jt9_ftol = 20
      integer :: wide_nfa = 200, wide_nfb = 4000
      integer :: fst4_nfa = 600, fst4_nfb = 1400
      ! The Rx box and its range, the waterfall's Rx at which WSJT-X decodes,
@@ -124,15 +121,8 @@ contains
     if (in_cfg%his_call_set .and. .not. in_cfg%his_call_standard_set) &
          params%lhiscallstd = standard_call(in_cfg%his_call)
 
-    ! frequency-window ints. tx_audio_offset_hz -> nftx applies AFTER
-    ! the rxfreq block above so it DECOUPLES the tx side: rxfreq set both
-    ! nfqso+nftx, and a co-present tx_audio_offset_hz then overrides nftx only.
-    ! jt65_jt9_split_hz -> nfsplit (honored as written; a bare
-    ! mid-stream mode switch does not auto-replay init-time fsplit). max_drift_hz
-    ! -> max_drift (Q65 drift search; inert for FT8/JT9, so no decode-output
-    ! fixture — verified at parse-unit + no-regression, like the other fields).
+    ! Apply the transmit offset after rxfreq, which sets both frequencies.
     if (in_cfg%tx_audio_offset_hz_set) params%nftx      = in_cfg%tx_audio_offset_hz
-    if (in_cfg%jt65_jt9_split_hz_set)  params%nfsplit   = in_cfg%jt65_jt9_split_hz
     if (in_cfg%max_drift_hz_set)       params%max_drift = in_cfg%max_drift_hz
 
     ! ===== decoder-tuning basic fields =================
@@ -145,27 +135,20 @@ contains
     ! sets the mode, the TR period or that key, where an eme_delay_seconds in
     ! the frame wins (streaming_io.f90). The host also sets kin and nzhsym before
     ! each decode, so kin_samples/nzhsym_per_period do not reach the decoder.
-    ! robust_mode/nagain_flag/clear_average -> logical(c_bool); nagain holds
+    ! nagain_flag/clear_average -> logical(c_bool); nagain holds
     ! only for the decode again nagain_flag asks for, and nclearave only for
     ! the next decode that runs (streaming_io.f90).
-    ! tx_mode (enum) -> ntxmode, read only by JT65+JT9.
     if (in_cfg%dt_tolerance_seconds_set)                                       &
          params%dttol    = real(in_cfg%dt_tolerance_seconds, kind(params%dttol))
     if (in_cfg%eme_delay_seconds_set)                                          &
          params%emedelay = real(in_cfg%eme_delay_seconds, kind(params%emedelay))
     if (in_cfg%kin_samples_set)       params%kin       = in_cfg%kin_samples
     if (in_cfg%nzhsym_per_period_set) params%nzhsym    = in_cfg%nzhsym_per_period
-    if (in_cfg%npts_c0_array_set .and.                                      &
-         in_cfg%npts_c0_array .ge. NPTS_C0_ARRAY_MIN .and.                  &
-         in_cfg%npts_c0_array .le. NPTS_C0_ARRAY_MAX)                       &
-         params%npts8 = in_cfg%npts_c0_array
     if (in_cfg%min_width_set)         params%minw      = in_cfg%min_width
     if (in_cfg%min_sync_set)          params%minsync   = in_cfg%min_sync
     if (in_cfg%n_2pass_set)           params%n2pass    = in_cfg%n_2pass
     if (in_cfg%aggressive_set)        params%naggressive = in_cfg%aggressive
-    if (in_cfg%robust_mode_set)       params%nrobust   = in_cfg%robust_mode
     if (in_cfg%nagain_flag_set)       params%nagain    = in_cfg%nagain_flag
-    if (in_cfg%tx_mode_set)           params%ntxmode   = in_cfg%tx_mode
     if (in_cfg%clear_average_set)     params%nclearave = in_cfg%clear_average
 
     ! ===== FT8/FT4 specifics cluster ===================
@@ -222,7 +205,7 @@ contains
     ! ltxing/lmodechanged. The keys left off the wire (utc_list*/nlist_count/
     ! datetime/from_wav_file/new_data_flag) are listed in streaming_control.f90.
     !
-    ! qso_progress_state reaches both FT8 decoders, FT4, JT65, JT65+JT9, FST4
+    ! qso_progress_state reaches both FT8 decoders, FT4, JT65, FST4
     ! and Q65, which index AP tables dimensioned (0:5,...) with it (ft8/ft8b.f90,
     ! ft8var/ft8bvar.f90, ft4_decode.f90, extract.f90, fst4_decode.f90,
     ! qra/q65/q65_ap.f90). The engine refuses a request with it outside [0,5]
@@ -324,7 +307,7 @@ contains
   ! range, and FST4's F Low and F High in a session that starts in FST4; its
   ! -f is the Rx and Tx Freq the modes put back. params%ntol NTOL_UNSET is a
   ! session started without -F; with it, -F is set as a configure's ntol
-  ! with mode is (JT65+JT9 takes it as jt9 did, at most 1000).
+  ! with mode is.
   subroutine start_search_controls(c, mode, params)
     type(search_controls), intent(out)   :: c
     integer,               intent(in)    :: mode
@@ -351,10 +334,6 @@ contains
     given%rxfreq_set = .true.      ! -f is the start's Rx and Tx Freq
     given%rxfreq = params%nfqso
     call apply_search_controls(c, given, -1, mode, params, .true., .false., .false.)
-    if (mode .eq. 74 .and. given%ntol_set) then
-       c%jt65jt9_ftol = min(given%ntol, 1000)
-       params%ntol = c%jt65jt9_ftol
-    end if
   end subroutine start_search_controls
 
   ! A configure's frequency tolerance, search range and Rx and Tx Freq, as
@@ -504,15 +483,10 @@ contains
        select case (mode)
        case (241, 242); c%fst4w_ftol = merge(min(cfg%ntol, 100), cfg%ntol, capped)
        case (MODE_JTTY); c%jtty_ftol = cfg%ntol  ! the stream's 0..6000 Hz check
-       ! JT65+JT9, which WSJT-X no longer has, keeps the codec's rule: 20 in a
-       ! frame with mode or trperiod, what it says otherwise.
-       case (74);       c%jt65jt9_ftol = merge(20, cfg%ntol, capped)
        case default
           c%ftol = merge(min(cfg%ntol, 1000), cfg%ntol, capped)
           if (slot .gt. 0) c%saved(slot) = c%ftol
        end select
-    else if (mode .eq. 74 .and. capped) then
-       c%jt65jt9_ftol = 20
     end if
     ! SuperFox Hound holds F Tol to 100 and the Rx box to 200..1400 Hz
     ! (on_sbFtol_valueChanged, on_RxFreqSpinBox_valueChanged); the held F Tol
@@ -560,7 +534,6 @@ contains
     select case (mode)
     case (241, 242);  params%ntol = c%fst4w_ftol
     case (MODE_JTTY); params%ntol = c%jtty_ftol
-    case (74);        params%ntol = c%jt65jt9_ftol
     case default;     params%ntol = c%ftol
     end select
     ! SuperFox Hound's decode with multithreaded FT8 on takes 50

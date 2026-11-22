@@ -1056,7 +1056,7 @@ private slots:
   {
     QTest::addColumn<QString> ("row");
     for (auto const row : {"jt4 A then F", "q65 A then D", "jt65 B", "jt9 A then fast E then fast H",
-                           "msk144 15 then 30", "jt65jt9 JT65 lines only", "ft8 none"})
+                           "msk144 15 then 30", "ft8 none"})
       QTest::newRow (row) << QString {row};
   }
 
@@ -1121,15 +1121,6 @@ private slots:
                                                        {"ntol", 50}, {"depth", 3}, {"utc", "12:05:00"}}), "", 15}
               << Step {cut (pcm, 30), {{"trperiod", 30}, {"utc", "12:05:30"}}, "", 30};
       }
-    // JT65+JT9's JT65 decoder decodes with the submode (lib/decoder.f90, mode65
-    // in lib/jt65_decode.f90), its JT9 decoder without one: JT65 lines carry
-    // it, JT9 lines do not (checked by mode below).
-    else if (row == "jt65jt9 JT65 lines only")
-      steps << Step {cut (sample ("JT65/JT65B/000000_0004.wav"), 60),
-                     with (settings, {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"submode", 1}, {"rxfreq", 1700},
-                                      {"depth", 3}, {"utc", "00:04:00"}}), "B", 0, "JT65"}
-            << Step {cut (sample ("JT9/130418_1742.wav"), 60),
-                     {{"jt65_jt9_split_hz", 1000}, {"utc", "17:42:00"}}, "B", 0, "JT9"};
     else
       steps << Step {cut (sample ("FT8/210703_133430.wav"), 15),
                      with (settings, {{"mode", "FT8"}, {"depth", 3}, {"utc", "13:34:30"}}), "", 0};
@@ -1160,8 +1151,7 @@ private slots:
             ++decodes;
             if (event.value ("mode").toString () == steps[n].needs) ++needed;
             auto const line = QJsonDocument {event}.toJson (QJsonDocument::Compact);
-            auto const submode = row.startsWith ("jt65jt9") && event.value ("mode").toString () == "JT9"
-              ? QString {} : steps[n].submode;
+            auto const submode = steps[n].submode;
             if (submode.isEmpty ()) QVERIFY2 (!event.contains ("submode"), line.constData ());
             else QVERIFY2 (event.value ("submode").toString () == submode, line.constData ());
             if (steps[n].period) QVERIFY2 (event.value ("period").toInt () == steps[n].period, line.constData ());

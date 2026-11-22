@@ -28,7 +28,6 @@ program test_streaming_control
   call expect_mode('{"t":"configure","mode":"FT8"}', .true., 8)
   write(code, '(i0)') MODE_JTTY
   call expect_mode('{"t":"configure","mode":' // trim(code) // '}', .false., 0)
-  call expect_tx_mode_unset('{"t":"configure","tx_mode":"JTTY"}')
   ! WSPR too: by name, case aside, and not by its number.
   call expect_mode('{"t":"configure","mode":"WSPR"}', .true., MODE_WSPR)
   call expect_mode('{"t":"configure","mode":"wspr"}', .true., MODE_WSPR)
@@ -217,10 +216,6 @@ program test_streaming_control
   call expect_contest('{"t":"configure","contest_type":"none' // repeat(' ', 200) // 'x"}', 'range')
   call expect_contest('{"t":"configure","contest_type":"na_vhf\x"}', 'range')
   call expect_contest('{"t":"configure","contest_type":"NA_VHF","single_decode":true}', 'range')
-  ! npts_c0_array outside 1 to 81648 is out of range.
-  call expect_npts('{"t":"configure","npts_c0_array":0}', .false., 0, .true.)
-  call expect_npts('{"t":"configure","npts_c0_array":-1}', .false., 0, .true.)
-  call expect_npts('{"t":"configure","npts_c0_array":81649}', .false., 0, .true.)
 
   ! The receive chain's keys: spectrum, low_sidelobes and ref_spectrum_clear
   ! are booleans, ref_spectrum exactly "off", "measure" or "apply" (-1:
@@ -326,14 +321,12 @@ program test_streaming_control
   call expect_int_type('{"t":"configure","nfb":4e-0}', 'nfb', 'int')
   call expect_int_type('{"t":"configure","mode":8.0}', 'mode', 'string|int')
   call expect_int_type('{"t":"configure","submode":1.0}', 'submode', 'string|int')
-  call expect_int_type('{"t":"configure","tx_mode":9.5}', 'tx_mode', 'string|int')
   call expect_int_type('{"t":"configure","version":1.0}', 'version', 'int')
   call expect_int_type('{"t":"configure","n_trials":1e3}', 'n_trials', 'int')
   call expect_int_type('{"t":"configure","depth_level":1.0}', 'depth_level', 'int')
   call expect_int_type('{"t":"configure","noise_blanker_level":-1.5}', 'noise_blanker_level', 'int')
   call expect_int_type('{"t":"configure","qso_progress_state":0.0}', 'qso_progress_state', 'int')
   call expect_int_type('{"t":"configure","echo_spacing":10.0}', 'echo_spacing', 'int')
-  call expect_int_type('{"t":"configure","npts_c0_array":74736.0}', 'npts_c0_array', 'int')
   call expect_int_type('{"t":"configure","mycall":"K1ABC",' // LF // '"wspr_threads":2.5' // LF // '}', &
        'wspr_threads', 'int')
   ! So is a form that is not a JSON number, and an integer that does not fit
@@ -779,9 +772,9 @@ contains
          trim(terr%got) .eq. trim(category) .and. .not. (cfg%depth_set .or. cfg%mode_set .or. &
          cfg%mode_invalid .or. cfg%submode_set .or. cfg%wspr_threads_set .or.        &
          cfg%ft8_threads_set .or. cfg%rxfreq_set .or. cfg%ntol_set .or. cfg%nfb_set .or. &
-         cfg%tx_mode_set .or. cfg%version_set .or. cfg%n_trials_set .or.             &
+         cfg%version_set .or. cfg%n_trials_set .or.             &
          cfg%depth_level_set .or. cfg%noise_blanker_level_set .or.                   &
-         cfg%qso_progress_state_set .or. cfg%echo_spacing_set .or. cfg%npts_c0_array_set), &
+         cfg%qso_progress_state_set .or. cfg%echo_spacing_set), &
          'key ' // trim(terr%key) // ' expected ' // trim(terr%expected) // ' got ' // trim(terr%got))
   end subroutine expect_int_type
 
@@ -883,21 +876,6 @@ contains
             cfg%contest_type_set .and. .not. cfg%contest_type_out_of_range, 'contest_type')
     end if
   end subroutine expect_contest
-
-  ! npts_c0_array as parsed (set, value), or out of range.
-  subroutine expect_npts(frame, set, value, out_of_range)
-    character(len=*), intent(in) :: frame
-    logical,          intent(in) :: set, out_of_range
-    integer,          intent(in) :: value
-    type(configure_fields)   :: cfg
-    type(control_type_error) :: terr
-    integer :: action
-
-    call parse_control_frame(frame, action, cfg, terr)
-    call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.     &
-         (cfg%npts_c0_array_set .eqv. set) .and. (.not. set .or. cfg%npts_c0_array .eq. value) .and. &
-         (cfg%npts_c0_array_out_of_range .eqv. out_of_range), 'npts_c0_array')
-  end subroutine expect_npts
 
   ! The type error a conflict gives.
   subroutine expect_conflict(frame, key, expected)
@@ -1060,20 +1038,7 @@ contains
     end if
   end subroutine expect_phase_eq
 
-  subroutine expect_tx_mode_unset(frame)
-    character(len=*), intent(in) :: frame
-    type(configure_fields)   :: cfg
-    type(control_type_error) :: terr
-    integer :: action
 
-    call parse_control_frame(frame, action, cfg, terr)
-    if (action .eq. CTRL_CONFIGURE .and. .not. terr%present .and. .not. cfg%tx_mode_set) then
-       print '(a,a)', '  PASS  ', frame
-    else
-       print '(a,a,a,i0)', '  FAIL  ', frame, ' -> tx_mode ', cfg%tx_mode
-       nfail = nfail + 1
-    end if
-  end subroutine expect_tx_mode_unset
 
   ! The frame sets mycall to these bytes ('' expects it unset), and mygrid
   ! to grid when one is given; no type error either way.

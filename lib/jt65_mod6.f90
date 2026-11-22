@@ -5,7 +5,6 @@ module jt65_mod6
 
   integer, parameter :: NPTS=624000
   real*4 dd(NPTS)
-  integer nnmode
   save
 
 end module jt65_mod6

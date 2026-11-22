@@ -176,7 +176,6 @@
  *      dial frequency changes,
  *      changes to the "DX Call" field,
  *      operating mode, sub-mode or fast mode changes,
- *      transmit mode changed (in dual JT9+JT65 mode),
  *      changes to the "Rpt" spinner,
  *      after an old decodes replay sequence (see Replay below),
  *      when switching between Tx and Rx mode,

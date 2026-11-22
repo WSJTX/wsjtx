@@ -169,9 +169,7 @@ contains
        good = good .and. gui_hsym_stop(8, 15.d0, .false., .true., start) .eq. mtd(start)
     end do
     call ok('FT8 multithreaded, decoder start 0-4: 49, 50, 48, 49, 50', good)
-    call ok('MSK144 and JT65+JT9: no stop point',                            &
-         gui_hsym_stop(144, 15.d0, .false., .false., 3) .eq. 0 .and.          &
-         gui_hsym_stop(74, 60.d0, .false., .false., 3) .eq. 0)
+    call ok('MSK144: no stop point', gui_hsym_stop(144, 15.d0, .false., .false., 3) .eq. 0)
   end subroutine gui_stops
 
   subroutine stop_points()

@@ -36,7 +36,7 @@
 !               engine's checks, lib/decoder_engine.f90); values it
 !               carries from earlier frames are checked against a new
 !               mode too. The command-line starting values are checked
-!               once, after ready. JT9, JT4, JT65 and JT65+JT9 decode only
+!               once, after ready. JT9, JT4 and JT65 decode only
 !               at a trperiod of 60, and fast JT9 (fast true: JT9 only,
 !               submodes E to H) only at 5, 10, 15 or 30: a configure that
 !               would leave the stream otherwise is declined with
@@ -107,9 +107,9 @@
 ! decoder input: a change of label starts a new decoder input, so FT8's
 ! next pass forgets the period's earlier passes and sends their decodes
 ! again, and JT65 averages odd and even minutes apart by it. The GUI labels
-! JT9, JT65, JT65+JT9 and JT4 periods of a minute or more HHMM, the others
+! JT9, JT65 and JT4 periods of a minute or more HHMM, the others
 ! HHMMSS (widgets/mainwindow.cpp), and each decoder here gets the form it
-! gets from the GUI whichever form the client sends: JT9, JT65 and JT65+JT9
+! gets from the GUI whichever form the client sends: JT9 and JT65
 ! decode with HHMM, JT4 with HHMM00; their time and period_end are HHMM00.
 ! A nutc is kept as it was sent, and a later mode reads it again, except
 ! that JT4, Q65 and FST4 periods of a minute or more fix an HHMM one on
@@ -282,7 +282,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use streaming_receive, only: receive
   use streaming_emit, only: streaming_emit_spectrum, streaming_emit_set_live,  &
        streaming_emit_quiet, streaming_emit_prepared_audio
-  use four2a_patience, only: patience_override
   use spectrum_rows, only: wide_rows, wide_begin, wide_take, wide_row, WIDE_BINS, WIDE_DF
   use streaming_freqcal, only: freqcal_period_ok, freqcal_stop, freqcal_problem,  &
        freqcal_block, FREQCAL_PERIOD_RULE
@@ -325,7 +324,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer(int64) :: frame_len_wide, max_audio_frame_bytes
   integer        :: frame_len
 
-  integer :: nsps, kstep, nhsym, nhsym0
+  integer :: nhsym
   ! The period's sample accounting; `body_left` carries a straddling
   ! frame's remainder into the next period.
   type(period_state) :: period
@@ -340,9 +339,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! decode tries handed over, as its block end (0: none).
   logical :: fast_jt9, next_fast
   integer :: fast_tried
-  integer :: ingain, nminw, ihsym, npts8
-  real    :: pxdb, df3, pxdbmax, s(NSMAX)
-  integer :: npct_unused
   integer :: body_left, take_bytes, take_samples
   ! The most samples one read takes.
   integer, parameter :: READ_SAMPLES = 4096
@@ -403,7 +399,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer :: label_nutc
   logical :: label_iso
   type(time_form) :: label_form
-  logical(1) :: bLowSidelobes
   logical :: eof_period, halt_req
   type(configure_fields)   :: cfg
   type(control_type_error) :: terr
@@ -476,10 +471,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      end function stream_stdin_waited
   end interface
 
-  bLowSidelobes = .false.
-  ingain        = 0
-  nminw         = 1
-  npct_unused   = 0
 
   ! Read the framed byte stream from stdin via the C helper (stdin_read
   ! below) — no Fortran unit is opened. Binary mode must be forced before
@@ -534,9 +525,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   write(error_unit, '(a,i0,a,i0,a,i0,a)')                                  &
        'wsjt-codec: header ok (fmt=', fmt, ' ch=', ch,                     &
        ' rate=', rate_khz, ' kHz)'
-
-  nsps  = 6912
-  kstep = nsps / 2
 
   ! Streaming-specific params override. The full params init was already
   ! performed in jt9.f90's stream-mode dispatch arm via
@@ -850,13 +838,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  call route_begin()
                  call streaming_emit_error_range('dial_frequency', range_mode,    &
                       'dial_frequency must be a whole number of Hz from 0 to 2**53')
-                 call route_end()
-                 cycle
-              end if
-              if (cfg%npts_c0_array_out_of_range) then
-                 call route_begin()
-                 call streaming_emit_error_range('npts_c0_array', range_mode,     &
-                      'npts_c0_array must be from 1 to 81648')
                  call route_end()
                  cycle
               end if
@@ -1221,7 +1202,6 @@ contains
     period_number = period_number + 1
     shared_data%id2 = 0
     nhsym    = 0
-    nhsym0   = 0       ! seed at 0 so the symspec catch-up loop is O(nhsym)
     decoded  = .false.
     ft8_done = 0
     nblk = 0
@@ -1256,11 +1236,11 @@ contains
          .not. superfox_hound(shared_data%params))
   end function file_reads_whole
 
-  ! JT9 (without fast), JT4, JT65 and JT65+JT9 decode only at 60 s, as the
+  ! JT9 (without fast), JT4 and JT65 decode only at 60 s, as the
   ! GUI runs them.
   pure logical function minute_mode(m)
     integer, intent(in) :: m
-    minute_mode = any(m .eq. [4, 9, 65, 74])
+    minute_mode = any(m .eq. [4, 9, 65])
   end function minute_mode
 
   function minute_rule(m) result(rule)
@@ -1597,19 +1577,17 @@ contains
     call rows_end()
   end subroutine fatal_end
 
-  ! A pass's audio, the period's first n samples (for JT65+JT9 with its
-  ! spectra), once the queued audio leaves room; tried again once the
-  ! decode side has nothing queued or running; a pass that gets none is
-  ! flagged memory.
+  ! Copy the period's first n samples when the queue has room. If the
+  ! allocation fails, drain the queue and retry once.
   subroutine take_audio(op, n)
     type(decode_op), intent(inout) :: op
     integer,         intent(in)    :: n
     logical :: ok
     call decode_room()
-    call snapshot(op%audio, shared_data, n, mode .eq. 74, ok)
+    call snapshot(op%audio, shared_data%id2, n, ok)
     if (.not. ok) then
        call decode_wait()
-       call snapshot(op%audio, shared_data, n, mode .eq. 74, ok)
+       call snapshot(op%audio, shared_data%id2, n, ok)
     end if
     op%memory = .not. ok
   end subroutine take_audio
@@ -1652,7 +1630,7 @@ contains
   ! which the engine does not check in FT8 and checks elsewhere only in its
   ! low bits; Aggressive, a spin box from 0 to 10 (Configuration.ui
   ! sbAggressive) where the engine takes 11, checked where the engine checks
-  ! it: JT65, and JT65+JT9 when it runs JT65; and FT8's ft8_threads, Auto and
+  ! it in JT65; and FT8's ft8_threads, Auto and
   ! 1 to 12 in its menu, where the engine takes up to 24, which the kernel
   ! runs on one thread above 12. And the EME delay, from 0 s to period, the
   ! TR period, in every mode but JTTY and FreqCal, which read none (a frame
@@ -1671,7 +1649,7 @@ contains
     if (problem%field .eq. 'aggressiveness') problem%limit = AGGRESSIVE_LIMIT
     if (problem%field .eq. 'threads') problem%limit = THREADS_LIMIT
     if (problem%field .ne. ' ') return
-    jt65 = params%nmode .eq. 65 .or. (params%nmode .eq. 74 .and. params%ntxmode .eq. 9)
+    jt65 = params%nmode .eq. 65
     call depth_problem(params, problem)
     if (problem%field .ne. ' ') return
     if (params%nmode .eq. 8 .and. params%nmt .gt. THREADS_MAX) then
@@ -1707,8 +1685,7 @@ contains
   ! bits whose Decode menu items the mode hides (depth &= ~16 to ~128). The
   ! items show only with VHF features: averaging and automatic clear in
   ! JT4, JT65 and Q65 (statusChanged), deep search in JT4 and JT65 (their
-  ! setups' applyModeUiState); AP for the DX call in no mode. JT65+JT9 hid
-  ! all three when WSJT-X had it (setupJT9_JT65, removed in 55f23454a).
+  ! setups' applyModeUiState); AP for the DX call in no mode.
   pure integer function gui_decoder_depth(params, mode) result(depth)
     type(params_block), intent(in) :: params
     integer,            intent(in) :: mode
@@ -1820,8 +1797,7 @@ contains
   ! A period mode's rows for the block delivered, blk(1:nblk) from period
   ! sample blk_from on, after its equalization and before its decodes: a row
   ! at each whole block's end, live through the period, from a file up to the
-  ! stop (as the GUI's diskDat), or through the period in JT65+JT9, which has
-  ! none. A period has rows only from its first block.
+  ! stop (as the GUI's diskDat). A period has rows only from its first block.
   subroutine period_rows()
     integer :: i, taken, nstop
     logical :: ready
@@ -1915,35 +1891,9 @@ contains
     if (last) decoded = .true.
   end subroutine fast_try
 
-  ! The period's audio is in through period%k: JT65+JT9's symbol spectra,
-  ! FT8's early passes and MSK144's block decode.
+  ! Advance the half-symbol count and run decodes whose audio is ready.
   subroutine block_work()
-    integer :: patience
-    ! JT65+JT9's symbol spectra, a row each kstep, as jt9 built them for its
-    ! JT65+JT9 files (lib/jt9.f90 before its single-mode change, d56807ddc):
-    ! row n once (k - 2048)/kstep reaches n, up to 181, where jt9's read loop
-    ! stopped, each the window ending at sample n*kstep (symspec counts its
-    ! rows), with npts8 74,736 (jt9_params_init.f90); its JT65 half reads
-    ! 52 s (decoder.f90 npts65), within what jt9 read. WSJT-X's GUI has had
-    ! no JT65+JT9 since 2020.
-    do while ((period%k - 2048) / kstep .gt. nhsym0 .and. nhsym0 .lt. 181)
-       nhsym0 = nhsym0 + 1
-       if (nhsym0 .lt. 1) cycle
-       nhsym = nhsym0
-       if (mode .eq. 74) then
-          ! Planned at patience 0, as the GUI's process plans them, and
-          ! windowed by low_sidelobes, as the GUI's Low sidelobes windowed
-          ! the spectra its JT9 decoder read: JT65+JT9's JT9 decoder reads
-          ! these.
-          bLowSidelobes = receive%low_sidelobes
-          patience = patience_override
-          patience_override = 0
-          call symspec(shared_data, nhsym*kstep + 2048, nsps,        &
-               ingain, bLowSidelobes, nminw, pxdb, s, df3,           &
-               ihsym, npts8, pxdbmax, npct_unused)
-          patience_override = patience
-       end if
-    end do
+    nhsym = max(nhsym, min((period%k - 2048) / HSYM_SAMPLES, 181))
     ! The GUI's early FT8 passes run as soon as their audio is in.
     if (mode .eq. 8) call run_early_ft8(.false.)
     ! As do fast JT9's decode tries.

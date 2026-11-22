@@ -10,10 +10,10 @@
 # collapse), the two atomic-decline errors (legacy depth co-present with an unpacked
 # ndepth key; depth_level vs q65_maxiters_level inconsistency), the decline of a
 # depth_level/q65_maxiters_level outside 1 to 3, the noise_blanker -3 offset + [0,255] clamp,
-# wrong-type detection, the unknown-contest silent skip, and value-vs-key aliasing.
+# wrong-type detection, the unknown-contest refusal, and value-vs-key aliasing.
 #
 # WHY a Fortran unit driver (not only fixtures through jt9): only depth_level is
-# decode-observable on FT8/JT9 (Gate 24); the other 8 keys are INERT (Q65/JT65/
+# decode-observable on FT8/JT9 (Gate 23); the other 8 keys are INERT (Q65/JT65/
 # FST4/JT4 or contest-branch only), and even depth_level's bit
 # PACKING is invisible to a decode-count gate (ndepth=3 and ndepth=3|16 both decode
 # 21 on FT8). This driver is the parse->pack assert; the
@@ -58,10 +58,6 @@ echo ""
 # shadow the fresh compile.
 # -J/-I alone do NOT remove cwd from the search order; the cd does.
 cd "$WORK"
-# streaming_control uses q65_callers (Q65_MAX_CALLERS), which uses types.
-"$FC" -c "$REPO_ROOT/lib/types.f90" -J"$WORK" -o "$WORK/types.o"
-"$FC" -c -cpp -I"$REPO_ROOT/lib/qra/q65" "$REPO_ROOT/lib/qra/q65/q65_callers.F90" -J"$WORK" \
-  -o "$WORK/q65_callers.o"
-"$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
+source "$REPO_ROOT/test/compile-streaming-control.sh"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p9drv"
 "$WORK/p9drv"

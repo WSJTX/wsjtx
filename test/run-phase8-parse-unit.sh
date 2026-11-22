@@ -58,10 +58,6 @@ echo ""
 # shadow the fresh compile.
 # -J/-I alone do NOT remove cwd from the search order; the cd does.
 cd "$WORK"
-# streaming_control uses q65_callers (Q65_MAX_CALLERS), which uses types.
-"$FC" -c "$REPO_ROOT/lib/types.f90" -J"$WORK" -o "$WORK/types.o"
-"$FC" -c -cpp -I"$REPO_ROOT/lib/qra/q65" "$REPO_ROOT/lib/qra/q65/q65_callers.F90" -J"$WORK" \
-  -o "$WORK/q65_callers.o"
-"$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
+source "$REPO_ROOT/test/compile-streaming-control.sh"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p8drv"
 "$WORK/p8drv"

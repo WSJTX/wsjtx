@@ -96,12 +96,10 @@ module streaming_decode
   character(len=*), parameter :: NO_RECEPTION_FST4W =                       &
        'no completed FST4W reception is available to decode again'
 
-  ! A pass's audio: the period's first n samples and, for JT65+JT9, the
-  ! symbol spectra.
+  ! A pass's audio: the period's first n samples.
   type :: pass_audio
      integer :: n = 0
      integer(int16), allocatable :: id2(:)
-     real, allocatable :: ss(:,:)
   end type pass_audio
 
   ! Each operation carries its place in the stream: the arrival of the last
@@ -161,7 +159,7 @@ module streaming_decode
 
   ! The decoder's buffer: a pass's audio, zeros after it (work_n: the
   ! samples the last pass put there; < 0 before the first pass).
-  type(dec_data), allocatable, save :: work
+  integer(int16), allocatable, save :: work_pcm(:)
   integer, save :: work_n = -1
   ! Snapshot buffers no operation holds, kept for the next pass, and the
   ! bytes of every snapshot buffer, under lib/stream_decode.c's pool lock.
@@ -458,7 +456,7 @@ contains
   subroutine decode_start()
     character(len=32) :: value
     integer :: colon, length, status, take_ms, nice
-    allocate(work, stat=status)
+    allocate(work_pcm(NMAX), stat=status)
     if (status .ne. 0) then
        call streaming_emit_error('no memory for the decoder''s buffer')
        write(error_unit, '(a)') 'wsjt-codec: no memory for the decoder''s buffer'
@@ -549,13 +547,11 @@ contains
     end if
     call stream_decode_room()
     if (allocated(op%audio%id2)) call move_alloc(op%audio%id2, audio%id2)
-    if (allocated(op%audio%ss)) call move_alloc(op%audio%ss, audio%ss)
     if (allocated(op%line)) call move_alloc(op%line, line)
     allocate(queued, stat=status)
     if (status .ne. 0) call no_memory()
     queued = op
     if (allocated(audio%id2)) call move_alloc(audio%id2, queued%audio%id2)
-    if (allocated(audio%ss)) call move_alloc(audio%ss, queued%audio%ss)
     if (allocated(line)) call move_alloc(line, queued%line)
     bytes = buffer_bytes(queued%audio) + storage_size(queued) / 8
     if (allocated(queued%line)) bytes = bytes + len(queued%line)
@@ -1056,7 +1052,7 @@ contains
     hiscall = ' '
     patience = patience_override
     patience_override = 0
-    call fast_decode(work%id2, narg, trperiod, lines, mycall, hiscall)
+    call fast_decode(work_pcm, narg, trperiod, lines, mycall, hiscall)
     patience_override = patience
     do i = 1, size(lines)
        if (lines(i)(1:1) .eq. char(0)) exit
@@ -1198,7 +1194,7 @@ contains
        gate_armed = .false.
        call stream_decode_plan_wait()
     end if
-    call multimode_decoder_progress(work%ss, work%id2, p, NFSAMPLE, pass)
+    call multimode_decoder_progress(work_pcm, p, NFSAMPLE, pass)
     if (pass .gt. 0) call stream_decode_progress_pass(0, 0, 0, 0)
   end subroutine run_decoder
 
@@ -1284,11 +1280,8 @@ contains
     integer,            intent(in) :: samples
     call report_pass_line(p, samples)
     call streaming_emit_set_pass(p%nzhsym)
-    ! JT4, JT9, JT65 and Q65 decodes carry the submode they decode with, and
-    ! JT65+JT9's JT65 decodes, whose decoder reads it (lib/decoder.f90); its
-    ! JT9 decoder reads none (lib/jt9_decode.f90).
-    call streaming_emit_set_submode(merge(p%nsubmode, -1, any(p%nmode .eq. [4, 9, 65, 66, 74])), &
-         p%nmode .ne. 74)
+    ! JT4, JT9, JT65 and Q65 decodes carry the pass's submode.
+    call streaming_emit_set_submode(merge(p%nsubmode, -1, any(p%nmode .eq. [4, 9, 65, 66])))
   end subroutine report_pass
 
   ! Each decode pass on stderr: the samples in when it ran, and how.
@@ -1418,12 +1411,12 @@ contains
     superfox_hound = iand(p%nexp_decode, 7) .eq. 7 .and. p%b_superfox
   end function superfox_hound
 
-  ! JT9, JT65 and JT65+JT9 periods of a minute or more, which the GUI labels
+  ! JT9 and JT65 periods of a minute or more, which the GUI labels
   ! HHMM (widgets/mainwindow.cpp, decode).
   pure logical function hhmm_label(mode, trperiod)
     integer, intent(in) :: mode
     real(8), intent(in) :: trperiod
-    hhmm_label = (mode .eq. 9 .or. mode .eq. 65 .or. mode .eq. 74) .and. trperiod .ge. 60.d0
+    hhmm_label = (mode .eq. 9 .or. mode .eq. 65) .and. trperiod .ge. 60.d0
   end function hhmm_label
 
   ! As lib/decoder.f90 labels decode_finished.
@@ -1567,46 +1560,38 @@ contains
     again_fast   = .false.
   end subroutine run_deferred_final
 
-  ! The decoder's buffer holds audio's first n samples, zeros after them, and
-  ! audio's spectra when it has them.
+  ! The decoder's buffer holds audio's first n samples, with zeros after them.
   subroutine load_work(audio, n)
     type(pass_audio), intent(in) :: audio
     integer,          intent(in) :: n
     ! Zeroed at the first pass: a session that decodes none never touches it.
     if (work_n .lt. 0) then
-       work%id2 = 0
-       work%ss = 0
+       work_pcm = 0
        work_n = 0
     end if
-    work%id2(1:n) = audio%id2(1:n)
-    if (work_n .gt. n) work%id2(n+1:work_n) = 0
+    work_pcm(1:n) = audio%id2(1:n)
+    if (work_n .gt. n) work_pcm(n+1:work_n) = 0
     work_n = n
-    if (allocated(audio%ss)) work%ss = audio%ss
   end subroutine load_work
 
-  ! audio <- the first n samples of live's id2 and, with spectra, its symbol
-  ! spectra, in a spare buffer when one is free; ok is false when no memory
-  ! could be had.
-  subroutine snapshot(audio, live, n, spectra, ok)
+  ! Copy the first n samples, reusing a spare buffer when one is free.
+  subroutine snapshot(audio, live, n, ok)
     type(pass_audio), intent(inout) :: audio
-    type(dec_data),   intent(in)    :: live
+    integer(int16),   intent(in)    :: live(:)
     integer,          intent(in)    :: n
-    logical,          intent(in)    :: spectra
     logical,          intent(out)   :: ok
     call stream_decode_pool_lock()
-    call buffers(audio, n, spectra, ok)
+    call buffers(audio, n, ok)
     call stream_decode_pool_unlock()
     if (.not. ok) return
-    audio%id2(1:n) = live%id2(1:n)
-    if (spectra) audio%ss = live%ss
+    audio%id2(1:n) = live(1:n)
     audio%n = n
   end subroutine snapshot
 
   ! snapshot's buffers, under the pool lock.
-  subroutine buffers(audio, n, spectra, ok)
+  subroutine buffers(audio, n, ok)
     type(pass_audio), intent(inout) :: audio
     integer,          intent(in)    :: n
-    logical,          intent(in)    :: spectra
     logical,          intent(out)   :: ok
     integer :: i, stat
     integer(int64) :: bytes
@@ -1624,7 +1609,6 @@ contains
        end if
        if (i .le. size(spare)) then
           call move_alloc(spare(i)%id2, audio%id2)
-          if (allocated(spare(i)%ss)) call move_alloc(spare(i)%ss, audio%ss)
        end if
     end if
     if (allocated(audio%id2)) then
@@ -1637,17 +1621,6 @@ contains
        bytes = 2_int64 * max(n, 1)
        if (.not. fits(bytes)) return
        allocate(audio%id2(max(n, 1)), stat=stat)
-       if (stat .ne. 0) return
-       held_bytes = held_bytes + bytes
-    end if
-    if (.not. spectra .and. allocated(audio%ss)) then
-       held_bytes = held_bytes - 4_int64 * size(audio%ss)
-       deallocate(audio%ss)
-    end if
-    if (spectra .and. .not. allocated(audio%ss)) then
-       bytes = 4_int64 * 184 * NSMAX
-       if (.not. fits(bytes)) return
-       allocate(audio%ss(184, NSMAX), stat=stat)
        if (stat .ne. 0) return
        held_bytes = held_bytes + bytes
     end if
@@ -1665,7 +1638,6 @@ contains
     type(pass_audio), intent(in) :: audio
     buffer_bytes = 0
     if (allocated(audio%id2)) buffer_bytes = 2_int64 * size(audio%id2)
-    if (allocated(audio%ss)) buffer_bytes = buffer_bytes + 4_int64 * size(audio%ss)
   end function buffer_bytes
 
   ! to takes from's buffers, its own going back to the spares.
@@ -1673,7 +1645,6 @@ contains
     type(pass_audio), intent(inout) :: from, to
     call give(to)
     if (allocated(from%id2)) call move_alloc(from%id2, to%id2)
-    if (allocated(from%ss)) call move_alloc(from%ss, to%ss)
     to%n = from%n
     from%n = 0
   end subroutine take_over
@@ -1688,14 +1659,12 @@ contains
        do i = 1, size(spare)
           if (.not. allocated(spare(i)%id2)) then
              call move_alloc(audio%id2, spare(i)%id2)
-             if (allocated(audio%ss)) call move_alloc(audio%ss, spare(i)%ss)
              exit
           end if
        end do
     end if
     held_bytes = held_bytes - buffer_bytes(audio)
     if (allocated(audio%id2)) deallocate(audio%id2)
-    if (allocated(audio%ss)) deallocate(audio%ss)
     call stream_decode_pool_unlock()
   end subroutine give
 

@@ -1719,10 +1719,7 @@ contains
     endif
   end subroutine params_to_request
 
-  ! The engine option a decode with these params would be refused for, with
-  ! its range, or a blank field. JT65+JT9 decodes outside the engine
-  ! (decoder.f90); its JT65 decoder, which runs when the transmit mode is JT9,
-  ! is held to the engine's JT65 checks. Other modes are not the engine's.
+  ! Return the first invalid engine option, or a blank field.
   function engine_params_problem(params,check_utc) result(problem)
     type(params_block), intent(in) :: params
     logical, intent(in) :: check_utc
@@ -1730,9 +1727,6 @@ contains
     type(attempt_request) :: request
     problem=option_problem()
     select case(params%nmode)
-    case(65+9)
-       if(params%ntxmode/=9) return
-       request%mode=engine_mode_jt65
     case(engine_mode_ft8,engine_mode_ft4,engine_mode_jt4,engine_mode_jt9,engine_mode_jt65, &
          engine_mode_q65,engine_mode_fst4,engine_mode_fst4w)
        request%mode=params%nmode

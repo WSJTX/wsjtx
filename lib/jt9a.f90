@@ -190,9 +190,7 @@ subroutine jt9a()
           shared_memory%metadata%input_id,shared_memory%metadata%analysis_id, &
           pass_attempt_no,pass_valid_samples)
   else
-    ! Normal decoding pass
-     call multimode_decoder_core(shared_memory%payload%ss, &
-          shared_memory%payload%id2,local_params,12000,completion,active_generation)
+     call multimode_decoder_core(shared_memory%payload%id2,local_params,12000,completion,active_generation)
   endif
 
   call timer('decoder ',1)

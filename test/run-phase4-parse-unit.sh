@@ -1,23 +1,6 @@
 #!/usr/bin/env bash
-# Phase 4 parse-unit regression (streaming-schema unit parse->pack assert).
-# Run by hand, not by ctest or CI: test/run-phase4-parse-unit.sh, from any directory (it finds the source from its own path); it needs gfortran, or the compiler $FC names.
-# Compiles lib/streaming_control.f90 and the driver
-# test/phase4_parse_test.f90 into an ISOLATED module dir and runs it. Guards the
-# PARSE side of the 9 Phase 4 keys: each key -> correct configure_fields member +
-# value, bool true/false, his_call vs his_call_standard substring non-collision,
-# wrong-type detection (bool/string/int), and the value-vs-key aliasing guard.
-#
-# WHY a Fortran unit driver (not a fixture through jt9): the 9 Phase 4 fields are
-# observably INERT on the FT8/JT9 fixtures (tx/Q65/JT65-split only — an
-# all-9-keys configure yields a byte-identical 21-message FT8 decode set), so no
-# decode-output gate can assert a Phase 4 value landed. This unit driver is the
-# parse->pack assert for inert fields.
-#
-# SCOPE: this guards JSON -> configure_fields PARSE only (the module-public entry
-# point). The configure_fields -> params APPLY routing now lives in the module-
-# public streaming_apply::apply_configure_fields and is asserted by
-# test/run-apply-routing-unit.sh — so the 9 inert Phase 4 fields' apply routing
-# IS now unit-guarded, not just code-review + no-regression.
+# Compile and run the Phase 4 configure parser checks in isolation.
+# Apply routing is covered by run-apply-routing-unit.sh.
 #
 # Usage:
 #   test/run-phase4-parse-unit.sh        (no build dir; compiles from source)
@@ -57,10 +40,6 @@ echo ""
 # shadow the fresh compile (the -J/-I flags alone do NOT remove cwd from the
 # search order; the cd does).
 cd "$WORK"
-# streaming_control uses q65_callers (Q65_MAX_CALLERS), which uses types.
-"$FC" -c "$REPO_ROOT/lib/types.f90" -J"$WORK" -o "$WORK/types.o"
-"$FC" -c -cpp -I"$REPO_ROOT/lib/qra/q65" "$REPO_ROOT/lib/qra/q65/q65_callers.F90" -J"$WORK" \
-  -o "$WORK/q65_callers.o"
-"$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
+source "$REPO_ROOT/test/compile-streaming-control.sh"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p4drv"
 "$WORK/p4drv"
