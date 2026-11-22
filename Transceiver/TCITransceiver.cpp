@@ -697,7 +697,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
     QStringList cmd = cmds.split(":", SkipEmptyParts);
     if (cmd.isEmpty ()) continue;
     QStringList args = cmd.last().split(",", SkipEmptyParts);
-    Tci_Cmd idCmd = mapCmd_[cmd.first()];
+    Tci_Cmd const idCmd = mapCmd_.value (cmd.first (), Cmd_Unknown);
     if (idCmd != Cmd_Power && idCmd != Cmd_SWR && idCmd != Cmd_Smeter && idCmd != Cmd_AppFocus && idCmd != Cmd_RxSensors && idCmd != Cmd_TxSensors) { printf("%s TCI message received:|%s| ",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),str.toStdString().c_str()); printf("idCmd : %d args : %s\n",idCmd,args.join("|").toStdString().c_str());}
     qDebug() << cmds << idCmd;
     if (idCmd <=0) continue;
