@@ -157,6 +157,11 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
   require_rejection (-m invalid)
   require_rejection (--tr-period invalid)
 
+  foreach (option -S --split)
+    require_acceptance (-9 "${option}" 1800)
+    require_rejection ("${option}" invalid)
+  endforeach ()
+
   foreach (option --patience -w)
     require_acceptance ("${option}" 0)
   endforeach ()

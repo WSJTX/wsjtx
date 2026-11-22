@@ -105,11 +105,11 @@ program jt9
         'Location of read-only data files (ALLCALL7.TXT), default PATH="."', &
         'PATH'),                                                             &
     option ('lowest', .true., 'L',                                           &
-        'Lowest frequency decoded (JT65), default HERTZ=200', 'HERTZ'),      &
+        'Lower search frequency, default HERTZ=200', 'HERTZ'),      &
     option ('highest', .true., 'H',                                          &
         'Highest frequency decoded, default HERTZ=4000', 'HERTZ'),           &
     option ('split', .true., 'S',                                            &
-        'Lowest JT9 frequency decoded, default HERTZ=2700', 'HERTZ'),        &
+        'JT9 lower search frequency override, 2700 uses --lowest', 'HERTZ'),        &
     option ('rx-frequency', .true., 'f',                                     &
         'Receive frequency offset, default HERTZ=1500', 'HERTZ'),            &
     option ('freq-tolerance', .true., 'F',                                   &
