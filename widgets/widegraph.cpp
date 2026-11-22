@@ -133,7 +133,6 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->fStartSpinBox->setValue(ui->widePlot->startFreq());
     m_waterfallPalette=m_settings->value("WaterfallPalette","Default").toString();
     m_userPalette = WFPalette {m_settings->value("UserPalette").value<WFPalette::Colours> ()};
-    m_fMinPerBand = m_settings->value ("FminPerBand").toHash ();
     ui->controls_widget->setVisible(!m_settings->value("HideControls",false).toBool());
     ui->cbControls->setChecked(!m_settings->value("HideControls",false).toBool());
   }
@@ -199,7 +198,6 @@ void WideGraph::saveSettings()                                           //saveS
   m_settings->setValue ("Bars", m_bars);
   m_settings->setValue ("Freq", m_freq);
   m_settings->setValue ("CallClickSetsTx", ui->cbCallTx->isChecked ());
-  m_settings->setValue ("FminPerBand", m_fMinPerBand);
 }
 
 void WideGraph::drawRed(int ia, int ib)
@@ -366,11 +364,6 @@ void WideGraph::wideFreezeDecode(int n)                              //wideFreez
   emit freezeDecode2(n);
 }
 
-int WideGraph::Fmin()                                              //Fmin
-{
-  return "60m" == m_rxBand ? 0 : m_fMinPerBand.value (m_rxBand, 2500).toUInt ();
-}
-
 int WideGraph::Fmax()                                              //Fmax
 {
   return std::min(5000,ui->widePlot->Fmax());
@@ -436,8 +429,6 @@ void WideGraph::setMode(QString mode)                              //setMode
   }
   m_mode=mode;
   ui->cbCallTx->setVisible(m_mode == "JTTY");    // only used by the JTTY call labels
-  ui->fSplitSpinBox->setVisible(m_mode.startsWith("FST4"));
-  ui->fSplitSpinBox->setEnabled(m_mode.startsWith("FST4"));
   ui->labTime->setVisible(!m_mode.startsWith("FST4"));
   ui->timestampComboBox->setVisible(!m_mode.startsWith("FST4"));
   ui->widePlot->setMode(mode);
@@ -487,11 +478,6 @@ void WideGraph::on_spec2dComboBox_currentIndexChanged(int index)
   replot();
 }
 
-void WideGraph::on_fSplitSpinBox_valueChanged(int n)              //fSplit
-{
-  if (m_rxBand != "60m") m_fMinPerBand[m_rxBand] = n;
-}
-
 void WideGraph::setFreq2(int rxFreq, int txFreq)                  //setFreq2
 {
   emit setFreq3(rxFreq,txFreq);
@@ -506,16 +492,6 @@ void WideGraph::setRxBand (QString const& band)
 {
   if (band != m_rxBand) clearJttyCalls ();       // labels of the old band are not valid
   m_rxBand = band;
-  if ("60m" == m_rxBand)
-    {
-      ui->fSplitSpinBox->setEnabled (false);
-      ui->fSplitSpinBox->setValue (0);
-    }
-  else
-    {
-      ui->fSplitSpinBox->setValue (m_fMinPerBand.value (band, 2500).toUInt ());
-      ui->fSplitSpinBox->setEnabled (m_mode.startsWith("FST4"));
-    }
   ui->widePlot->setRxBand(band);
 }
 

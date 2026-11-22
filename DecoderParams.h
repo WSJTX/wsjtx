@@ -18,9 +18,7 @@ typedef struct decoder_params {
     int nfqso;                  //User-selected QSO freq (kHz)
     int nftx;                   //TX audio offset where replies might be expected
     bool newdat;                //true ==> new data, must do long FFT
-    int npts8;                  //npts for c0() array
     int nfa;                    //Low decode limit (Hz)
-    int nfSplit;                //JT65 | JT9 split frequency
     int nfb;                    //High decode limit (Hz)
     int ntol;                   //+/- decoding range around fQSO (Hz)
     int kin;
@@ -32,7 +30,6 @@ typedef struct decoder_params {
     bool lapcqonly;
     bool ljt65apon;
     int napwid;
-    int ntxmode;
     int nmode;
     int minw;
     bool nclearave;
@@ -44,7 +41,6 @@ typedef struct decoder_params {
     int n2pass;
     int nranera;
     int naggressive;
-    bool nrobust;
     int nexp_decode;
     int max_drift;
     char datetime[20];

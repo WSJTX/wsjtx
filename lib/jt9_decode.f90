@@ -80,7 +80,7 @@ contains
     ! whole file it gives downsam9 its full span (capped at 653,184 samples, 54.4 s),
     ! which a late-DT signal needs.
     call this%decode(callback,this%spectra,samples,receive_frequency,.true.,count/8, &
-         search_low,search_low,search_high,tolerance,half_symbols,repeat,depth,9,submode,0)
+         search_low,search_high,tolerance,half_symbols,repeat,depth,submode)
   end subroutine decode_pcm
 
   subroutine initialize_spectrum(this)
@@ -160,8 +160,8 @@ contains
     nullify(this%callback)
   end subroutine finalize_decoder
 
-  subroutine decode(this,callback,ss,id2,nfqso,newdat,npts8,nfa,    &
-       nfsplit,nfb,ntol,nzhsym,nagain,ndepth,nmode,nsubmode,nexp_decode)
+  subroutine decode(this,callback,ss,id2,nfqso,newdat,npts8,nfa, &
+       nfb,ntol,nzhsym,nagain,ndepth,nsubmode)
     use timer_module, only: timer
 
     include 'constants.f90'
@@ -174,12 +174,11 @@ contains
     integer*1 i1SoftSymbols(207)
     common/decstats/ntry65a,ntry65b,n65a,n65b,num9,numfano
 
-    if(nexp_decode.eq.-99) stop     !Silence compiler warning
     call this%initialize()
     associate(ccfred=>this%ccfred,red2=>this%red2,ccfok=>this%ccfok,done=>this%done)
     this%callback => callback
     if(newdat) call this%downsample%invalidate()
-    if(nmode.eq.9 .and. nsubmode.ge.1) then
+    if(nsubmode.ge.1) then
        call decode9w(nfqso,ntol,nsubmode,ss,nzhsym,id2,sync,nsnr,xdt,freq,msg)
        if (associated(this%callback).and.len_trim(msg)>0) then
           ndrift=0

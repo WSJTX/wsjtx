@@ -5,8 +5,6 @@
 #include <QDialog>
 #include <QScopedPointer>
 #include <QDir>
-#include <QHash>
-#include <QVariant>
 #include "WFPalette.hpp"
 #include "JttySpectrum.hpp"
 #include "WaterfallCalls.hpp"
@@ -38,7 +36,6 @@ public:
   void   setRxFreq(int n);
   int    rxFreq();
   int    nStartFreq();
-  int    Fmin();
   int    Fmax();
   int    fSpan();
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
@@ -92,7 +89,6 @@ private slots:
   void on_waterfallAvgSpinBox_valueChanged(int arg1);
   void on_bppSpinBox_valueChanged(int arg1);
   void on_spec2dComboBox_currentIndexChanged(int);
-  void on_fSplitSpinBox_valueChanged(int n);
   void on_fStartSpinBox_valueChanged(int n);
   void on_paletteComboBox_activated(int index);
   void on_timestampComboBox_currentIndexChanged(int n);
@@ -121,7 +117,6 @@ private:
   QSettings * m_settings;
   QDir m_palettes_path;
   WFPalette m_userPalette;
-  QHash<QString, QVariant> m_fMinPerBand;
 
   double m_tr0;
   double m_TRperiod;

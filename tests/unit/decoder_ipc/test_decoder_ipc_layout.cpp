@@ -97,7 +97,7 @@ void TestDecoderIpcLayout::malformedStorageIsRejected ()
   QCOMPARE (decoder_ipc_fortran_validate (unaligned, sizeof *shared - 1),
             int {DECODER_IPC_LAYOUT_ALIGNMENT});
 
-  for (auto const version : {0, 1, 2, 3, DECODER_IPC_VERSION + 1})
+  for (auto const version : {0, 1, 2, 3, 4, DECODER_IPC_VERSION + 1})
     {
       shared->control.version = version;
       QCOMPARE (decoder_ipc_fortran_validate (shared.get (), sizeof *shared),

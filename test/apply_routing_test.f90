@@ -108,8 +108,7 @@ contains
   ! per-mode-policy block does NOT fire — emedelay survives, ntol/nfa/nfb keep
   ! the explicit value). This is the core routing assertion: each value must
   ! land in its OWN slot. The mis-route killers are the same-shaped pairs
-  ! (his_call/hisgrid, tx_audio_offset/nfsplit, min_width/min_sync,
-  ! dt_tolerance/emedelay).
+  ! (his_call/hisgrid, min_width/min_sync, dt_tolerance/emedelay).
   subroutine frame_flat()
     type(params_block)     :: p
     type(configure_fields) :: cfg
@@ -251,7 +250,7 @@ contains
     call ok('his_b_call -> hisbcall = DX1/B',  trim(s12(p%hisbcall)) .eq. 'DX1/B')
     call ok('my_call_standard -> lmycallstd true',       logical(p%lmycallstd))
     call ok('his_call_standard -> lhiscallstd false', .not. logical(p%lhiscallstd))
-    call ok('tx_audio_offset_hz -> nftx = 1234 (not nfsplit)', p%nftx     .eq. 1234)
+    call ok('tx_audio_offset_hz -> nftx = 1234', p%nftx     .eq. 1234)
     call ok('max_drift_hz -> max_drift = 55',  p%max_drift .eq. 55)
     call ok('dt_tolerance_seconds -> dttol = 0.7', abs(p%dttol - 0.7) .lt. 1.0e-6)
     call ok('eme_delay_seconds -> emedelay = 1.3 (survives)', abs(p%emedelay - 1.3) .lt. 1.0e-6)

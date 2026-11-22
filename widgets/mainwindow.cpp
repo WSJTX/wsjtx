@@ -2872,7 +2872,6 @@ void MainWindow::dataSink(qint64 frames)
 
     if(m_dialFreqRxWSPR==0) m_dialFreqRxWSPR=m_operatingFrequency.rx ();
     m_dataAvailable=true;
-    dec_data.params.npts8=(m_ihsym*m_nsps)/16;
     dec_data.params.newdat=1;
     dec_data.params.nagain=0;
     dec_data.params.nagainfil=0;	
@@ -5318,7 +5317,6 @@ void MainWindow::diskDat()                                   //diskDat()
     for(int n=1; n<=m_hsymStop; n++) {                      // Do the waterfall spectra
       k=n*kstep;
       if(k > dec_data.params.kin) break;
-      dec_data.params.npts8=k/8;
       dataSink(k);
       qApp->processEvents();                                //Update the waterfall
       if (!m_valid) return;
@@ -5545,12 +5543,9 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(m_config.twoPass()) dec_data.params.n2pass=2;
   dec_data.params.nranera=m_config.ntrials();
   dec_data.params.naggressive=m_config.aggressive();
-  dec_data.params.nrobust=0;
   dec_data.params.ndiskdat=0;
   if(m_diskData) dec_data.params.ndiskdat=1;
   dec_data.params.nfa=m_wideGraph->nStartFreq();
-  dec_data.params.nfSplit=m_wideGraph->Fmin();  // Not used any more?
-  if(dec_data.params.nfSplit==8) dec_data.params.nfSplit=1;
 
   dec_data.params.nfb=m_wideGraph->Fmax();
   if(m_mode=="FT8" and SpecOp::HOUND==m_specOp and !ui->cbRxAll->isChecked() and
@@ -5574,17 +5569,12 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   if(m_mode=="FST4W") dec_data.params.ntol=ui->sbFST4W_FTol->value();
   if(dec_data.params.nutc < m_nutc0) m_RxLog = 1;       //Date and Time to file "ALL.TXT".
   if(dec_data.params.newdat==1 and !m_diskData) m_nutc0=dec_data.params.nutc;
-  dec_data.params.ntxmode=9;
   dec_data.params.nmode=9;
   if(m_mode=="JT65") dec_data.params.nmode=65;
   if(m_mode=="JT65") dec_data.params.ljt65apon = ui->actionEnable_AP_JT65->isVisible () &&
       ui->actionEnable_AP_JT65->isChecked ();
   if(m_mode=="Q65") dec_data.params.nmode=66;
-  if(m_mode=="Q65") dec_data.params.ntxmode=66;
-  if(m_mode=="JT4") {
-    dec_data.params.nmode=4;
-    dec_data.params.ntxmode=4;
-  }
+  if(m_mode=="JT4") dec_data.params.nmode=4;
   if(m_mode=="FT8") dec_data.params.nmode=8;
   if(m_mode=="FT8") dec_data.params.lft8apon = ui->actionEnable_AP_FT8->isVisible () &&
       ui->actionEnable_AP_FT8->isChecked ();
@@ -5594,7 +5584,6 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
   }
   if(m_mode=="FST4") dec_data.params.nmode=240;
   if(m_mode=="FST4W") dec_data.params.nmode=241;
-  dec_data.params.ntxmode=dec_data.params.nmode;   // Is this used any more?
   // The JT9 decoder reads its own spectra; bit 0x100 of ndepth asks it to
   // window them as symspec does for the "Low sidelobes" setting.
   dec_data.params.ndepth &= ~0x100;
@@ -5693,7 +5682,6 @@ void MainWindow::decode (Ft8MtdDecodeCoordinator::Stage ft8Stage,
     dec_data.params.ndiskdat=0;
     if(m_diskData) dec_data.params.ndiskdat=1;
     dec_data.params.nfa=m_wideGraph->nStartFreq();
-    dec_data.params.nfSplit=m_wideGraph->Fmin();
     if(m_specOp==SpecOp::HOUND && !m_config.superFox() && !ui->cbRxAll->isChecked()) {
       dec_data.params.nfb=1000;
     } else {

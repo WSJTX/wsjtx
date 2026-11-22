@@ -101,7 +101,7 @@ subroutine decoder_engine_test_jt9_reference(submode,windowed,rows,count,samples
        error stop 'JT9 PCM spectrum differs from the legacy symspec spectrum'
   npts8=count/8
   call decoder%decode(observe_reference,shared%ss,shared%id2,1000,.true.,npts8, &
-       900,900,1100,20,rows,.false.,3,9,submode,0)
+       900,1100,20,rows,.false.,3,submode)
   call decoder%reset()
   call workspace%clear()
   if(.not.decoder%found) error stop 'JT9 legacy spectrum reference did not decode'
