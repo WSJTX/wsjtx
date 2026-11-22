@@ -65,6 +65,15 @@ namespace Jtty
   // name myCall. Text is returned unchanged if it is blank, or myCall is empty.
   QString withMyCallPrefix (QString const& text, QString const& myCall);
 
+  // Whether the text about to be committed is the first of an over and so
+  // gets the prefix. `prefixedThisOver` (a slice of the streaming over already
+  // got it) only counts while `streaming`: a send made while PTT is not armed
+  // (Enter, Send) is an over of its own, so a flag left by an earlier F9 over
+  // must not suppress it.
+  bool overPrefixDue (bool prefixEnabled, bool chatStyle, int committed,
+                      bool nothingPending, bool prefixedThisOver, bool streaming,
+                      bool textNamesMyCall);
+
   class MacroLibrary
   {
   public:
