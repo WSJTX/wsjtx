@@ -2965,7 +2965,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         syncp=0.
         syncm=0.
         k=1
-        allocate(csig0(1+(NZ-1)/NDOWN))
+        ! Round the sample extent up to a whole decimation stride.
+        allocate(csig0((NZ+modulo(-NZ,NDOWN))/NDOWN))
         call gen_ft8wavevar_samples(itone,NN,NSPS,2.0,12000.0,0.0,NZ, &
              NDOWN,size(csig0),cwave=csig0)
         do i=0,78

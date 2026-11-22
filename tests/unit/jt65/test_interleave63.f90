@@ -11,7 +11,7 @@ program test_interleave63
        5,12,19,26,33,40,47,54,61, &
        6,13,20,27,34,41,48,55,62 ]
   integer :: original(0:62), data(0:62), wanted(0:62)
-  integer :: i, ntests
+  integer :: i, q, r, ntests
   external :: interleave63, move
 
   ntests=0
@@ -40,8 +40,10 @@ program test_interleave63
   call move(original,data,63)
   call expect_vector(data,original,'integer move')
 
-  do i=0,62
-     wanted(i)=original(mod(i,9)*7+i/9)
+  do q=0,6
+     do r=0,8
+        wanted(9*q+r)=original(7*r+q)
+     enddo
   enddo
   data=original
   call interleave63(data,1)
@@ -51,8 +53,10 @@ program test_interleave63
   call interleave63(data,0)
   call expect_vector(data,wanted,'zero direction forward mapping')
 
-  do i=0,62
-     wanted(i)=original(mod(i,7)*9+i/7)
+  do q=0,8
+     do r=0,6
+        wanted(7*q+r)=original(9*r+q)
+     enddo
   enddo
   data=original
   call interleave63(data,-1)

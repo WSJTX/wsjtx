@@ -40,13 +40,13 @@ program fox_gui_model
   call get_command_argument(1, directory)
   call get_command_argument(2, share_dir)
   call get_command_argument(3, text)
-  mycall = text
+  mycall = text(:len(mycall))
   call get_command_argument(4, text)
-  mygrid = text
+  mygrid = text(:len(mygrid))
   call get_command_argument(5, text)
   multift8 = trim(text) .eq. '1'
-  temp_dir = directory
-  data_dir = directory
+  temp_dir = directory(:len(temp_dir))
+  data_dir = directory(:len(data_dir))
   iret = fftwf_init_threads()
   call fftwf_plan_with_nthreads(1)
   ! jt9's values for -8 -X 6 -c CALL -G GRID, and -M -N 2 -D 3: its

@@ -10,6 +10,7 @@ subroutine hint65(s3,mrs,mrs2,nadd,nflip,mycall,hiscall,hisgrid,qual,decoded)
   character*6 mycall,hiscall,hisgrid
   character*4 rpt(MAXRPT)
   character msg*22,msg00*22
+  character(len=24) :: candidate
   character*22 decoded
   data rpt/'-01','-02','-03','-04','-05',          &
            '-06','-07','-08','-09','-10',          &
@@ -50,8 +51,9 @@ subroutine hint65(s3,mrs,mrs2,nadd,nflip,mycall,hiscall,hisgrid,qual,decoded)
               if(m.eq.2) msg='CQ '//hiscall//' '//hisgrid(1:4)
               if(m.ge.3) msg=mycall//' '//hiscall//' '//rpt(m-2)
            else
-              if(m.eq.1)  msg=mycall//' '//jt65_work%calls(i)(1:6)//' '//jt65_work%grids(i)
-              if(m.eq.2)  msg='CQ '//jt65_work%calls(i)(1:6)//' '//jt65_work%grids(i)
+              if(m.eq.1)  candidate=mycall//' '//jt65_work%calls(i)(1:6)//' '//jt65_work%grids(i)
+              if(m.eq.2)  candidate='CQ '//jt65_work%calls(i)(1:6)//' '//jt65_work%grids(i)
+              msg=candidate(:len(msg))
            endif
            call fmtmsg(msg,iz)
            call packmsg(msg,dgen,itype) !Pack message into 72 bits

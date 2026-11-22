@@ -1280,8 +1280,8 @@ contains
        call c_f_pointer(entries,records,[count])
        do i=1,count
           call=transfer(records(i)%call,call)
-          if(len_trim(call)>6) return
-          callers(i)%call=call
+          if(len_trim(call)>len(callers(i)%call)) return
+          callers(i)%call=call(:len(callers(i)%call))
           callers(i)%grid=transfer(records(i)%grid,callers(i)%grid)
           callers(i)%nsec=records(i)%last_seen
           callers(i)%nfreq=records(i)%frequency_hz
