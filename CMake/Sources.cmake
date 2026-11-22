@@ -711,6 +711,7 @@ set (qra_CSRCS
 
 set (wsjt_CSRCS
   ${ka9q_CSRCS}
+  lib/fftw_plan_inplace.c
   lib/lookup3.c
   lib/ft8var/ft8_tsan.c
   lib/ftrsd/ftrsdap.c

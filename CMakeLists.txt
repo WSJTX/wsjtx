@@ -431,7 +431,10 @@ endif ()
 
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
-target_link_libraries (wsjt_cxx Boost::log_setup ${LIBM_LIBRARIES})
+target_include_directories (wsjt_cxx PRIVATE ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (wsjt_cxx
+  PUBLIC Boost::log_setup ${LIBM_LIBRARIES}
+  PRIVATE ${FFTW3F_LIBRARY})
 if (UNIX)
   include (CheckCXXSymbolExists)
   check_cxx_symbol_exists (shm_open "sys/mman.h" WSJT_SHM_OPEN_IN_LIBC)
@@ -441,7 +444,7 @@ if (UNIX)
     if (NOT WSJT_SHM_OPEN_IN_LIBRT)
       message (FATAL_ERROR "POSIX shared memory requires shm_open in libc or librt")
     endif ()
-    target_link_libraries (wsjt_cxx rt)
+    target_link_libraries (wsjt_cxx PUBLIC rt)
   endif ()
 endif ()
 
