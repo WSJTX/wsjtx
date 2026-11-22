@@ -118,7 +118,19 @@ enum { DECODER_JT4_NO_SYNC = 0, DECODER_JT4_SYNC = 1, DECODER_JT4_MESSAGE = 2 };
 enum { DECODER_JT4_METHOD_NONE = 0, DECODER_JT4_METHOD_FANO = 1,
        DECODER_JT4_METHOD_DEEP_SEARCH = 2 };
 enum { DECODER_JT4_AVERAGE_CAPACITY = 64, DECODER_JT4_CALL_CAPACITY = 6999 };
-typedef struct { char call[12] __attribute__((nonstring)), grid[4] __attribute__((nonstring)); } decoder_jt4_call;
+
+#ifdef __has_attribute
+#if __has_attribute(nonstring)
+#define WSJTX_DECODER_NONSTRING __attribute__((nonstring))
+#endif
+#endif
+#ifndef WSJTX_DECODER_NONSTRING
+#define WSJTX_DECODER_NONSTRING
+#endif
+
+typedef struct {
+  char call[12] WSJTX_DECODER_NONSTRING, grid[4] WSJTX_DECODER_NONSTRING;
+} decoder_jt4_call;
 typedef struct {
   int32_t utc, frequency_hz, polarity, used;
   float sync, dt_seconds;
@@ -174,9 +186,11 @@ typedef struct {
 enum { DECODER_Q65_CALL_CAPACITY = 50 };
 /* Q65 contest history currently supports calls of up to six characters. */
 typedef struct {
-  char call[12] __attribute__((nonstring)), grid[4] __attribute__((nonstring));
+  char call[12] WSJTX_DECODER_NONSTRING, grid[4] WSJTX_DECODER_NONSTRING;
   int32_t last_seen, frequency_hz;
 } decoder_q65_caller;
+
+#undef WSJTX_DECODER_NONSTRING
 
 /* Curves contain curve_count conditioned synchronization strengths; element i
    is at (i + 1) * frequency_step_hz, with zero-based C indexing.
