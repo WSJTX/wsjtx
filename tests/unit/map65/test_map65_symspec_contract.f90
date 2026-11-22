@@ -18,14 +18,16 @@ program test_map65_symspec_contract
 
   call get_command_argument(1, rate_text)
   read(rate_text, *) rate
-  call require(any(rate == [96000, 128000, 192000, 256000]), 'supported sample rate')
-  fft_size = symspec_fft_size(rate)
   select case (rate)
   case (96000);  expected_fft_size = 32768
   case (128000); expected_fft_size = 65536
   case (192000); expected_fft_size = 65536
   case (256000); expected_fft_size = 131072
+  case default
+     print '(a)', 'FAIL: supported sample rate'
+     error stop 1
   end select
+  fft_size = symspec_fft_size(rate)
   call require(fft_size == expected_fft_size, 'symspec FFT size for this sample rate')
   call set_runtime_params(rate, fft_size, 56 * rate)
   allocate(dd(4, fft_size + 1024), ss(4, 1, fft_size), savg(4, fft_size), waterfall(fft_size))

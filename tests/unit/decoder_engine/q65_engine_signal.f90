@@ -26,7 +26,7 @@ subroutine q65_engine_make_signal(message,period,submode,flag,seed,amplitude,noi
   use iso_c_binding, only: c_int,c_int16_t,c_float
   use iso_fortran_env, only: int64,real64
   use packjt77, only: pack77_state
-  use q65, only: q65_state,q65_work
+  use q65_tx, only: genq65_for_state
   implicit none
   character(len=*), intent(in) :: message
   integer(c_int), intent(in) :: period,submode,flag,seed
@@ -37,9 +37,8 @@ subroutine q65_engine_make_signal(message,period,submode,flag,seed,amplitude,noi
   integer :: tones(85),nsps,start,i,symbol,i3,n3
   real(real64) :: phase,value,u1,u2,freq
   character(len=37) :: encoded,sent
-  type(pack77_state), target :: knowledge
-  type(q65_state), allocatable, target :: encoder
-  type(q65_state), pointer :: previous
+  type(pack77_state), target :: local_knowledge
+  type(pack77_state), pointer :: knowledge
 
   select case(period)
   case(15)
@@ -55,14 +54,9 @@ subroutine q65_engine_make_signal(message,period,submode,flag,seed,amplitude,noi
   case default
      error stop 'invalid Q65 fixture period'
   end select
-  ! Fixture encoding must not populate the decoder callsign knowledge.
-  allocate(encoder)
-  encoder%knowledge=>knowledge
-  previous=>q65_work
-  q65_work=>encoder
+  knowledge=>local_knowledge
   encoded=message
-  call genq65(encoded,0,sent,tones,i3,n3,flag)
-  q65_work=>previous
+  call genq65_for_state(encoded,0,sent,tones,i3,n3,flag,knowledge)
   if(i3<0.or.n3<0) error stop 'Q65 fixture message failed to encode'
   start=12000
   if(period.le.30) start=6000
