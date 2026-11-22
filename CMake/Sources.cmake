@@ -4,6 +4,14 @@
 # so CMAKE_CURRENT_SOURCE_DIR stays the project root and all paths below
 # remain relative to it, exactly as when this content was inline.
 #
+# Legacy render callbacks and jt9 rejection stubs retain shared interfaces.
+set_property (SOURCE
+  lib/superfox/sfox_unpack.f90
+  lib/jt9_stream_stub.f90
+  lib/jt9_wspr_stub.f90
+  APPEND PROPERTY COMPILE_OPTIONS
+  "$<$<COMPILE_LANG_AND_ID:Fortran,GNU>:-Wno-unused-dummy-argument>")
+
 set (wsjt_qt_CXXSRCS
   ActiveStationList.cpp
   DecDataMutex.cpp

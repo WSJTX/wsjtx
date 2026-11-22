@@ -1,3 +1,11 @@
+# Test observers implement the full decoder callback signatures.
+set_property (SOURCE
+  jt9_engine_signal.f90
+  fst4_engine_signal.f90
+  test_decoder_engine_jt4_state.f90
+  APPEND PROPERTY COMPILE_OPTIONS
+  "$<$<COMPILE_LANG_AND_ID:Fortran,GNU>:-Wno-unused-dummy-argument>")
+
 add_library (test_decoder_engine_signal STATIC decoder_engine_signal.f90 jt9_engine_signal.f90)
 set_target_properties (test_decoder_engine_signal PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/signal-modules)
