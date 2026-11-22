@@ -43,8 +43,10 @@ public:
   struct Timing
   {
     int silent_after_ms {5 * 60 * 1000};    // own spots quiet this long: check the feed
-    int check_window_ms {5 * 1000};         // how long the status topic is watched
+    int check_window_ms {15 * 1000};        // how long the status topic is watched (it
+                                            // publishes every ~2 s but delivery is bursty)
     int check_every_ms {10 * 60 * 1000};    // and how often at most
+    int silent_retry_ms {60 * 1000};        // after a "silent" verdict: look again this often
   };
 
   struct Context

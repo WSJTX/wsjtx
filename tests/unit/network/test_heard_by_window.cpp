@@ -201,6 +201,43 @@ private Q_SLOTS:
     w.close ();
     feed.finish ();
   }
+
+  // A "silent" verdict can be wrong or go stale: the status topic is looked
+  // at again soon, and the banner clears once it moves, with no spot of ours.
+  void silent_verdict_is_rechecked_and_clears_without_a_spot ()
+  {
+    using namespace fake_broker;
+    std::atomic<bool> moving {false};
+    std::atomic<int> n {0};
+    Broker feed {{[&moving, &n] (Broker& br, Conn& c) {
+        if (!br.handshake (c)) return;
+        br.listen (c, 30000, [&moving, &n] (Conn& c, QString const& topic) {
+            for (int i = 0; i < 2; ++i)
+              Broker::send (c, Broker::publish (topic, moving ? QByteArray::number (++n)
+                                                              : QByteArray {"2026-11-21T10:00:00.000Z"}));
+          });
+      }}};
+    feed.start_and_wait ();
+    QTemporaryFile ini;
+    QVERIFY (ini.open ());
+    QSettings settings {ini.fileName (), QSettings::IniFormat};
+    HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
+    HeardByWindow w {&settings, QFont {}, [&ctx] {return ctx;}, band_of, [] (QString const&) {return -1.0;}};
+    HeardByWindow::Timing timing;
+    timing.silent_after_ms = 300;
+    timing.check_window_ms = 500;
+    timing.check_every_ms = 600000;                      // the normal interval would never come
+    timing.silent_retry_ms = 700;
+    w.set_mqtt (fast (feed.port ()), timing);
+    w.show ();
+    QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("silent"), 8000);
+    moving = true;                                       // the feed recovers; no spot of ours arrives
+    QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("delivering"), 8000);
+    QVERIFY (!w.banner_text ().contains ("silent"));
+    QCOMPARE (w.model ()->rowCount (), 0);
+    w.close ();
+    feed.finish ();
+  }
 };
 
 QTEST_MAIN (TestHeardByWindow)

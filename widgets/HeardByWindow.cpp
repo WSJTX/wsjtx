@@ -200,7 +200,9 @@ void HeardByWindow::tick ()
       auto const t = clock_.elapsed ();
       if (mqtt_.subscribed () && !mqtt_.checking ()
           && t - own_ref_ms_ >= timing_.silent_after_ms
-          && (last_check_ms_ < 0 || t - last_check_ms_ >= timing_.check_every_ms))
+          && (last_check_ms_ < 0
+              || t - last_check_ms_ >= (Feed::Silent == feed_ ? timing_.silent_retry_ms
+                                        : timing_.check_every_ms)))
         {
           last_check_ms_ = t;
           mqtt_.check_feed (timing_.check_window_ms);
