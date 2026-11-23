@@ -67,7 +67,7 @@ module packjt77
   public :: queue_hash_call_for_thread_for_state,fold_queued_recent_calls_for_state
   public :: sync_configured_calls_for_decode_start_for_state
   public :: prepare_configured_decode_for_state,fold_queued_calls_for_state
-  public :: initialize_pack77_state,reset_pack77_state
+  public :: initialize_pack77_state,reset_pack77_state,swap_legacy_pack77_state
 
   type pack77_state
      character(len=13), allocatable :: calls10(:),calls12(:),calls22(:),recent_calls(:)
@@ -315,6 +315,62 @@ type(pack77_state_view) function owned_state_view(state) result(view)
   view%mycall13_configured_set=>state%mycall13_configured_set
   view%dxcall13_configured_set=>state%dxcall13_configured_set
 end function owned_state_view
+
+! Exchanges the module's tables, which the legacy entries (pack77, unpack77,
+! save_hash_call) use, with state's; a second call exchanges them back. Legacy
+! callers such as mskrtd then work on state.
+subroutine swap_legacy_pack77_state(state)
+  type(pack77_state), target, intent(inout) :: state
+  type(pack77_state_view) :: a,b
+  character(len=13) :: c
+  integer :: n
+  logical :: l
+
+  a=legacy_state_view()
+  b=owned_state_view(state)
+  call swap_calls(a%calls10,b%calls10)
+  call swap_calls(a%calls12,b%calls12)
+  call swap_calls(a%calls22,b%calls22)
+  call swap_calls(a%recent_calls,b%recent_calls)
+  call swap_calls(a%queued_calls_by_thread,b%queued_calls_by_thread)
+  call swap_calls(a%queued_recent_calls_by_thread,b%queued_recent_calls_by_thread)
+  call swap_ints(a%ihash22,b%ihash22)
+  call swap_ints(a%nqueued_calls_by_thread,b%nqueued_calls_by_thread)
+  call swap_ints(a%nqueued_recent_calls_by_thread,b%nqueued_recent_calls_by_thread)
+  call swap_ints(a%thread_call_index,b%thread_call_index)
+  c=a%mycall13; a%mycall13=b%mycall13; b%mycall13=c
+  c=a%dxcall13; a%dxcall13=b%dxcall13; b%dxcall13=c
+  c=a%mycall13_configured; a%mycall13_configured=b%mycall13_configured; b%mycall13_configured=c
+  c=a%dxcall13_configured; a%dxcall13_configured=b%dxcall13_configured; b%dxcall13_configured=c
+  c=a%mycall13_configured_prev; a%mycall13_configured_prev=b%mycall13_configured_prev
+  b%mycall13_configured_prev=c
+  c=a%dxcall13_configured_prev; a%dxcall13_configured_prev=b%dxcall13_configured_prev
+  b%dxcall13_configured_prev=c
+  n=a%nzhash; a%nzhash=b%nzhash; b%nzhash=n
+  n=a%hashmy10_configured; a%hashmy10_configured=b%hashmy10_configured; b%hashmy10_configured=n
+  n=a%hashmy12_configured; a%hashmy12_configured=b%hashmy12_configured; b%hashmy12_configured=n
+  n=a%hashmy22_configured; a%hashmy22_configured=b%hashmy22_configured; b%hashmy22_configured=n
+  n=a%hashdx10_configured; a%hashdx10_configured=b%hashdx10_configured; b%hashdx10_configured=n
+  l=a%mycall13_configured_set; a%mycall13_configured_set=b%mycall13_configured_set
+  b%mycall13_configured_set=l
+  l=a%dxcall13_configured_set; a%dxcall13_configured_set=b%dxcall13_configured_set
+  b%dxcall13_configured_set=l
+
+contains
+
+  subroutine swap_calls(x,y)
+    character(len=13), intent(inout) :: x(:),y(:)
+    character(len=13) :: t(size(x))
+    t=x; x=y; y=t
+  end subroutine swap_calls
+
+  subroutine swap_ints(x,y)
+    integer, intent(inout) :: x(:),y(:)
+    integer :: t(size(x))
+    t=x; x=y; y=t
+  end subroutine swap_ints
+
+end subroutine swap_legacy_pack77_state
 
 type(pack77_result) function pack77_no_match() result(encoded)
   encoded=pack77_result()

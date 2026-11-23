@@ -44,7 +44,8 @@ module streaming_decode
        streaming_emit_decode,                                              &
        streaming_emit_hold_finished, streaming_emit_pass_skipped,          &
        streaming_emit_finished_at, streaming_emit_set_pass,                &
-       streaming_emit_set_submode,                                         &
+       streaming_emit_set_submode, streaming_emit_set_repeats,             &
+       streaming_emit_set_false_decodes,                                   &
        streaming_emit_hold, streaming_emit_line, streaming_emit_threads,   &
        streaming_emit_set_writer, streaming_emit_label, streaming_emit_busy, &
        streaming_emit_idle, streaming_emit_progress, streaming_emit_error,  &
@@ -137,11 +138,23 @@ module streaming_decode
      ! wspr_hash_clear, the WSPR hash table's.
      logical :: fox_clear = .false.
      logical :: wspr_clear = .false.
+     ! A pass: WSPR's decode threads (wspr_threads) as they stood.
+     integer :: wspr_threads = 0
+     ! The GUI's Reduce false decodes (reduce_false_decodes) and its points
+     ! display (active_stations, with ARRL Digi) as they stood.
+     logical :: reduce_false = .false., points = .false.
      ! The receive frequency a pass or decode again is published under, live
      ! (< 0: none, from a file or before any dial_frequency): its decodes are
      ! dropped once another is in force (lib/streaming_emit.f90). And the
      ! receive dial in force at the operation's place in the stream.
      integer(int64) :: dial = -1, rx = -1
+     ! The decode identity it was made under, live (< 0: none, from a file):
+     ! its decodes are dropped once another is in force, as dial's.
+     integer(int64) :: identity = -1
+     ! A decode again: the period whose FT8 messages WSJT-X's duplicate rule
+     ! holds at the request, the period in flight once 10 s of it are in,
+     ! else the one before (streaming_emit_set_repeats).
+     integer(int64) :: keys = 0
      ! A line: the lines to write, each ended by a newline.
      character(len=:), allocatable :: line
   end type decode_op
@@ -192,9 +205,13 @@ module streaming_decode
   ! Decode-again requests waiting for this period's last FT8 pass, and the
   ! receive frequency the last was published under.
   integer, save :: pending_again = 0
-  integer(int64), save :: pending_again_dial = -1
-  ! The last decoded period, for a decode-again request (again_k = 0: none).
+  integer(int64), save :: pending_again_dial = -1, pending_again_identity = -1
+  integer(int64), save :: pending_again_keys = 0
+  real(8), save :: pending_again_fire = 0.d0
+  ! The last decoded period, for a decode-again request (again_k = 0: none),
+  ! and its number.
   type(pass_audio), save :: again
+  integer(int64), save :: again_period = 0
   integer, save :: again_k = 0, again_nzhsym = 0, again_kin = 0, again_nutc = 0
   logical, save :: again_even = .false.
   ! The last decoded period was fast JT9's.
@@ -208,9 +225,12 @@ module streaming_decode
   integer(int64), save :: deferred_period = 0
   type(params_block), save :: deferred_params
   type(time_form), save :: deferred_form
-  integer(int64), save :: deferred_dial = -1
-  ! The receive dial in force at the last operation's place in the stream.
+  integer(int64), save :: deferred_dial = -1, deferred_identity = -1
+  real(8), save :: deferred_fire = 0.d0
+  ! The receive dial in force at the last operation's place in the stream,
+  ! and Reduce false decodes.
   integer(int64), save :: stream_rx = -1
+  logical, save :: stream_reduce = .false., stream_points = .false.
   ! The last early pass's completion, which the scheduler takes, as the
   ! GUI's does, only when the decoder frees.
   logical, save :: completion_due = .false.
@@ -233,9 +253,9 @@ module streaming_decode
      end function stream_stdin_now
      ! A decode pass's receive frequency and whether a change made the pass
      ! obsolete (lib/stream_decode.c).
-     subroutine stream_decode_pass_begin(hz) bind(C, name="stream_decode_pass_begin")
+     subroutine stream_decode_pass_begin(hz, identity) bind(C, name="stream_decode_pass_begin")
        import :: c_int64_t
-       integer(c_int64_t), value :: hz
+       integer(c_int64_t), value :: hz, identity
      end subroutine stream_decode_pass_begin
      function stream_decode_pass_obsolete() result(obsolete)               &
           bind(C, name="stream_decode_pass_obsolete")
@@ -397,6 +417,8 @@ contains
     type(decode_op), intent(inout) :: op
     stream_mode = op%mode
     stream_rx = op%rx
+    stream_reduce = op%reduce_false
+    stream_points = op%points
     select case (op%kind)
     case (OP_CONFIGURE)
        call configure(op)
@@ -731,10 +753,14 @@ contains
        ! with none, on this one.
        pending_again = pending_again + 1
        pending_again_dial = op%dial
+       pending_again_identity = op%identity
+       pending_again_keys = op%keys
+       pending_again_fire = trigger_fire_time(op%arrival, op%t0, op%last_sample)
     else if (again_k .le. 0) then
        call decode_in_flight(op)
     else
-       call decode_again(op%dial)
+       call decode_again(op%dial, op%identity, op%keys,                     &
+            trigger_fire_time(op%arrival, op%t0, op%last_sample))
     end if
   end subroutine decode_again_request
 
@@ -761,7 +787,9 @@ contains
     call load_work(op%audio, op%k)
     call report_pass(p, op%k)
     finished_before = streaming_emit_finished_at()
-    call stream_decode_pass_begin(op%dial)
+    call set_repeats(op%params, op%mode, op%dial, op%rx, again_keys(op%keys, op%period), &
+         trigger_fire_time(op%arrival, op%t0, op%last_sample))
+    call stream_decode_pass_begin(op%dial, op%identity)
     call run_decoder(p)
     busy_until = decoder_freed_at(finished_before)
     pending_clear = .false.
@@ -769,6 +797,7 @@ contains
     call end_dial(obsolete)
     if (obsolete) return
     call take_over(op%audio, again)
+    again_period = op%period
     again_k      = op%k
     again_nzhsym = p%nzhsym
     again_kin    = p%kin
@@ -818,7 +847,9 @@ contains
           ! Live, the decoder completes each pass, as for the GUI; the period's
           ! decode_finished waits for its last.
           call streaming_emit_hold_finished(.true.)
-          call stream_decode_pass_begin(op%dial)
+          call set_repeats(op%params, op%mode, op%dial, op%rx, op%period,     &
+               trigger_fire_time(op%arrival, op%t0, op%last_sample))
+          call stream_decode_pass_begin(op%dial, op%identity)
           call ft8_window_pass(op, p, op%nzhsym)
           call end_dial(obsolete)
           call streaming_emit_hold_finished(.false.)
@@ -876,9 +907,12 @@ contains
     call begin_engine_input(op%period)
     call streaming_emit_set_form(op%form)
     finished_before = streaming_emit_finished_at()
+    call set_repeats(op%params, op%mode, op%dial, op%rx, op%period,         &
+         trigger_fire_time(op%arrival, op%t0, op%last_sample))
     ! WSPR's decodes (the GUI's wsprd) are never dropped for a change of the
-    ! receive frequency, unlike its worker's.
-    call stream_decode_pass_begin(merge(-1_int64, op%dial, op%mode .eq. MODE_WSPR))
+    ! receive frequency or of the decode identity, unlike its worker's.
+    call stream_decode_pass_begin(merge(-1_int64, op%dial, op%mode .eq. MODE_WSPR), &
+         merge(-1_int64, op%identity, op%mode .eq. MODE_WSPR))
     p = op%params
     p%nclearave = pending_clear
     if (op%mode .eq. 8 .and. .not. multithreaded) then
@@ -902,7 +936,7 @@ contains
        call run_decoder(p)
     else if (op%mode .eq. MODE_WSPR) then
        call report_pass(p, op%k)
-       call run_wspr(p, op%audio, op%k, op%form)
+       call run_wspr(p, op%audio, op%k, op%form, op%wspr_threads)
        ! No period to decode again: the GUI's Decode button does nothing in WSPR.
        busy_until = decoder_freed_at(finished_before)
        call end_dial(obsolete)
@@ -923,6 +957,7 @@ contains
     if (again_k .gt. 0) call run_pending_again()
     if (.not. obsolete) then
        call take_over(op%audio, again)
+       again_period = op%period
        again_k      = op%k
        again_nzhsym = p%nzhsym
        again_kin    = p%kin
@@ -969,6 +1004,7 @@ contains
     busy_until = decoder_freed_at(finished_before)
     ! This period becomes the one to decode again, on this try's audio.
     call take_over(op%audio, again)
+    again_period = op%period
     again_k      = op%k
     again_nzhsym = p%nzhsym
     again_kin    = p%kin
@@ -1041,11 +1077,12 @@ contains
   ! them, as wsprd's <DecodeFinished> counts nothing. A decoder that cannot
   ! run (no memory for its buffers or plans) skips the pass, as the other
   ! period modes do for want of memory.
-  subroutine run_wspr(p, audio, k, form)
+  subroutine run_wspr(p, audio, k, form, threads)
     type(params_block), intent(in) :: p
     type(pass_audio),   intent(in) :: audio
     integer,            intent(in) :: k
     type(time_form),    intent(in) :: form
+    integer,            intent(in) :: threads
     character(len=6) :: label
     integer :: count
     if (events) then
@@ -1054,7 +1091,7 @@ contains
        shown = .true.
     end if
     call test_hold(p%nzhsym)
-    call wspr_decode(audio%id2, min(k, audio%n), p%ndepth, p%nutc, count)
+    call wspr_decode(audio%id2, min(k, audio%n), p%ndepth, threads, p%nutc, count)
     if (count .lt. 0) then
        call skip_pass(p%nzhsym, .true., 'memory', p, form)
     else
@@ -1063,9 +1100,11 @@ contains
   end subroutine run_wspr
 
   ! The GUI's Decode button: one pass with nagain over the last decoded
-  ! period, with its time and sequence, under receive frequency dial.
-  subroutine decode_again(dial)
-    integer(int64), intent(in) :: dial
+  ! period, with its time and sequence, under receive frequency dial; keys:
+  ! the period whose FT8 messages the duplicate rule held at the request.
+  subroutine decode_again(dial, identity, keys, fire)
+    integer(int64), intent(in) :: dial, identity, keys
+    real(8),        intent(in) :: fire
     type(params_block) :: p
     real(8) :: finished_before
     logical :: obsolete
@@ -1093,7 +1132,9 @@ contains
     call load_work(again, again_k)
     call report_pass(p, again_k)
     finished_before = streaming_emit_finished_at()
-    call stream_decode_pass_begin(dial)
+    call set_repeats(stream_params, stream_mode, dial, stream_rx, again_keys(keys, again_period), &
+         fire)
+    call stream_decode_pass_begin(dial, identity)
     call run_decoder(p)
     busy_until = decoder_freed_at(finished_before)
     pending_clear = .false.
@@ -1108,7 +1149,8 @@ contains
        if (again_k .le. 0) then
           call streaming_emit_error_code('decode_again_unavailable', NO_DECODED_PERIOD)
        else
-          call decode_again(pending_again_dial)
+          call decode_again(pending_again_dial, pending_again_identity, pending_again_keys, &
+               pending_again_fire)
        end if
     end do
   end subroutine run_pending_again
@@ -1135,6 +1177,12 @@ contains
     character(len=6) :: label
     integer :: pass, number, status
     pass = 0
+    ! WSJT-X's FT8 decode searches up to 1000 Hz in Hound without SuperFox
+    ! (Rx All Freqs off), whatever its waterfall says (MainWindow::decode);
+    ! the decoder's copy only, so a waiting final's check still sees the
+    ! waterfall's range.
+    if (p%nmode .eq. 8 .and. iand(p%nexp_decode, 7) .eq. 7 .and.            &
+         .not. logical(p%b_superfox)) p%nfb = 1000
     if (events) then
        label = streaming_emit_label(p%nutc, label_hhmmss(p%nmode))
        call streaming_emit_busy(p%nmode, label, p%nzhsym, logical(p%nagain), .false.)
@@ -1303,6 +1351,46 @@ contains
     if (p%ndecoderstart .eq. 1) early_stages = 2
   end function early_stages
 
+  ! WSJT-X's FT8 duplicate rule for the pass about to run, its decodes counted
+  ! in window (streaming_emit_set_repeats). The GUI rejects an FT8 decode
+  ! whose message it already showed (DecodeOutputPlan.cpp isFalseDecode) with
+  ! the multithreaded decoder at start 0 or 1, whose early passes and final
+  ! decode the period apart, or above 45 MHz with no special activity, by the
+  ! period's frequency (dial: live, its nominal; else rx, the receive dial).
+  ! It counts only the decodes its band activity shows, which in Fox is none
+  ! (widgets/mainwindow.cpp earlyDecodeKeys).
+  subroutine set_repeats(p, mode, dial, rx, window, fire)
+    type(params_block), intent(in) :: p
+    integer,            intent(in) :: mode
+    integer(int64),     intent(in) :: dial, rx, window
+    real(8),            intent(in) :: fire
+    integer(int64) :: hz
+    integer :: contest
+    logical :: early
+    hz = rx
+    if (dial .ge. 0) hz = dial
+    contest = iand(p%nexp_decode, 7)
+    early = p%lmultift8 .and. p%ndecoderstart .lt. 2
+    call streaming_emit_set_repeats(mode .eq. 8 .and. contest .ne. 6 .and.  &
+         (early .or. (contest .eq. 0 .and. hz .gt. 45000000_int64)), window)
+    ! And its false decodes (DecodeOutputPlan.cpp isFalseDecode): with no
+    ! special activity, which the Q65 Pileup bit (128) is too, as the GUI
+    ! sets it only in that activity; with Reduce false decodes; from live
+    ! audio; with its points display; the pass's audio clock at its trigger.
+    call streaming_emit_set_false_decodes(contest .eq. 0 .and.              &
+         iand(p%nexp_decode, 128) .eq. 0, stream_reduce,                    &
+         .not. logical(p%ndiskdat), stream_points, fire)
+  end subroutine set_repeats
+
+  ! A decode again's window: its period's when the request's keys are that
+  ! period's, else its own (< 0), as the GUI's keys then hold another
+  ! period's messages.
+  pure integer(int64) function again_keys(keys, period)
+    integer(int64), intent(in) :: keys, period
+    again_keys = -1
+    if (keys .eq. period) again_keys = period
+  end function again_keys
+
   ! The GUI's SuperFox is the setting with Fox or Hound (widgets/mainwindow.cpp).
   pure logical function superfox_even(p)
     type(params_block), intent(in) :: p
@@ -1427,6 +1515,8 @@ contains
     end if
     call take_over(op%audio, deferred_audio)
     deferred_dial   = op%dial
+    deferred_identity = op%identity
+    deferred_fire   = trigger_fire_time(op%arrival, op%t0, op%last_sample)
     deferred_k      = op%k
     deferred_params = op%params
     deferred_params%nclearave = pending_clear
@@ -1448,14 +1538,17 @@ contains
   subroutine run_deferred_final()
     real(8) :: finished_before
     logical :: obsolete
+    type(params_block) :: p
     deferred = .false.
     call streaming_emit_set_form(deferred_form)
     call begin_engine_input(deferred_period)
     call load_work(deferred_audio, deferred_k)
     call report_pass(deferred_params, deferred_k)
     finished_before = streaming_emit_finished_at()
-    call stream_decode_pass_begin(deferred_dial)
-    call run_decoder(deferred_params)
+    call set_repeats(deferred_params, 8, deferred_dial, stream_rx, deferred_period, deferred_fire)
+    call stream_decode_pass_begin(deferred_dial, deferred_identity)
+    p = deferred_params
+    call run_decoder(p)
     busy_until = decoder_freed_at(finished_before)
     call stream_ft8_backpressure_published(FINAL_STAGE, deferred_period)
     call end_dial(obsolete)
@@ -1464,6 +1557,7 @@ contains
        return
     end if
     call take_over(deferred_audio, again)
+    again_period = deferred_period
     again_k      = deferred_k
     again_nzhsym = deferred_params%nzhsym
     again_kin    = deferred_params%kin

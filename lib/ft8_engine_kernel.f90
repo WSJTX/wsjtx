@@ -135,12 +135,14 @@ contains
     type(decoder_callback_context) :: context
     integer :: ft8_range_low(max_ft8_decode_ranges),ft8_range_high(max_ft8_decode_ranges)
     integer :: ft8_range_count,requested_threads,a8_requested_threads,nthr,active_progress_generation
-    integer :: ncontest,nfqso
-    ! The distance and age of each caller houndcallers.txt gets (fox_callers).
-    integer :: fox_km(MAXFOX),fox_age(MAXFOX)
+    integer :: ncontest,nfqso,nlisted
+    ! The distance and age of each caller houndcallers.txt gets (fox_callers),
+    ! kept for an attempt that writes none over them.
+    integer, save :: fox_km(MAXFOX)=0,fox_age(MAXFOX)=0
     logical :: newdat,ex
     character(len=6) :: mygrid
-    character(len=60) :: line
+    ! An rx_messages.txt line: jt9's FT8 line, 64 columns with the AP mark.
+    character(len=64) :: line
 
     associate(my_ft8=>state%my_ft8,my_ft8var=>state%my_ft8var,first=>state%first, &
          firstsd=>state%firstsd,lhoundprev=>state%lhoundprev,nutc=>state%nutc, &
@@ -181,12 +183,12 @@ contains
           if(params%nzhsym.eq.41) then
              open(39,file='rx_messages.txt',status='old')
              do i=1,9999
-                read(39,'(a60)',end=5) line
+                read(39,'(a64)',end=5) line
                 if(line(1:1).eq.' ' .or. line(1:1).eq.'-') exit
                 if(streaming_emit_enabled()) then
                    call streaming_emit_replay_line(line)
                 else
-                   write(*,'(a)') trim(line)
+                   write(*,'(a)') trim(line(1:60))
                 endif
              enddo
 5            close(39)
@@ -506,6 +508,10 @@ contains
         n30z=n30
         n30=n30+nwrap
 
+        ! The callers houndcallers.txt holds from the attempt before (after a
+        ! reset none, as the endfile below makes it), and any this attempt
+        ! added, which are fresh and so never all aged out.
+        nlisted=nfox
         if(context%write_files) rewind 19
         if(nfox.eq.0) then
            if(context%write_files) endfile 19
@@ -538,7 +544,11 @@ contains
            nfox=j
            if(context%write_files) flush(19)
         endif
-        ! The same records as an event (lib/streaming_side.f90).
+        ! The same records as an event (lib/streaming_side.f90). An attempt
+        ! that ages out every caller writes none, so the file keeps the lines
+        ! from the attempt before, which the GUI shows (MainWindow::houndCallers);
+        ! the event carries those, still in c2fox and the saved distances and ages.
+        if(j.eq.0) j=nlisted
         if(context%render_legacy) call side_fox_callers(params%nutc,j,c2fox,g2fox,nsnrfox, &
              nfreqfox,fox_km,fox_age)
      endif

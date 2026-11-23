@@ -23,6 +23,18 @@ const RATE: u32 = 12000; // the stream's sample rate, Hz
 const CHUNK: usize = 1200; // samples in an audio frame: 0.1 s
 const READY_WAIT: Duration = Duration::from_secs(30); // how long the codec may take to send ready
 const EXIT_WAIT: Duration = Duration::from_secs(10); // how long it has to exit once its output ends, or after halt on a failure
+const RELEASE_WAIT: Duration = Duration::from_secs(2); // how long, once it has exited, the client waits for the end of its output and for its writes to its input: a process the codec started can hold the pipes
+
+/// Outside live, how long the codec may send no line: 300 s, the longest interface.md allows a decode pass between progress lines in FT8 and FT4.
+/// For the examples' check only (README.md, "The check"), not a setting: CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, a whole number from 1 to 300, shortens it, so that a run that checks it need not last 300 s.
+fn silence_wait() -> Duration {
+    let check = env::var("CODEC_EXAMPLE_CHECK_SILENCE_SECONDS").unwrap_or_default();
+    let digits = (1..=3).contains(&check.len()) && check.bytes().all(|b| b.is_ascii_digit());
+    match check.parse::<u64>() {
+        Ok(seconds) if digits && (1..=300).contains(&seconds) => Duration::from_secs(seconds),
+        _ => Duration::from_secs(300),
+    }
+}
 
 const AUDIO: u8 = 0x01; // frame types
 const CONTROL: u8 = 0x02;
@@ -107,7 +119,7 @@ impl Input {
     }
 
     fn send(&self, message: &Value) {
-        // Integer keys stay in integer types (depth is a u8): serde_json writes those as plain JSON integers, and an f64 as 3.0, which a configure ignores or misreads without an error.
+        // Integer keys stay in integer types (depth is a u8): serde_json writes those as plain JSON integers, and an f64 as 3.0, which a configure declines for an integer key (configure_type_error).
         self.frame(CONTROL, message.to_string().as_bytes());
     }
 
@@ -123,6 +135,7 @@ struct Codec {
     child: Child,
     input: Arc<Input>,
     lines: Receiver<Value>,
+    exited_at: Option<Instant>, // when the client saw the codec's exit
 }
 
 impl Codec {
@@ -185,9 +198,33 @@ impl Codec {
             child,
             input: Arc::new(Input(Mutex::new(Some(stdin)))),
             lines,
+            exited_at: None,
         };
         codec.input.write(&HEADER);
         Ok(codec)
+    }
+
+    /// The next line within the timeout; Disconnected once the codec's output has ended, or RELEASE_WAIT after the codec has exited, as a process it started can hold the pipe.
+    fn next(&mut self, timeout: Duration) -> Result<Value, RecvTimeoutError> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let slice = deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_millis(50));
+            match self.lines.recv_timeout(slice) {
+                Err(RecvTimeoutError::Timeout) => {}
+                got => return got,
+            }
+            if self.exited_at.is_none() && matches!(self.child.try_wait(), Ok(Some(_))) {
+                self.exited_at = Some(Instant::now());
+            }
+            if self.exited_at.is_some_and(|at| at.elapsed() >= RELEASE_WAIT) {
+                return Err(RecvTimeoutError::Disconnected); // what the codec wrote before it exited has been read: let go of the pipe
+            }
+            if Instant::now() >= deadline {
+                return Err(RecvTimeoutError::Timeout);
+            }
+        }
     }
 
     /// The codec's exit status once it exits, within EXIT_WAIT; None, with the codec stopped, when it does not.
@@ -195,6 +232,7 @@ impl Codec {
         let deadline = Instant::now() + EXIT_WAIT;
         loop {
             if let Some(status) = self.child.try_wait()? {
+                self.exited_at.get_or_insert_with(Instant::now); // what uses its pipes has RELEASE_WAIT more, from the first time the client sees the exit
                 return Ok(Some(status));
             }
             if Instant::now() >= deadline {
@@ -415,9 +453,13 @@ fn run(codec: &mut Codec, audio: Vec<u8>, mode: Mode, label: f64, live: bool) ->
     };
     let mut messages = Vec::new();
     let mut errors = 0;
+    let mut heard = Instant::now();
     loop {
-        let line = match codec.lines.recv_timeout(Duration::from_millis(500)) {
-            Ok(line) => line,
+        let line = match codec.next(Duration::from_millis(500)) {
+            Ok(line) => {
+                heard = Instant::now();
+                line
+            }
             Err(RecvTimeoutError::Timeout) => Value::Null,
             Err(RecvTimeoutError::Disconnected) => break, // the end of the codec's output
         };
@@ -432,6 +474,14 @@ fn run(codec: &mut Codec, audio: Vec<u8>, mode: Mode, label: f64, live: bool) ->
                 let _ = codec.child.wait();
                 return (HUNG, messages);
             }
+        } else if heard.elapsed() > silence_wait() {
+            eprintln!(
+                "codec_client: no line from the codec in {} s: it has hung",
+                silence_wait().as_secs()
+            );
+            let _ = codec.child.kill();
+            let _ = codec.child.wait();
+            return (HUNG, messages); // without joining the writer, which may be blocked on the codec's pipe
         }
         // Other lines, and kinds this client does not know, are skipped.
         match line["t"].as_str() {
@@ -462,7 +512,14 @@ fn run(codec: &mut Codec, audio: Vec<u8>, mode: Mode, label: f64, live: bool) ->
             return (FAILED, messages);
         }
     };
-    let _ = writer.join();
+    // What is left of RELEASE_WAIT from the codec's exit, as the client first saw it, then without the writer: it may be blocked on the codec's input, which a process the codec started holds.
+    let release = codec.exited_at.unwrap_or_else(Instant::now) + RELEASE_WAIT;
+    while !writer.is_finished() && Instant::now() < release {
+        thread::sleep(Duration::from_millis(50));
+    }
+    if writer.is_finished() {
+        let _ = writer.join();
+    }
     if status.success() {
         (if errors > 0 { FAILED } else { OK }, messages)
     } else {
@@ -568,7 +625,7 @@ fn start(args: &Args, kinds: &str) -> Option<Codec> {
             return None;
         }
     };
-    let line = match codec.lines.recv_timeout(READY_WAIT) {
+    let line = match codec.next(READY_WAIT) {
         Ok(line) => line,
         Err(RecvTimeoutError::Timeout) => {
             eprintln!(
@@ -746,7 +803,7 @@ fn base64_decode(text: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// The configure that sets the mode. These examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode resets nfa, nfb and ntol.
+/// The configure that sets the mode. These examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode sets the mode up as WSJT-X does, which can change the search keys and the frequencies, so the search keys go with it.
 fn mode_configure(args: &Args) -> Value {
     json!({"t": "configure", "mode": args.mode.name(), "depth": args.depth,
            "mycall": "", "his_call": "", "his_grid": "", "nfa": 200, "nfb": 4000, "ntol": 1000})
@@ -804,8 +861,20 @@ fn render(args: &Args) -> u8 {
     let (mut encoded, mut audio) = (Value::Null, Vec::new());
     loop {
         // The reply: encoded, its pcm lines, then rendered; or rejected.
-        let Ok(line) = codec.lines.recv() else {
-            return fail(&mut codec, "the codec's output ended".to_string());
+        let line = match codec.next(silence_wait()) {
+            Ok(line) => line,
+            Err(RecvTimeoutError::Timeout) => {
+                eprintln!(
+                    "codec_client: no line from the codec in {} s: it has hung",
+                    silence_wait().as_secs()
+                );
+                let _ = codec.child.kill();
+                let _ = codec.child.wait();
+                return HUNG;
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return fail(&mut codec, "the codec's output ended".to_string())
+            }
         };
         match line["t"].as_str() {
             Some("rejected" | "error") => return fail(&mut codec, line.to_string()),

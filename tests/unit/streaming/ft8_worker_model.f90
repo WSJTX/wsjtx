@@ -12,11 +12,13 @@ program ft8_worker_model
   use jt9_params_init, only: init_default_params, init_streaming_extra_fields, cli_args_t
   use streaming_control, only: parse_control_frame, configure_fields, control_type_error, &
        CTRL_CONFIGURE
-  use streaming_apply, only: apply_configure_fields
+  use streaming_apply, only: apply_configure_fields, search_controls,       &
+       start_search_controls, apply_search_controls, NTOL_UNSET
   include 'jt9com.f90'
   type(dec_data), allocatable :: shared
   type(cli_args_t) :: args
   type(configure_fields) :: cfg
+  type(search_controls) :: controls
   type(control_type_error) :: terr
   character(len=4096) :: wav, json, text
   integer :: action, mode, unit, bytes, samples, iret, nzhsym
@@ -37,12 +39,16 @@ program ft8_worker_model
   ! wsjt-codec's start without options (lib/jt9.f90).
   mode = 8
   trperiod = 15.d0
-  args = cli_args_t(ntol=20, mycall='K1ABC')
+  args = cli_args_t(ntol=20, mycall='K1ABC', hidedupes=.true.)
   call init_default_params(shared%params, mode, trperiod, args)
   call init_streaming_extra_fields(shared%params, args)
   call parse_control_frame(trim(json), action, cfg, terr)
   if (action .ne. CTRL_CONFIGURE .or. terr%present) stop 3
-  call apply_configure_fields(cfg, mode, trperiod, shared%params, 200, 4000)
+  ! Without -F, as wsjt-codec's start (lib/jt9.f90).
+  shared%params%ntol = NTOL_UNSET
+  call start_search_controls(controls, mode, shared%params)
+  call apply_configure_fields(cfg, mode, trperiod, shared%params)
+  call apply_search_controls(controls, cfg, 8, mode, shared%params, cfg%mode_set, .false., .false.)
   ! What lib/streaming_io.f90 sets for a file's final FT8 pass.
   shared%params%emedelay = 0.0
   shared%params%ndiskdat = .true.

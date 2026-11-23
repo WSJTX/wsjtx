@@ -23,8 +23,11 @@ const TX_START = { FT8: 0.5, FT4: 0.3 };     // where WSJT-X starts its transmis
 const LIVE_ALLOWANCE = { FT8: 10, FT4: 6 };  // a live pass's time between progress lines, once one has completed, s
 const READY_WITHIN = 30;                     // s: a codec that has sent no ready line by then did not start
 const EXIT_WITHIN = 10;                      // s: how long the codec has to exit once its output ends, or after halt on a failure
+// s: outside live, how long the codec may send no line: 300, the longest interface.md allows a decode pass between progress lines in FT8 and FT4. For the examples' check only (README.md, "The check"), not a setting: CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, a whole number from 1 to 300, shortens it, so that a run that checks it need not last 300 s.
+const CHECK_SILENCE = process.env.CODEC_EXAMPLE_CHECK_SILENCE_SECONDS || '';
+const SILENCE_WITHIN = /^[0-9]{1,3}$/.test(CHECK_SILENCE) && Number(CHECK_SILENCE) >= 1 && Number(CHECK_SILENCE) <= 300 ? Number(CHECK_SILENCE) : 300;
 const CHUNK = 1200;                          // samples in an audio frame: 0.1 s
-// Sent with the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode resets nfa, nfb and ntol.
+// Sent with the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode sets the mode up as WSJT-X does, which can change the search keys and the frequencies, so the search keys go with it.
 const DECODER = { mycall: '', his_call: '', his_grid: '', nfa: 200, nfb: 4000, ntol: 1000 };
 
 const AUDIO = 0x01;                          // frame types
@@ -106,6 +109,11 @@ class Codec {
     this.exited = new Promise((resolve) => this.child.on('close', (code, signal) => resolve({ code, signal })));
     this.gone = Promise.race([this.exited, new Promise((resolve) => this.child.on('exit', (code, signal) => resolve({ code, signal })))]);
     this.child.on('error', (error) => { this.error = error; });  // it did not start, or could not be stopped
+    // Its pipes close as it exits, unless a process it started holds them: 2 s after the exit, with what it wrote by then read, let go of them, which ends its output.
+    this.child.once('exit', () => {
+      const timer = setTimeout(() => this.release(), 2000);
+      this.child.once('close', () => clearTimeout(timer));
+    });
     // A write to a codec that has exited fails with EPIPE: stop writing; its lines and exit status say why.
     this.child.stdin.on('error', () => { this.inputOpen = false; });
     this.child.stdin.on('close', () => { this.inputOpen = false; });
@@ -148,11 +156,20 @@ class Codec {
     }
   }
 
-  // The next line, or null once the codec's output has ended.
-  next() {
+  // The next line, or null once the codec's output has ended; given seconds, 'silent' when no line comes within them.
+  next(seconds) {
     if (this.queue.length) return Promise.resolve(this.queue.shift());
     if (this.ended) return Promise.resolve(null);
-    return new Promise((resolve) => { this.reader = resolve; });
+    return new Promise((resolve) => {
+      const timer = seconds === undefined ? null : setTimeout(() => {
+        this.reader = null;
+        resolve('silent');
+      }, seconds * 1000);
+      this.reader = (line) => {
+        clearTimeout(timer);
+        resolve(line);
+      };
+    });
   }
 
   // Resolves when the pipe can take more: decoding sets the pace.
@@ -171,7 +188,7 @@ class Codec {
   }
 
   send(message) {
-    // JSON.stringify writes an integer as 3, never 3.0: a configure ignores or misreads 3.0, without an error.
+    // JSON.stringify writes an integer as 3, never 3.0: a configure declines 3.0 for an integer key (configure_type_error).
     return this.write(frame(CONTROL, Buffer.from(JSON.stringify(message), 'utf8')));
   }
 
@@ -213,10 +230,7 @@ class Codec {
       await this.stop();
       return null;
     }
-    // Its pipes close as it exits, unless a process it started holds them: let go of them after 2 s.
-    const release = setTimeout(() => this.release(), 2000);
-    await this.exited;
-    clearTimeout(release);
+    await this.exited;  // its pipes have closed, or the client has let go of them
     return exit;
   }
 
@@ -328,8 +342,14 @@ async function run(codec, audio, mode, label, live) {
   const messages = [];
   let errors = 0;
   for (;;) {
-    const line = await codec.next();
+    const line = await codec.next(live ? undefined : SILENCE_WITHIN);
     if (line === null || hung) break;
+    if (line === 'silent') {
+      hung = true;
+      console.error(`codec_client: no line from the codec in ${SILENCE_WITHIN} s: it has hung`);
+      codec.stop();
+      break;
+    }
     if (watchdog) watchdog.saw(line);
     if (line.t === 'decode') {  // other lines, and kinds this client does not know, are skipped
       messages.push(line.message);
@@ -464,9 +484,9 @@ async function render(options) {
       return USAGE;
     }
   }
-  const failed = () => {
+  const failed = (status = FAILED) => {
     if (created) fs.rmSync(options.out, { force: true });
-    return FAILED;
+    return status;
   };
   const codec = await start(options, 'encodes');
   if (!codec) return failed();
@@ -474,7 +494,12 @@ async function render(options) {
   let encoded = null;
   const pcm = [];
   for (;;) {  // the reply: encoded, its pcm lines, then rendered; or rejected
-    const line = await codec.next();
+    const line = await codec.next(SILENCE_WITHIN);
+    if (line === 'silent') {
+      console.error(`codec_client: no line from the codec in ${SILENCE_WITHIN} s: it has hung`);
+      await codec.stop();
+      return failed(HUNG);
+    }
     if (line === null || line.t === 'rejected' || line.t === 'error') {
       console.error(`codec_client: render failed: ${JSON.stringify(line)}`);
       await codec.quit();

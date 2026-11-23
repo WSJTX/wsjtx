@@ -50,8 +50,10 @@ program fox_gui_model
   iret = fftwf_init_threads()
   call fftwf_plan_with_nthreads(1)
   ! jt9's values for -8 -X 6 -c CALL -G GRID, and -M -N 2 -D 3: its
-  ! defaults (lib/jt9.f90) and cli_tolerance's ntol of 20 in FT8.
-  args = cli_args_t(flow=200, fsplit=2700, fhigh=4000, nrxfreq=1500, ndepth=1, ntol=20, nQSOProg=0, &
+  ! defaults (lib/jt9.f90) and cli_tolerance's ntol of 20 in FT8; Rx 200, as
+  ! WSJT-X's single-threaded Fox decode, or its Rx Freq, 1500, multithreaded
+  ! (MainWindow::decode).
+  args = cli_args_t(flow=200, fsplit=2700, fhigh=4000, nrxfreq=merge(1500, 200, multift8), ndepth=1, ntol=20, nQSOProg=0, &
        nexp_decode=6, ncycles=3, nft8rxfsens=3, nmt=merge(2, 0, multift8), nsubmode=0,             &
        mycall=mycall, hiscall=' ', mygrid=mygrid, hisgrid=' ', multift8=multift8,                 &
        hidedupes=.false., lwidedxcsearch=.true., have_ntol=.false.)

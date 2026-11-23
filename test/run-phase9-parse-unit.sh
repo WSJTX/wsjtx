@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Phase 9 parse-unit regression (streaming-schema unit parse->pack assert).
+# Run by hand, not by ctest or CI: test/run-phase9-parse-unit.sh, from any directory (it finds the source from its own path); it needs gfortran, or the compiler $FC names.
 # Compiles lib/streaming_control.f90 and the driver
 # test/phase9_parse_test.f90 into an ISOLATED module dir and runs it. Guards the
 # PARSE + PACK side of the 9 bit-packed keys (depth_level/q65_maxiters_level/
@@ -7,8 +8,8 @@
 # contest_type/single_decode/vhf_features/noise_blanker_level -> nexp_decode): the
 # per-bit packing, the contest_type -> ncontest table (incl. the SpecOp 5/8/9 -> 1
 # collapse), the two atomic-decline errors (legacy depth co-present with an unpacked
-# ndepth key; depth_level vs q65_maxiters_level inconsistency), the bit-width masking
-# of depth_level/q65_maxiters, the noise_blanker -3 offset + [0,255] clamp,
+# ndepth key; depth_level vs q65_maxiters_level inconsistency), the decline of a
+# depth_level/q65_maxiters_level outside 1 to 3, the noise_blanker -3 offset + [0,255] clamp,
 # wrong-type detection, the unknown-contest silent skip, and value-vs-key aliasing.
 #
 # WHY a Fortran unit driver (not only fixtures through jt9): only depth_level is
@@ -57,6 +58,10 @@ echo ""
 # shadow the fresh compile.
 # -J/-I alone do NOT remove cwd from the search order; the cd does.
 cd "$WORK"
+# streaming_control uses q65_callers (Q65_MAX_CALLERS), which uses types.
+"$FC" -c "$REPO_ROOT/lib/types.f90" -J"$WORK" -o "$WORK/types.o"
+"$FC" -c -cpp -I"$REPO_ROOT/lib/qra/q65" "$REPO_ROOT/lib/qra/q65/q65_callers.F90" -J"$WORK" \
+  -o "$WORK/q65_callers.o"
 "$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p9drv"
 "$WORK/p9drv"

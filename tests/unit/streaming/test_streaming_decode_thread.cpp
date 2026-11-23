@@ -443,6 +443,19 @@ QStringList skips (QList<Line> const& lines)
   return found;
 }
 
+// Each label's decode events: how many carry each message.
+QMap<QString, QMap<QString, int>> messageCounts (QList<Line> const& lines)
+{
+  QMap<QString, QMap<QString, int>> found;
+  for (auto const& line : lines)
+    if (outType ("decode") (line))
+      {
+        auto const event = json (line.text);
+        ++found[event.value ("time").toString ()][event.value ("message").toString ().simplified ()];
+      }
+  return found;
+}
+
 QStringList messagesOf (QByteArrayList const& lines)
 {
   QStringList found;
@@ -1464,14 +1477,17 @@ private slots:
     QCOMPARE (decodeLines (develop->lines, mode.sorted), decodes);
   }
 
-  // The multithreaded decoder's workers print the period's time and pass.
+  // The multithreaded decoder's workers print the period's time and pass: at
+  // start 3 its final is the period's only pass (at 0 and 1 it sends only
+  // what the early passes did not, none from this recording).
   void multithreadedDecodesCarryTheirPassAndTime ()
   {
     auto const mode = modeOf ("ft8-mtd");
     auto const pcm = period (wavPcm (mode.wav), mode.samples);
     QVERIFY2 (!pcm.isEmpty (), "no recording");
-    auto const run = runInput (sessionHeader () + configure (with (mode.settings, {{"utc", "00:23:45"}})) + audio (pcm)
-                               + halt ());
+    auto const run = runInput (sessionHeader ()
+                               + configure (with (mode.settings, {{"utc", "00:23:45"}, {"ft8_decoder_start", 3}}))
+                               + audio (pcm) + halt ());
     QVERIFY2 (run->clean (), qPrintable (run->report ()));
     QSet<int> passes;
     for (auto const& line : run->lines)
@@ -1486,7 +1502,130 @@ private slots:
       }
     QCOMPARE (periodEnds (run->lines), QStringList {"002345"});
     QVERIFY2 (passes.contains (49), "no decode from the multithreaded final");
-    QVERIFY2 ((passes - QSet<int> {41, 46, 49}).isEmpty (), qPrintable (run->report ()));
+    QVERIFY2 ((passes - QSet<int> {49}).isEmpty (), qPrintable (run->report ()));
+  }
+
+  // WSJT-X shows an FT8 message once a period where its passes would repeat
+  // it (DecodeOutputPlan.cpp isFalseDecode, widgets/mainwindow.cpp
+  // earlyDecodeKeys): with the multithreaded decoder at start 0 or 1, whose
+  // final decodes the period apart from its early passes, and above 45 MHz
+  // with no special activity; on a file, its decode again too. So each
+  // label's decode events carry each message once. The row's contrast is a
+  // setting at which WSJT-X shows the decode again's repeats: start 3, or
+  // 14 MHz.
+  void ft8RepeatsAsWsjtxShowsThem_data ()
+  {
+    QTest::addColumn<QJsonObject> ("once");
+    QTest::addColumn<QJsonObject> ("again");
+    QJsonObject const mtd {{"multithreaded_ft8", true}, {"ft8_threads", 2}};
+    // The standard decoder decodes again within 20 Hz of rxfreq: W1FC F5BZB -08.
+    QJsonObject const single {{"multithreaded_ft8", false}, {"rxfreq", 2571}};
+    QTest::newRow ("multithreaded start 0") << with (mtd, {{"ft8_decoder_start", 0}})
+                                            << with (mtd, {{"ft8_decoder_start", 3}});
+    QTest::newRow ("multithreaded start 1") << with (mtd, {{"ft8_decoder_start", 1}})
+                                            << with (mtd, {{"ft8_decoder_start", 3}});
+    QTest::newRow ("above 45 MHz") << with (single, {{"dial_frequency", 50313000}})
+                                   << with (single, {{"dial_frequency", 14074000}});
+  }
+
+  void ft8RepeatsAsWsjtxShowsThem ()
+  {
+    QFETCH (QJsonObject, once);
+    QFETCH (QJsonObject, again);
+    auto const mode = modeOf ("ft8");
+    auto const pcm = period (wavPcm (mode.wav), mode.samples);
+    QVERIFY2 (!pcm.isEmpty (), "no recording");
+    auto const input = [&] (QJsonObject const& settings) {
+      return sessionHeader () + configure (with (mode.settings, settings)) + audio (pcm)
+        + configure ({{"utc", utcOf (1)}}) + audio (pcm) + configure ({{"nagain_flag", true}}) + halt ();
+    };
+    auto const shown = runInput (input (once));
+    QVERIFY2 (shown->clean (), qPrintable (shown->report ()));
+    QCOMPARE (decisions (shown->lines).filter (" again").size (), 1);
+    auto const counts = messageCounts (shown->lines);
+    QCOMPARE (counts.keys (), (QStringList {"133430", "133445"}));
+    for (auto label = counts.cbegin (); label != counts.cend (); ++label)
+      {
+        QVERIFY2 (label.value ().size () > 1, qPrintable (shown->report ()));
+        for (auto it = label.value ().cbegin (); it != label.value ().cend (); ++it)
+          QVERIFY2 (1 == it.value (), qPrintable (QString {"%1: %2 sent %3 times"}
+                                                  .arg (label.key (), it.key ()).arg (it.value ())));
+      }
+    auto const repeated = runInput (input (again));
+    QVERIFY2 (repeated->clean (), qPrintable (repeated->report ()));
+    auto const last = messageCounts (repeated->lines).value ("133445");
+    QVERIFY2 (std::any_of (last.cbegin (), last.cend (), [] (int n) {return n > 1;}),
+              qPrintable (repeated->report ()));
+  }
+
+  // WSJT-X counts a decode again against the period's messages only until
+  // it clears its keys, 10 s into the next period (the seconds 10, 25, 40
+  // and 55); from then on a decode again starts its own count, so it shows
+  // the period's messages again. In Fox WSJT-X lists no decode, so it holds
+  // none back (widgets/mainwindow.cpp earlyDecodeKeys). Each row's decode
+  // again comes after period 1, next samples into period 2, and its repeats
+  // show as a message period 1's label carries twice.
+  void ft8RepeatWindowsAsWsjtx_data ()
+  {
+    QTest::addColumn<QJsonObject> ("settings");
+    QTest::addColumn<int> ("next");
+    QTest::addColumn<bool> ("repeats");
+    // The standard decoder decodes again within 20 Hz of rxfreq: W1FC F5BZB -08.
+    QJsonObject const above {{"multithreaded_ft8", false}, {"rxfreq", 2571}, {"dial_frequency", 50313000}};
+    QTest::newRow ("9.9 s into the next period") << above << 10 * SampleRate - SampleRate / 10 << false;
+    QTest::newRow ("10 s into the next period") << above << 10 * SampleRate << true;
+    QTest::newRow ("fox") << QJsonObject {{"multithreaded_ft8", true}, {"ft8_threads", 2}, {"ft8_decoder_start", 0},
+                                          {"contest_type", "fox"}}
+                          << 0 << true;
+  }
+
+  void ft8RepeatWindowsAsWsjtx ()
+  {
+    QFETCH (QJsonObject, settings);
+    QFETCH (int, next);
+    QFETCH (bool, repeats);
+    auto const mode = modeOf ("ft8");
+    auto const pcm = period (wavPcm (mode.wav), mode.samples);
+    QVERIFY2 (!pcm.isEmpty (), "no recording");
+    auto input = sessionHeader () + configure (with (mode.settings, settings)) + audio (pcm)
+      + configure ({{"utc", utcOf (1)}}) + audio (pcm);
+    if (next > 0) input += configure ({{"utc", utcOf (2)}}) + audio (pcm.left (2 * next));
+    auto const run = runInput (input + configure ({{"nagain_flag", true}}) + halt ());
+    QVERIFY2 (run->clean (), qPrintable (run->report ()));
+    QCOMPARE (decisions (run->lines).filter (" again").size (), 1);
+    auto const last = messageCounts (run->lines).value ("133445");
+    QVERIFY2 (last.size () > 1, qPrintable (run->report ()));
+    QVERIFY2 (repeats == std::any_of (last.cbegin (), last.cend (), [] (int n) {return n > 1;}),
+              qPrintable (run->report ()));
+  }
+
+  // WSJT-X's FT8 decode in Hound without SuperFox searches up to 1000 Hz
+  // (MainWindow::decode, its Rx All Freqs off), whatever the waterfall's
+  // range: the recording decodes above 1000 Hz but in Hound.
+  void houndDecodesUpToAThousandHz_data ()
+  {
+    QTest::addColumn<bool> ("hound");
+    QTest::newRow ("hound") << true;
+    QTest::newRow ("none") << false;
+  }
+
+  void houndDecodesUpToAThousandHz ()
+  {
+    QFETCH (bool, hound);
+    auto const mode = modeOf ("ft8");
+    auto const pcm = period (wavPcm (mode.wav), mode.samples);
+    QVERIFY2 (!pcm.isEmpty (), "no recording");
+    auto settings = with (mode.settings, {{"utc", "00:23:45"}, {"nfb", 4000}});
+    if (hound) settings.insert ("contest_type", "hound");
+    auto const run = runInput (sessionHeader () + configure (settings) + audio (pcm) + halt ());
+    QVERIFY2 (run->clean (), qPrintable (run->report ()));
+    int below = 0, above = 0;
+    for (auto const& line : run->lines)
+      if (outType ("decode") (line))
+        ++(json (line.text).value ("freq").toInt () > 1050 ? above : below);
+    QVERIFY2 (below > 0, qPrintable (run->report ()));
+    if (hound) QCOMPARE (above, 0);
+    else QVERIFY2 (above > 0, qPrintable (run->report ()));
   }
 
   // The deepest decode of each mode on the decode thread decodes as inline does.
@@ -1580,12 +1719,17 @@ private slots:
   // cancelPendingFt8Decode): "cancel", its Stop or a half-duplex
   // transmission's start; "dial change", any change of its receive
   // frequency, even one changed back before the decoder frees; not "same
-  // dial". The early pass is held while the rest of the period, then the
-  // input, comes, so the final waits.
+  // dial"; in Hound without SuperFox, whose decoder searches up to 1000 Hz,
+  // "hound nfb change", a change of the waterfall's range the GUI compares
+  // when it takes the final up, but not "hound same nfb"; a change of Hide
+  // FT8 dupe messages, "hide duplicates off", but not "hide duplicates on",
+  // as the setting starts checked. The early pass is held while the rest of
+  // the period, then the input, comes, so the final waits.
   void waitingFinalDroppedAsTheGui_data ()
   {
     QTest::addColumn<QString> ("input");
-    for (auto const name : {"cancel", "dial change", "dial change and back", "same dial"})
+    for (auto const name : {"cancel", "dial change", "dial change and back", "same dial", "hound nfb change",
+                            "hound same nfb", "hide duplicates off", "hide duplicates on"})
       QTest::newRow (name) << QString {name};
   }
 
@@ -1594,10 +1738,14 @@ private slots:
     QFETCH (QString, input);
     auto const ft8 = period (wavPcm (inSamples ("FT8/210703_133430.wav")), Ft8PeriodSamples);
     QVERIFY2 (!ft8.isEmpty (), "no recording");
-    QJsonObject const live {{"mode", "FT8"}, {"depth", 3}, {"multithreaded_ft8", true}, {"ft8_threads", 2},
-                            {"ft8_cycles", 1}, {"ft8_decoder_start", 1}, {"live_audio", true},
-                            {"utc", utcOf (0)}, {"dial_frequency", 14074000}};
+    auto const hound = input.startsWith ("hound");
+    QJsonObject live {{"mode", "FT8"}, {"depth", 3}, {"multithreaded_ft8", true}, {"ft8_threads", 2},
+                      {"ft8_cycles", 1}, {"ft8_decoder_start", 1}, {"live_audio", true},
+                      {"utc", utcOf (0)}, {"dial_frequency", 14074000}, {"nfb", 4000}};
+    if (hound) live.insert ("contest_type", "hound");
     auto const after = "cancel" == input ? control ({{"t", "cancel"}})
+      : hound ? configure ({{"nfb", "hound nfb change" == input ? 3000 : 4000}})
+      : input.startsWith ("hide") ? configure ({{"hide_ft8_duplicates", "hide duplicates on" == input}})
       : "dial change and back" == input
       ? configure ({{"dial_frequency", 14075000}}) + configure ({{"dial_frequency", 14074000}})
       : configure ({{"dial_frequency", "dial change" == input ? 14075000 : 14074000}});
@@ -1619,7 +1767,7 @@ private slots:
       return outType ("decode") (line) && 50 == json (line.text).value ("pass").toInt ();
     });
     QCOMPARE (count (codec.lines, outType ("decode_finished")), 1);
-    if ("same dial" == input)
+    if ("same dial" == input || "hound same nfb" == input || "hide duplicates on" == input)
       {
         QCOMPARE (decisions (codec.lines), deferral + QStringList {"pass 50 T"});
         QCOMPARE (count (codec.lines, outHas ("\"cancelled\"")), 0);
@@ -1635,14 +1783,17 @@ private slots:
 
   // A running decode's lines, as the GUI treats an obsolete decode's: kept
   // after "cancel", its Stop or a half-duplex transmission's start; dropped
-  // after "dial change", from the first line after it, latched, and the
-  // decode abandons the period kept to decode again, so a decode again then
-  // decodes the period in flight; kept after "same dial". FT4's one pass a
-  // period is held; period 0 decodes, then the input comes during period 1's.
+  // after "dial change" or "my call" (a change of its decode identity,
+  // DecodeOperatingContext::hasSameDecodeIdentity), from the first line
+  // after it, latched, and the decode abandons the period kept to decode
+  // again, so a decode again then decodes the period in flight; kept after
+  // "same dial" and "same my call". FT4's one pass a period is held; period
+  // 0 decodes, then the input comes during period 1's.
   void runningDecodeLinesAsTheGui_data ()
   {
     QTest::addColumn<QString> ("input");
-    for (auto const name : {"cancel", "dial change", "same dial"}) QTest::newRow (name) << QString {name};
+    for (auto const name : {"cancel", "dial change", "same dial", "my call", "same my call"})
+      QTest::newRow (name) << QString {name};
   }
 
   void runningDecodeLinesAsTheGui ()
@@ -1652,9 +1803,11 @@ private slots:
     auto const ft4 = period (wavPcm (inSamples ("FT4/000000_000002.wav")), ft4Period);
     QVERIFY2 (!ft4.isEmpty (), "no recording");
     QJsonObject const live {{"mode", "FT4"}, {"depth", 3}, {"live_audio", true}, {"utc", "00:00:00"},
-                            {"dial_frequency", 14080000}};
+                            {"dial_frequency", 14080000}, {"mycall", "K1ABC"}};
     auto const after = "cancel" == input ? control ({{"t", "cancel"}})
+      : input.endsWith ("my call") ? configure ({{"mycall", "my call" == input ? "W1AW" : "K1ABC"}})
       : configure ({{"dial_frequency", "dial change" == input ? 14080500 : 14080000}});
+    bool const dropped = "dial change" == input || "my call" == input;
     Options options;
     options.environment << "WSJT_CODEC_TEST_HOLD_PASS=21:1500";
     Codec codec {options};
@@ -1680,13 +1833,57 @@ private slots:
       });
     };
     QVERIFY2 (of ("000000") > 0, qPrintable (codec.report ()));
-    if ("dial change" == input) QCOMPARE (of ("000007"), 0);
+    if (dropped) QCOMPARE (of ("000007"), 0);
     else QVERIFY2 (of ("000007") > 0, qPrintable (codec.report ()));
     auto const again = decisions (codec.lines).value (2);
-    QVERIFY2 (again == QString {"dial change" == input ? "pass 21 F" : "pass 21 F again"},
+    QVERIFY2 (again == QString {dropped ? "pass 21 F" : "pass 21 F again"},
               qPrintable (again + "\n" + codec.report ()));
     // Periods 0 and 1, the decode again, and period 2 at the end of input.
     QCOMPARE (count (codec.lines, outType ("decode_finished")), 4);
+  }
+
+  // A pass made before a change of its decode identity but begun after it is
+  // obsolete too, as WSJT-X captures the identity when it publishes a decode:
+  // period 1's audio and then, in the same write, "my call" (dropped) or
+  // "same my call" (kept); the decode thread waits before it takes each
+  // operation, so the frame loop reads the change first.
+  void identityChangeBeforeThePassBegins_data ()
+  {
+    QTest::addColumn<QString> ("input");
+    for (auto const name : {"my call", "same my call"}) QTest::newRow (name) << QString {name};
+  }
+
+  void identityChangeBeforeThePassBegins ()
+  {
+    QFETCH (QString, input);
+    constexpr int ft4Period = 90000;
+    auto const ft4 = period (wavPcm (inSamples ("FT4/000000_000002.wav")), ft4Period);
+    QVERIFY2 (!ft4.isEmpty (), "no recording");
+    QJsonObject const live {{"mode", "FT4"}, {"depth", 3}, {"live_audio", true}, {"utc", "00:00:00"},
+                            {"dial_frequency", 14080000}, {"mycall", "K1ABC"}};
+    Options options;
+    options.environment << "WSJT_CODEC_TEST_HOLD_TAKE_MS=800";
+    Codec codec {options};
+    QVERIFY2 (codec.started, qPrintable (codec.failure));
+    codec.write (sessionHeader () + configure (live) + frame (0x01u, ft4.left (2)));
+    codec.waitUntil (2 * ft4Period / 12 + DueMarginMs);
+    codec.write (frame (0x01u, samples (ft4, 1, ft4Period)));
+    QVERIFY2 (codec.waitForLine (outType ("decode_finished"), waitMs (), "period 0"), qPrintable (codec.report ()));
+    codec.write (configure ({{"utc", "00:00:07"}}) + frame (0x01u, ft4)
+                 + configure ({{"mycall", "my call" == input ? "W1AW" : "K1ABC"}}));
+    QVERIFY2 (codec.waitForCount (outType ("decode_finished"), 2, waitMs (), "period 1"), qPrintable (codec.report ()));
+    codec.write (marker ());
+    QVERIFY2 (codec.waitForLine (outHas ("configure_parse_error"), waitMs (), "the marker"), qPrintable (codec.report ()));
+    QVERIFY2 (codec.finish (), qPrintable (codec.report ()));
+    QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+    auto const of = [&] (QString const& label) {
+      return count (codec.lines, [label] (Line const& line) {
+        return outType ("decode") (line) && json (line.text).value ("time").toString () == label;
+      });
+    };
+    QVERIFY2 (of ("000000") > 0, qPrintable (codec.report ()));
+    if ("my call" == input) QCOMPARE (of ("000007"), 0);
+    else QVERIFY2 (of ("000007") > 0, qPrintable (codec.report ()));
   }
 
   // A final deferred after a change of the receive frequency but published
@@ -3352,7 +3549,7 @@ private slots:
         QVERIFY2 (!periods.last ().isEmpty (), "no recording");
       }
     QJsonObject const keys {{"mode", "JT65"}, {"trperiod", 60}, {"submode", 1}, {"rxfreq", 1700}, {"ntol", 20},
-                            {"depth", 19}};
+                            {"depth", 19}, {"vhf_features", true}};
     // clearIn: "msk144", "jt65" or none.
     auto const session = [&] (QString const& clearIn) {
       auto input = sessionHeader ();

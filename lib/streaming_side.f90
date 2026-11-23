@@ -3,12 +3,12 @@
 ! caller lists. On the stream the codec writes none of the side files
 ! WSJT-X's GUI reads from its worker (lib/prog_args.f90's
 ! result_files); each event carries the list the worker's attempt
-! leaves in its file, but in one case below:
+! leaves in its file:
 !   fox_callers  after each FT8 attempt in Fox mode: the records the worker
 !                writes to houndcallers.txt (lib/ft8_engine_kernel.f90). An
 !                attempt that ages out every caller writes none and leaves
 !                the worker's file its last lines, which the GUI then shows;
-!                its line has no callers (doc/codec/interface.md states it).
+!                its line carries those lines.
 !   averages     after each JT4 and JT65 attempt: the worker's avemsg.txt
 !                entries (lib/jt4_host_support.f90, lib/jt65_host_support.f90)
 !   q65_sync     where the worker's Q65 attempt writes red.dat: its values

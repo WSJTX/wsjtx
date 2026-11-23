@@ -21,8 +21,8 @@
 !
 ! Control frames recognized today: {"t":"configure",...}, {"t":"halt"},
 ! {"t":"flush"}, {"t":"discontinuity"}, and the encode requests
-! {"t":"pack",...} and {"t":"render",...} (lib/streaming_encode.f90), answered
-! in any mode. See lib/streaming_control.f90 for the parser + schema.
+! {"t":"pack",...}, {"t":"render",...} and {"t":"heard",...}
+! (lib/streaming_encode.f90), answered in any mode. See lib/streaming_control.f90 for the parser + schema.
 !
 ! Apply policy:
 !   configure : applied at receive. A change of mode or period starts a
@@ -119,7 +119,8 @@
 !
 ! Live audio or a file (configure's live_audio, false at the start): from a
 ! file each period decodes on its whole audio once the period is in (FT4
-! and multithreaded FT8 at their stop points; FT8's early passes still run),
+! and multithreaded FT8 at their stop points; FT8's early passes still run,
+! the multithreaded decoder's only at start 0 and 1, as lib/jt9a.f90's),
 ! no pass is ever skipped and nothing reads the clock, and a flush decodes a
 ! file's last, short period. Live, each period decodes at the GUI's stop
 ! points for the mode (lib/streaming_period.f90), a pass the GUI's busy
@@ -136,8 +137,8 @@
 !
 ! A configure that enters fast JT9 (mode JT9 with fast true, or fast turning
 ! on) sets the receive and transmit frequencies to 700 unless it sets rxfreq
-! (tx_audio_offset_hz for transmit), and in fast JT9 ntol's default is 50
-! (slow JT9 keeps 1000).
+! (tx_audio_offset_hz for transmit); ntol follows WSJT-X's F Tol, which
+! choosing fast JT9 puts back to JT9's (lib/streaming_apply.f90).
 ! Fast JT9 decodes once a period, as the GUI's fastSink does, at 3456-sample
 ! block ends: live, at the first with less than 0.35 s of the period left
 ! (k >= (trperiod - 0.35) * 12000: 58,752, 117,504, 176,256 or 355,968
@@ -185,7 +186,7 @@
 ! on this thread, as each block is read; its audio is read in those blocks
 ! whatever spectrum says, and it decodes nothing (lib/streaming_freqcal.f90).
 ! A configure that carries "mode":"FREQCAL" sets rxfreq to 1500 unless it sets
-! rxfreq, and in FreqCal ntol's default is 50.
+! rxfreq; ntol follows WSJT-X's F Tol (lib/streaming_apply.f90).
 !
 ! Discontinuity: in the period modes it re-anchors the period, as the GUI
 ! starts a new input at each UTC period and on a restart. Every pass whose
@@ -202,13 +203,12 @@
 ! no periods: its audio goes to lib/streaming_jtty.f90, which states its
 ! output. A JTTY session ends at a discontinuity, a flush, an odd-length
 ! audio frame, a configure that leaves JTTY or changes live_audio, halt and
-! end of input. Entering
-! JTTY, rxfreq carries over, ntol becomes 20 and nfa and nfb their values at
-! the start of the stream (-L and -H, 200 and 4000 Hz by default; with -9
-! and an -S other than 2700, nfa is -S) unless the frame sets them. Any
-! configure that carries mode or trperiod and stays in JTTY keeps the
-! session but resets in the same way whichever of nfa, nfb and ntol it does
-! not set. trperiod is validated and unused. lib/streaming_jtty.f90 states
+! end of input. ntol is
+! JTTY's own F Tol (20 until set) and nfa and nfb the waterfall's range, kept
+! from mode to mode; entering JTTY from another mode puts back the Rx and Tx
+! Freq the modes that keep them last had, as WSJT-X does
+! (lib/streaming_apply.f90). A configure that stays in JTTY keeps the
+! session. trperiod is validated and unused. lib/streaming_jtty.f90 states
 ! which frequency values a configure in JTTY is declined for
 ! (configure_range_error).
 !
@@ -229,8 +229,8 @@
 !
 ! Run the codec with OMP_STACKSIZE set as the GUI sets it for its decoder
 ! (10M). Without it the decoders' OpenMP threads get the default stack, and
-! on Linux each one's copy of the decoders' thread-local arrays (about 6 MB)
-! comes out of that, leaving about 2 MiB of the usual 8 MiB.
+! on Linux each one's copy of the decoders' thread-local arrays (about 2.5 MB
+! on arm64) comes out of that, leaving about 5.6 MiB of the usual 8 MiB.
 
 subroutine jt9_stream(shared_data, mode, TRperiod)
   use, intrinsic :: iso_fortran_env, only: int8, int16, int64, error_unit
@@ -243,12 +243,14 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        streaming_emit_error_type, time_form, streaming_emit_period_finished, &
        streaming_emit_error_range, streaming_emit_mode_name,               &
        streaming_emit_set_clock, streaming_emit_reply,                     &
-       streaming_emit_capture, streaming_emit_captured
+       streaming_emit_capture, streaming_emit_captured,                   &
+       streaming_emit_set_a7_hold
   use streaming_control, only: parse_control_frame, configure_fields,      &
        control_type_error, CTRL_CONFIGURE, CTRL_HALT, CTRL_PARSE_ERR,      &
        CTRL_DISCONTINUITY, CTRL_PACK, CTRL_RENDER, CTRL_FLUSH, MODE_JTTY,   &
-       MODE_FREQCAL, MODE_ECHO, CTRL_REVIEW, MODE_WSPR, CTRL_CANCEL
-  use streaming_apply, only: apply_configure_fields, engine_range_key
+       MODE_FREQCAL, MODE_ECHO, CTRL_REVIEW, MODE_WSPR, CTRL_CANCEL, CTRL_HEARD
+  use streaming_apply, only: apply_configure_fields, engine_range_key,       &
+       search_controls, start_search_controls, apply_search_controls
   use streaming_echo, only: echo_apply, echo_measure, echo_range_detail,    &
        ECHO_TRPERIOD, ECHO_STOP
   use decoder_engine, only: engine_params_problem, option_problem
@@ -258,12 +260,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   use streaming_jtty_review, only: jtty_review_keep, jtty_review_request,  &
        jtty_review_idle, jtty_review_cancel, jtty_review_finish,           &
        jtty_review_release, jtty_review_live_audio
-  use streaming_encode, only: stream_encode
+  use streaming_encode, only: stream_encode, stream_heard
   use streaming_period, only: period_state, period_begin, period_room,   &
        period_take, period_full, period_ready, period_set_stop,           &
        gui_hsym_stop, HSYM_SAMPLES, clock_start, fast_first_try, fast_last_try, &
        trigger_fire_time
-  use streaming_apply, only: ft8_settings_change, apply_msk144_fields
+  use streaming_apply, only: ft8_settings_change, settings_dialog_change,   &
+       apply_msk144_fields
   use streaming_decode, only: decode_op, decode_submit, decode_drain,      &
        snapshot, superfox_even, superfox_hound, backpressure, hhmm_label,  &
        report_pass_line, OP_PASS, OP_CONFIGURE, OP_AGAIN, OP_DISCONTINUITY, &
@@ -300,6 +303,18 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   character(len=*), parameter :: FAST_SUBMODE_RULE = 'submode must be E to H in fast JT9'
   character(len=*), parameter :: FAST_MODE_RULE = 'fast applies to JT9'
   character(len=*), parameter :: WSPR_PERIOD_RULE = 'trperiod must be 120 s in WSPR'
+  ! ft8_threads and wspr_threads: the FT8 kernel's rule, which WSPR's decode
+  ! shares (lib/wsprd/wspr_parallel.f90), runs a count above 12 on one thread.
+  integer, parameter :: THREADS_MAX = 12
+  character(len=*), parameter :: THREADS_LIMIT = 'from 0 to 12'
+  ! The bits WSJT-X's decoding depth (m_ndepth) can hold: Fast, Normal or
+  ! Deep in the low two (its exclusive DepthGroup), and its Decode menu's
+  ! averaging (16), deep search (32), AP for the DX call (64) and automatic
+  ! clear (128) items (widgets/mainwindow.cpp on_actionQuickDecode_toggled
+  ! to on_actionAuto_Clear_Avg_toggled); never 4, 8 or above 128.
+  integer, parameter :: DEPTH_BITS = 3 + 16 + 32 + 64 + 128
+  ! (option_problem's limit holds 48 characters.)
+  character(len=*), parameter :: DEPTH_BITS_LIMIT = 'from 1 to 3 and no bits but 16, 32, 64 and 128'
   ! 4-byte session magic "WSJT" (W=0x57 S=0x53 J=0x4A T=0x54)
   integer(int8), parameter :: MAGIC(4) = [                                 &
        int(z'57', int8), int(z'53', int8),                                 &
@@ -342,12 +357,33 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   type(option_problem) :: problem
   type(configure_fields) :: no_keys
   logical :: next_eme_on, next_live, cancels
+  ! The special operating activity the last configure that carried the
+  ! contest group gave, uncollapsed (-1: none yet; the command line's -X
+  ! gives a packed value, read as unknown).
+  integer :: special_op
+  ! WSPR's decode threads (wspr_threads; 0, from the CPU count, until set).
+  integer :: wspr_threads
+  ! The GUI's Reduce false decodes (reduce_false_decodes; off until set).
+  logical :: reduce_false
+  ! Its Active Stations window open (active_stations), and opened at all in
+  ! the session: the GUI keeps the window once made, closed or open, and
+  ! with ARRL Digi shows the decodes' points while it exists
+  ! (MainWindow::readFromStdout's bDisplayPoints).
+  logical :: active_stations, active_made
+  ! WSJT-X's decode identity besides the frequency, as decode_identity gives
+  ! it for what is in force.
+  integer(int64) :: identity_now
+  ! The activity in it: the command line's collapsed one (as 16 plus it),
+  ! then the uncollapsed one a configure changes it to.
+  integer :: identity_activity
   ! The receive dial frequency (configure's dial_frequency; -1: none yet),
   ! and the one WSJT-X attributes a live period's decodes to, which follows
   ! it 0.6 TR after its last change (the GUI's m_freqNominalPeriod; -1:
   ! none yet, the dial's then stands), at arrival dial_due.
   integer(int64) :: dial_now, dial_nominal
   real(8) :: dial_due, dial_at
+  ! Where a configure starts WSJT-X's hold on a7 decodes, on the audio clock.
+  real(8) :: hold_at
   logical :: dial_changed
   ! A decode has been triggered in the session (the GUI's m_dataAvailable):
   ! before one, its Decode button does nothing.
@@ -355,10 +391,13 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   type(decode_op) :: again_op
   ! Audio samples consumed in any mode; JTTY's origin and times count them.
   integer(int64) :: stream_samples
-  ! Session-baseline nfa/nfb stashed after jt9.f90's init_streaming_extra_fields
-  ! returned. apply_configure_fields restores these on mode change with no
-  ! explicit consumer override; passed in as dummy args.
-  integer :: baseline_nfa, baseline_nfb
+  ! WSJT-X's F Tol and search range controls (lib/streaming_apply.f90), and a
+  ! configure's copy, kept when it is accepted.
+  type(search_controls) :: controls, next_controls
+  ! Whether a configure changes a Settings item WSJT-X's decode reads: an
+  ! accepted Settings change, which cancels a waiting FT8 final and sets the
+  ! mode up again.
+  logical :: settings_accept
   ! The period label as the client gave it, and whether as utc; each decoder
   ! gets it in the form the GUI gives that decoder, label_form.
   integer :: label_nutc
@@ -427,6 +466,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
        import :: c_int64_t
        integer(c_int64_t), value :: hz
      end subroutine stream_decode_set_dial
+     subroutine stream_decode_set_identity(identity) bind(C, name="stream_decode_set_identity")
+       import :: c_int64_t
+       integer(c_int64_t), value :: identity
+     end subroutine stream_decode_set_identity
      function stream_stdin_waited() result(w) bind(C, name="stream_stdin_waited")
        import :: c_double
        real(c_double) :: w
@@ -505,16 +548,24 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! the stream's periods start on the UTC period boundaries, and a pass the
   ! GUI's busy decoder would not run is skipped (pass_skipped).
   eme_delay_on  = .false.
+  special_op    = -1
+  wspr_threads  = 0
+  reduce_false  = .false.
+  active_stations = .false.
+  active_made   = .false.
   live_audio    = .false.
   fast_jt9      = .false.
   shared_data%params%ndiskdat = .not. live_audio
   shared_data%params%emedelay = merge(2.5, 0.0, eme_delay_on)
 
-  ! Stash session-baseline nfa/nfb. apply_configure_fields
-  ! restores these on mode change with no explicit consumer override —
-  ! mirrors WAV semantics where each invocation starts from CLI defaults.
-  baseline_nfa = shared_data%params%nfa
-  baseline_nfb = shared_data%params%nfb
+  ! The session's F Tol and search range, as WSJT-X's at its start in this
+  ! mode (jt9.f90 leaves ntol NTOL_UNSET without -F).
+  call start_search_controls(controls, mode, shared_data%params)
+  ! A code no uncollapsed activity takes, so a configure that names one is a
+  ! change only when the cancel rule says so, and every later change differs.
+  identity_activity = 16 + iand(shared_data%params%nexp_decode, 7)
+  identity_now = decode_identity()
+  call stream_decode_set_identity(identity_now)
   label_nutc = shared_data%params%nutc
   label_iso = .false.
 
@@ -544,6 +595,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   call streaming_emit_ready()
   ! Command-line starting values are checked once; the session still runs.
   problem = engine_params_problem(shared_data%params, .true.)
+  call gui_range_problem(shared_data%params, TRperiod, problem)
   if (problem%field .ne. ' ') then
      call route_begin()
      call emit_range_error(problem, no_keys, mode, .true.)
@@ -652,7 +704,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               halt_req = .true.
            case (CTRL_CONFIGURE)
               if (cfg%version_set .and. cfg%version .ne. 1) then
-                 ! RFC v1 §3/§4.1: unknown schema version -> decline this frame.
+                 ! unknown schema version -> decline this frame.
                  ! Checked BEFORE per-key types: an unrecognized version means
                  ! we cannot trust the body's schema. (A wrong-TYPED version
                  ! leaves version_set=.false., so it falls through to the
@@ -673,7 +725,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  cycle
               end if
               if (terr%present) then
-                 ! RFC v1 §4.1: a key's JSON value type mismatched the schema.
+                 ! a key's JSON value type mismatched the schema.
                  ! Decline the ENTIRE frame — no field is applied (the apply
                  ! below is gated on reaching it; cycle skips it AND the npts/
                  ! buffer-discard logic, so a co-present valid key never takes
@@ -705,8 +757,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               next_mode     = mode
               next_TRperiod = TRperiod
               next_params   = shared_data%params
-              call apply_configure_fields(cfg, next_mode, next_TRperiod,   &
-                   next_params, baseline_nfa, baseline_nfb)
+              next_controls = controls
+              call apply_configure_fields(cfg, next_mode, next_TRperiod, next_params)
               ! JTTY's range errors carry no mode.
               range_mode = ''
               if (next_mode .ne. MODE_JTTY)                                      &
@@ -718,18 +770,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               ! Fast JT9's defaults. Entering it (mode JT9 with fast true, as the GUI's
               ! JT9 choice with Fast on, or fast turning on, as its Fast check box)
               ! sets the receive and transmit frequencies to 700, as the GUI's Rx
-              ! and Tx Freq, unless the frame sets them; its ntol default is 50,
-              ! JT9's F Tol, under the reset rule of every mode (mode or trperiod).
-              ! A fast frame in fast JT9 without mode is no entry.
-              if (next_fast .and. next_mode .eq. 9) then
-                 if (cfg%mode_set .or. .not. fast_jt9) then
-                    if (.not. cfg%rxfreq_set) next_params%nfqso = 700
-                    if (.not. (cfg%rxfreq_set .or. cfg%tx_audio_offset_hz_set))          &
-                         next_params%nftx = 700
-                 end if
-                 if ((cfg%mode_set .or. cfg%trperiod_set) .and. .not. cfg%ntol_set)      &
-                      next_params%ntol = 50
-              end if
+              ! and Tx Freq, unless the frame sets them; a frame with mode also
+              ! puts back JT9's F Tol, and a Settings change in fast JT9 does both
+              ! again (apply_search_controls). A fast frame in fast JT9 without
+              ! mode is no entry.
               if (next_fast .and. next_mode .ne. 9) then
                  call route_begin()
                  call streaming_emit_error_range('fast', range_mode, FAST_MODE_RULE)
@@ -809,6 +853,36 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  call route_end()
                  cycle
               end if
+              if (cfg%npts_c0_array_out_of_range) then
+                 call route_begin()
+                 call streaming_emit_error_range('npts_c0_array', range_mode,     &
+                      'npts_c0_array must be from 1 to 81648')
+                 call route_end()
+                 cycle
+              end if
+              ! A depth level no setting of WSJT-X's gives, in any mode.
+              if (cfg%depth_level_out_of_range .or. cfg%q65_maxiters_level_out_of_range) then
+                 range_key = 'depth_level'
+                 if (.not. cfg%depth_level_out_of_range) range_key = 'q65_maxiters_level'
+                 call route_begin()
+                 if (len(range_mode) .gt. 0) then
+                    call streaming_emit_error_range(range_key, range_mode,       &
+                         range_key // ' must be from 1 to 3 in ' // range_mode)
+                 else
+                    call streaming_emit_error_range(range_key, '',               &
+                         range_key // ' must be from 1 to 3')
+                 end if
+                 call route_end()
+                 cycle
+              end if
+              if (cfg%contest_type_out_of_range) then
+                 call route_begin()
+                 call streaming_emit_error_range('contest_type', range_mode,      &
+                      'contest_type must be none, na_vhf, eu_vhf, field_day, rtty, ' // &
+                      'ww_digi, fox, hound, arrl_digi or q65_pileup')
+                 call route_end()
+                 cycle
+              end if
               if (cfg%nutc_out_of_range .or. cfg%utc_out_of_range) then
                  range_key = 'nutc'
                  if (cfg%utc_out_of_range) range_key = 'utc'
@@ -833,6 +907,21 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                    next_params%emedelay = merge(2.5, 0.0, next_eme_on)
               if (cfg%eme_delay_seconds_set) next_params%emedelay =           &
                    real(cfg%eme_delay_seconds, kind(next_params%emedelay))
+              ! An accepted Settings change in WSJT-X: one of the Settings its
+              ! decode reads, those in the params and those the stream keeps
+              ! apart (Low sidelobes, Decode after EME delay whatever delay
+              ! eme_delay_seconds gives, and the activity, which the packing
+              ! collapses: WW Digi, ARRL Digi and Q65 Pileup as NA VHF).
+              settings_accept = settings_dialog_change(shared_data%params, next_params) &
+                   .or. (next_eme_on .neqv. eme_delay_on)
+              if (cfg%low_sidelobes_set) settings_accept = settings_accept .or. &
+                   (cfg%low_sidelobes .neqv. receive%low_sidelobes)
+              if (cfg%nexp_decode_packed_set) settings_accept = settings_accept .or. &
+                   (special_op .ge. 0 .and. cfg%special_op .ne. special_op)
+              ! F Tol and the search range, as WSJT-X's controls give them; a
+              ! mode key or an accepted Settings change sets the mode up again.
+              call apply_search_controls(next_controls, cfg, mode, next_mode, next_params, &
+                   cfg%mode_set .or. settings_accept, next_fast, fast_jt9)
               if (next_mode .eq. MODE_JTTY) then
                  range_key = jtty_range_key(next_params)
                  if (len(range_key) .gt. 0) then
@@ -841,11 +930,33 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     call route_end()
                     cycle
                  end if
+                 ! And a depth WSJT-X's cannot hold, as in every mode.
+                 problem = option_problem()
+                 call depth_problem(next_params, problem)
+                 if (problem%field .ne. ' ') then
+                    call route_begin()
+                    call emit_range_error(problem, cfg, next_mode, .false.)
+                    call route_end()
+                    cycle
+                 end if
               else
-                 ! A frame that would leave the decoder refusing its decodes.
+                 ! A frame that would leave the decoder refusing its decodes,
+                 ! or with a value WSJT-X's controls cannot give.
                  problem = engine_params_problem(next_params, .true.)
-                 if (next_mode .eq. MODE_FREQCAL)                                &
-                      problem = freqcal_problem(next_params%nfqso, next_params%ntol)
+                 call gui_range_problem(next_params, next_TRperiod, problem)
+                 if (next_mode .eq. MODE_FREQCAL) then
+                    problem = freqcal_problem(next_params%nfqso, next_params%ntol)
+                    call depth_problem(next_params, problem)
+                 end if
+                 ! WSPR's decode threads, ft8_threads' range in FT8.
+                 if (next_mode .eq. MODE_WSPR .and. problem%field .eq. ' ') then
+                    if (cfg%wspr_threads_set) then
+                       if (cfg%wspr_threads .lt. 0 .or. cfg%wspr_threads .gt. THREADS_MAX) &
+                            problem = option_problem('wspr_threads', THREADS_LIMIT)
+                    else if (wspr_threads .lt. 0 .or. wspr_threads .gt. THREADS_MAX) then
+                       problem = option_problem('wspr_threads', THREADS_LIMIT)
+                    end if
+                 end if
                  if (problem%field .ne. ' ') then
                     call route_begin()
                     call emit_range_error(problem, cfg, next_mode, .false.)
@@ -860,7 +971,25 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               if (cfg%live_audio_set) next_live = cfg%live_audio
               cancels = next_mode .ne. mode .or. next_TRperiod .ne. TRperiod .or. &
                    (next_live .neqv. live_audio) .or.                          &
-                   ft8_settings_change(shared_data%params, next_params)
+                   ft8_settings_change(shared_data%params, next_params) .or.   &
+                   settings_accept
+              ! The activity in the decode identity changes where a change of it
+              ! cancels (settings_accept's rule): a first configure that names
+              ! an activity the command line gave collapsed changes nothing.
+              if (cfg%nexp_decode_packed_set) then
+                 if (iand(next_params%nexp_decode, 7) .ne.                       &
+                      iand(shared_data%params%nexp_decode, 7) .or.               &
+                      (special_op .ge. 0 .and. cfg%special_op .ne. special_op))   &
+                      identity_activity = cfg%special_op
+                 special_op = cfg%special_op
+              end if
+              controls = next_controls
+              if (cfg%wspr_threads_set) wspr_threads = cfg%wspr_threads
+              if (cfg%reduce_false_decodes_set) reduce_false = cfg%reduce_false_decodes
+              if (cfg%active_stations_set) then
+                 active_stations = cfg%active_stations
+                 active_made = active_made .or. active_stations
+              end if
               if (mode .eq. MODE_JTTY .and. next_mode .ne. MODE_JTTY) then
                  call jtty_review_cancel()
                  call jtty_close()
@@ -893,6 +1022,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                  if (mode .eq. MODE_JTTY) call jtty_close()
               end if
               if (cfg%live_audio_set) live_audio = cfg%live_audio
+              identity_now = decode_identity()
+              call stream_decode_set_identity(identity_now)
               call streaming_emit_set_live(live_audio)
               shared_data%params%ndiskdat = .not. live_audio
               call apply_msk144_fields(cfg, msk144)
@@ -939,6 +1070,19 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     if (dial_changed .and. mode .eq. MODE_JTTY .and. live_audio) call jtty_close()
                  end if
               end if
+              ! WSJT-X holds a7 decodes from live audio for 1.5 periods after
+              ! a mode set up, which a configure with mode is, the same mode
+              ! too, and after a band change or a frequency picked from its
+              ! list, which a7_hold tells (widgets/mainwindow_band.cpp,
+              ! OperatingBand.cpp); a later start holds 1.5 periods from it.
+              ! Its timer runs on its clock from the event; here on the audio
+              ! clock, as the passes it compares with, from the configure's
+              ! place (lib/streaming_emit.f90 compares each decode line).
+              if (cfg%mode_set .or. (cfg%a7_hold_set .and. cfg%a7_hold)) then
+                 hold_at = stream_stdin_arrival()
+                 if (anchored) hold_at = trigger_fire_time(hold_at, t0, stream_samples - 1)
+                 call streaming_emit_set_a7_hold(hold_at, hold_at + 1.5d0 * TRperiod)
+              end if
               call make_op(op, OP_CONFIGURE)
               op%cancels = cancels .or. dial_changed
               op%new_period = mode .ne. prev_mode .or. TRperiod .ne. prev_TRperiod
@@ -973,6 +1117,12 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     ! triggered; Q65, FST4, FST4W and fast JT9 never do.
                     call make_op(again_op, OP_AGAIN)
                     again_op%k = period%k
+                    ! WSJT-X clears its FT8 duplicate keys 10 s into each
+                    ! period (widgets/mainwindow.cpp, the seconds 10, 25, 40
+                    ! and 55), on a file at its loading: until then they hold
+                    ! the period before's.
+                    again_op%keys = period_number
+                    if (period%k .lt. 10 * 12000) again_op%keys = period_number - 1
                     if (published .and. period%k .gt. 0 .and. .not. fast_on() .and.      &
                          mode .ne. 66 .and. mode .ne. 240 .and. mode .ne. 241 .and. mode .ne. 242) then
                        again_op%params%nzhsym = current_stop()
@@ -1012,6 +1162,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               call streaming_emit_reply(.true.)
               call stream_encode(ctl_buf(1:frame_len), action .eq. CTRL_RENDER)
               call streaming_emit_reply(.false.)
+           case (CTRL_HEARD)
+              call streaming_emit_reply(.true.)
+              call stream_heard(ctl_buf(1:frame_len))
+              call streaming_emit_reply(.false.)
            case (CTRL_REVIEW)
               call streaming_emit_reply(.true.)
               call jtty_review_request(ctl_buf(1:frame_len), mode .eq. MODE_JTTY, &
@@ -1020,7 +1174,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            case (CTRL_PARSE_ERR)
               call route_begin()
               call streaming_emit_error_code('configure_parse_error',          &
-                   'malformed control frame (missing or invalid t field)')
+                   'malformed control frame (not one JSON object with a string t)')
               call route_end()
            end select
 
@@ -1321,6 +1475,21 @@ contains
     op%live = live_audio
     op%ending = ending
     op%params = shared_data%params
+    op%wspr_threads = wspr_threads
+    op%reduce_false = reduce_false
+    ! The GUI's points display, in FT4 and FT8 (bDisplayPoints).
+    op%points = active_made .and. (mode .eq. 8 .or. mode .eq. 5) .and.       &
+         (special_op .eq. 8 .or. active_stations)
+    ! WSJT-X's single-threaded FT8 decode takes Rx 200 in Fox, whatever its
+    ! Rx Freq says; its multithreaded decode takes the Rx Freq
+    ! (MainWindow::decode). Hound's search to 1000 Hz is the decoder's
+    ! (streaming_decode.f90 run_decoder).
+    if (mode .eq. 8 .and. iand(op%params%nexp_decode, 7) .eq. 6 .and.        &
+         .not. logical(op%params%lmultift8)) op%params%nfqso = 200
+    ! The decode identity it is made under, live, as WSJT-X captures it when
+    ! it publishes a decode (lib/stream_decode.c).
+    op%identity = merge(identity_now, -1_int64, live_audio)
+    op%params%ndepth = gui_decoder_depth(op%params, mode)
     ! JT9 windows the spectra it builds itself by bit 0x100 of ndepth; the
     ! bit comes from low_sidelobes alone, not from the depth a client sent.
     op%params%ndepth = iand(op%params%ndepth, not(256))
@@ -1344,6 +1513,29 @@ contains
        if (dial_nominal .ge. 0) op%dial = dial_nominal
     end if
   end subroutine make_op
+
+  ! WSJT-X's decode identity besides the frequency (DecodeOperatingContext
+  ! hasSameDecodeIdentity): the mode, the activity, the TR period, the
+  ! submode, file input, multithreaded FT8, its start, SuperFox and my call,
+  ! as one value below 2**31 (lib/stream_decode.c compares it at each decode
+  ! line); the activity is identity_activity.
+  integer(int64) function decode_identity()
+    integer(int64), parameter :: m = 2147483647_int64
+    integer(int64) :: h
+    integer :: i
+    h = mode
+    h = mod(h * 131 + identity_activity, m)
+    h = mod(h * 131 + nint(TRperiod * 1000.d0), m)
+    h = mod(h * 131 + shared_data%params%nsubmode, m)
+    h = mod(h * 131 + merge(1, 0, live_audio), m)
+    h = mod(h * 131 + merge(1, 0, logical(shared_data%params%lmultift8)), m)
+    h = mod(h * 131 + max(0, shared_data%params%ndecoderstart), m)
+    h = mod(h * 131 + merge(1, 0, logical(shared_data%params%b_superfox)), m)
+    do i = 1, size(shared_data%params%mycall)
+       h = mod(h * 131 + iachar(shared_data%params%mycall(i)), m)
+    end do
+    decode_identity = h
+  end function decode_identity
 
   ! WSJT-X's period frequency catches up with the dial once 0.6 TR has
   ! passed since its last change (its band-reporting timer), by arrival t.
@@ -1423,35 +1615,114 @@ contains
   end subroutine take_audio
 
   ! configure_range_error for a refused engine option: the key, the range in
-  ! the mode, and where a value this frame did not set came from. A change
-  ! of mode or period restores nfa and nfb from the command line.
+  ! the mode (none in JTTY, whose range errors carry no mode), and where a
+  ! value this frame did not set came from.
   subroutine emit_range_error(problem, frame, in_mode, at_start)
     type(option_problem),   intent(in) :: problem
     type(configure_fields), intent(in) :: frame
     integer,                intent(in) :: in_mode
     logical,                intent(in) :: at_start
-    character(len=:), allocatable :: key, name, detail
+    character(len=:), allocatable :: key, name, in_name, detail
     logical :: carried
     key = trim(engine_range_key(problem%field, frame, carried))
-    name = trim(streaming_emit_mode_name(in_mode))
+    name = ''
+    in_name = ''
+    if (in_mode .ne. MODE_JTTY) then
+       name = trim(streaming_emit_mode_name(in_mode))
+       in_name = ' in ' // name
+    end if
     if (problem%field .eq. 'search_range') then
-       detail = trim(problem%limit) // ' in ' // name
+       detail = trim(problem%limit) // in_name
     else if (key .eq. 'depth') then
-       ! The decoders read only the depth's low bits.
-       detail = 'depth must hold a decoding depth ' // trim(problem%limit) // ' in ' // name
+       ! WSJT-X's depth: a decoding level and its Decode menu's bits.
+       detail = 'depth must hold a decoding depth ' // trim(problem%limit) // in_name
     else
-       detail = key // ' must be ' // trim(problem%limit) // ' in ' // name
+       detail = key // ' must be ' // trim(problem%limit) // in_name
     end if
     if (at_start) then
        detail = detail // '; the command line set it'
-    else if (carried .and. (key .eq. 'nfa' .or. key .eq. 'nfb') .and.            &
-         (frame%mode_set .or. frame%trperiod_set)) then
-       detail = detail // '; a change of mode or period restores it from the command line'
     else if (carried) then
        detail = detail // '; it was set before this frame'
     end if
     call streaming_emit_error_range(key, name, detail)
   end subroutine emit_range_error
+
+  ! problem, engine_params_problem's for params, held to what WSJT-X's
+  ! controls give where the engine takes more: the depth (depth_problem),
+  ! which the engine does not check in FT8 and checks elsewhere only in its
+  ! low bits; Aggressive, a spin box from 0 to 10 (Configuration.ui
+  ! sbAggressive) where the engine takes 11, checked where the engine checks
+  ! it: JT65, and JT65+JT9 when it runs JT65; and FT8's ft8_threads, Auto and
+  ! 1 to 12 in its menu, where the engine takes up to 24, which the kernel
+  ! runs on one thread above 12. And the EME delay, from 0 s to period, the
+  ! TR period, in every mode but JTTY and FreqCal, which read none (a frame
+  ! with mode sets the delay again), as the engine holds FST4's
+  ! (fst4_option_problem), the one decoder that reads its size: it centres
+  ! its start search 1 s past it (fst4_decode.f90 fst4_sync_search). FT8
+  ! takes any delay but 0 as on (ft8_decode.f90, ft8_engine_kernel.f90), Q65
+  ! one above 0 (q65.f90), the others none; WSJT-X's own is 0 or 2.5 s
+  ! (MainWindow::decode).
+  subroutine gui_range_problem(params, period, problem)
+    type(params_block),   intent(in)    :: params
+    real(8),              intent(in)    :: period
+    type(option_problem), intent(inout) :: problem
+    character(len=*), parameter :: AGGRESSIVE_LIMIT = 'from 0 to 10'
+    logical :: jt65
+    if (problem%field .eq. 'aggressiveness') problem%limit = AGGRESSIVE_LIMIT
+    if (problem%field .eq. 'threads') problem%limit = THREADS_LIMIT
+    if (problem%field .ne. ' ') return
+    jt65 = params%nmode .eq. 65 .or. (params%nmode .eq. 74 .and. params%ntxmode .eq. 9)
+    call depth_problem(params, problem)
+    if (problem%field .ne. ' ') return
+    if (params%nmode .eq. 8 .and. params%nmt .gt. THREADS_MAX) then
+       problem = option_problem('threads', THREADS_LIMIT)
+    else if (jt65 .and. params%naggressive .gt. 10) then
+       problem = option_problem('aggressiveness', AGGRESSIVE_LIMIT)
+    else if (.not. (params%emedelay .ge. 0 .and. params%emedelay .le. period)) then
+       problem = option_problem('eme_delay_seconds', 'from 0 s to the TR period')
+    end if
+  end subroutine gui_range_problem
+
+  ! problem, unless one is set, for a depth WSJT-X's cannot hold (DEPTH_BITS,
+  ! a level from 1 to 3 among them), whatever the mode: JTTY and FreqCal,
+  ! which have their own range checks and read no depth, too.
+  subroutine depth_problem(params, problem)
+    type(params_block),   intent(in)    :: params
+    type(option_problem), intent(inout) :: problem
+    if (problem%field .ne. ' ') return
+    if (iand(params%ndepth, 7) .lt. 1 .or. iand(params%ndepth, 7) .gt. 3) then
+       problem = option_problem('depth', 'from 1 to 3')
+    else if (iand(params%ndepth, not(DEPTH_BITS)) .ne. 0) then
+       problem = option_problem('depth', DEPTH_BITS_LIMIT)
+    end if
+  end subroutine depth_problem
+
+  ! The depth WSJT-X's decode gives the decoder in mode (MainWindow::decode):
+  ! the whole depth in FT8 with its multithreaded decoder chosen, its early
+  ! passes and SuperFox Hound's decodes too (widgets/mainwindow.cpp, the
+  ! multithreaded block's ndepth=m_ndepth), but for the second early pass
+  ! from live audio at decoder start 1, which runs at depth 2 as the GUI's
+  ! m_earlyDecode2 pass does (op%depth2, streaming_decode.f90's early
+  ! passes); otherwise without the option
+  ! bits whose Decode menu items the mode hides (depth &= ~16 to ~128). The
+  ! items show only with VHF features: averaging and automatic clear in
+  ! JT4, JT65 and Q65 (statusChanged), deep search in JT4 and JT65 (their
+  ! setups' applyModeUiState); AP for the DX call in no mode. JT65+JT9 hid
+  ! all three when WSJT-X had it (setupJT9_JT65, removed in 55f23454a).
+  pure integer function gui_decoder_depth(params, mode) result(depth)
+    type(params_block), intent(in) :: params
+    integer,            intent(in) :: mode
+    integer, parameter :: OPTION_BITS = 16 + 32 + 64 + 128
+    integer :: shown
+    depth = params%ndepth
+    if (mode .eq. 8 .and. logical(params%lmultift8)) return
+    shown = 0
+    if (iand(params%nexp_decode, 64) .ne. 0) then
+       if (mode .eq. 4 .or. mode .eq. 65) shown = 16 + 32 + 128
+       if (mode .eq. 66) shown = 16 + 128
+    end if
+    depth = iand(depth, not(OPTION_BITS - shown))
+  end function gui_decoder_depth
 
   ! Stop at the period boundary; body_left carries the remaining frame
   ! forward.
@@ -1648,9 +1919,13 @@ contains
   ! FT8's early passes and MSK144's block decode.
   subroutine block_work()
     integer :: patience
-    ! Incremental symspec for JT9-family at kstep boundaries.
-    ! Cap at nhsym=181 to match the WAV-path exit condition
-    ! (jt9.f90:442-443) — exceeding it overruns ss(184,*).
+    ! JT65+JT9's symbol spectra, a row each kstep, as jt9 built them for its
+    ! JT65+JT9 files (lib/jt9.f90 before its single-mode change, d56807ddc):
+    ! row n once (k - 2048)/kstep reaches n, up to 181, where jt9's read loop
+    ! stopped, each the window ending at sample n*kstep (symspec counts its
+    ! rows), with npts8 74,736 (jt9_params_init.f90); its JT65 half reads
+    ! 52 s (decoder.f90 npts65), within what jt9 read. WSJT-X's GUI has had
+    ! no JT65+JT9 since 2020.
     do while ((period%k - 2048) / kstep .gt. nhsym0 .and. nhsym0 .lt. 181)
        nhsym0 = nhsym0 + 1
        if (nhsym0 .lt. 1) cycle
@@ -1674,6 +1949,9 @@ contains
     ! As do fast JT9's decode tries.
     call run_fast_tries()
     ! As does each MSK144 block, never refused for a busy decoder.
+    ! It decodes on packjt77's own tables, which are the codec's transmit
+    ! tables for FST4, FST4W, Q65 and MSK144, as WSJT-X's in-process decoder
+    ! decodes on its own (lib/streaming_encode.f90 explains the set).
     if (mode .eq. 144) published = .true.
     if (mode .eq. 144) call msk144_window(shared_data%id2, period%k,   &
          shared_data%params%nutc, shared_data%params%ntol,              &

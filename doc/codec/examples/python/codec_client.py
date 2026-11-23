@@ -29,8 +29,14 @@ TX_START = {"FT8": 0.5, "FT4": 0.3}  # where WSJT-X starts its transmission in t
 LIVE_ALLOWANCE = {"FT8": 10.0, "FT4": 6.0}  # a live pass's time between progress lines, once one has completed
 READY_SECONDS = 30                   # how long the client waits for ready
 EXIT_SECONDS = 10                    # how long the codec has to exit once its output ends, or after halt on a failure
+RELEASE_SECONDS = 2                  # how long, once the codec has exited, the client waits for the end of its output and for its writes to its input: a process the codec started can hold the pipes
+SILENCE_SECONDS = 300                # outside live, how long the codec may send no line: the longest interface.md allows a decode pass between progress lines in FT8 and FT4
+# For the examples' check only (README.md, "The check"), not a setting: CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, a whole number from 1 to 300, shortens SILENCE_SECONDS, so that a run that checks it need not last 300 s.
+_CHECK_SILENCE = os.environ.get("CODEC_EXAMPLE_CHECK_SILENCE_SECONDS", "")
+if re.fullmatch("[0-9]{1,3}", _CHECK_SILENCE) and 1 <= int(_CHECK_SILENCE) <= 300:
+    SILENCE_SECONDS = int(_CHECK_SILENCE)
 CHUNK = 1200                         # samples in an audio frame: 0.1 s
-# Sent with the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode resets nfa, nfb and ntol.
+# Sent with the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode sets the mode up as WSJT-X does, which can change the search keys and the frequencies, so the search keys go with it.
 DECODER = {"mycall": "", "his_call": "", "his_grid": "", "nfa": 200, "nfb": 4000, "ntol": 1000}
 
 AUDIO, CONTROL = 0x01, 0x02          # frame types
@@ -69,6 +75,7 @@ class Codec:
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))  # Windows: no console window
         self.lines = queue.Queue()
         self.input_open = True
+        self.exited_at = None  # when the client saw the codec's exit (time.monotonic())
         # Read stdout and stderr on their own threads: a pipe left full stops the codec.
         threading.Thread(target=self._read_stdout, daemon=True).start()
         threading.Thread(target=self._read_stderr, daemon=True).start()
@@ -94,6 +101,21 @@ class Codec:
             while raw:
                 raw = raw[os.write(stderr, raw):]
 
+    def next(self, timeout):
+        """The next line; None once the codec's output has ended, or RELEASE_SECONDS after the codec has exited, as a process it started can hold the pipe; queue.Empty when none comes within timeout s."""
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                return self.lines.get(timeout=max(0.0, min(0.05, deadline - time.monotonic())))
+            except queue.Empty:
+                pass
+            if self.proc.poll() is not None:
+                self._saw_exit()
+            if time.monotonic() >= self.release_by():
+                return None  # what the codec wrote before it exited has been read: let go of the pipe
+            if time.monotonic() >= deadline:
+                raise queue.Empty
+
     def write(self, data):
         if not self.input_open:
             return
@@ -104,7 +126,7 @@ class Codec:
             self.input_open = False
 
     def send(self, message):
-        # Integers stay plain JSON integers: a configure ignores or misreads 3.0, without an error.
+        # Integers stay plain JSON integers: a configure declines 3.0 for an integer key (configure_type_error).
         self.write(frame(CONTROL, json.dumps(message, separators=(",", ":")).encode("utf-8")))
 
     def halt(self):
@@ -121,10 +143,21 @@ class Codec:
         self.proc.kill()
         self.proc.wait()
 
+    def _saw_exit(self):
+        """The codec has exited: what uses its pipes has RELEASE_SECONDS more, from the first time the client sees the exit."""
+        if self.exited_at is None:
+            self.exited_at = time.monotonic()
+
+    def release_by(self):
+        """When the client stops waiting for what uses the codec's pipes (time.monotonic()): RELEASE_SECONDS after it saw the codec's exit; never before it has seen it."""
+        return math.inf if self.exited_at is None else self.exited_at + RELEASE_SECONDS
+
     def exit_status(self):
         """The codec's exit status once it exits, within EXIT_SECONDS; None, with the codec stopped, when it does not."""
         try:
-            return self.proc.wait(timeout=EXIT_SECONDS)
+            status = self.proc.wait(timeout=EXIT_SECONDS)
+            self._saw_exit()
+            return status
         except subprocess.TimeoutExpired:
             print("codec_client: wsjt-codec did not exit within %d s: it has hung" % EXIT_SECONDS, file=sys.stderr)
             self.stop()
@@ -225,10 +258,11 @@ def run(codec, audio, mode, label, live):
     watchdog = Watchdog(mode) if live else None
     writer = threading.Thread(target=send_audio, args=(codec, audio, mode, label, live, watchdog), daemon=True)
     writer.start()
-    messages, errors = [], 0
+    messages, errors, heard = [], 0, time.monotonic()
     while True:
         try:
-            line = codec.lines.get(timeout=0.5)
+            line = codec.next(0.5)
+            heard = time.monotonic()
         except queue.Empty:
             line = {}
         if line is None:
@@ -240,6 +274,10 @@ def run(codec, audio, mode, label, live):
                       file=sys.stderr)
                 codec.stop()
                 return HUNG, messages  # without waiting for the threads, which may be blocked on the codec's pipes
+        elif time.monotonic() - heard > SILENCE_SECONDS:
+            print("codec_client: no line from the codec in %d s: it has hung" % SILENCE_SECONDS, file=sys.stderr)
+            codec.stop()
+            return HUNG, messages  # without waiting for the threads, which may be blocked on the codec's pipes
         kind = line.get("t")  # other lines, and kinds this client does not know, are skipped
         if kind == "decode":
             messages.append(line["message"])
@@ -253,7 +291,7 @@ def run(codec, audio, mode, label, live):
     status = codec.exit_status()  # its output has ended, so its exit is due: the watchdog no longer runs to catch a hang
     if status is None:
         return HUNG, messages  # without waiting for the writer, which may be blocked on the codec's pipe
-    writer.join()
+    writer.join(max(0.0, codec.release_by() - time.monotonic()))  # what is left of the codec's RELEASE_SECONDS, then without it: it may be blocked on the codec's input, which a process the codec started holds
     if status != 0:
         print("codec_client: wsjt-codec exited with status %d" % status, file=sys.stderr)
         return FAILED, messages
@@ -268,7 +306,7 @@ def start(args, kinds):
         print("codec_client: cannot start %s: %s" % (args.codec, error), file=sys.stderr)
         return None
     try:
-        line = codec.lines.get(timeout=READY_SECONDS)
+        line = codec.next(READY_SECONDS)
     except queue.Empty:
         line = "none within %d s" % READY_SECONDS
     if not isinstance(line, dict) or line.get("t") != "ready" or args.mode not in line.get(kinds, []):
@@ -328,15 +366,20 @@ def decode(args):
 
 
 def request_render(codec, args):
-    """Send the render request and return its encoded line and audio, or None when it fails."""
+    """Send the render request and return its encoded line and audio, or the exit status when it fails."""
     codec.send({"t": "render", "id": 1, "mode": args.mode, "text": args.text, "freq": args.freq, "rate": RATE})
     encoded, pcm = None, []
     while True:  # the reply: encoded, its pcm lines, then rendered; or rejected
-        line = codec.lines.get()
+        try:
+            line = codec.next(SILENCE_SECONDS)
+        except queue.Empty:
+            print("codec_client: no line from the codec in %d s: it has hung" % SILENCE_SECONDS, file=sys.stderr)
+            codec.stop()
+            return HUNG
         if line is None or line.get("t") in ("rejected", "error"):
             print("codec_client: render failed: " + json.dumps(line), file=sys.stderr)
             codec.quit()
-            return None
+            return FAILED
         if line.get("t") == "encoded":
             encoded = line
         elif line.get("t") == "pcm":
@@ -355,11 +398,11 @@ def render(args):
             print("codec_client: " + str(error), file=sys.stderr)
             return USAGE
     codec = start(args, "encodes")
-    reply = request_render(codec, args) if codec else None
-    if reply is None:
+    reply = request_render(codec, args) if codec else FAILED
+    if not isinstance(reply, tuple):
         if created:
             os.remove(args.out)
-        return FAILED
+        return reply
     encoded, audio = reply
     print("rendered %d %s" % (encoded["samples"], encoded["msgsent"]), flush=True)
     if args.out:

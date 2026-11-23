@@ -732,11 +732,10 @@ private Q_SLOTS:
   // Entering fast JT9 (a configure that carries mode JT9 with fast true, or
   // turns fast on) sets the receive frequency to 700 unless the frame carries
   // rxfreq, as choosing JT9 with Fast on and WSJT-X's Fast check box set Rx
-  // Freq. In fast JT9 ntol's default is 50, JT9's F Tol, reset as in every
-  // mode by a configure that carries mode or trperiod. A frame that carries
-  // fast true in fast JT9 without mode is no entry and resets neither, as
-  // WSJT-X keeps Rx Freq and F Tol on a submode change; one that carries only
-  // trperiod keeps rxfreq. Message at 700 Hz and OutsideMessage at 1200 tell
+  // Freq. ntol is WSJT-X's F Tol: a frame with mode that enters fast JT9 puts
+  // back JT9's (50 until set; here 100 once sent in JT9); a frame without
+  // mode (the Fast check box, a submode change, trperiod alone) keeps it, as
+  // it keeps rxfreq unless it turns fast on. Message at 700 Hz and OutsideMessage at 1200 tell
   // the windows apart; from a file, against the GUI's fast_decode_.
   void fastEntryDefaults_data ()
   {
@@ -753,16 +752,16 @@ private Q_SLOTS:
       << 15 << 1200 << 600 << QString {Message};
     QTest::newRow ("trperiod alone keeps rxfreq")
       << QByteArray {R"({"mode":"JT9","fast":true,"submode":"E","trperiod":15,"rxfreq":1200,"ntol":100})"} + "\n"
-           + R"({"trperiod":10})" << 10 << 1200 << 50 << QString {OutsideMessage};
+           + R"({"trperiod":10})" << 10 << 1200 << 100 << QString {OutsideMessage};
     QTest::newRow ("redundant fast keeps rxfreq and ntol")
       << QByteArray {R"({"mode":"JT9","fast":true,"submode":"E","trperiod":15,"rxfreq":1500,"ntol":400})"} + "\n"
            + R"({"fast":true,"submode":"E"})" << 15 << 1500 << 400 << QString {OutsideMessage};
     QTest::newRow ("fast turning on from slow JT9")
       << QByteArray {R"({"mode":"JT9","submode":"E","trperiod":60,"rxfreq":1200,"ntol":100})"} + "\n"
-           + R"({"fast":true,"trperiod":15})" << 15 << 700 << 50 << QString {Message};
+           + R"({"fast":true,"trperiod":15})" << 15 << 700 << 100 << QString {Message};
     QTest::newRow ("mode frame in fast JT9 enters again")
       << QByteArray {R"({"mode":"JT9","fast":true,"submode":"E","trperiod":15,"rxfreq":1200,"ntol":100})"} + "\n" + fast15
-      << 15 << 700 << 50 << QString {Message};
+      << 15 << 700 << 100 << QString {Message};
   }
 
   void fastEntryDefaults ()
@@ -799,31 +798,46 @@ private Q_SLOTS:
       }
   }
 
-  // Slow JT9's defaults are as before fast JT9's: leaving fast JT9 for slow
-  // JT9 resets ntol to 1000 and carries rxfreq, as from any other mode. This
-  // pins today's behaviour; WSJT-X restores F Tol (Ftol_JT9, 50 by default)
-  // when JT9 is chosen with VHF features on, a departure recorded for slow
-  // JT9 and not changed here. Each
-  // session decodes as one that sends those values; the order of its two
-  // decodes shows the window, since the decoder takes rxfreq +- ntol first.
-  // (Submode carries over, so leaving fast JT9 sends it.)
+  // Slow JT9's F Tol is WSJT-X's: one F Tol box, which fast JT9 (VHF
+  // features in WSJT-X) sets to JT9's saved F Tol (Ftol_JT9, 50 until set)
+  // and which choosing slow JT9 without VHF features keeps
+  // (widgets/mainwindow_modes.cpp setupJT9), as it keeps FT8's; rxfreq
+  // carries over. Each session decodes as one that sends those values, and
+  // not as one with the other F Tol (other: the 1000 the codec used to give,
+  // or JT9's saved F Tol, which only VHF features put back, or the 50 a
+  // missed setup would keep); the order of its two decodes shows
+  // the window, since the decoder takes rxfreq +- ntol first. (Submode
+  // carries over, so leaving fast JT9 sends it.)
   void slowJt9DefaultsAfterFast_data ()
   {
     QTest::addColumn<QByteArray> ("frames");
     QTest::addColumn<QByteArray> ("sent");   // the same values, sent
-    QTest::newRow ("back to slow JT9 resets ntol")
+    QTest::addColumn<QByteArray> ("other");  // another ntol, which must decode otherwise
+    QTest::newRow ("back to slow JT9 keeps fast JT9's F Tol")
       << QByteArray {R"({"mode":"FT8","rxfreq":1200})"} + "\n" + R"({"mode":"JT9","fast":true,"submode":"E","trperiod":15})"
            + "\n" + R"({"mode":"JT9","submode":"A","trperiod":60,"rxfreq":1200})"
+      << QByteArray {R"({"mode":"JT9","submode":"A","trperiod":60,"rxfreq":1200,"ntol":50})"}
       << QByteArray {R"({"mode":"JT9","submode":"A","trperiod":60,"rxfreq":1200,"ntol":1000})"};
-    QTest::newRow ("slow JT9 from FT8 keeps rxfreq")
-      << QByteArray {R"({"mode":"FT8","rxfreq":1200})"} + "\n" + R"({"mode":"JT9","trperiod":60,"ntol":50})"
-      << QByteArray {R"({"mode":"JT9","trperiod":60,"rxfreq":1200,"ntol":50})"};
+    QTest::newRow ("slow JT9 from FT8 keeps FT8's F Tol")
+      << QByteArray {R"({"mode":"JT9","trperiod":60,"ntol":1000})"} + "\n" + R"({"mode":"FT8","rxfreq":1200,"ntol":50})"
+           + "\n" + R"({"mode":"JT9","trperiod":60})"
+      << QByteArray {R"({"mode":"JT9","trperiod":60,"rxfreq":1200,"ntol":50})"}
+      << QByteArray {R"({"mode":"JT9","trperiod":60,"rxfreq":1200,"ntol":1000})"};
+    // Accepting Settings sets the mode up again (on_actionSettings_triggered):
+    // VHF features turned on in JT9 put back JT9's F Tol, here 1000, over the
+    // 50 FT8 left.
+    QTest::newRow ("VHF features turned on put back JT9's F Tol")
+      << QByteArray {R"({"mode":"JT9","trperiod":60,"rxfreq":1200,"ntol":1000})"} + "\n" + R"({"mode":"FT8","ntol":50})"
+           + "\n" + R"({"mode":"JT9","trperiod":60})" + "\n" + R"({"vhf_features":true})"
+      << QByteArray {R"({"mode":"JT9","trperiod":60,"rxfreq":1200,"ntol":1000,"vhf_features":true})"}
+      << QByteArray {R"({"mode":"JT9","trperiod":60,"rxfreq":1200,"ntol":50,"vhf_features":true})"};
   }
 
   void slowJt9DefaultsAfterFast ()
   {
     QFETCH (QByteArray, frames);
     QFETCH (QByteArray, sent);
+    QFETCH (QByteArray, other);
     auto const pcm = twoStations (60);
     QVERIFY2 (!pcm.isEmpty (), "no render");
     QString report;
@@ -833,6 +847,9 @@ private Q_SLOTS:
     QVERIFY2 (expected != QStringList {"failed"}, qPrintable (report));
     QCOMPARE (expected.size (), 2);
     QCOMPARE (decodes, expected);
+    auto const wide = sessionDecodes (other, pcm, &report);
+    QVERIFY2 (wide != QStringList {"failed"}, qPrintable (report));
+    QVERIFY2 (wide != expected, "the other ntol decodes the same: the row does not show the window");
   }
 
   // Entering fast JT9 also sets the transmit frequency to 700, as WSJT-X's

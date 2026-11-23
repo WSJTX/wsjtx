@@ -10,7 +10,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
+#include <string>
 #include <vector>
 
 #include "wsjtx_config.h"
@@ -31,6 +35,10 @@ extern "C" {
                      float xjunk[], float wave[], int * icmplx, int * nwave);
   void gen_fst4wave_ (int itone[], int * nsym, int * nsps, int * nwave, float * fsample,
                       int * hmod, float * f0, int * icmplx, float xjunk[], float wave[]);
+  std::int32_t stream_fst4_wave_window (std::int32_t const itone[], std::int32_t nsym,
+                                        std::int32_t nsps, float fsample, std::int32_t hmod,
+                                        float f0, std::int32_t out_first, std::int32_t nout,
+                                        float wave[], std::int32_t * first, double * phi);
 }
 
 namespace
@@ -56,6 +64,7 @@ namespace
     std::int32_t kind;          // Echo: 1 fixed tone, 2 message, 3 CW
     std::int32_t rate;
     double freq;
+    double wavefreq;            // FST4, FST4W: the freq the waveform is made at; 0 for freq
   };
 
   constexpr unsigned frameRate = 48000;     // TX_SAMPLE_RATE
@@ -249,19 +258,34 @@ namespace
     return unsigned ((request.tr_period_s - 5.0) * 48000.0) + 48;
   }
 
+  // What a range render keeps of the Modulator between ranges: its members
+  // that change while it plays, the frequency the client gave last, and the
+  // FST4 waveform generator's block and phase.
+  struct State
+  {
+    std::int64_t pos {};                    // the next sample at 48000 Hz
+    std::uint32_t ic {};
+    double phi {}, dphi {}, amp {}, frequency {}, frequency0 {}, toneFrequency0 {}, given {};
+    std::uint32_t isym0 {};
+    std::int16_t ramp {};
+    bool cwLevel {}, fastCwActive {}, idle {};
+    std::int32_t genFirst {-1};
+    double genPhi {};
+    std::uint32_t genF0 {}, genTones {};
+  };
+
   // Modulator::startAt, then Modulator::readDataAt for a transmission without
   // synchronization, frequency spread or test noise: the tones and the
   // waveform are the GUI's itone[] and foxcom_.wave[], zero past their ends
-  // in a fresh GUI process.
+  // in a fresh GUI process. The waveform may be a window of it, from sample
+  // waveFirst.
   class Modulator
   {
   public:
     Modulator (Request const& request, std::int32_t const * tones, std::int32_t ntones,
-               float const * wave, std::size_t nwave, std::int32_t const * cw, std::int32_t ncw)
+               std::int32_t const * cw, std::int32_t ncw)
       : m_tones {tones}
       , m_ntones {ntones}
-      , m_wave {wave}
-      , m_nwave {nwave}
       , m_cwId (cw, cw + ncw)
       , m_symbolsLength {request.symbols_length}
       , m_nsps {request.frames_per_symbol}
@@ -274,6 +298,62 @@ namespace
     }
 
     bool idle () const {return m_idle;}
+    bool fastCwActive () const {return m_fastCwActive;}
+
+    void setWave (float const * wave, std::size_t first, std::size_t n)
+    {
+      m_wave = wave;
+      m_waveFirst = first;
+      m_nwave = n;
+    }
+
+    // Modulator::setFrequency.
+    void setFrequency (double frequency) {m_frequency = frequency;}
+
+    // Modulator::startAt's late start: the message from sample ic.
+    void startAt (unsigned ic) {m_ic = ic;}
+
+    void save (State& state) const
+    {
+      state.ic = m_ic;
+      state.phi = m_phi;
+      state.dphi = m_dphi;
+      state.amp = m_amp;
+      state.frequency = m_frequency;
+      state.frequency0 = m_frequency0;
+      state.toneFrequency0 = m_toneFrequency0;
+      state.isym0 = m_isym0;
+      state.ramp = m_ramp;
+      state.cwLevel = m_cwLevel;
+      state.fastCwActive = m_fastCwActive;
+      state.idle = m_idle;
+    }
+
+    // As saved; a fast mode's CW ID sets what Modulator::readDataAt sets
+    // for it.
+    void restore (State const& state)
+    {
+      m_ic = state.ic;
+      m_phi = state.phi;
+      m_dphi = state.dphi;
+      m_amp = state.amp;
+      m_frequency = state.frequency;
+      m_frequency0 = state.frequency0;
+      m_toneFrequency0 = state.toneFrequency0;
+      m_isym0 = state.isym0;
+      m_ramp = state.ramp;
+      m_cwLevel = state.cwLevel;
+      m_fastCwActive = state.fastCwActive;
+      m_idle = state.idle;
+      m_continuing = true;
+      if (m_fastCwActive)
+        {
+          m_symbolsLength=126;
+          m_nsps=4096.0*12000.0/11025.0;
+          m_nspd=2560;
+          if(m_cwId.size ()*m_nspd/48000.0 > 4.0) m_nspd=4.0*48000.0/m_cwId.size ();
+        }
+    }
 
     // Appends up to frames samples from utcMs, which a transmission that
     // starts with the period reads at the sample count it has made, and stops
@@ -291,6 +371,10 @@ namespace
 
       if(!m_tuning) isym=m_ic/(4.0*m_nsps);
       bool slowCwId=((isym >= m_symbolsLength) && !m_cwId.empty ()) && (!m_bFastMode);
+      // A range that goes on from one that stopped just before the
+      // message's last sample sends it, as the whole render does; the GUI
+      // starting there (a late start) goes to the CW ID.
+      if(m_continuing && m_ic <= unsigned (m_symbolsLength * 4.0 * m_nsps)) slowCwId=false;
       if(m_TRperiod==3.0) slowCwId=false;
       bool fastCwId=false;
       float tsec=0.001*(utcMs % int(1000*m_TRperiod));
@@ -392,7 +476,8 @@ namespace
 
         if(!m_tuning and (m_toneSpacing < 0) and (tone (0)<100)) {
           m_amp=32767.0;
-          sample=qtRound(m_amp*(m_ic < m_nwave ? m_wave[m_ic] : 0.f));
+          sample=qtRound(m_amp*(m_ic >= m_waveFirst && m_ic - m_waveFirst < m_nwave
+                                 ? m_wave[m_ic - m_waveFirst] : 0.f));
         } else {
           sample=qtRound(m_amp*std::sin(m_phi));
         }
@@ -419,8 +504,9 @@ namespace
 
     std::int32_t const * m_tones;
     std::int32_t m_ntones;
-    float const * m_wave;
-    std::size_t m_nwave;
+    float const * m_wave {};
+    std::size_t m_waveFirst {};
+    std::size_t m_nwave {};
     std::vector<int> m_cwId;
     unsigned m_symbolsLength;
     double m_nsps;
@@ -441,6 +527,7 @@ namespace
     unsigned m_isym0 = std::numeric_limits<unsigned>::max ();
     double m_toneFrequency0 {1500.0};
     bool m_idle {false};
+    bool m_continuing {false};
   };
 
   // MainWindow::guiUpdate's waveform for FT8, FT4, FST4 and FST4W, one sample
@@ -505,6 +592,273 @@ namespace
       }
     return i1 + std::int64_t (ncw) * 2560;
   }
+
+  // A Tune's longest render: the GUI's longest Tune, FST4 at 1800 s, stops
+  // after 9999 x 134400 samples at 48000 Hz (27,997.2 s).
+  constexpr std::int64_t tuneLimit = 9999LL * 134400;
+
+  // FNV-1a of the tones, which say whether a saved FST4 generator phase is
+  // still this message's.
+  std::uint32_t toneSum (std::int32_t const tones[], std::int32_t ntones)
+  {
+    std::uint32_t h = 2166136261u;
+    for (int i = 0; i < ntones; ++i)
+      for (int b = 0; b < 4; ++b)
+        {
+          h ^= (std::uint32_t (tones[i]) >> (8 * b)) & 0xffu;
+          h *= 16777619u;
+        }
+    return h;
+  }
+
+  std::uint64_t bits (double d) {std::uint64_t u; std::memcpy (&u, &d, sizeof u); return u;}
+  double fromBits (std::uint64_t u) {double d; std::memcpy (&d, &u, sizeof d); return d;}
+  std::uint32_t bits (float f) {std::uint32_t u; std::memcpy (&u, &f, sizeof u); return u;}
+
+  // The state's text: version 1, the transmission it belongs to, then the
+  // state, each a lower-case hex number, joined by '.'; doubles as their
+  // 64-bit patterns, so that it comes back exactly.
+  constexpr int stateFields = 26;
+  constexpr int fingerprintFields = 9;
+
+  std::string encodeState (State const& st, Tx const& tx, std::int32_t const cw[], std::int32_t ncw)
+  {
+    std::uint64_t const v[stateFields] = {
+      1, std::uint32_t (tx.mode), std::uint32_t (tx.submode), std::uint32_t (tx.spacing),
+      std::uint32_t (tx.trperiod), std::uint32_t (tx.fast), std::uint32_t (tx.kind),
+      std::uint32_t (tx.rate), std::uint32_t (ncw), toneSum (cw, ncw), std::uint64_t (st.pos), st.ic,
+      bits (st.phi), bits (st.dphi), bits (st.amp), bits (st.frequency), bits (st.frequency0),
+      bits (st.toneFrequency0), bits (st.given), st.isym0, std::uint16_t (st.ramp),
+      std::uint64_t (st.cwLevel) | std::uint64_t (st.fastCwActive) << 1 | std::uint64_t (st.idle) << 2,
+      std::uint32_t (st.genFirst), bits (st.genPhi), st.genF0, st.genTones};
+    std::string text;
+    char field[24];
+    for (int i = 0; i < stateFields; ++i)
+      {
+        std::snprintf (field, sizeof field, i ? ".%llx" : "%llx", (unsigned long long) v[i]);
+        text += field;
+      }
+    return text;
+  }
+
+  // 0 with st read from text, -1 when it is not a state, -2 when it is
+  // another transmission's.
+  int decodeState (char const text[], std::int32_t n, Tx const& tx, std::int32_t const cw[], std::int32_t ncw,
+                   State& st)
+  {
+    std::uint64_t v[stateFields];
+    int field = 0;
+    std::int32_t i = 0;
+    while (field < stateFields)
+      {
+        std::int32_t const start = i;
+        std::uint64_t value = 0;
+        while (i < n && text[i] != '.')
+          {
+            char const c = text[i];
+            int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1;
+            if (digit < 0 || i - start >= 16) return -1;
+            value = value << 4 | std::uint64_t (digit);
+            ++i;
+          }
+        if (i == start) return -1;
+        v[field++] = value;
+        if (i < n) ++i;                 // the '.'
+        if ((i == n) != (field == stateFields) || (i == n && text[n - 1] == '.')) return -1;
+      }
+    if (v[0] != 1) return -1;
+    std::uint64_t const want[fingerprintFields] = {
+      std::uint32_t (tx.mode), std::uint32_t (tx.submode), std::uint32_t (tx.spacing),
+      std::uint32_t (tx.trperiod), std::uint32_t (tx.fast), std::uint32_t (tx.kind),
+      std::uint32_t (tx.rate), std::uint32_t (ncw), toneSum (cw, ncw)};
+    for (int k = 0; k < fingerprintFields; ++k)
+      if (v[k + 1] != want[k]) return -2;
+    std::uint64_t const * const f = v + fingerprintFields + 1;   // the state proper
+    auto const finite = [] (double d, double limit) {return std::isfinite (d) && std::abs (d) <= limit;};
+    st.pos = std::int64_t (f[0]);
+    st.ic = std::uint32_t (f[1]);
+    st.phi = fromBits (f[2]);
+    st.dphi = fromBits (f[3]);
+    st.amp = fromBits (f[4]);
+    st.frequency = fromBits (f[5]);
+    st.frequency0 = fromBits (f[6]);
+    st.toneFrequency0 = fromBits (f[7]);
+    st.given = fromBits (f[8]);
+    st.isym0 = std::uint32_t (f[9]);
+    st.ramp = std::int16_t (std::uint16_t (f[10]));
+    st.cwLevel = f[11] & 1;
+    st.fastCwActive = f[11] & 2;
+    st.idle = f[11] & 4;
+    st.genFirst = std::int32_t (std::uint32_t (f[12]));
+    st.genPhi = fromBits (f[13]);
+    st.genF0 = std::uint32_t (f[14]);
+    st.genTones = std::uint32_t (f[15]);
+    if (f[0] > std::uint64_t (tuneLimit) || f[1] > 0x7fffffffu || f[9] > 0xffffffffu
+        || f[10] > 0xffffu || f[11] > 7 || f[12] > 0xffffffffu || f[14] > 0xffffffffu
+        || f[15] > 0xffffffffu || st.genFirst < -1
+        || !finite (st.phi, 8) || !finite (st.dphi, 8) || !finite (st.amp, 32767)
+        || st.amp < 0 || !finite (st.frequency, 1e6) || !finite (st.frequency0, 1e6)
+        || !finite (st.toneFrequency0, 1e6) || !finite (st.given, 1e6)
+        || !finite (st.genPhi, 65536) || st.genPhi < 0 || st.genPhi >= 65536)
+      return -1;
+    return 0;
+  }
+
+  // The samples from to from+count-1 at tx.rate of the GUI's audio, every
+  // fourth of its 48000 Hz samples at 12000 Hz, into samples: continuing from
+  // in when given, else with the Modulator started at from (the GUI's late
+  // start; at 0 the transmission's start). from+count must not pass the
+  // transmission's end. out, when given, gets what the next range continues
+  // from. Returns the count, or 0 when capacity is too small or there is no
+  // memory.
+  std::int32_t renderRange (Tx const& tx, std::int32_t const tones[], std::int32_t ntones,
+                            float const wave[], std::int32_t nwave,
+                            std::int32_t const cw[], std::int32_t ncw,
+                            std::int64_t from, std::int64_t count, State const * in, State * out,
+                            std::int16_t * samples, std::int32_t capacity)
+  {
+    auto const request = transmitRequest (tx);
+    if (!request.valid || (tx.rate != 12000 && tx.rate != 48000)) return 0;
+    int const step = tx.rate == 48000 ? 1 : 4;
+    auto const total = samples48 (tx, request, ncw);
+    auto const pos = from * step;
+    auto const n48 = std::min<std::int64_t> (count * step, total - pos);
+    if (from < 0 || count <= 0 || count > capacity || n48 <= 0 || (n48 + step - 1) / step != count)
+      return 0;
+    if (out) *out = State {};
+
+    if (request.tuning)
+      {
+        if (total > tuneLimit) return 0;
+        int const tone = ntones > 0 ? tones[0] : 0;
+        double const frequency = tone >= 100 ? tone : request.frequency_hz + tone * request.tone_spacing;
+        double const dphi = twoPi * frequency / frameRate;
+        double phi = in ? in->phi : 0;
+        constexpr int block = 256;
+        float buffer[block];
+        for (std::int64_t i = 0; i < count; i += block)
+          {
+            int const n = int (std::min<std::int64_t> (block, count - i));
+            wsjt_render_tone (&phi, dphi, n, step, buffer);
+            for (int j = 0; j < n; ++j)
+              samples[i + j] = qtRound (32767.0 * buffer[j]);
+          }
+        if (out)
+          {
+            out->pos = pos + n48;
+            out->ic = std::uint32_t (pos + n48);
+            out->phi = phi;
+            out->amp = std::numeric_limits<std::int16_t>::max ();
+            out->frequency = frequency;
+            out->given = tx.freq;
+          }
+        return std::int32_t (count);
+      }
+
+    auto const i1 = lastSample (request);
+    std::vector<float> made;
+    float const * w = wave;
+    std::size_t wFirst = 0, wCount = std::size_t (std::max (nwave, 0));
+    State gen;
+    if (request.tone_spacing < 0 && nwave <= 0 && (tx.mode == FST4 || tx.mode == FST4W))
+      {
+        // As precomputed, but only the window this range reads. The
+        // waveform is made at wavefreq when given: after a Tx frequency
+        // typed into the GUI's box, the GUI's Modulator::setFrequency (freq)
+        // without the waveform made again.
+        Tx madeAt = tx;
+        if (tx.wavefreq > 0) madeAt.freq = tx.wavefreq;
+        int const hmod=tx.spacing;
+        int const nsps=4*fst4Nsps (tx.trperiod);
+        float const fsample=48000.0;
+        float const dfreq=hmod*fsample/nsps;
+        float const f0=madeAt.freq + 1.5*dfreq;
+        gen.genF0 = bits (f0);
+        gen.genTones = toneSum (tones, 160);
+        // Sample i1, past the message, is zero.
+        auto const end = std::min<std::int64_t> (pos + n48, std::int64_t (i1));
+        if (pos < end)
+          {
+            std::int32_t first = 0;
+            double phi = 0;
+            if (in && in->genFirst >= 0 && in->genF0 == gen.genF0 && in->genTones == gen.genTones)
+              {
+                first = in->genFirst;
+                phi = in->genPhi;
+              }
+            made.assign (std::size_t (end - pos), 0.f);
+            auto status = stream_fst4_wave_window (tones, 160, nsps, fsample, hmod, f0, std::int32_t (pos),
+                                                   std::int32_t (end - pos), made.data (), &first, &phi);
+            if (status != 0)
+              {
+                first = 0;
+                phi = 0;
+                status = stream_fst4_wave_window (tones, 160, nsps, fsample, hmod, f0, std::int32_t (pos),
+                                                  std::int32_t (end - pos), made.data (), &first, &phi);
+              }
+            if (status == 0)
+              {
+                wFirst = std::size_t (pos);
+                gen.genFirst = first;
+                gen.genPhi = phi;
+              }
+            else
+              {
+                made = precomputed (madeAt, tones, i1);
+              }
+            w = made.data ();
+            wCount = made.size ();
+          }
+      }
+    else if (request.tone_spacing < 0 && nwave <= 0 && (tx.mode == FT8 || tx.mode == FT4))
+      {
+        made = precomputed (tx, tones, i1);
+        w = made.data ();
+        wCount = made.size ();
+      }
+
+    Modulator modulator {request, tones, ntones, cw, ncw};
+    modulator.setWave (w, wFirst, wCount);
+    if (in)
+      {
+        modulator.restore (*in);
+        if (tx.freq != in->given) modulator.setFrequency (tx.freq);   // the GUI's retune
+      }
+    else
+      {
+        modulator.startAt (unsigned (pos));
+      }
+    std::vector<std::int16_t> audio;
+    audio.reserve (std::size_t (n48));
+    auto const fastStart = std::int64_t (fastCwStart (request));
+    std::int64_t at = pos;
+    while (std::int64_t (audio.size ()) < n48 && !modulator.idle ())
+      {
+        auto want = n48 - std::int64_t (audio.size ());
+        // In a fast mode the CW ID starts with the first buffer read more
+        // than TR - 5 s into the period, the clock being the sample count.
+        if (ncw > 0 && request.fast_mode && !modulator.fastCwActive () && at < fastStart)
+          want = std::min (want, fastStart - at);
+        auto const before = audio.size ();
+        modulator.read (audio, std::size_t (want), at / 48);
+        at += std::int64_t (audio.size () - before);
+        if (audio.size () == before) break;
+      }
+    if (std::int64_t (audio.size ()) != n48) return 0;
+    std::int32_t k = 0;
+    for (std::size_t i = 0; i < audio.size (); i += step) samples[k++] = audio[i];
+    if (out)
+      {
+        modulator.save (*out);
+        out->pos = pos + n48;
+        out->given = tx.freq;
+        out->genFirst = gen.genFirst;
+        out->genPhi = gen.genPhi;
+        out->genF0 = gen.genF0;
+        out->genTones = gen.genTones;
+      }
+    return k;
+  }
 }
 
 extern "C"
@@ -556,31 +910,8 @@ extern "C"
   {
     try
       {
-        auto const request = transmitRequest (*tx);
-        if (!request.valid || (tx->rate != 12000 && tx->rate != 48000)) return 0;
-        if (request.tuning)
-          {
-            auto const total = samples48 (*tx, request, ncw);
-            auto const step = tx->rate == 48000 ? 1 : 4;
-            auto const count = (total + step - 1) / step;
-            auto const limit = std::int64_t (9999 * request.frames_per_symbol) + 1;
-            if (total <= 0 || total > limit || count > capacity) return 0;
-
-            int const tone = ntones > 0 ? tones[0] : 0;
-            double const frequency = tone >= 100 ? tone : request.frequency_hz + tone * request.tone_spacing;
-            double const dphi = twoPi * frequency / frameRate;
-            double phi = 0;
-            constexpr int block = 256;
-            float wave[block];
-            for (std::int64_t i = 0; i < count; i += block)
-              {
-                int const n = int (std::min<std::int64_t> (block, count - i));
-                wsjt_render_tone (&phi, dphi, n, step, wave);
-                for (int j = 0; j < n; ++j)
-                  samples[i + j] = qtRound (32767.0 * wave[j]);
-              }
-            return std::int32_t (count);
-          }
+        auto const count = stream_slot_samples (tx, ncw);
+        if (count <= 0 || count > capacity) return 0;
         if (tx->mode == FT8 && tx->rate == 12000 && tx->spacing == 1
             && ntones >= 79 && tones[0] < 100 && ncw == 0 && nwave <= 0)
           {
@@ -593,39 +924,52 @@ extern "C"
             samples[waveCount] = 0;
             return waveCount + 1;
           }
-        auto const i1 = lastSample (request);
-        std::vector<float> made;
-        if (request.tone_spacing < 0 && !request.tuning && nwave <= 0
-            && (tx->mode == FT8 || tx->mode == FT4 || tx->mode == FST4 || tx->mode == FST4W))
+        return renderRange (*tx, tones, ntones, wave, nwave, cw, ncw, 0, count, nullptr, nullptr,
+                            samples, capacity);
+      }
+    catch (...)
+      {
+        return 0;
+      }
+  }
+
+  // The render's samples from to from+count-1 at tx.rate (from+count at most
+  // its stream_slot_samples), into samples; with nstate bytes of state, a
+  // range's next (none when nstate is 0), it continues that range, else it
+  // starts the Modulator at from. next gets this range's next, *nnext its
+  // length (0 when the transmission ends with it). Returns the count, 0 when
+  // it did not render, -1 for a state it cannot read, -2 for another
+  // transmission's, -3 for one that continues at another sample.
+  std::int32_t stream_slot_render_range (Tx const * tx, std::int32_t const tones[], std::int32_t ntones,
+                                         float const wave[], std::int32_t nwave,
+                                         std::int32_t const cw[], std::int32_t ncw,
+                                         std::int32_t from, std::int32_t count,
+                                         char const state[], std::int32_t nstate,
+                                         std::int16_t * samples, std::int32_t capacity,
+                                         char next[], std::int32_t capacity_next,
+                                         std::int32_t * nnext) noexcept
+  {
+    try
+      {
+        *nnext = 0;
+        State in, out;
+        if (nstate > 0)
           {
-            made = precomputed (*tx, tones, i1);
-            wave = made.data ();
-            nwave = made.size ();
+            int const status = decodeState (state, nstate, *tx, cw, ncw, in);
+            if (status) return status;
+            if (in.pos != std::int64_t (from) * (tx->rate == 48000 ? 1 : 4)) return -3;
           }
-        Modulator modulator {request, tones, ntones, wave, std::size_t (std::max (nwave, 0)), cw, ncw};
-        std::vector<std::int16_t> audio;
-        auto const total = samples48 (*tx, request, ncw);
-        audio.reserve (std::size_t (total));
-        if (ncw > 0 && request.fast_mode)
+        auto const n = renderRange (*tx, tones, ntones, wave, nwave, cw, ncw, from, count,
+                                    nstate > 0 ? &in : nullptr, &out, samples, capacity);
+        if (n <= 0) return 0;
+        if (out.pos < samples48 (*tx, transmitRequest (*tx), ncw))
           {
-            auto const start = fastCwStart (request);
-            modulator.read (audio, start, 0);
-            modulator.read (audio, std::size_t (total) - audio.size (), start / 48);
+            auto const text = encodeState (out, *tx, cw, ncw);
+            if (std::int32_t (text.size ()) > capacity_next) return 0;
+            std::memcpy (next, text.data (), text.size ());
+            *nnext = std::int32_t (text.size ());
           }
-        else
-          {
-            modulator.read (audio, std::size_t (i1) + 1, 0);
-            if (ncw > 0) modulator.read (audio, std::size_t (total) - audio.size (), 0);
-          }
-        if (std::int64_t (audio.size ()) != total) return 0;
-        std::int32_t count = 0;
-        int const step = tx->rate == 48000 ? 1 : 4;
-        for (std::size_t i = 0; i < audio.size (); i += step)
-          {
-            if (count >= capacity) return 0;
-            samples[count++] = audio[i];
-          }
-        return count;
+        return n;
       }
     catch (...)
       {

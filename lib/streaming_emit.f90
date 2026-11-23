@@ -57,6 +57,11 @@
 !                     Then "pass", the half-symbol stop of the decode pass that
 !                     produced it (41, 46 or 47 for an early FT8 pass), on every
 !                     decode but MSK144's.
+!                     An FT8 message already sent in the period under its
+!                     label is not sent again where WSJT-X does not show it
+!                     again: with the multithreaded decoder at start 0 or 1,
+!                     or above 45 MHz with no special activity
+!                     (streaming_emit_set_repeats).
 !                     An MSK144 decode adds "period" after "message", then
 !                     "training":true when configure's train is still true
 !                     after its window, where the GUI marks the decode ^.
@@ -225,7 +230,7 @@
 ! lines; up to three spare copies of a pass's audio, kept for the next, and
 ! the last decoded period's copy, kept for a decode again, each up
 ! to 43.2 MB (FST4W-1800); the decode thread's own copy of the decoders'
-! thread-local arrays (about 6 MB on Linux), as each OpenMP thread has; and,
+! thread-local arrays (about 2.5 MB on Linux arm64), as each OpenMP thread has; and,
 ! once a session has decoded both MSK144 and a period mode that runs OpenMP
 ! threads, a second pool of those threads, each with its copy.
 !
@@ -538,6 +543,25 @@ module streaming_emit
   ! decodes carry it (not in JT65+JT9, whose JT9 decoder reads none).
   integer, save :: submode_ = -1
   logical, save :: submode_jt9_ = .true.
+  ! WSJT-X's FT8 duplicate rule (streaming_emit_set_repeats): whether the
+  ! running pass drops a message already sent, the period whose messages
+  ! count (repeats_window_), and the keys sent under one label, the period's
+  ! in column 1 and a pass with its own in column 2 (repeats_own_); under
+  ! the writer lock.
+  logical, save :: repeats_drop_ = .false., repeats_own_ = .false.
+  integer(int64), save :: repeats_window_ = -huge(1_int64)
+  integer, save :: repeats_n_(2) = 0, repeats_label_(2) = -1
+  character(len=37), allocatable, save :: repeats_(:,:)
+  ! And its false decodes (streaming_emit_set_false_decodes): with no
+  ! special activity, and with Reduce false decodes; under the writer lock.
+  logical, save :: false_none_ = .false., false_reduce_ = .false.
+  ! From live audio, the GUI's points display (which spares a7 decodes), and
+  ! the pass's audio clock at its trigger; and WSJT-X's hold on a7 decodes
+  ! (no_a7_decodes), from a7_start_ to a7_end_ on the audio clock
+  ! (streaming_emit_set_a7_hold, set by the frame loop).
+  logical, save :: false_live_ = .false., false_points_ = .false.
+  real(8), save :: pass_fire_ = 0.d0
+  real(8), save :: a7_start_ = huge(1.d0), a7_end_ = -huge(1.d0)
   ! A change of the receive frequency (configure's dial_frequency, live)
   ! drops the decodes of a pass published under another, from its first line
   ! after the change, as WSJT-X drops an obsolete decode's output: whether
@@ -597,6 +621,9 @@ module streaming_emit
   public :: streaming_emit_decode
   public :: streaming_emit_set_pass
   public :: streaming_emit_set_submode
+  public :: streaming_emit_set_repeats
+  public :: streaming_emit_set_false_decodes
+  public :: streaming_emit_set_a7_hold
   public :: streaming_emit_pass
   public :: streaming_emit_time
   public :: streaming_emit_real
@@ -719,6 +746,12 @@ contains
     if (.not. present(training)) then
        if (streaming_emit_pass_obsolete()) return
     end if
+    ! The GUI's line plan takes its decoder process's lines: not MSK144's,
+    ! fast JT9's (the decodes with a period in JT9) or WSPR's.
+    if (trim(mode_str) .ne. 'MSK144' .and. trim(mode_str) .ne. 'WSPR' .and.  &
+         .not. (trim(mode_str) .eq. 'JT9' .and. present(period))) then
+       if (gui_drops_(mode_str, nutc, snr, dt, msg, ap, flags)) return
+    end if
 
     call format_utc_(nutc, time_str, utc_is_hhmmss, form)
     call streaming_emit_json_escape(msg, msg_escaped, msg_len)
@@ -733,7 +766,7 @@ contains
        if (superfox) marks = marks // ',"superfox":true'
     end if
     if (present(text_width)) marks = marks // ',"text_width":' // int_text_(text_width)
-    if (present(ap)) marks = marks // ',"ap":' // int_text_(ap)
+    if (present(ap)) marks = marks // ',"ap":' // int_text_(shown_ap_(mode_str, ap))
     if (present(sync)) marks = marks // ',"sync":"' // trim(sync) // '"'
     if (present(flags)) marks = marks // ',"flags":"' // trim(flags) // '"'
     if (present(q)) marks = marks // ',"q":' // int_text_(q)
@@ -787,6 +820,509 @@ contains
     submode_jt9_ = jt9
   end subroutine streaming_emit_set_submode
 
+  ! WSJT-X's FT8 duplicate rule for the stream host's next decode pass: with
+  ! drop, an FT8 decode whose message was already sent counting in window
+  ! is not sent, as the GUI rejects an "early duplicate"
+  ! (DecodeOutputPlan.cpp isFalseDecode, widgets/mainwindow.cpp
+  ! earlyDecodeKeys). The messages sent count in the window of the pass that
+  ! sent them, a period's number: a pass in another window starts it empty.
+  ! A window < 0 is the pass's own, empty at its start, which leaves the
+  ! period's as it was.
+  subroutine streaming_emit_set_repeats(drop, window)
+    logical,        intent(in) :: drop
+    integer(int64), intent(in) :: window
+    call hold_(.true.)
+    repeats_drop_ = drop
+    repeats_own_ = window .lt. 0
+    if (repeats_own_) then
+       repeats_n_(2) = 0
+    else
+       if (window .ne. repeats_window_) repeats_n_(1) = 0
+       repeats_window_ = window
+    end if
+    call hold_(.false.)
+  end subroutine streaming_emit_set_repeats
+
+  ! WSJT-X's false decodes for the stream host's next decode pass
+  ! (DecodeOutputPlan.cpp isFalseDecode): none, no special activity (the
+  ! GUI's SpecOp NONE); reduce, its Reduce false decodes; live, from live
+  ! audio (not the GUI's disk data); points, its points display
+  ! (MainWindow::readFromStdout's bDisplayPoints); fire, the pass's audio
+  ! clock at its trigger, before which none of its lines comes.
+  subroutine streaming_emit_set_false_decodes(none, reduce, live, points, fire)
+    logical, intent(in) :: none, reduce, live, points
+    real(8), intent(in) :: fire
+    call hold_(.true.)
+    false_none_ = none
+    false_reduce_ = reduce
+    false_live_ = live
+    false_points_ = points
+    pass_fire_ = fire
+    call hold_(.false.)
+  end subroutine streaming_emit_set_false_decodes
+
+  ! WSJT-X's hold on a7 decodes (no_a7_decodes, widgets/mainwindow_band.cpp)
+  ! from start to finish on the audio clock. One that starts while the hold
+  ! runs restarts it, as the GUI restarts its timer: it then ends at finish
+  ! and still holds from the earlier start, where a pass decoded after this
+  ! call (its audio sent ahead of time) can fall. One that starts after the
+  ! hold ended replaces it.
+  subroutine streaming_emit_set_a7_hold(start, finish)
+    real(8), intent(in) :: start, finish
+    call hold_(.true.)
+    if (.not. (start .ge. a7_start_ .and. start .lt. a7_end_)) a7_start_ = start
+    a7_end_ = finish
+    call hold_(.false.)
+  end subroutine streaming_emit_set_a7_hold
+
+  ! Whether a decode line written now falls in the a7 hold: written at the
+  ! audio clock now, or at its pass's trigger if that is later (audio sent
+  ! ahead of time is decoded early). Under the writer lock.
+  logical function a7_held_()
+    real(8) :: t
+    t = pass_fire_
+    if (associated(clock_)) t = max(t, clock_())
+    a7_held_ = t .ge. a7_start_ .and. t .lt. a7_end_
+  end function a7_held_
+
+  ! The AP mark a decode event carries: WSJT-X blanks an a7 mark while its
+  ! points display is on (DecodeOutputPlan.cpp prepareLine).
+  integer function shown_ap_(mode_str, ap)
+    character(len=*), intent(in) :: mode_str
+    integer,          intent(in) :: ap
+    shown_ap_ = ap
+    if (ap .ne. 7 .or. (trim(mode_str) .ne. 'FT8' .and. trim(mode_str) .ne. 'FT4')) return
+    call hold_(.true.)
+    if (false_points_) shown_ap_ = 0
+    call hold_(.false.)
+  end function shown_ap_
+
+  ! Whether the GUI's line plan rejects a decode of its decoder process, so
+  ! that no window shows it (DecodeOutputPlan.cpp prepareLine and
+  ! isFalseDecode): an a7 decode from live audio in the a7 hold, or in a
+  ! special activity without R, RR73 or CQ, unless the points display is on;
+  ! a suspicious low-SNR decode; a false decode by Reduce false decodes; or
+  ! an FT8 repeat (streaming_emit_set_repeats). Its rules read the message
+  ! as the GUI's DecodedText reads jt9's line, its AP mark (ap, JT4's and
+  ! JT65's flags, or an aN after a message, as from rx_messages.txt) and
+  ! low-confidence ? apart and its "TU; " taken out, with the GUI's parser
+  ! (lib/decoded_message.f90).
+  logical function gui_drops_(mode_str, nutc, snr, dt, msg, ap, flags)
+    use decoded_message, only: decoder_message_fields, parse_received_message
+    character(len=*),  intent(in) :: mode_str, msg
+    integer,           intent(in) :: nutc, snr
+    real,              intent(in) :: dt
+    integer, optional, intent(in) :: ap
+    character(len=*), optional, intent(in) :: flags
+    type(decoder_message_fields) :: fields
+    character(len=:), allocatable :: payload
+    character(len=len(msg)) :: shifted
+    character(len=37) :: word
+    logical :: low, ft8, exempt
+    integer :: first, mark, i
+    gui_drops_ = .false.
+    ft8 = trim(mode_str) .eq. 'FT8'
+    call hold_(.true.)
+    if (false_none_ .or. false_live_ .or. (ft8 .and. repeats_drop_)) then
+       call gui_payload_(mode_str, msg, payload, low, mark)
+       if (len(payload) .ge. 4) then
+          if (payload(1:4) .eq. 'TU; ') then
+             ! The GUI takes "TU; " out of the line (DecodeOutputPlan.cpp
+             ! prepareLine), and reads the line again.
+             first = verify(msg, ' ')
+             shifted = msg(:first - 1) // msg(first + 4:)
+             call gui_payload_(mode_str, shifted, payload, low, mark)
+          end if
+       end if
+       if (present(ap)) then
+          mark = ap
+       else if (present(flags)) then
+          if (len(flags) .ge. 2) then
+             if (flags(1:1) .eq. 'a' .and. index('0123456789', flags(2:2)) .gt. 0) &
+                  mark = index('0123456789', flags(2:2)) - 1
+          end if
+       end if
+       if (false_points_ .and. mark .eq. 7) mark = 0
+       if (mark .eq. 7 .and. false_live_) then
+          gui_drops_ = a7_held_()
+          if (.not. gui_drops_ .and. .not. false_none_) then
+             call parse_received_message(0_c_int, payload, fields)
+             exempt = fields%cq .ne. 0
+             do i = 1, fields%word_count
+                word = c_text_(fields%words(:, i))
+                if (word .eq. 'R' .or. word .eq. 'RR73') exempt = .true.
+             end do
+             gui_drops_ = .not. exempt
+          end if
+       end if
+       if (.not. gui_drops_ .and. false_none_)                               &
+            gui_drops_ = false_decode_(ft8, snr, dt, payload, low, mark)
+       if (.not. gui_drops_ .and. ft8 .and. repeats_drop_) gui_drops_ = repeated_(payload, nutc)
+    end if
+    call hold_(.false.)
+  end function gui_drops_
+
+  ! A decode's message as the GUI's DecodedText reads it from jt9's line:
+  ! without an annotation after it (an aN gives mark, the AP mark, else 0;
+  ! a ? before it sets low), taken where it starts past the message's last
+  ! column, or after a message of a report's shape; without the
+  ! low-confidence ? in that last column (22 in JT4, JT9 and JT65, else 37),
+  ! or after a message of a report's shape, which sets low; and trimmed.
+  subroutine gui_payload_(mode_str, msg, payload, low, mark)
+    character(len=*),              intent(in)  :: mode_str, msg
+    character(len=:), allocatable, intent(out) :: payload
+    logical,                       intent(out) :: low
+    integer,                       intent(out) :: mark
+    character(len=:), allocatable :: text, suffix
+    integer :: width, n, first, p, found
+    width = 37
+    if (legacy_(mode_str)) width = 22
+    low = .false.
+    mark = 0
+    ! The line's message region starts at its first character.
+    first = verify(msg, ' ')
+    if (first .eq. 0) then
+       payload = ''
+       return
+    end if
+    text = msg(first:)
+    ! The suffix: the leftmost (?:^|\s)(?:\?\s*)?annotation\s*$, first with
+    ! its blank at or past the last column, then anywhere.
+    n = len_trim(text)
+    found = -1
+    do p = width + 1, n
+       if (text(p:p) .eq. ' ' .and. annotation_(text(p + 1:n))) then
+          found = p
+          exit
+       end if
+    end do
+    if (found .lt. 0) then
+       do p = 0, n
+          if (p .gt. 0) then
+             if (text(p:p) .ne. ' ') cycle
+          end if
+          if (annotation_(text(p + 1:n))) then
+             suffix = adjustl(text(p + 1:n))
+             if (p + 1 + (len(text(p + 1:n)) - len(suffix)) .gt. width .or.  &
+                  annotation_payload_(mode_str, trim(adjustl(text(:p))))) found = p
+             exit
+          end if
+       end do
+    end if
+    if (found .ge. 0) then
+       suffix = trim(adjustl(text(found + 1:n)))
+       if (suffix(1:1) .eq. '?') then
+          low = .true.
+          suffix = trim(adjustl(suffix(2:)))
+       end if
+       if (len(suffix) .ge. 2) then
+          if (suffix(1:1) .eq. 'a' .and. index('0123456789', suffix(2:2)) .gt. 0) &
+               mark = index('0123456789', suffix(2:2)) - 1
+       end if
+       text = text(:found)
+    end if
+    if (len(text) .ge. width) then
+       if (text(width:width) .eq. '?') then
+          low = .true.
+          text(width:width) = ' '
+       end if
+    end if
+    payload = trim(adjustl(text))
+    n = len(payload)
+    if (n .gt. 0) then
+       if (payload(n:n) .eq. '?') then
+          if (annotation_payload_(mode_str, trim(payload(:n - 1)))) then
+             low = .true.
+             payload = trim(payload(:n - 1))
+          end if
+       end if
+    end if
+  end subroutine gui_payload_
+
+  ! Whether text, trailing blanks aside, is one of DecodeOutputPlan's
+  ! annotation suffixes (DecoderAnnotations.hpp suffix_pattern): an optional
+  ! ? and blanks, then aN, aNN, qN, qN#, qNN#, f, fN, dN, dNN or a d or q
+  ! and one blank and a digit (N a digit; q's second, f's and d's * too).
+  logical function annotation_(text)
+    character(len=*), intent(in) :: text
+    character(len=:), allocatable :: t
+    character(len=*), parameter :: digits = '0123456789', starred = '0123456789*'
+    integer :: n
+    annotation_ = .false.
+    t = trim(text)
+    if (len(t) .eq. 0) return
+    if (t(1:1) .eq. '?') t = adjustl(t(2:))
+    t = trim(t)
+    n = len(t)
+    if (n .eq. 0) return
+    select case (t(1:1))
+    case ('a')
+       if (n .eq. 3 .and. t(2:2) .eq. ' ') then
+          annotation_ = index(starred, t(3:3)) .gt. 0
+       else
+          annotation_ = (n .eq. 2 .or. n .eq. 3) .and. verify(t(2:), digits) .eq. 0
+       end if
+    case ('q')
+       if (n .eq. 3 .and. t(2:2) .eq. ' ') then
+          annotation_ = index(starred, t(3:3)) .gt. 0
+       else if (n .ge. 2 .and. index(digits, t(2:2)) .gt. 0) then
+          select case (n)
+          case (2)
+             annotation_ = .true.
+          case (3)
+             annotation_ = index(starred, t(3:3)) .gt. 0 .or. t(3:3) .eq. '#'
+          case (4)
+             annotation_ = index(starred, t(3:3)) .gt. 0 .and. t(4:4) .eq. '#'
+          end select
+       end if
+    case ('f')
+       annotation_ = n .eq. 1 .or. (n .eq. 2 .and. index(starred, t(2:2)) .gt. 0)
+    case ('d')
+       if (n .eq. 3 .and. t(2:2) .eq. ' ') then
+          annotation_ = index(starred, t(3:3)) .gt. 0
+       else
+          annotation_ = (n .eq. 2 .or. n .eq. 3) .and. verify(t(2:), starred) .eq. 0
+       end if
+    end select
+  end function annotation_
+
+  ! The modes whose lines carry a 22-character message (the GUI's $, @ and #).
+  logical function legacy_(mode_str)
+    character(len=*), intent(in) :: mode_str
+    legacy_ = trim(mode_str) .eq. 'JT4' .or. trim(mode_str) .eq. 'JT9' .or.  &
+         trim(mode_str) .eq. 'JT65'
+  end function legacy_
+
+  ! DecodedText's annotation_payload: a standard message, JT4's or JT65's
+  ! RO, RRR or 73, or two resolved calls and a 73, RR73 or report.
+  logical function annotation_payload_(mode_str, text)
+    use decoded_message, only: decoder_message_fields, parse_received_message
+    character(len=*), intent(in) :: mode_str, text
+    type(decoder_message_fields) :: fields
+    character(len=37) :: exchange, value
+    integer :: report, ios
+    annotation_payload_ = standard_payload_(mode_str, text)
+    if (annotation_payload_) return
+    if (trim(mode_str) .eq. 'JT4' .or. trim(mode_str) .eq. 'JT65') then
+       annotation_payload_ = text .eq. 'RO' .or. text .eq. 'RRR' .or. text .eq. '73'
+       if (annotation_payload_) return
+    end if
+    if (len(text) .gt. 37) return
+    call parse_received_message(0_c_int, text, fields)
+    if (fields%malformed .ne. 0 .or. fields%word_count .ne. 3 .or.          &
+         fields%word_count - fields%exchange_first_word .ne. 1) return
+    if (.not. resolved_call_(c_text_(fields%destination), fields%destination_state)) return
+    if (.not. resolved_call_(c_text_(fields%sender), fields%sender_state)) return
+    exchange = c_text_(fields%exchange)
+    if (exchange .eq. '73' .or. exchange .eq. 'RR73') then
+       annotation_payload_ = .true.
+       return
+    end if
+    value = exchange
+    if (value(1:1) .eq. 'R') value = value(2:)
+    if (len_trim(value) .ne. 3 .or. index('+-', value(1:1)) .eq. 0 .or.     &
+         verify(value(2:3), '0123456789') .ne. 0) return
+    read(value, *, iostat=ios) report
+    annotation_payload_ = ios .eq. 0 .and. report .ge. -50 .and. report .le. 49
+  end function annotation_payload_
+
+  ! DecodedText's standard_payload: JT4's, JT9's and JT65's by stdmsg72,
+  ! the others' by the parser.
+  logical function standard_payload_(mode_str, text)
+    use, intrinsic :: iso_c_binding, only: c_bool
+    use decoded_message, only: decoder_message_fields, parse_received_message
+    character(len=*), intent(in) :: mode_str, text
+    interface
+       function stdmsg72(msg0, is_jt65)
+         import c_bool
+         character(len=37), intent(in) :: msg0
+         logical(c_bool),   intent(in) :: is_jt65
+         logical(c_bool) :: stdmsg72
+       end function stdmsg72
+    end interface
+    type(decoder_message_fields) :: fields
+    character(len=37) :: padded
+    standard_payload_ = .false.
+    if (len(text) .eq. 0 .or. len(text) .gt. 37) return
+    if (legacy_(mode_str)) then
+       padded = text
+       standard_payload_ = stdmsg72(padded, logical(trim(mode_str) .eq. 'JT65', c_bool))
+    else
+       call parse_received_message(0_c_int, text, fields)
+       standard_payload_ = fields%structured .ne. 0
+    end if
+  end function standard_payload_
+
+  ! DecodedText's resolved call: a literal call or a resolved hash, 3 to 11
+  ! characters, with a letter next to a digit.
+  logical function resolved_call_(call, state)
+    character(len=*), intent(in) :: call
+    integer(c_int),   intent(in) :: state
+    integer :: i, n
+    logical :: d1, d2
+    resolved_call_ = .false.
+    n = len_trim(call)
+    if ((state .ne. 1 .and. state .ne. 2) .or. n .lt. 3 .or. n .gt. 11) return
+    do i = 1, n - 1
+       d1 = index('0123456789', call(i:i)) .gt. 0
+       d2 = index('0123456789', call(i + 1:i + 1)) .gt. 0
+       if ((d1 .and. upper_(call(i + 1:i + 1))) .or. (d2 .and. upper_(call(i:i)))) then
+          resolved_call_ = .true.
+          return
+       end if
+    end do
+  end function resolved_call_
+
+  logical function upper_(c)
+    character, intent(in) :: c
+    upper_ = c .ge. 'A' .and. c .le. 'Z'
+  end function upper_
+
+  ! A parser field's text.
+  function c_text_(chars) result(text)
+    character(c_char), intent(in) :: chars(:)
+    character(len=size(chars)) :: text
+    integer :: i
+    text = ''
+    do i = 1, size(chars)
+       if (chars(i) .eq. achar(0)) exit
+       text(i:i) = chars(i)
+    end do
+  end function c_text_
+
+  ! isFalseDecode's suspicious low-SNR decode (no special activity, as the
+  ! caller checks) and, in FT8 with Reduce false decodes, its false decode,
+  ! for a message as gui_payload_ reads it; dt as jt9 prints it (f5.1). An
+  ! a7 mark comes as 0 while the points display is on (gui_drops_), as the
+  ! GUI's ap is then.
+  logical function false_decode_(ft8, snr, dt, text, low, ap)
+    use decoded_message, only: decoder_message_fields, parse_received_message
+    logical,          intent(in) :: ft8, low
+    integer,          intent(in) :: snr, ap
+    real,             intent(in) :: dt
+    character(len=*), intent(in) :: text
+    type(decoder_message_fields) :: fields
+    character(len=37) :: destination, sender, acknowledged
+    character(len=8) :: shown
+    logical :: roger, two_hashes, rover, portable, unresolved, dual, timing, shape
+    real :: printed
+    integer :: i, ios
+    ! A message over 37 characters has no fields, as for the GUI's parse.
+    call parse_received_message(0_c_int, text, fields)
+    destination = c_text_(fields%destination)
+    sender = c_text_(fields%sender)
+    acknowledged = c_text_(fields%acknowledged_recipient)
+    roger = .false.
+    do i = 1, fields%word_count
+       if (c_text_(fields%words(:, i)) .eq. 'R') roger = .true.
+    end do
+    two_hashes = (fields%destination_state .eq. 2 .or. fields%destination_state .eq. 3) .and. &
+         (fields%sender_state .eq. 2 .or. fields%sender_state .eq. 3)
+    rover = ends_(destination, '/R') .or. ends_(sender, '/R')
+    portable = ends_(destination, '/P') .or. ends_(sender, '/P')
+    unresolved = destination .eq. '...' .or. sender .eq. '...' .or. acknowledged .eq. '...'
+    dual = len_trim(acknowledged) .gt. 0 .or. index(text, ';') .gt. 0
+    false_decode_ = snr .lt. -12 .and. (two_hashes .or.                      &
+         (ends_(destination, '/P') .and. ends_(sender, '/P')) .or.          &
+         (ends_(destination, '/R') .and. ends_(sender, '/R')) .or.          &
+         (rover .and. low) .or. (dual .and. roger))
+    if (false_decode_ .or. .not. (ft8 .and. false_reduce_)) return
+    write(shown, '(f5.1)') dt
+    read(shown, *, iostat=ios) printed
+    if (ios .ne. 0) printed = 0.
+    timing = abs(printed) .ge. 2.0
+    shape = (portable .and. roger) .or. (dual .and. rover) .or.              &
+         (dual .and. portable) .or. (unresolved .and. roger) .or.           &
+         (unresolved .and. portable) .or. (unresolved .and. dual) .or.      &
+         word_run_(text) .or. digit_groups_(text) .or. timing
+    false_decode_ = (shape .and. snr .lt. -15) .or.                          &
+         ((rover .or. roger) .and. snr .lt. -18) .or.                       &
+         ((unresolved .or. dual .or. (low .and. ap .ne. 0) .or. rover .or.  &
+         roger .or. snr .lt. -20) .and. timing)
+  end function false_decode_
+
+  logical function ends_(text, tail)
+    character(len=*), intent(in) :: text, tail
+    integer :: n
+    n = len_trim(text)
+    ends_ = n .ge. len(tail)
+    if (ends_) ends_ = text(n - len(tail) + 1:n) .eq. tail
+  end function ends_
+
+  ! Eight word characters in a row (the GUI's \w{8}).
+  logical function word_run_(text)
+    character(len=*), intent(in) :: text
+    integer :: i, run
+    word_run_ = .false.
+    run = 0
+    do i = 1, len(text)
+       if (index('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_', &
+            text(i:i)) .gt. 0) then
+          run = run + 1
+          if (run .ge. 8) word_run_ = .true.
+       else
+          run = 0
+       end if
+    end do
+  end function word_run_
+
+  ! Three digits, a space and three digits (the GUI's \d\d\d \d\d\d).
+  logical function digit_groups_(text)
+    character(len=*), intent(in) :: text
+    integer :: i
+    digit_groups_ = .false.
+    do i = 1, len(text) - 6
+       if (verify(text(i:i + 2), '0123456789') .eq. 0 .and. text(i + 3:i + 3) .eq. ' ' .and. &
+            verify(text(i + 4:i + 6), '0123456789') .eq. 0) digit_groups_ = .true.
+    end do
+  end function digit_groups_
+
+  ! Whether an FT8 decode of the message text repeats a message already sent
+  ! in the window under its label, nutc (a label changed within a period
+  ! starts the period's count again); a message not sent before counts from
+  ! now on. Under the writer lock. The GUI's key
+  ! (DecodeOutputPlan::duplicateKey) is the message's words as its parser
+  ! reads them, which leaves out angle brackets and a leading TU;, and a
+  ! message with a malformed call has none.
+  logical function repeated_(text, nutc)
+    use decoded_message, only: decoder_message_fields, parse_received_message
+    character(len=*), intent(in) :: text
+    integer,          intent(in) :: nutc
+    type(decoder_message_fields) :: fields
+    character(len=37) :: key
+    character(len=37), allocatable :: grown(:,:)
+    integer :: i, c, n
+    repeated_ = .false.
+    key = ''
+    if (len(text) .le. 37) then
+       call parse_received_message(0_c_int, text, fields)
+       if (fields%malformed .eq. 0) then
+          do i = 1, fields%word_count
+             if (i .eq. 1) then
+                key = c_text_(fields%words(:, i))
+             else
+                key = trim(key) // ' ' // trim(c_text_(fields%words(:, i)))
+             end if
+          end do
+       end if
+    end if
+    if (len_trim(key) .eq. 0) return
+    c = merge(2, 1, repeats_own_)
+    if (repeats_label_(c) .ne. nutc) repeats_n_(c) = 0
+    repeats_label_(c) = nutc
+    n = repeats_n_(c)
+    if (n .gt. 0) repeated_ = any(repeats_(:n, c) .eq. key)
+    if (repeated_) return
+    if (.not. allocated(repeats_)) allocate(repeats_(256, 2))
+    if (n .eq. size(repeats_, 1)) then
+       allocate(grown(2 * n, 2))
+       grown(:n, :) = repeats_
+       call move_alloc(grown, repeats_)
+    end if
+    repeats_n_(c) = n + 1
+    repeats_(n + 1, c) = key
+  end function repeated_
+
   ! The half-symbol stop of the stream host's decode pass, which a decode's
   ! "pass" carries (0: none yet), for the side lines (lib/streaming_side.f90).
   integer function streaming_emit_pass()
@@ -812,7 +1348,9 @@ contains
 
   ! A line of rx_messages.txt, which the FT8 decoder returns as its decodes
   ! (lib/ft8_engine_kernel.f90): read as jt9's FT8 line, a decode event, else
-  ! stderr, so that stdout stays JSON.
+  ! stderr, so that stdout stays JSON. Its message is columns 25 to 64: jt9's
+  ! 37-column message, with the low-confidence ? in its last, and the AP mark
+  ! after it, which the GUI reads from the line as the codec does.
   subroutine streaming_emit_replay_line(line)
     use, intrinsic :: iso_fortran_env, only: error_unit
     character(len=*), intent(in) :: line
@@ -825,8 +1363,8 @@ contains
        write(error_unit, '(a)') trim(line)
        return
     end if
-    call streaming_emit_decode('FT8', utc, snr, dt, freq, padded(25:60),     &
-         .true., text_width=len_trim(padded(25:60)))
+    call streaming_emit_decode('FT8', utc, snr, dt, freq, padded(25:64),     &
+         .true., text_width=len_trim(padded(25:64)))
   end subroutine streaming_emit_replay_line
 
   subroutine streaming_emit_hold_finished(hold)
@@ -1121,7 +1659,7 @@ contains
     call put_('{"v":1,"t":"error","msg":"' // msg_escaped(1:msg_len) // '"}')
   end subroutine streaming_emit_error
 
-  ! Structured configure-frame error (RFC v1 §4.1). Machine-readable `code`
+  ! Structured configure-frame error. Machine-readable `code`
   ! plus a free-text `detail` (JSON-escaped). Used for configure_parse_error.
   !   {"v":1,"t":"error","code":"<code>","detail":"<detail>"}
   subroutine streaming_emit_error_code(code, detail)
@@ -1135,7 +1673,7 @@ contains
          '","detail":"' // d_escaped(1:d_len) // '"}')
   end subroutine streaming_emit_error_code
 
-  ! Unknown schema-version error (RFC v1 §3/§4.1). `got` is the rejected
+  ! Unknown schema-version error. `got` is the rejected
   ! schema version the producer sent in the configure frame.
   !   {"v":1,"t":"error","code":"unknown_schema_version","got":<n>}
   subroutine streaming_emit_error_version(got)
@@ -1148,7 +1686,7 @@ contains
     call put_(trim(line))
   end subroutine streaming_emit_error_version
 
-  ! Per-key type-mismatch error (RFC v1 §4.1). The producer sent `key` with a
+  ! Per-key type-mismatch error. The producer sent `key` with a
   ! JSON value of type `got` where the schema expects `expected`; the whole
   ! configure frame is declined (no partial application). `key`/`expected`/`got`
   ! are controlled-vocabulary ASCII tokens (no escaping needed).
@@ -1222,7 +1760,8 @@ contains
   end subroutine streaming_emit_set_obsolete_source
 
   ! Whether the running decode pass is obsolete, its decode and side lines
-  ! dropped: a change of the receive frequency since it was published.
+  ! dropped: a change of the receive frequency or of the decode identity
+  ! since it was published (lib/stream_decode.c).
   logical function streaming_emit_pass_obsolete()
     streaming_emit_pass_obsolete = .false.
     if (associated(obsolete_)) streaming_emit_pass_obsolete = obsolete_() .ne. 0

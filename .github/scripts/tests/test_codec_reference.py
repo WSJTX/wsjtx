@@ -125,7 +125,8 @@ class CopyTest(unittest.TestCase):
 
     def test_a_name_added_to_the_source_needs_a_row(self):
         control = self.repo / check.CONTROL_SOURCE
-        self.edit(control, "    call pack_phase9_(cfg, terr)\n", "    call get_int_(buf, '\"spectrum_rows\"', int_val, ok)\n    call pack_phase9_(cfg, terr)\n")
+        self.edit(control, "    call pack_ndepth_nexp_decode_(cfg, terr)\n",
+                  "    call get_int_(buf, '\"spectrum_rows\"', int_val, ok)\n    call pack_ndepth_nexp_decode_(cfg, terr)\n")
         emit = self.repo / "lib/streaming_emit.f90"
         self.edit(emit, "contains\n", "contains\n  subroutine emit_spectrum_()\n    call put_('{\"v\":1,\"t\":\"spectrum_probe\"}')\n"
                   "    call streaming_emit_error_code('spectrum_file', 'x')\n  end subroutine emit_spectrum_\n")
@@ -280,6 +281,7 @@ class PatternTest(unittest.TestCase):
             "    call get_int_(buf, '\"depth\"', v, ok)  ! '\"not_a_key\"'\n"
             "    character(len=*), parameter :: KEYS(3) = [character(len=8) :: 't', 'id', &\n"
             "         'freq    ']\n"
+            "    key = unknown_key_(buf, KEYS)\n"
             "    s = 'it''s ! not a comment' // x // '\"quoted\"'\n")
         (self.repo / "lib/streaming_emit.f90").write_text(
             "    call put_('{\"v\":1,\"t\":\"ready\"}')  ! \"t\":\"comment_line\"\n"
@@ -397,6 +399,78 @@ class PatternTest(unittest.TestCase):
         names = check.source_names(check.Source(self.repo))
         self.assertEqual(names["request_keys"], {"tone_count"})
         self.assertEqual(names["keys"], set())
+
+    def test_keys_in_a_routine_only_request_routines_call_are_request_keys(self):
+        (self.repo / check.CONTROL_SOURCE).write_text(
+            "  subroutine parse_control_frame(buf)\n"
+            "    call shared_(buf)\n"
+            "  end subroutine parse_control_frame\n"
+            "  subroutine parse_jtty_request_(buf)\n"
+            "    call open_object_(buf)\n"
+            "    call shared_(buf)\n"
+            "    call encoder_shared_(buf)\n"
+            "  end subroutine parse_jtty_request_\n"
+            "  subroutine open_object_(buf)\n"
+            "    call find_key_(buf, '\"open\"', vstart, blen, present)\n"
+            "    call open_inner_(buf)\n"
+            "  end subroutine open_object_\n"
+            "  subroutine open_inner_(buf)\n"
+            "    call find_key_(buf, '\"columns\"', vstart, blen, present)\n"
+            "  end subroutine open_inner_\n"
+            "  subroutine shared_(buf)\n"
+            "    call get_int_(buf, '\"both\"', v, ok)\n"
+            "  end subroutine shared_\n"
+            "  subroutine encoder_shared_(buf)\n"
+            "    call get_int_(buf, '\"also_encoder\"', v, ok)\n"
+            "  end subroutine encoder_shared_\n"
+            "  subroutine uncalled_(buf)\n"
+            "    call get_int_(buf, '\"alone\"', v, ok)\n"
+            "  end subroutine uncalled_\n")
+        (self.repo / "lib/streaming_encode.f90").write_text(
+            "  subroutine slot_encode_(frame)\n"
+            "    call encoder_shared_(frame)\n"
+            "  end subroutine slot_encode_\n")
+        names = check.source_names(check.Source(self.repo))
+        self.assertEqual(names["request_keys"], {"open", "columns"})
+        self.assertEqual(names["keys"], {"both", "also_encoder", "alone"})
+
+    def test_only_key_lists_give_keys(self):
+        (self.repo / check.CONTROL_SOURCE).write_text(
+            "  subroutine parse_control_frame(buf)\n"
+            "    call get_int_(buf, '\"mode\"', v, ok)\n"
+            "    n = special_op_of_(s)\n"
+            "  end subroutine parse_control_frame\n"
+            "  pure function special_op_of_(s) result(n)\n"
+            "    character(len=10), parameter :: names(3) = [character(len=10) :: 'none', 'fox', 'hound']\n"
+            "    n = findloc(names, s, 1) - 1\n"
+            "  end function special_op_of_\n"
+            "  subroutine parse_heard_request(buf)\n"
+            "    character(len=*), parameter :: KEYS(2) = [character(len=4) :: 't', 'text']\n"
+            "    key = unknown_key_(buf, KEYS)\n"
+            "  end subroutine parse_heard_request\n"
+            "  subroutine parse_jtty_request_(buf)\n"
+            "    character(len=*), parameter :: OPEN_KEYS(1) = [character(len=7) :: 'columns']\n"
+            "    character(len=*), parameter :: WIDTH_KEYS(1) = [character(len=5) :: 'width']\n"
+            "    character(len=*), parameter :: ALL_KEYS(2) = [character(len=5) :: 'id', WIDTH_KEYS]\n"
+            "    ok = len(unknown_key_(inner, OPEN_KEYS)) .eq. 0\n"
+            "    key = unknown_key_(buf, ALL_KEYS(1:2))\n"
+            "  end subroutine parse_jtty_request_\n")
+        names = check.source_names(check.Source(self.repo))
+        self.assertEqual(names["keys"], {"mode"})
+        self.assertEqual(names["request_keys"], {"t", "text", "columns", "id", "width"})
+        self.assertEqual(check.source_guards(check.Source(self.repo)), [])
+
+    def test_a_free_text_value_from_outside_a_literal_passes(self):
+        problems = self.guards("lib/streaming_encode.f90",
+                               "    call emit_line_('{\"v\":1,\"t\":\"rendered\",\"id\":' // id // ',\"state\":\"' // &\n"
+                               "         next(1:nnext) // '\"}')\n")
+        self.assertEqual(problems, "")
+        problems = self.guards("lib/streaming_jtty.f90",
+                               "    call emit_line_('{\"v\":1,\"t\":\"jtty_update\",\"state\":\"' // next(1:nnext) // '\"}')\n"
+                               "    call put_('{\"v\":1,\"t\":\"rejected\",\"reason\":\"' // why // '\"}')\n")
+        self.assertIn("unparsed state, written from outside a literal", problems)
+        self.assertIn("unparsed jtty_update state", problems)
+        self.assertIn("unparsed reason, written from outside a literal", problems)
 
     def test_names_outside_the_name_characters_fail(self):
         problems = self.guards("lib/streaming_receive.f90",

@@ -27,7 +27,7 @@ constexpr int SampleRate = 12000;
 constexpr int BlockSamples = 3584;
 // A paced client's frame, 0.1 s of audio.
 constexpr int FrameSamples = 1200;
-constexpr char MarkerDetail[] = "malformed control frame (missing or invalid t field)";
+constexpr char MarkerDetail[] = "malformed control frame (not one JSON object with a string t)";
 
 // One wait covers a session; sanitizer builds raise QtTest's limit and this with it.
 int waitMs ()
@@ -889,7 +889,8 @@ void addRecordingRows (QString const& name, QByteArray const& pcm, QString const
   plain.decodes << message;
   QTest::newRow (qPrintable (name + " defaults")) << one ({}, pcm, utc) << plain;
   QTest::newRow (qPrintable (name + " live audio")) << one ({{"live_audio", true}}, pcm, utc) << plain;
-  for (auto const depth : {1, 2, 5})
+  // 241: Fast with every Decode menu bit, which MSK144 does not read.
+  for (auto const depth : {1, 2, 241})
     {
       QTest::newRow (qPrintable (QString {"%1 depth %2"}.arg (name).arg (depth)))
         << one ({{"depth", depth}}, pcm, utc) << Expect {};
@@ -1084,9 +1085,10 @@ private slots:
       << one (with (other, {{"swl", true}, {"short_messages", true}}), shortMessage, "00:00:00")
       << expectDecodes ({"<4002> R+06"});
 
-    // A weak long ping, which averaging decodes; the GUI's depth is depth & 3.
+    // A weak long ping, which averaging decodes; the GUI's depth is depth & 3
+    // (241: Fast with every Decode menu bit).
     auto const weak = simulated ("depth");
-    for (auto const depth : {1, 2, 3, 5})
+    for (auto const depth : {1, 2, 3, 241})
       {
         QTest::newRow (qPrintable (QString {"depth %1"}.arg (depth)))
           << one (with (calls, {{"depth", depth}}), weak, "00:00:00") << Expect {};
@@ -1344,7 +1346,8 @@ private slots:
     row ("a leading zero", "[0,0,00,0,0]", parse);
     row ("a missing element", "[0,0,,0,0]", parse);
     row ("a trailing comma", "[0,0,0,0,0,]", parse);
-    row ("unclosed", "[0,0,0,0,0", parse);
+    // An array that never closes leaves the frame's object unclosed, which
+    // declines the frame as a whole (test_streaming_control.f90).
     // The stream stays in MSK144, and the error names the mode the frame would have left it in.
     row ("four, with a mode change", "[0,0,0,0]", range, {}, R"("mode":"FT8",)", 0);
   }

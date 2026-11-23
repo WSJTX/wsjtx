@@ -25,6 +25,7 @@
 #include <deque>
 #include <exception>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -64,7 +65,17 @@ const char AUDIO = 0x01, CONTROL = 0x02;  // frame types
 // Session header: magic, sample format 0 (int16), 1 channel, rate in kHz (uint16 little-endian).
 const char HEADER[8] = {'W', 'S', 'J', 'T', 0, 1, 12, 0};
 enum Status { OK = 0, FAILED = 1, USAGE = 2, HUNG = 3 };  // exit status
-const int EXIT_SECONDS = 10;  // how long the codec has to exit once its output ends, or after halt on a failure
+const int EXIT_SECONDS = 10;      // how long the codec has to exit once its output ends, or after halt on a failure
+const int RELEASE_SECONDS = 2;    // how long, once the codec has exited, the client waits for its pipes to close, its output included, and its writes to them to finish: a process the codec started can hold them open
+// Outside live, how long the codec may send no line: 300 s, the longest interface.md allows a decode pass between progress lines in FT8 and FT4. For the examples' check only (README.md, "The check"), not a setting: CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, a whole number from 1 to 300, shortens it, so that a run that checks it need not last 300 s.
+int silenceSeconds() {
+  const char *check = std::getenv("CODEC_EXAMPLE_CHECK_SILENCE_SECONDS");
+  const size_t n = check ? std::strlen(check) : 0;
+  if (n < 1 || n > 3 || !std::all_of(check, check + n, [](char c) { return c >= '0' && c <= '9'; })) return 300;
+  const int seconds = std::atoi(check);
+  return seconds >= 1 && seconds <= 300 ? seconds : 300;
+}
+const int SILENCE_SECONDS = silenceSeconds();
 
 struct Mode {
   const char *name;
@@ -498,6 +509,130 @@ struct Line {
   Json json;
 };
 
+// A thread the client can stop waiting for: one blocked on a pipe that a process the codec started holds open does not end. Its task holds a share of all it uses, so the thread can outlive what started it.
+class Worker {
+ public:
+  Worker() = default;
+  explicit Worker(std::function<void()> task) : state_(std::make_shared<State>()) {
+    thread_ = std::thread([state = state_, task = std::move(task)] {
+      task();
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->done = true;
+      state->changed.notify_all();
+    });
+  }
+  Worker(Worker &&) = default;
+  Worker &operator=(Worker &&) = default;
+  ~Worker() {
+    if (thread_.joinable()) thread_.detach();
+  }
+
+  // Waits for the thread to end, until the deadline at most, then lets go of it: true when it ended.
+  bool finish(std::chrono::steady_clock::time_point deadline) {
+    if (!thread_.joinable()) return true;
+    std::unique_lock<std::mutex> lock(state_->mutex);
+    const bool done = state_->changed.wait_until(lock, deadline, [this] { return state_->done; });
+    lock.unlock();
+    if (done)
+      thread_.join();
+    else
+      thread_.detach();
+    return done;
+  }
+
+ private:
+  struct State {
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool done = false;
+  };
+  std::shared_ptr<State> state_;
+  std::thread thread_;
+};
+
+// The codec's standard input. The thread that writes the audio holds a share of it: blocked on the pipe, it can outlive the Codec.
+class Input {
+ public:
+  explicit Input(Pipe pipe) : pipe_(pipe) {}
+  Input(const Input &) = delete;
+  Input &operator=(const Input &) = delete;
+  ~Input() { closePipe(pipe_); }
+
+  // A broken pipe means the codec has exited, and its lines and exit status say why.
+  void write(const std::string &bytes) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (pipe_ != NO_PIPE && !writePipe(pipe_, bytes.data(), bytes.size())) closePipe(pipe_);
+  }
+
+  void send(const std::string &json) { write(frame(CONTROL, json)); }
+
+  bool open() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return pipe_ != NO_PIPE;
+  }
+
+  // Decodes what is in, ends the session and closes the codec's input.
+  void halt() {
+    send("{\"t\":\"halt\"}");
+    std::lock_guard<std::mutex> lock(mutex_);
+    closePipe(pipe_);
+  }
+
+ private:
+  std::mutex mutex_;
+  Pipe pipe_;
+};
+
+// The codec's standard output, as lines, for the client to take. The thread that reads the pipe holds a share of it: blocked on the pipe, it can outlive the Codec.
+struct Output {
+  std::mutex mutex;
+  std::condition_variable changed;
+  std::deque<Line> lines;
+  bool ended = false;  // the pipe has ended
+};
+
+void addLine(Output &output, std::string text) {
+  if (!text.empty() && text.back() == '\r') text.pop_back();  // lines end in CRLF on Windows
+  Line line;
+  if (!JsonReader(text).read(line.json) || line.json.type != Json::Object) {
+    std::fprintf(stderr, "codec_client: not JSON: %s\n", text.c_str());
+    return;
+  }
+  line.text = std::move(text);
+  std::lock_guard<std::mutex> lock(output.mutex);
+  output.lines.push_back(std::move(line));
+  output.changed.notify_all();
+}
+
+// Reads the codec's standard output into lines until it ends, then closes the pipe.
+void readOutput(Pipe pipe, Output &output) {
+  std::string pending;
+  char buffer[16384];
+  while (const size_t n = readPipe(pipe, buffer, sizeof buffer)) {
+    pending.append(buffer, n);
+    size_t end;
+    while ((end = pending.find('\n')) != std::string::npos) {
+      addLine(output, pending.substr(0, end));
+      pending.erase(0, end + 1);
+    }
+  }
+  if (!pending.empty()) addLine(output, pending);
+  closePipe(pipe);
+  std::lock_guard<std::mutex> lock(output.mutex);
+  output.ended = true;
+  output.changed.notify_all();
+}
+
+// Passes the codec's standard error to ours until it ends, then closes the pipe: diagnostics for people, not for parsing.
+void readErrors(Pipe pipe) {
+  char buffer[4096];
+  while (const size_t n = readPipe(pipe, buffer, sizeof buffer)) {
+    std::fwrite(buffer, 1, n, stderr);
+    std::fflush(stderr);
+  }
+  closePipe(pipe);
+}
+
 // One wsjt-codec process: frames go to its stdin; each stdout line comes back as a Line; its stderr goes to ours.
 class Codec {
  public:
@@ -518,21 +653,19 @@ class Codec {
     // One start at a time: a codec started while another's pipes are being made would inherit them, and would hold that codec's input open.
     static std::mutex starting;
     std::lock_guard<std::mutex> hold(starting);
+    Pipe input = NO_PIPE, output = NO_PIPE, errors = NO_PIPE;  // this client's ends
 #ifdef _WIN32
     SECURITY_ATTRIBUTES inherited{};
     inherited.nLength = sizeof inherited;
     inherited.bInheritHandle = TRUE;
     HANDLE in = nullptr, out = nullptr, err = nullptr;
-    if (!CreatePipe(&in, &input_, &inherited, 0) || !CreatePipe(&output_, &out, &inherited, 0) || !CreatePipe(&errors_, &err, &inherited, 0)) {
+    if (!CreatePipe(&in, &input, &inherited, 0) || !CreatePipe(&output, &out, &inherited, 0) || !CreatePipe(&errors, &err, &inherited, 0)) {
       error = "cannot create pipes";
-      for (HANDLE made : {in, out, err})
+      for (HANDLE made : {in, out, err, input, output, errors})
         if (made) CloseHandle(made);
-      closePipe(input_);
-      closePipe(output_);
-      closePipe(errors_);
       return false;
     }
-    for (HANDLE own : {input_, output_, errors_}) SetHandleInformation(own, HANDLE_FLAG_INHERIT, 0);
+    for (HANDLE own : {input, output, errors}) SetHandleInformation(own, HANDLE_FLAG_INHERIT, 0);
     // The codec inherits only its ends: without a handle list it would inherit every inheritable handle this program holds, its own standard handles included.
     HANDLE ends[] = {in, out, err};
     SIZE_T size = 0;
@@ -560,9 +693,7 @@ class Codec {
     for (HANDLE theirs : {in, out, err}) CloseHandle(theirs);
     if (!started) {
       error = "Windows error " + std::to_string(failure);
-      closePipe(input_);
-      closePipe(output_);
-      closePipe(errors_);
+      for (Pipe own : {input, output, errors}) closePipe(own);
       return false;
     }
     CloseHandle(process.hThread);
@@ -591,57 +722,49 @@ class Codec {
       _exit(127);  // its stdout ends before ready, which the client reports
     }
     for (int theirs : {in[0], out[1], err[1]}) close(theirs);
-    input_ = in[1];
-    output_ = out[0];
-    errors_ = err[0];
+    input = in[1];
+    output = out[0];
+    errors = err[0];
     if (pid_ < 0) {
       error = std::strerror(errno);
-      closePipe(input_);
-      closePipe(output_);
-      closePipe(errors_);
+      for (Pipe own : {input, output, errors}) closePipe(own);
       return false;
     }
 #endif
     running_ = true;
-    // Read stdout and stderr on their own threads: a pipe left full stops the codec.
-    outputReader_ = std::thread([this] { readOutput(); });
-    errorReader_ = std::thread([this] { readErrors(); });
-    write(std::string(HEADER, sizeof HEADER));
+    input_ = std::make_shared<Input>(input);
+    // Read stdout and stderr on their own threads: a pipe left full stops the codec. Each thread closes its pipe when the pipe ends.
+    outputReader_ = Worker([output, lines = output_] { readOutput(output, *lines); });
+    errorReader_ = Worker([errors] { readErrors(errors); });
+    input_->write(std::string(HEADER, sizeof HEADER));
     return true;
   }
 
-  // Writes to the codec's stdin. A broken pipe means the codec has exited, and its lines and exit status say why.
-  void write(const std::string &bytes) {
-    std::lock_guard<std::mutex> lock(inputMutex_);
-    if (input_ != NO_PIPE && !writePipe(input_, bytes.data(), bytes.size())) closePipe(input_);
-  }
+  // The codec's standard input, which the thread that writes the audio shares.
+  std::shared_ptr<Input> input() const { return input_; }
 
-  void send(const std::string &json) { write(frame(CONTROL, json)); }
+  void send(const std::string &json) { input_->send(json); }
 
-  bool inputOpen() {
-    std::lock_guard<std::mutex> lock(inputMutex_);
-    return input_ != NO_PIPE;
-  }
+  void halt() { input_->halt(); }
 
-  // Decodes what is in, ends the session and closes the codec's input.
-  void halt() {
-    send("{\"t\":\"halt\"}");
-    std::lock_guard<std::mutex> lock(inputMutex_);
-    closePipe(input_);
-  }
-
-  // The next line, waiting at most timeout for it when one is given.
-  Got next(Line &line, std::chrono::milliseconds timeout = std::chrono::milliseconds(-1)) {
-    std::unique_lock<std::mutex> lock(linesMutex_);
-    auto ready = [this] { return !lines_.empty() || ended_; };
-    if (timeout.count() < 0)
-      linesReady_.wait(lock, ready);
-    else if (!linesReady_.wait_for(lock, timeout, ready))
-      return NOTHING_YET;
-    if (lines_.empty()) return END;
-    line = std::move(lines_.front());
-    lines_.pop_front();
-    return LINE;
+  // The next line, waiting at most timeout for it. The output ends when its pipe does, or RELEASE_SECONDS after the codec's exit, as a process it started can hold the pipe.
+  Got next(Line &line, std::chrono::milliseconds timeout) {
+    using Clock = std::chrono::steady_clock;
+    const auto deadline = Clock::now() + timeout;
+    for (;;) {
+      {
+        std::unique_lock<std::mutex> lock(output_->mutex);
+        if (output_->changed.wait_until(lock, std::min(deadline, Clock::now() + std::chrono::milliseconds(50)), [this] { return !output_->lines.empty() || output_->ended; })) {
+          if (output_->lines.empty()) return END;
+          line = std::move(output_->lines.front());
+          output_->lines.pop_front();
+          return LINE;
+        }
+      }
+      exited(std::chrono::milliseconds(0));
+      if (exitSeen_ && Clock::now() >= releaseBy_) return END;  // what the codec wrote before it exited has been read: let go of the pipe
+      if (Clock::now() >= deadline) return NOTHING_YET;
+    }
   }
 
   void kill() {
@@ -657,7 +780,9 @@ class Codec {
   bool exited(std::chrono::milliseconds within) {
     if (!running_) return true;
 #ifdef _WIN32
-    return WaitForSingleObject(process_, DWORD(within.count())) == WAIT_OBJECT_0;
+    if (WaitForSingleObject(process_, DWORD(within.count())) != WAIT_OBJECT_0) return false;
+    sawExit();
+    return true;
 #else
     const auto deadline = std::chrono::steady_clock::now() + within;
     for (;;) {
@@ -666,6 +791,7 @@ class Codec {
       if (got == pid_) {
         status_ = WIFEXITED(how) ? WEXITSTATUS(how) : -WTERMSIG(how);
         running_ = false;
+        sawExit();
         return true;
       }
       if (got < 0 && errno != EINTR) return true;  // no such child: wait() has nothing to wait for
@@ -675,7 +801,7 @@ class Codec {
 #endif
   }
 
-  // Waits for the codec to exit, and returns its exit status (negative: the signal that ended it).
+  // Waits for the codec to exit, and returns its exit status (negative: the signal that ended it). Its pipes close as it exits, unless a process it started holds them: the readers have until releaseBy(), and then the client lets go of them.
   int wait() {
     if (running_) {
 #ifdef _WIN32
@@ -691,55 +817,22 @@ class Codec {
       status_ = WIFEXITED(how) ? WEXITSTATUS(how) : -WTERMSIG(how);
 #endif
       running_ = false;
+      sawExit();
     }
-    {
-      std::lock_guard<std::mutex> lock(inputMutex_);
-      closePipe(input_);
-    }
-    if (outputReader_.joinable()) outputReader_.join();
-    if (errorReader_.joinable()) errorReader_.join();
-    closePipe(output_);
-    closePipe(errors_);
+    outputReader_.finish(releaseBy_);
+    errorReader_.finish(releaseBy_);
     return status_;
   }
 
+  // When the client stops waiting for what uses the codec's pipes: RELEASE_SECONDS after the codec's exit.
+  std::chrono::steady_clock::time_point releaseBy() const { return releaseBy_; }
+
  private:
-  void readOutput() {
-    std::string pending;
-    char buffer[16384];
-    while (const size_t n = readPipe(output_, buffer, sizeof buffer)) {
-      pending.append(buffer, n);
-      size_t end;
-      while ((end = pending.find('\n')) != std::string::npos) {
-        add(pending.substr(0, end));
-        pending.erase(0, end + 1);
-      }
-    }
-    if (!pending.empty()) add(pending);
-    std::lock_guard<std::mutex> lock(linesMutex_);
-    ended_ = true;
-    linesReady_.notify_all();
-  }
-
-  void add(std::string text) {
-    if (!text.empty() && text.back() == '\r') text.pop_back();  // lines end in CRLF on Windows
-    Line line;
-    if (!JsonReader(text).read(line.json) || line.json.type != Json::Object) {
-      std::fprintf(stderr, "codec_client: not JSON: %s\n", text.c_str());
-      return;
-    }
-    line.text = std::move(text);
-    std::lock_guard<std::mutex> lock(linesMutex_);
-    lines_.push_back(std::move(line));
-    linesReady_.notify_all();
-  }
-
-  void readErrors() {  // diagnostics for people, not for parsing
-    char buffer[4096];
-    while (const size_t n = readPipe(errors_, buffer, sizeof buffer)) {
-      std::fwrite(buffer, 1, n, stderr);
-      std::fflush(stderr);
-    }
+  // The codec has exited: what uses its pipes has RELEASE_SECONDS more, from the first time the client sees the exit.
+  void sawExit() {
+    if (exitSeen_) return;
+    exitSeen_ = true;
+    releaseBy_ = std::chrono::steady_clock::now() + std::chrono::seconds(RELEASE_SECONDS);
   }
 
 #ifdef _WIN32
@@ -747,14 +840,12 @@ class Codec {
 #else
   pid_t pid_ = -1;
 #endif
-  bool running_ = false;
+  bool running_ = false, exitSeen_ = false;
   int status_ = -1;
-  Pipe input_ = NO_PIPE, output_ = NO_PIPE, errors_ = NO_PIPE;
-  std::mutex inputMutex_, linesMutex_;
-  std::condition_variable linesReady_;
-  std::deque<Line> lines_;
-  bool ended_ = false;
-  std::thread outputReader_, errorReader_;
+  std::chrono::steady_clock::time_point releaseBy_;
+  std::shared_ptr<Input> input_;
+  std::shared_ptr<Output> output_ = std::make_shared<Output>();
+  Worker outputReader_, errorReader_;
 };
 
 // Stops the codec and exits at once with the status, without waiting for the codec's pipes: a process the codec started can hold them open.
@@ -849,7 +940,7 @@ class Watchdog {
 
 // Sends the audio a period at a time, each period's label in a configure before its first sample, then halt.
 // Live, it starts on the next UTC period boundary, labels each period with its UTC start and sends each frame when its last sample is due, as a receiver's audio arrives.
-void sendAudio(Codec &codec, const std::string &audio, const Mode &mode, double label, bool live, Watchdog *watchdog) {
+void sendAudio(Input &input, const std::string &audio, const Mode &mode, double label, bool live, Watchdog *watchdog) {
   const size_t period = sampleCount(mode.period), total = audio.size() / 2;
   if (live) {
     const double now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -870,33 +961,39 @@ void sendAudio(Codec &codec, const std::string &audio, const Mode &mode, double 
       digits.erase(std::remove(digits.begin(), digits.end(), ':'), digits.end());
       watchdog->periodDue(digits, due(end));
     }
-    codec.send("{\"t\":\"configure\",\"utc\":" + quote(periodLabel) + "}");
+    input.send("{\"t\":\"configure\",\"utc\":" + quote(periodLabel) + "}");
     for (size_t i = first; i < end; i += CHUNK) {
       const size_t j = std::min(i + CHUNK, end);
       if (live) std::this_thread::sleep_until(due(j));
-      if (!codec.inputOpen()) return;
-      codec.write(frame(AUDIO, audio.substr(2 * i, 2 * (j - i))));
+      if (!input.open()) return;
+      input.write(frame(AUDIO, audio.substr(2 * i, 2 * (j - i))));
     }
   }
-  codec.halt();
+  input.halt();
 }
 
 // Streams the audio, prints the decodes, and returns the exit status; messages gets each decode's message.
 int run(Codec &codec, const std::string &audio, const Mode &mode, double label, bool live, std::vector<std::string> &messages) {
-  std::unique_ptr<Watchdog> watchdog;
-  if (live) watchdog = std::make_unique<Watchdog>(mode);
-  std::thread writer([&] { sendAudio(codec, audio, mode, label, live, watchdog.get()); });
+  std::shared_ptr<Watchdog> watchdog;
+  if (live) watchdog = std::make_shared<Watchdog>(mode);
+  // The writer holds a share of all it uses: blocked on the codec's input, it can outlive this call.
+  Worker writer([input = codec.input(), audio, mode, label, live, watchdog] { sendAudio(*input, audio, mode, label, live, watchdog.get()); });
   int errors = 0;
+  auto heard = std::chrono::steady_clock::now();
   for (;;) {
     Line line;
     const Codec::Got got = codec.next(line, std::chrono::milliseconds(500));
     if (got == Codec::END) break;
+    if (got == Codec::LINE) heard = std::chrono::steady_clock::now();
     if (watchdog) {
       if (got == Codec::LINE) watchdog->saw(line.json);
       if (watchdog->hung()) {
         std::fprintf(stderr, "codec_client: no progress from the codec in %.0f s: it has hung\n", watchdog->allowance());
         abandon(codec, HUNG);
       }
+    } else if (std::chrono::steady_clock::now() - heard > std::chrono::seconds(SILENCE_SECONDS)) {
+      std::fprintf(stderr, "codec_client: no line from the codec in %d s: it has hung\n", SILENCE_SECONDS);
+      abandon(codec, HUNG);
     }
     const Json &json = line.json;
     const std::string kind = json["t"].str();  // other lines, and kinds this client does not know, are skipped
@@ -917,7 +1014,7 @@ int run(Codec &codec, const std::string &audio, const Mode &mode, double label, 
   }
   awaitExit(codec, HUNG);  // its output has ended, so its exit is due: the watchdog no longer runs to catch a hang
   const int status = codec.wait();
-  writer.join();
+  writer.finish(codec.releaseBy());  // then without it: it may be blocked on the codec's input, which a process the codec started holds
   if (status != 0) {
     std::fprintf(stderr, "codec_client: wsjt-codec exited with status %d\n", status);
     return FAILED;
@@ -963,7 +1060,7 @@ std::unique_ptr<Codec> startCodec(const Options &options, const char *kinds) {
 }
 
 std::string configure(const Options &options) {
-  // With the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode resets nfa, nfb and ntol.
+  // With the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode sets the mode up as WSJT-X does, which can change the search keys and the frequencies, so the search keys go with it.
   return "{\"t\":\"configure\",\"mode\":" + quote(options.mode->name) + ",\"depth\":" + std::to_string(options.depth) +
          ",\"mycall\":\"\",\"his_call\":\"\",\"his_grid\":\"\",\"nfa\":200,\"nfb\":4000,\"ntol\":1000";
 }
@@ -977,7 +1074,7 @@ int decode(const Options &options) {
   std::unique_ptr<Codec> codec = startCodec(options, "modes");
   if (!codec) return FAILED;
   const bool live = options.command == "live";
-  // Integers stay plain JSON integers: a configure ignores or misreads 3.0, without an error.
+  // Integers stay plain JSON integers: a configure declines 3.0 for an integer key (configure_type_error).
   codec->send(configure(options) + (live ? ",\"live_audio\":true,\"busy_events\":true}" : "}"));
   std::vector<std::string> messages;
   return run(*codec, audio, *options.mode, fileLabel(options.input), live, messages);
@@ -1002,7 +1099,12 @@ int render(const Options &options) {
   std::string audio;
   for (;;) {  // the reply: encoded, its pcm lines, then rendered; or rejected
     Line line;
-    const bool ended = codec->next(line) == Codec::END;
+    const Codec::Got got = codec->next(line, std::chrono::seconds(SILENCE_SECONDS));
+    if (got == Codec::NOTHING_YET) {
+      std::fprintf(stderr, "codec_client: no line from the codec in %d s: it has hung\n", SILENCE_SECONDS);
+      abandon(*codec, HUNG);
+    }
+    const bool ended = got == Codec::END;
     const std::string kind = line.json["t"].str();
     if (ended || kind == "rejected" || kind == "error") {
       std::fprintf(stderr, "codec_client: render failed: %s\n", ended ? "end of output" : line.text.c_str());

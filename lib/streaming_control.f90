@@ -24,9 +24,9 @@
 ! discipline from the ready handshake).
 !
 ! Restrictions (deliberate scope):
-!   - Flat objects only; no nested objects, and no arrays except
-!     configure's phase_eq and q65_callers_remove, and a Fox's slots
-!     (lib/streaming_encode.f90).
+!   - Flat objects only; no nested objects but a JTTY request's open, and
+!     no arrays except configure's phase_eq and q65_callers_remove, and a
+!     Fox's slots (lib/streaming_encode.f90).
 !   - Numeric values must be plain decimal (no scientific notation),
 !     except where a key's rule says otherwise (render's freq and each
 !     phase_eq element are JSON numbers). Configure's integer keys must be
@@ -56,6 +56,7 @@ module streaming_control
   integer, parameter, public :: CTRL_FLUSH     = 7
   integer, parameter, public :: CTRL_REVIEW    = 8
   integer, parameter, public :: CTRL_CANCEL    = 9
+  integer, parameter, public :: CTRL_HEARD     = 10
   ! configure's ref_spectrum, numbered as the GUI's ReferenceSpectrumInput
   ! numbers its modes.
   integer, parameter, public :: REF_SPECTRUM_OFF = 0
@@ -139,12 +140,12 @@ module streaming_control
      logical                :: nutc_set     = .false.
      integer                :: nutc         = 0
      logical                :: nutc_out_of_range = .false.
-     ! Body schema version (RFC v1 §3). Absent => default 1 (forward-compat
+     ! Body schema version. Absent => default 1 (forward-compat
      ! with un-versioned producers). The receiver declines a frame whose
      ! version it does not recognize (streaming_io.f90 CTRL_CONFIGURE arm).
      logical                :: version_set  = .false.
      integer                :: version      = 1
-     ! Phase 4 (RFC v1 §2): operator identity + frequency-window fields, flat
+     ! operator identity + frequency-window fields, flat
      ! 1:1 onto params_block. Char widths match the bind(C) struct exactly
      ! (his_call/my_b_call/his_b_call=12, his_grid=6) — applied via transfer()
      ! in apply_configure_fields. Over-length callsign/grid keeps the current silent
@@ -174,12 +175,12 @@ module streaming_control
      integer                :: jt65_jt9_split_hz      = 0
      logical                :: max_drift_hz_set       = .false.
      integer                :: max_drift_hz           = 0
-     ! Phase 5 (RFC v1 §2): decoder-tuning basic fields, flat 1:1 onto
+     ! decoder-tuning basic fields, flat 1:1 onto
      ! params_block. dt_tolerance_seconds/eme_delay_seconds are the schema's
      ! first real(8) members; they narrow to real(c_float) dttol/emedelay at
-     ! apply (§4 — narrowing documented in streaming_apply.f90 apply_configure_fields).
+     ! apply (narrowing documented in streaming_apply.f90 apply_configure_fields).
      ! robust_mode/nagain_flag/clear_average are BOOLEANS -> logical(c_bool)
-     ! nrobust/nagain/nclearave (reuse the Phase 4 get_bool_/accept_bool path).
+     ! nrobust/nagain/nclearave (reuse the get_bool_/accept_bool path).
      ! tx_mode is an enum (JT9->9 / JT65->65, or a raw int) -> ntxmode, mirroring
      ! the "mode" parse. The stream host sets kin and nzhsym before each decode
      ! (streaming_io.f90), so kin_samples/nzhsym_per_period do not reach the
@@ -188,7 +189,7 @@ module streaming_control
      ! the mode, the TR period or that key, unless the frame gives
      ! eme_delay_seconds. min_width is JT4's; min_sync JT4's, JT65's and
      ! JT65+JT9's; n_2pass and aggressive (the GUI's Aggressive setting, 0 to
-     ! 10; the engine takes 11) JT65's and JT65+JT9's; clear_average JT4's, JT65's, JT65+JT9's and
+     ! 10, which the stream holds it to; the engine takes 11) JT65's and JT65+JT9's; clear_average JT4's, JT65's, JT65+JT9's and
      ! Q65's, and only the next decode that runs (a decode again included), as
      ! the GUI's Clear Avg; robust_mode, tx_mode and npts_c0_array reach only
      ! JT65+JT9; no decoder reads dt_tolerance_seconds. nagain_flag asks once to
@@ -207,6 +208,9 @@ module streaming_control
      integer                :: nzhsym_per_period        = 0
      logical                :: npts_c0_array_set        = .false.
      integer                :: npts_c0_array            = 0
+     ! An npts_c0_array outside NPTS_C0_ARRAY_MIN to NPTS_C0_ARRAY_MAX, which
+     ! the stream declines (configure_range_error).
+     logical                :: npts_c0_array_out_of_range = .false.
      logical                :: min_width_set            = .false.
      integer                :: min_width                = 0
      logical                :: min_sync_set             = .false.
@@ -338,13 +342,13 @@ module streaming_control
      real(8)                :: phase_eq(5)              = 0.d0
      logical                :: phase_eq_malformed       = .false.
      logical                :: phase_eq_out_of_range    = .false.
-     ! Phase 6 (RFC v1 §2): FT8/FT4 specifics cluster — 19 bools + 5 ints, flat
+     ! FT8/FT4 specifics cluster — 19 bools + 5 ints, flat
      ! 1:1 onto params_block; apply_configure_fields (streaming_apply.f90) says
      ! which decoder reads each. The parse checks types only; the stream
      ! declines a configure the decoder would refuse (streaming_io.f90).
      ! nagain_filter/stop_hint/hint_mode map to
      ! logical(c_bool) nagainfil/nstophint/nhint despite the n-prefix. Bools
-     ! reuse the Phase 4/5 get_bool_/accept_bool path; the 5 ints use get_int_.
+     ! reuse the get_bool_/accept_bool path; the 5 ints use get_int_.
      logical                :: multithreaded_ft8_set     = .false.
      logical                :: multithreaded_ft8         = .false.
      logical                :: ft8_cycles_set            = .false.
@@ -353,6 +357,10 @@ module streaming_control
      integer                :: ft8_rxf_sensitivity       = 0
      logical                :: ft8_threads_set           = .false.
      integer                :: ft8_threads               = 0
+     ! WSPR's decode threads, by ft8_threads' rule (lib/wsprd/wspr_parallel.f90);
+     ! outside 0 to 12 a configure in WSPR is declined, as ft8_threads is in FT8.
+     logical                :: wspr_threads_set          = .false.
+     integer                :: wspr_threads              = 0
      logical                :: ft8_decoder_start_set     = .false.
      integer                :: ft8_decoder_start         = 0
      logical                :: ft8_low_threshold_set     = .false.
@@ -371,6 +379,18 @@ module streaming_control
      integer                :: ap_width_hz               = 0
      logical                :: hide_ft8_duplicates_set   = .false.
      logical                :: hide_ft8_duplicates       = .false.
+     ! The GUI's Reduce false decodes, which its line plan applies to the
+     ! decodes it shows (DecodeOutputPlan.cpp); the codec's emit path.
+     logical                :: reduce_false_decodes_set  = .false.
+     logical                :: reduce_false_decodes      = .false.
+     ! The GUI's Active Stations window open, which with ARRL Digi shows the
+     ! decodes' points (MainWindow::readFromStdout's bDisplayPoints).
+     logical                :: active_stations_set       = .false.
+     logical                :: active_stations           = .false.
+     ! a7_hold true starts WSJT-X's hold on a7 decodes (no_a7_decodes) at
+     ! the frame's place, as a band change or a frequency picked does.
+     logical                :: a7_hold_set               = .false.
+     logical                :: a7_hold                   = .false.
      logical                :: common_ft8b_set           = .false.
      logical                :: common_ft8b               = .false.
      logical                :: enable_dxc_search_set     = .false.
@@ -393,18 +413,18 @@ module streaming_control
      logical                :: stop_hint                 = .false.
      logical                :: hint_mode_set             = .false.
      logical                :: hint_mode                 = .false.
-     ! Phase 7 (RFC v1 §2): diagnostic / sequencing fields — 2 bools + 4 ints,
+     ! diagnostic / sequencing fields — 2 bools + 4 ints,
      ! flat 1:1 onto params_block; apply_configure_fields (streaming_apply.f90)
      ! says which decoder reads each. The parse checks types only; the stream
      ! declines a configure the decoder would refuse (streaming_io.f90). The 4
      ! ints use get_int_; the 2 bools (currently_txing/mode_changed,
      ! logical(c_bool) in jt9com.f90) reuse the get_bool_/accept_bool path.
      !
-     ! OMITTED Phase 7 wire keys (intentionally NOT exposed in v1):
+     ! Keys deliberately not exposed on the stream:
      !   utc_list / utc_list_0..9 / nlist_count — map to listutc/nlist, which
      !     no decoder reads.
      !   datetime — the decoder copies it into a local it never uses; only
-     !     date->yymmdd carries time (Phase 8, §6.1).
+     !     date->yymmdd carries time.
      !   from_wav_file (ndiskdat) / new_data_flag (newdat) — receiver-managed:
      !     the receiver sets newdat per pass, and ndiskdat from live_audio.
      logical                :: last_tx_seconds_ago_set   = .false.
@@ -419,26 +439,26 @@ module streaming_control
      integer                :: sec_band_changed          = 0
      logical                :: delay_units_set           = .false.
      integer                :: delay_units               = 0
-     ! Phase 8 (RFC v1 §2/§6): string & scaled / derived fields. Unlike Phases
-     ! 4-7 (flat value-extract), these REWRITE the wire value into the legacy
+     ! string & scaled / derived fields. Unlike the groups
+     ! above (flat value-extract), these REWRITE the wire value into the legacy
      ! encoding AT PARSE, so the member holds the DERIVED legacy int, not the raw
      ! wire form:
-     !   utc   ("HH:MM:SS")   -> utc_nutc      = hh*10000+mm*100+ss   (§6.3)
-     !   date  ("YYYY-MM-DD") -> date_yymmdd   = (yr-2000)*10000+mo*100+day (§6.4)
-     !   n_trials (int)       -> n_trials_nranera = encode(n_trials)   (§6.6)
+     !   utc   ("HH:MM:SS")   -> utc_nutc      = hh*10000+mm*100+ss  
+     !   date  ("YYYY-MM-DD") -> date_yymmdd   = (yr-2000)*10000+mo*100+day
+     !   n_trials (int)       -> n_trials_nranera = encode(n_trials)  
      ! parse_iso_time_/parse_iso_date_/ntrials_to_nranera_ do the work; a
      ! malformed date leaves the key UNSET (value-domain silent-skip, like a bad
-     ! mode name — type validation only, §4.1). A utc that is not exactly
+     ! mode name — type validation only). A utc that is not exactly
      ! HH:MM:SS is a configure_type_error, and one past 23:59:59 sets
      ! utc_out_of_range, which the stream declines with configure_range_error:
      ! a dropped utc would leave the period labelled with a time the client
      ! did not send. TWO keys carry a PARSE-TIME
      ! VALUE check that emits configure_type_error (the schema's first value-domain
-     ! errors, both RFC-mandated): n_trials NOT in {10^N, 3*10^N} (§6.6 — else a
+     ! errors, both required): n_trials NOT in {10^N, 3*10^N} (else a
      ! bad nranera silently corrupts ntrials at decoder.f90:100-102) and date with
-     ! year >= 2100 (§6.4 — the 2000+offset YYMMDD encoding caps at 2099).
+     ! year >= 2100 (the 2000+offset YYMMDD encoding caps at 2099).
      !
-     ! PRECEDENCE (§4.1): utc is a SECOND route to nutc alongside the legacy int
+     ! PRECEDENCE: utc is a SECOND route to nutc alongside the legacy int
      ! key nutc (kept for the legacy subset). utc_nutc is stored SEPARATELY from
      ! nutc; apply_configure_fields applies nutc THEN utc_nutc, so utc WINS when a
      ! frame carries both (richer ISO form). Order-independent at apply (the apply
@@ -447,7 +467,7 @@ module streaming_control
      ! apply_configure_fields (streaming_apply.f90) says which decoder reads
      ! each. None is an array index.
      ! candthin_threshold/dt_center_seconds are real(8) members scaled at apply
-     ! (§4 — declare real(8), nint(wire*100), do NOT pre-store as int).
+     ! (declare real(8), nint(wire*100), do NOT pre-store as int).
      logical                :: utc_set                   = .false.
      integer                :: utc_nutc                  = 0
      logical                :: utc_out_of_range          = .false.
@@ -459,10 +479,11 @@ module streaming_control
      real(8)                :: candthin_threshold        = 0.d0
      logical                :: dt_center_seconds_set     = .false.
      real(8)                :: dt_center_seconds         = 0.d0
-     ! ===== Phase 9 (RFC v1 §2.4/§2.5/§6.1/§6.2): bit-packed fields ===========
-     ! ndepth + nexp_decode are PACKED at parse (the post-pass pack_phase9_, called
-     ! after all keys are read) into the two derived *_packed members below, so
-     ! apply stays flat (mirrors Phase 8's derive-at-parse). The 10 unpacked keys +
+     ! ===== bit-packed fields ===========
+     ! ndepth + nexp_decode are PACKED at parse (the post-pass
+     ! pack_ndepth_nexp_decode_, called after all keys are read) into the two
+     ! derived *_packed members below, so
+     ! apply stays flat (mirrors the derive-at-parse fields). The 10 unpacked keys +
      ! their _set flags drive the pack; the post-pass also enforces the two
      ! atomic-decline errors (the legacy depth full-int co-present with ANY unpacked
      ! ndepth key -> conflicting encodings; depth_level vs q65_maxiters_level
@@ -475,10 +496,11 @@ module streaming_control
      ! q65_decode.f90:337/449; single_decode/vhf_features/noise_blanker reach
      ! FST4/JT65 not the single-pass FT8 my_ft8%decode; q65_pileup Q65's AP,
      ! qra/q65/q65_ap.f90) -> parse-unit +
-     ! apply-routing-unit + no-regression (like Phase 4/6/7). NONE indexes an array
+     ! apply-routing-unit + no-regression (like the other groups). NONE indexes an array
      ! raw, so no out-of-range apply guard is needed; the pack instead
-     ! MASKS depth_level to 3 bits / q65_maxiters to 2 bits and CLAMPS the NB byte to
-     ! [0,255], so an out-of-range producer value cannot corrupt a sibling bit.
+     ! flags a depth_level or q65_maxiters_level outside 1 to 3, which the stream
+     ! declines, and CLAMPS the NB byte to [0,255], so an out-of-range producer
+     ! value cannot corrupt a sibling bit.
      ! contest_type holds the COLLAPSED ncontest int (0-7) resolved at parse by
      ! contest_string_to_int_ (SpecOp 5/8/9 -> 1; Configuration.hpp:318 enum).
      ! Each group replaces its whole value: a frame with any one of
@@ -496,6 +518,11 @@ module streaming_control
      integer                :: depth_level                = 0
      logical                :: q65_maxiters_level_set     = .false.
      integer                :: q65_maxiters_level         = 0
+     ! A depth_level or q65_maxiters_level outside 1 to 3, the levels WSJT-X's
+     ! Fast, Normal and Deep give, which the stream declines in every mode
+     ! (configure_range_error) and the pack leaves unpacked.
+     logical                :: depth_level_out_of_range   = .false.
+     logical                :: q65_maxiters_level_out_of_range = .false.
      logical                :: use_averaging_set          = .false.
      logical                :: use_averaging              = .false.
      logical                :: deep_ap_search_set         = .false.
@@ -505,6 +532,13 @@ module streaming_control
      ! -- nexp_decode group --
      logical                :: contest_type_set           = .false.
      integer                :: contest_type               = 0   ! collapsed ncontest (0-7)
+     ! A contest_type string that is none of the ten activities as written,
+     ! which the stream declines (configure_range_error).
+     logical                :: contest_type_out_of_range  = .false.
+     ! The activity itself, as the GUI's SpecialOperatingActivity numbers it
+     ! (0 none to 9 Q65 Pileup), before WW Digi, ARRL Digi and Q65 Pileup
+     ! collapse to 1: a change of it cancels a waiting FT8 final.
+     integer                :: special_op                 = 0
      logical                :: single_decode_set          = .false.
      logical                :: single_decode              = .false.
      logical                :: vhf_features_set           = .false.
@@ -516,14 +550,15 @@ module streaming_control
      logical                :: contest_q65_pileup         = .false.
      logical                :: noise_blanker_level_set    = .false.
      integer                :: noise_blanker_level        = 0
-     ! -- derived packed ints (computed by pack_phase9_; apply routes these flat) --
+     ! -- derived packed ints (computed by pack_ndepth_nexp_decode_; apply
+     ! routes these flat) --
      logical                :: ndepth_packed_set          = .false.
      integer                :: ndepth_packed              = 0
      logical                :: nexp_decode_packed_set     = .false.
      integer                :: nexp_decode_packed         = 0
   end type configure_fields
 
-  ! Per-key type-validation result (RFC v1 §4.1, Phase 2). When a configure
+  ! Per-key type-validation result. When a configure
   ! frame carries a key whose JSON value type mismatches the schema (e.g.
   ! {"depth":"abc"}), parse_control_frame records the FIRST such error here and
   ! the caller declines the ENTIRE frame with configure_type_error (no partial
@@ -544,7 +579,8 @@ module streaming_control
      logical :: id_ok        = .false.
      integer :: id           = 0
      logical :: is_template  = .false.
-     character(len=:), allocatable :: text      ! text or template, UTF-8
+     logical :: is_n1mm      = .false.          ! a TXTEXT from N1MM Logger+
+     character(len=:), allocatable :: text      ! text, template or n1mm, UTF-8
      logical :: final        = .true.
      integer :: profile      = 0                ! none 0, field_day 1, rtty 2
      character(len=:), allocatable :: his_call, exchange
@@ -554,6 +590,8 @@ module streaming_control
      integer :: report       = 0
      real(8) :: freq         = 0.d0             ! render only
      integer :: rate         = 0                ! render only
+     integer :: open_columns = 0                ! the receiver's message it
+     logical :: open_separator = .false.        ! continues (open)
      character(len=:), allocatable :: problem, problem_key
   end type encode_request
 
@@ -584,11 +622,29 @@ module streaming_control
      logical :: more_cqs = .false.
      integer :: otp      = 0
      real(8) :: freq     = 0.d0                 ! render only
+     ! FST4 and FST4W (render only): the freq their waveform is made at, 0
+     ! for freq.
+     real(8) :: wavefreq = 0.d0
      integer :: rate     = 0                    ! render only
      integer :: seconds  = 0                    ! render only
      logical :: cwid     = .false.              ! render only
+     ! A range of the render (render only): from, count (0: to the end) and
+     ! state; range when the request names any of them.
+     logical :: range    = .false.
+     integer :: from     = 0
+     integer :: count    = 0
+     character(len=:), allocatable :: state
      character(len=:), allocatable :: problem, problem_key
   end type slot_request
+
+  ! A heard request (lib/streaming_encode.f90): a decode's message text.
+  ! id_ok, problem and problem_key as in encode_request.
+  type, public :: heard_request
+     logical :: id_ok = .false.
+     integer :: id    = 0
+     character(len=:), allocatable :: text      ! UTF-8
+     character(len=:), allocatable :: problem, problem_key
+  end type heard_request
 
   ! A jtty_review request (lib/streaming_jtty_review.f90). id_ok, problem
   ! and problem_key as in encode_request. session 0 names every kept
@@ -606,6 +662,7 @@ module streaming_control
 
   public :: parse_control_frame
   public :: parse_review_request
+  public :: parse_heard_request
   public :: mode_string_to_int
   public :: parse_encode_request
   public :: parse_render_request
@@ -614,19 +671,23 @@ module streaming_control
 
   character(len=*), parameter :: RATE_DETAIL = 'rate must be 12000 or 48000, a JSON integer'
   character(len=*), parameter :: FREQ_DETAIL = 'freq must be a JSON number of Hz from 200 to 5000'
+  character(len=*), parameter :: OPEN_DETAIL = 'open must be {"columns":N,"separator":B}, ' // &
+       'N a JSON integer from 0 to 59 and B true or false'
 
 contains
 
   ! Parse a UTF-8 JSON line into an action and (for CONFIGURE) fields.
   !
-  ! Type validation (RFC v1 §4.1, Phase 2): every configure key is checked
+  ! Type validation: every configure key is checked
   ! against its schema JSON type BEFORE its value is parsed. A key present with
   ! a mismatched JSON type (e.g. {"depth":"abc"}) records the FIRST such error in
   ! `terr`; the caller (streaming_io.f90 CTRL_CONFIGURE arm) then declines the
-  ! ENTIRE frame with configure_type_error — no partial application. Value-domain
-  ! issues (unknown mode name, over-length callsign, a fractional value for an
-  ! int key) are NOT type errors: they preserve the current silent behavior
-  ! (the key is simply left unset).
+  ! ENTIRE frame with configure_type_error — no partial application. A value
+  ! for an integer key that is not a plain JSON integer of 32 bits is such a
+  ! type error (check_type_). Value-domain issues (unknown mode name, over-length
+  ! callsign) are NOT type errors: they preserve the current silent behavior
+  ! (the key is simply left unset), or set a *_out_of_range flag the stream
+  ! declines with configure_range_error.
   subroutine parse_control_frame(buf, action, cfg, terr)
     character(len=*),         intent(in)  :: buf
     integer,                  intent(out) :: action
@@ -635,19 +696,26 @@ contains
 
     character(len=64)  :: t_value
     character(len=128) :: str_val
-    character(len=:), allocatable :: utc_val, ref_val
+    character(len=:), allocatable :: utc_val, ref_val, contest_val
     character(len=8)   :: category
     integer            :: int_val, mode_value_start, mode_buffer_length
     real(8)            :: real_val
     logical            :: lval
     logical            :: ok, proceed, mode_present, given
-    integer            :: hh, mm, ss, yr, mo, dy, enc   ! Phase 8 ISO/encode temps
-    logical            :: vok                           ! Phase 8 value-parse ok
+    integer            :: hh, mm, ss, yr, mo, dy, enc   ! ISO/encode temps
+    logical            :: vok                           ! value-parse ok
     character(len=8)   :: numbers_got
     character(len=5)   :: numbers_problem
 
     action       = CTRL_UNKNOWN
     terr%present = .false.
+
+    ! A frame is one JSON object: nothing but JSON white space before its
+    ! { or after its closing }.
+    if (.not. one_object_(buf)) then
+       action = CTRL_PARSE_ERR
+       return
+    end if
 
     ! Required: "t":<string>
     call get_string_(buf, '"t"', t_value, ok)
@@ -688,6 +756,11 @@ contains
 
     if (trim(t_value) .eq. 'jtty_review') then
        action = CTRL_REVIEW
+       return
+    end if
+
+    if (trim(t_value) .eq. 'heard') then
+       action = CTRL_HEARD
        return
     end if
 
@@ -844,7 +917,7 @@ contains
        end if
     end if
 
-    ! ===== Phase 4: operator identity + frequency-window fields (RFC v1 §2) ===
+    ! ===== operator identity + frequency-window fields ===
     ! his_call/his_grid/my_b_call/his_b_call: strings (like mycall/mygrid),
     ! truncated to the struct char width at assignment (silent truncation).
     call check_type_(buf, '"his_call"', 'his_call', 'string', .true., .false., terr, proceed)
@@ -936,8 +1009,8 @@ contains
        end if
     end if
 
-    ! ===== Phase 5: decoder-tuning basic fields (RFC v1 §2) =================
-    ! Two real keys (parsed as real(8); narrowed to real(c_float) at apply, §4).
+    ! ===== decoder-tuning basic fields =================
+    ! Two real keys (parsed as real(8); narrowed to real(c_float) at apply).
     call check_type_(buf, '"dt_tolerance_seconds"', 'dt_tolerance_seconds',      &
          'real', .false., .true., terr, proceed)
     if (proceed) then
@@ -1003,6 +1076,8 @@ contains
             int_val .le. NPTS_C0_ARRAY_MAX) then
           cfg%npts_c0_array_set = .true.
           cfg%npts_c0_array     = int_val
+       else if (ok) then
+          cfg%npts_c0_array_out_of_range = .true.
        end if
     end if
 
@@ -1046,7 +1121,7 @@ contains
        end if
     end if
 
-    ! Three bool keys (reuse the Phase 4 get_bool_ / accept_bool path).
+    ! Three bool keys (reuse the get_bool_ / accept_bool path).
     call check_type_(buf, '"robust_mode"', 'robust_mode', 'bool',                &
          .false., .false., terr, proceed, accept_bool=.true.)
     if (proceed) then
@@ -1272,7 +1347,7 @@ contains
        end if
     end if
 
-    ! ===== Phase 6: FT8/FT4 specifics cluster (RFC v1 §2) ==================
+    ! ===== FT8/FT4 specifics cluster ==================
     ! 19 bools + 5 ints, flat 1:1. Bools reuse the get_bool_/accept_bool path;
     ! ints use get_int_. ap_width_hz is a wire int stored RAW (decode halves it).
     call check_type_(buf, '"multithreaded_ft8"', 'multithreaded_ft8', 'bool',  &
@@ -1312,6 +1387,16 @@ contains
        if (ok) then
           cfg%ft8_threads_set = .true.
           cfg%ft8_threads     = int_val
+       end if
+    end if
+
+    call check_type_(buf, '"wspr_threads"', 'wspr_threads', 'int',             &
+         .false., .true., terr, proceed)
+    if (proceed) then
+       call get_int_(buf, '"wspr_threads"', int_val, ok)
+       if (ok) then
+          cfg%wspr_threads_set = .true.
+          cfg%wspr_threads     = int_val
        end if
     end if
 
@@ -1402,6 +1487,36 @@ contains
        if (ok) then
           cfg%hide_ft8_duplicates_set = .true.
           cfg%hide_ft8_duplicates     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"reduce_false_decodes"', 'reduce_false_decodes',    &
+         'bool', .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"reduce_false_decodes"', lval, ok)
+       if (ok) then
+          cfg%reduce_false_decodes_set = .true.
+          cfg%reduce_false_decodes     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"active_stations"', 'active_stations', 'bool',      &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"active_stations"', lval, ok)
+       if (ok) then
+          cfg%active_stations_set = .true.
+          cfg%active_stations     = lval
+       end if
+    end if
+
+    call check_type_(buf, '"a7_hold"', 'a7_hold', 'bool',                      &
+         .false., .false., terr, proceed, accept_bool=.true.)
+    if (proceed) then
+       call get_bool_(buf, '"a7_hold"', lval, ok)
+       if (ok) then
+          cfg%a7_hold_set = .true.
+          cfg%a7_hold     = lval
        end if
     end if
 
@@ -1515,9 +1630,9 @@ contains
        end if
     end if
 
-    ! ===== Phase 7: diagnostic / sequencing fields (RFC v1 §2) =============
+    ! ===== diagnostic / sequencing fields =============
     ! 2 bools + 4 ints, flat 1:1. Bools reuse the get_bool_/accept_bool path;
-    ! ints use get_int_. The configure_fields Phase 7 comment lists the keys
+    ! ints use get_int_. The configure_fields comment lists the keys
     ! left off the wire.
     call check_type_(buf, '"last_tx_seconds_ago"', 'last_tx_seconds_ago',      &
          'int', .false., .true., terr, proceed)
@@ -1579,13 +1694,13 @@ contains
        end if
     end if
 
-    ! ===== Phase 8: string & scaled / derived fields (RFC v1 §2/§6) =========
-    ! These derive the LEGACY encoding at parse (see the configure_fields Phase 8
+    ! ===== string & scaled / derived fields =========
+    ! These derive the LEGACY encoding at parse (see the configure_fields
     ! comment): utc/date are ISO strings tokenized by parse_iso_time_/
     ! parse_iso_date_; n_trials is encoded to nranera by ntrials_to_nranera_;
     ! candthin_threshold/dt_center_seconds are wire reals scaled /100 at apply.
     !
-    ! utc: ISO "HH:MM:SS" -> utc_nutc = hh*10000+mm*100+ss (§6.3, always full
+    ! utc: ISO "HH:MM:SS" -> utc_nutc = hh*10000+mm*100+ss (always full
     ! HHMMSS). A string that is not exactly HH:MM:SS is a configure_type_error;
     ! one past 23:59:59 sets utc_out_of_range, which the stream declines in the
     ! frame's mode.
@@ -1604,11 +1719,11 @@ contains
        end if
     end if
 
-    ! date: ISO "YYYY-MM-DD" -> date_yymmdd = (yr-2000)*10000+mo*100+day (§6.4).
+    ! date: ISO "YYYY-MM-DD" -> date_yymmdd = (yr-2000)*10000+mo*100+day.
     ! The 2000+offset encoding caps at 2099 -> year >= 2100 is a configure_type_error
-    ! (RFC §6.4 "receiver emits error if year >= 2100"). A malformed date string
+    ! (a year >= 2100 is an error). A malformed date string
     ! leaves date unset (value-domain silent skip). Only yymmdd is populated; the
-    ! datetime leg is intentionally OMITted (§6.1 — C/GUI filename field).
+    ! datetime leg is intentionally OMITted (C/GUI filename field).
     call check_type_(buf, '"date"', 'date', 'string', .true., .false., terr, proceed)
     if (proceed) then
        call get_string_(buf, '"date"', str_val, ok)
@@ -1625,8 +1740,8 @@ contains
        end if
     end if
 
-    ! n_trials: plain int on the wire -> encoded nranera (§6.6). The value MUST be
-    ! one of {10^N, 3*10^N}; anything else is a configure_type_error (§6.6 — a
+    ! n_trials: plain int on the wire -> encoded nranera. The value MUST be
+    ! one of {10^N, 3*10^N}; anything else is a configure_type_error (a
     ! non-conforming value would integer-divide into a silently-wrong ntrials at
     ! decoder.f90:100-102). The check is a VALUE check (the JSON type is int), so it
     ! runs AFTER the int parse and reuses the same configure_type_error envelope.
@@ -1645,7 +1760,7 @@ contains
     end if
 
     ! candthin_threshold / dt_center_seconds: wire reals, scaled /100 to int at
-    ! apply (§4/§6.5 — declare real(8), nint(wire*100)). Parsed like the Phase 5
+    ! apply (declare real(8), nint(wire*100)). Parsed like the
     ! reals (check_type_ 'real' -> get_real_).
     call check_type_(buf, '"candthin_threshold"', 'candthin_threshold',        &
          'real', .false., .true., terr, proceed)
@@ -1667,9 +1782,10 @@ contains
        end if
     end if
 
-    ! ===== Phase 9 (RFC v1 §2.4/§2.5/§6.1/§6.2): bit-packed unpacked keys ======
-    ! Each unpacked key parses into its own configure_fields member; pack_phase9_
-    ! (called after the version block) folds them into ndepth_packed /
+    ! ===== bit-packed unpacked keys ======
+    ! Each unpacked key parses into its own configure_fields member;
+    ! pack_ndepth_nexp_decode_ (called after the version block) folds them into
+    ! ndepth_packed /
     ! nexp_decode_packed and enforces the two atomic-decline errors. depth_level/
     ! q65_maxiters_level/noise_blanker_level are ints; use_averaging/deep_ap_search/
     ! q65_auto_clear_average/single_decode/vhf_features are bools (get_bool_ /
@@ -1725,18 +1841,24 @@ contains
        end if
     end if
 
-    ! contest_type: enum string -> collapsed ncontest int (0-7). Unknown -> unset.
+    ! contest_type: enum string -> collapsed ncontest int (0-7). Any other
+    ! string, read whole (another case, a blank at either end, a string that
+    ! does not decode), is out of range and leaves it unset.
     call check_type_(buf, '"contest_type"', 'contest_type', 'string',            &
          .true., .false., terr, proceed)
-    if (proceed) then
-       call get_string_(buf, '"contest_type"', str_val, ok)
-       if (ok) then
-          int_val = contest_string_to_int_(trim(str_val))
-          if (int_val .ge. 0) then
-             cfg%contest_type_set   = .true.
-             cfg%contest_type       = int_val
-             cfg%contest_q65_pileup = trim(str_val) .eq. 'q65_pileup'
-          end if
+    call value_category_(buf, '"contest_type"', category)
+    if (proceed .and. trim(category) .eq. 'string') then
+       call get_whole_string_(buf, '"contest_type"', contest_val, ok)
+       int_val = -1
+       if (ok .and. len(contest_val) .eq. len_trim(contest_val))               &
+            int_val = contest_string_to_int_(contest_val)
+       if (int_val .ge. 0) then
+          cfg%contest_type_set   = .true.
+          cfg%contest_type       = int_val
+          cfg%contest_q65_pileup = contest_val .eq. 'q65_pileup'
+          cfg%special_op         = special_op_of_(contest_val)
+       else
+          cfg%contest_type_out_of_range = .true.
        end if
     end if
 
@@ -1780,7 +1902,7 @@ contains
        end if
     end if
 
-    ! Body schema version (RFC v1 §3). Absent => stays at the default 1.
+    ! Body schema version. Absent => stays at the default 1.
     call check_type_(buf, '"version"', 'version', 'int', .false., .true., terr, proceed)
     if (proceed) then
        call get_int_(buf, '"version"', int_val, ok)
@@ -1790,9 +1912,9 @@ contains
        end if
     end if
 
-    ! ===== Phase 9 post-pass: pack ndepth / nexp_decode + atomic-decline checks =
+    ! ===== Post-pass: pack ndepth / nexp_decode + atomic-decline checks =
     ! Runs after ALL keys are parsed (the depth-vs-unpacked conflict is cross-key).
-    call pack_phase9_(cfg, terr)
+    call pack_ndepth_nexp_decode_(cfg, terr)
 
   end subroutine parse_control_frame
 
@@ -1991,7 +2113,7 @@ contains
     vend = vstart
     do while (vend .le. blen)
        ch = buf(vend:vend)
-       if (ch .eq. ',' .or. ch .eq. '}' .or. ch .eq. ' ') exit
+       if (ch .eq. ',' .or. ch .eq. '}' .or. json_space_(ch)) exit
        vend = vend + 1
     end do
     if (vend .le. vstart) return
@@ -2017,7 +2139,7 @@ contains
     vend = vstart
     do while (vend .le. blen)
        ch = buf(vend:vend)
-       if (ch .eq. ',' .or. ch .eq. '}' .or. ch .eq. ' ') exit
+       if (ch .eq. ',' .or. ch .eq. '}' .or. json_space_(ch)) exit
        vend = vend + 1
     end do
     if (vend .le. vstart) return
@@ -2177,7 +2299,7 @@ contains
 
   end function json_number_width_
 
-  ! ===== Phase 8 derivations (ISO parsers + nranera encoder) ===============
+  ! ===== Derivations (ISO parsers + nranera encoder) ===============
 
   ! Read a NON-EMPTY all-digit field into an integer. ok=.false. if empty or any
   ! char is a non-digit. A strict digit scan (not a bare list-directed read) is
@@ -2198,7 +2320,7 @@ contains
     if (ios .eq. 0) ok = .true.
   end subroutine read_int_field_
 
-  ! Parse ISO 8601 time "HH:MM:SS" -> three ints (§6.3). ok=.false. unless s is
+  ! Parse ISO 8601 time "HH:MM:SS" -> three ints. ok=.false. unless s is
   ! exactly eight characters, two digits a field. Ranges are NOT enforced (the
   ! caller packs HHMMSS; an out-of-range component is a value-domain matter).
   subroutine parse_iso_time_(s, hh, mm, ss, ok)
@@ -2213,7 +2335,7 @@ contains
     call read_int_field_(s(7:8), ss, ok)
   end subroutine parse_iso_time_
 
-  ! Parse ISO 8601 date "YYYY-MM-DD" -> three ints (§6.4). ok=.false. on a
+  ! Parse ISO 8601 date "YYYY-MM-DD" -> three ints. ok=.false. on a
   ! malformed string. The caller enforces the year<2100 cap.
   subroutine parse_iso_date_(s, yr, mo, dy, ok)
     character(len=*), intent(in)  :: s
@@ -2233,13 +2355,13 @@ contains
     call read_int_field_(s(d2+1:n),    dy, ok)
   end subroutine parse_iso_date_
 
-  ! Encode a desired trial count n_trials into the legacy nranera index (§6.6):
+  ! Encode a desired trial count n_trials into the legacy nranera index:
   !   nranera even -> ntrials = 10**(nranera/2)    (decoder.f90:100)
   !   nranera odd  -> ntrials = 3*10**(nranera/2)  (decoder.f90:101)
   ! so n_trials must be 10^k or 3*10^k. ok=.false. for any other value (the caller
   ! then emits configure_type_error). Strip trailing factors of 10; the residual
   ! must be 1 (pure power of 10 -> nranera=2k) or 3 (3x -> nranera=2k+1). This is
-  ! functionally equivalent to the RFC §6.6 reference algorithm (a log10-based form;
+  ! functionally equivalent to the reference algorithm (a log10-based form;
   ! same {10^N,3*10^N} acceptance set and same mapping), which likewise returns
   ! nranera=0 for n_trials=1; note
   ! decoder.f90:102 then special-cases nranera=0 -> ntrials=0 (a legacy-encoding
@@ -2268,23 +2390,27 @@ contains
     end if
   end subroutine ntrials_to_nranera_
 
-  ! Phase 9 post-pass: fold the unpacked ndepth/nexp_decode keys into the two
+  ! Post-pass: fold the unpacked ndepth/nexp_decode keys into the two
   ! derived packed ints (cfg%ndepth_packed / cfg%nexp_decode_packed) and emit the
-  ! two RFC §6.1/§4.1 atomic-decline errors. Called once after all keys are parsed
+  ! two atomic-decline errors. Called once after all keys are parsed
   ! (the legacy-depth-vs-unpacked conflict is inherently cross-key). Pack rule
-  ! (RFC §6.1/§6.2):
+  ! :
   !   ndepth      = depth_level(bits0-2) | use_avg<<4 | deep_ap<<5 | autoclr<<7
   !   nexp_decode = ncontest(bits0-2) | single<<5 | vhf<<6 | q65_pileup<<7 | (nb+3)<<8
   ! where q65_pileup, when the frame does not send it, is whether contest_type
   ! is "q65_pileup".
-  ! depth_level is masked to 3 bits and q65_maxiters to 2, the NB byte clamped to
-  ! [0,255], so an out-of-range producer value cannot corrupt a sibling bit (none
-  ! of these reaches a raw array index, so no decode crash). The
+  ! A depth_level or q65_maxiters_level outside 1 to 3 is none of the levels
+  ! WSJT-X's Fast, Normal and Deep give (widgets/mainwindow.cpp DepthGroup,
+  ! on_actionQuickDecode_toggled to on_actionDeepestDecode_toggled): it is
+  ! flagged for the stream to decline and the depth is left unpacked, rather
+  ! than read by its low bits. The NB byte is clamped to [0,255], so an
+  ! out-of-range producer value cannot corrupt a sibling bit (none of these
+  ! reaches a raw array index, so no decode crash). The
   ! legacy `depth` full-int is applied verbatim by streaming_apply when NO
   ! unpacked ndepth key is set; co-present with any unpacked key it is a conflict
   ! (declined here, reusing the configure_type_error envelope for a VALUE-domain
-  ! error like Phase 8's n_trials/date checks).
-  subroutine pack_phase9_(cfg, terr)
+  ! error like the n_trials/date checks).
+  subroutine pack_ndepth_nexp_decode_(cfg, terr)
     type(configure_fields),   intent(inout) :: cfg
     type(control_type_error), intent(inout) :: terr
     logical :: any_ndepth, any_nexp
@@ -2304,7 +2430,7 @@ contains
     end if
 
     ! Consistency: depth_level (bits 0-2) and q65_maxiters_level (bits 0-1) overlap
-    ! on bits 0-1 (RFC §6.1). If both are set they MUST agree; an inconsistent pair
+    ! on bits 0-1. If both are set they MUST agree; an inconsistent pair
     ! is a configure_type_error.
     if (cfg%depth_level_set .and. cfg%q65_maxiters_level_set) then
        if (iand(cfg%depth_level, 3) .ne. iand(cfg%q65_maxiters_level, 3)) then
@@ -2313,13 +2439,20 @@ contains
        end if
     end if
 
+    cfg%depth_level_out_of_range = cfg%depth_level_set .and.                   &
+         (cfg%depth_level .lt. 1 .or. cfg%depth_level .gt. 3)
+    cfg%q65_maxiters_level_out_of_range = cfg%q65_maxiters_level_set .and.     &
+         (cfg%q65_maxiters_level .lt. 1 .or. cfg%q65_maxiters_level .gt. 3)
+    if (cfg%depth_level_out_of_range .or. cfg%q65_maxiters_level_out_of_range) &
+         any_ndepth = .false.
+
     if (any_ndepth) then
-       ! Effective depth_level (bits 0-2): depth_level wins; else derive from
-       ! q65_maxiters_level (bits 0-1); else 0.
+       ! Effective level: depth_level wins; else q65_maxiters_level; else 0,
+       ! which the range check declines (a group key alone).
        if (cfg%depth_level_set) then
-          dl = iand(cfg%depth_level, 7)
+          dl = cfg%depth_level
        else if (cfg%q65_maxiters_level_set) then
-          dl = iand(cfg%q65_maxiters_level, 3)
+          dl = cfg%q65_maxiters_level
        else
           dl = 0
        end if
@@ -2342,14 +2475,14 @@ contains
        if (merge(cfg%q65_pileup, cfg%contest_q65_pileup, cfg%q65_pileup_set))  &
             cfg%nexp_decode_packed = ior(cfg%nexp_decode_packed, 128)
        if (cfg%noise_blanker_level_set) then
-          nb = cfg%noise_blanker_level + 3        ! -3 offset (RFC §6.2; 3 = off)
+          nb = cfg%noise_blanker_level + 3        ! -3 offset (3 = off)
           if (nb .lt. 0)   nb = 0
           if (nb .gt. 255) nb = 255
           cfg%nexp_decode_packed = cfg%nexp_decode_packed + nb * 256
        end if
        cfg%nexp_decode_packed_set = .true.
     end if
-  end subroutine pack_phase9_
+  end subroutine pack_ndepth_nexp_decode_
 
   ! Map a contest_type wire string to the legacy ncontest int (nexp_decode bits
   ! 0-2), applying the GUI's SpecOp 5/8/9 -> 1 collapse. The
@@ -2358,9 +2491,9 @@ contains
   ! comment guards a future upstream enum reorder) is:
   !   NONE=0 NA_VHF=1 EU_VHF=2 FIELD_DAY=3 RTTY=4 WW_DIGI=5 FOX=6 HOUND=7
   !   ARRL_DIGI=8 Q65_PILEUP=9 ; mainwindow.cpp:5469-5475 collapses 5,8,9 -> 1.
-  ! Returns -1 for an unknown string (caller leaves contest_type unset — a
-  ! value-domain silent skip, like an unknown mode name). Wire strings are the
-  ! lowercase snake_case names of RFC §6.2.
+  ! Returns -1 for an unknown string (the caller leaves contest_type unset and
+  ! flags it out of range). Wire strings are the lowercase snake_case names
+  ! doc/codec/interface.md gives.
   pure function contest_string_to_int_(s) result(n)
     character(len=*), intent(in) :: s
     integer :: n
@@ -2379,6 +2512,17 @@ contains
     end select
   end function contest_string_to_int_
 
+  ! A known contest_type's number in the GUI's SpecialOperatingActivity
+  ! (SpecialOperatingActivity.hpp), uncollapsed.
+  pure function special_op_of_(s) result(n)
+    character(len=*), intent(in) :: s
+    integer :: n
+    character(len=10), parameter :: names(10) = [character(len=10) ::       &
+         'none', 'na_vhf', 'eu_vhf', 'field_day', 'rtty', 'ww_digi', 'fox',  &
+         'hound', 'arrl_digi', 'q65_pileup']
+    n = findloc(names, s, 1) - 1
+  end function special_op_of_
+
   pure function upper_(s) result(u)
     character(len=*), intent(in) :: s
     character(len=len(s))        :: u
@@ -2394,9 +2538,10 @@ contains
   end function upper_
 
   ! Locate `key` (a quoted token such as '"depth"') at a STRUCTURAL key position
-  ! in a flat JSON buffer: preceded (after optional spaces) by '{' or ',' AND
-  ! followed (after optional spaces) by ':'. Returns found=.true. and vstart =
-  ! the index of the first value char (after the ':' and any spaces).
+  ! in a flat JSON buffer: preceded (after optional JSON white space) by '{' or
+  ! ',' AND followed (after optional white space) by ':'. Returns found=.true.
+  ! and vstart = the index of the first value char (after the ':' and any white
+  ! space).
   !
   ! Anchoring on the structural form is what stops a quoted string VALUE that
   ! happens to equal a key token (e.g. {"mycall":"mygrid"}) from being mistaken
@@ -2423,26 +2568,26 @@ contains
        if (rel .eq. 0) return
        kpos  = start + rel - 1       ! absolute start of this match
        start = kpos + 1              ! next search resumes after this match
-       ! preceding non-space char must be '{' or ',' (a structural key position)
+       ! preceding non-blank char must be '{' or ',' (a structural key position)
        p = kpos - 1
        do while (p .ge. 1)
-          if (buf(p:p) .ne. ' ') exit
+          if (.not. json_space_(buf(p:p))) exit
           p = p - 1
        end do
        if (p .lt. 1) cycle
        if (buf(p:p) .ne. '{' .and. buf(p:p) .ne. ',') cycle
-       ! following non-space char must be ':'
+       ! following non-blank char must be ':'
        p = kpos + klen
        do while (p .le. blen)
-          if (buf(p:p) .ne. ' ') exit
+          if (.not. json_space_(buf(p:p))) exit
           p = p + 1
        end do
        if (p .gt. blen) cycle
        if (buf(p:p) .ne. ':') cycle
-       ! skip ':' and following spaces -> first value char
+       ! skip ':' and following white space -> first value char
        p = p + 1
        do while (p .le. blen)
-          if (buf(p:p) .ne. ' ') exit
+          if (.not. json_space_(buf(p:p))) exit
           p = p + 1
        end do
        vstart = p
@@ -2451,11 +2596,22 @@ contains
     end do
   end subroutine find_key_
 
+  ! Whether c is JSON white space: a space, tab, line feed or carriage return
+  ! (RFC 8259 section 2). A control frame is length-prefixed, so any of them
+  ! can come between its tokens.
+  pure logical function json_space_(c)
+    character, intent(in) :: c
+    json_space_ = c .eq. ' ' .or. c .eq. achar(9) .or. c .eq. achar(10) .or.   &
+         c .eq. achar(13)
+  end function json_space_
+
   ! Classify the JSON value type of `key` in a flat JSON buffer, WITHOUT parsing
   ! it, using the structural key locator above. Categorizes by the value's
   ! leading char:
   !   '"'                -> 'string'
-  !   't' / 'f'          -> 'bool'   (true/false)
+  !   true / false       -> 'bool'   (exactly, then JSON white space and the
+  !                                    ',' or '}' that ends the value; another
+  !                                    word, as tru or truex, is 'number')
   !   'n'                -> 'null'
   !   '}' / ','          -> 'absent' (empty value, e.g. {"mycall":}) — treated as
   !                                    absent so malformed-empty values keep the
@@ -2464,7 +2620,7 @@ contains
   !   anything else      -> 'number' (digit, sign, '.', or an odd value the typed
   !                                    parser will soft-reject as today)
   ! 'absent' means the key is not present (or has no value), which is never a
-  ! type error (RFC §4.1: absent key -> leave at current value).
+  ! type error (an absent key leaves the current value).
   subroutine value_category_(buf, key, cat)
     character(len=*), intent(in)  :: buf, key
     character(len=*), intent(out) :: cat
@@ -2479,7 +2635,10 @@ contains
     c = buf(vstart:vstart)
     select case (c)
     case ('"');           cat = 'string'
-    case ('t', 'f');      cat = 'bool'
+    case ('t', 'f')
+       cat = 'number'
+       if (json_literal_(buf(vstart:blen), 'true') .or.                         &
+            json_literal_(buf(vstart:blen), 'false')) cat = 'bool'
     case ('n');           cat = 'null'
     case ('}', ',');      cat = 'absent'
     case default;         cat = 'number'
@@ -2491,9 +2650,16 @@ contains
   ! (the caller then parses it). Sets proceed=.false. and records the first
   ! type error in `terr` when the key is present with a mismatched category.
   !   accept_str  : the key accepts a JSON string value
-  !   accept_num  : the key accepts a JSON number value
+  !   accept_num  : the key accepts a JSON number value; when expected names
+  !                 int ('int' or 'string|int') it accepts only a plain JSON
+  !                 integer that fits in 32 bits, as doc/codec/interface.md
+  !                 asks and request_int_ reads nutc: any other value
+  !                 (1500.0, 1.5e3, +5, 05, 2147483648, /) is a type error, got
+  !                 'number', or 'array' or 'object' for one; otherwise (a real
+  !                 key) only a JSON number, which get_real_'s list-directed
+  !                 read would take more than (3*15, 1.5d1, +15, .5, 15., /)
   !   accept_bool : (optional, default .false.) the key accepts a JSON boolean.
-  !                 Added in Phase 4 for my_call_standard/his_call_standard;
+  !                 Added for my_call_standard/his_call_standard;
   !                 existing int/real/string callers omit it and reject bools.
   ! (a 'null' value is always a mismatch for the keys handled here.)
   subroutine check_type_(buf, key, keyname, expected, accept_str, accept_num,  &
@@ -2504,7 +2670,8 @@ contains
     logical,                  intent(out)   :: proceed
     logical, optional,        intent(in)    :: accept_bool
     character(len=8) :: cat
-    logical          :: acc_bool
+    logical          :: acc_bool, found, given, ok
+    integer          :: vstart, blen, val
 
     acc_bool = .false.
     if (present(accept_bool)) acc_bool = accept_bool
@@ -2512,8 +2679,19 @@ contains
     proceed = .true.
     if (trim(cat) .eq. 'absent') return
     if (trim(cat) .eq. 'string' .and. accept_str) return
-    if (trim(cat) .eq. 'number' .and. accept_num) return
-    if (trim(cat) .eq. 'bool'   .and. acc_bool)   return
+    if (trim(cat) .eq. 'number' .and. accept_num) then
+       call find_key_(buf, key, vstart, blen, found)
+       if (index('|' // expected // '|', '|int|') .eq. 0) then
+          if (json_number_(buf(vstart:blen), .true.)) return
+       else
+          call request_int_(buf, key, val, given, ok)
+          if (ok) return
+       end if
+       if (buf(vstart:vstart) .eq. '[') cat = 'array'
+       if (buf(vstart:vstart) .eq. '{') cat = 'object'
+    else if (trim(cat) .eq. 'bool' .and. acc_bool) then
+       return
+    end if
     proceed = .false.
     call set_type_error_(terr, keyname, expected, cat)
   end subroutine check_type_
@@ -2533,12 +2711,15 @@ contains
     character(len=*),     intent(in)  :: buf
     logical,              intent(in)  :: render
     type(encode_request), intent(out) :: req
-    character(len=*), parameter :: KEYS(13) = [character(len=8) :: 't', 'id',    &
+    character(len=*), parameter :: KEYS(15) = [character(len=8) :: 't', 'id',    &
          'mode', 'text', 'template', 'final', 'profile', 'his_call',            &
-         'exchange', 'serial', 'report', 'freq', 'rate']
-    character(len=:), allocatable :: text, template, word, key
+         'exchange', 'serial', 'report', 'open', 'n1mm', 'freq', 'rate']
+    character(len=*), parameter :: OPEN_KEYS(2) = [character(len=9) ::         &
+         'columns', 'separator']
+    character(len=:), allocatable :: text, template, n1mm, word, key, flat, inner
     character(len=8) :: cat
-    logical :: has_text, has_template, present, ok
+    logical :: has_text, has_template, has_n1mm, has_open, present, ok
+    integer :: first, last
 
     req%text = ''
     req%his_call = ''
@@ -2552,14 +2733,39 @@ contains
     req%id_ok = present .and. req%id_ok
     if (.not. req%id_ok) return
 
-    if (nested_(buf)) then
+    ! open is the one object a request may hold.
+    call open_object_(buf, first, last, has_open, ok)
+    if (has_open .and. .not. ok) then
+       call refuse_('open', OPEN_DETAIL)
+       return
+    end if
+    flat = buf
+    if (has_open) flat(first:last) = ' '
+    if (nested_(flat)) then
        call refuse_('', 'a request is a flat JSON object')
        return
     end if
-    key = unknown_key_(buf, KEYS(1:merge(13, 11, render)))
+    key = unknown_key_(flat, KEYS(1:merge(15, 13, render)))
     if (len(key) .gt. 0) then
        call refuse_(key, unknown_detail_(key, render))
        return
+    end if
+    if (has_open) then
+       inner = buf(first:last)
+       ok = len(unknown_key_(inner, OPEN_KEYS)) .eq. 0
+       if (ok) call request_int_(inner, '"columns"', req%open_columns, present, ok)
+       ok = ok .and. present .and. req%open_columns .ge. 0 .and. req%open_columns .le. 59
+       if (ok) then
+          call value_category_(inner, '"separator"', cat)
+          ok = trim(cat) .eq. 'bool'
+       end if
+       if (ok) call get_bool_(inner, '"separator"', req%open_separator, ok)
+       if (.not. ok) then
+          req%open_columns = 0
+          req%open_separator = .false.
+          call refuse_('open', OPEN_DETAIL)
+          return
+       end if
     end if
 
     call request_string_(buf, '"text"', text, has_text, ok)
@@ -2572,17 +2778,26 @@ contains
        call refuse_('template', 'template must be a JSON string')
        return
     end if
-    if (has_text .and. has_template) then
-       call refuse_('template', 'a request has text or template, not both')
+    call request_string_(buf, '"n1mm"', n1mm, has_n1mm, ok)
+    if (.not. ok) then
+       call refuse_('n1mm', 'n1mm must be a JSON string')
        return
     end if
-    if (.not. (has_text .or. has_template)) then
-       call refuse_('text', 'a request needs text or template')
+    if (count([has_text, has_template, has_n1mm]) .gt. 1) then
+       call refuse_(trim(merge('n1mm    ', 'template', has_n1mm)),             &
+            'a request has one of text, template and n1mm')
+       return
+    end if
+    if (.not. (has_text .or. has_template .or. has_n1mm)) then
+       call refuse_('text', 'a request needs text, template or n1mm')
        return
     end if
     req%is_template = has_template
+    req%is_n1mm = has_n1mm
     if (has_template) then
        req%text = template
+    else if (has_n1mm) then
+       req%text = n1mm
     else
        req%text = text
     end if
@@ -2638,6 +2853,74 @@ contains
     end subroutine refuse_
 
   end subroutine parse_jtty_request_
+
+  ! The span first:last of buf that is the value of a JTTY request's "open":
+  ! present when the key is there, ok when its value is an object that holds
+  ! no object or array.
+  subroutine open_object_(buf, first, last, present, ok)
+    character(len=*), intent(in)  :: buf
+    integer,          intent(out) :: first, last
+    logical,          intent(out) :: present, ok
+    integer :: blen, q
+    logical :: in_string
+
+    ok = .false.
+    last = 0
+    call find_key_(buf, '"open"', first, blen, present)
+    if (.not. present .or. first .gt. blen) return
+    if (buf(first:first) .ne. '{') return
+    in_string = .false.
+    q = first + 1
+    do while (q .le. blen)
+       if (in_string) then
+          if (buf(q:q) .eq. '\') then
+             q = q + 1
+          else if (buf(q:q) .eq. '"') then
+             in_string = .false.
+          end if
+       else if (buf(q:q) .eq. '"') then
+          in_string = .true.
+       else if (buf(q:q) .eq. '{' .or. buf(q:q) .eq. '[') then
+          return
+       else if (buf(q:q) .eq. '}') then
+          last = q
+          ok = .true.
+          return
+       end if
+       q = q + 1
+    end do
+  end subroutine open_object_
+
+  ! Read a heard request: id and text, a JSON string; no other key.
+  subroutine parse_heard_request(buf, req)
+    character(len=*),    intent(in)  :: buf
+    type(heard_request), intent(out) :: req
+    character(len=*), parameter :: KEYS(3) = [character(len=4) :: 't', 'id', 'text']
+    character(len=:), allocatable :: key
+    logical :: present, ok
+
+    req%text = ''
+    req%problem = ''
+    req%problem_key = ''
+    call request_int_(top_level_(buf), '"id"', req%id, present, req%id_ok)
+    req%id_ok = present .and. req%id_ok
+    if (.not. req%id_ok) return
+    if (nested_(buf)) then
+       req%problem = 'a request is a flat JSON object'
+       return
+    end if
+    key = unknown_key_(buf, KEYS)
+    if (len(key) .gt. 0) then
+       req%problem_key = key
+       req%problem = key // ' is not a key of heard'
+       return
+    end if
+    call request_string_(buf, '"text"', req%text, present, ok)
+    if (.not. (present .and. ok)) then
+       req%problem_key = 'text'
+       req%problem = 'heard needs text, a JSON string'
+    end if
+  end subroutine parse_heard_request
 
   ! Read a jtty_review request: id, then session, sample and the four
   ! frequency values, each refused bad_request when malformed.
@@ -2801,13 +3084,13 @@ contains
     character(len=*),   intent(in)  :: buf
     logical,            intent(in)  :: render
     type(slot_request), intent(out) :: req
-    character(len=*), parameter :: JTTY_KEYS(7) = [character(len=8) ::       &
+    character(len=*), parameter :: JTTY_KEYS(8) = [character(len=8) ::       &
          'template', 'final', 'profile', 'his_call', 'exchange', 'serial',   &
-         'report']
-    character(len=*), parameter :: KEYS(24) = [character(len=8) :: 't', 'id',  &
+         'report', 'n1mm']
+    character(len=*), parameter :: KEYS(29) = [character(len=8) :: 't', 'id',  &
          'mode', 'text', 'submode', 'trperiod', 'spacing', 'copied', 'fast',   &
          'kind', 'slots', 'more_cqs', 'otp', JTTY_KEYS, 'freq', 'rate',        &
-         'seconds', 'cwid']
+         'seconds', 'cwid', 'from', 'count', 'state', 'wavefreq']
     character(len=:), allocatable :: name, word, key
     character(len=len(buf)) :: flat
     character(len=8) :: cat
@@ -2815,6 +3098,7 @@ contains
     logical :: present, ok
 
     req%text = ''
+    req%state = ''
     req%problem = ''
     req%problem_key = ''
     call request_int_(top_level_(buf), '"id"', req%id, present, req%id_ok)
@@ -2841,9 +3125,9 @@ contains
             'FST4W, WSPR, MSK144, ECHO, TUNE, FOX, SUPERFOX or JTTY')
        return
     end if
-    key = unknown_key_(buf, KEYS(1:merge(24, 20, render)))
+    key = unknown_key_(buf, KEYS(1:merge(29, 21, render)))
     if (len(key) .gt. 0) then
-       if (.not. render .and. (key .eq. 'seconds' .or. key .eq. 'cwid')) then
+       if (.not. render .and. any(key .eq. KEYS(24:29))) then
           call refuse_(key, key // ' is a render key')
        else
           call refuse_(key, unknown_detail_(key, render))
@@ -2947,7 +3231,7 @@ contains
        call refuse_('otp', 'otp applies to SUPERFOX')
        return
     end if
-    if (any(req%mode .eq. [4, 9, 65, 66])) req%single = adjustl(req%text) .ne. ' ' &
+    if (any(req%mode .eq. [4, 9, 65, 66, 144])) req%single = adjustl(req%text) .ne. ' ' &
          .and. index(adjustl(req%text), '@') .eq. 1
 
     call value_category_(buf, '"trperiod"', cat)
@@ -3077,12 +3361,52 @@ contains
     call value_category_(buf, '"seconds"', cat)
     if (req%mode .eq. MODE_TUNE) then
        call request_int_(buf, '"seconds"', req%seconds, present, ok)
-       if (.not. (present .and. ok .and. req%seconds .ge. 1 .and. req%seconds .le. 600)) then
-          call refuse_('seconds', 'seconds must be a JSON integer from 1 to 600')
+       ! The GUI's longest Tune, FST4 at 1800 s: 9999 x 134400 samples at
+       ! 48000 Hz.
+       if (.not. (present .and. ok .and. req%seconds .ge. 1 .and. req%seconds .le. 27997)) then
+          call refuse_('seconds', 'seconds must be a JSON integer from 1 to 27997')
           return
        end if
     else if (trim(cat) .ne. 'absent') then
        call refuse_('seconds', 'seconds applies to TUNE')
+       return
+    end if
+
+    call request_int_(buf, '"from"', req%from, present, ok)
+    if (present) then
+       req%range = .true.
+       if (.not. (ok .and. req%from .ge. 0)) then
+          call refuse_('from', 'from must be a JSON integer of samples from 0')
+          return
+       end if
+    end if
+    call request_int_(buf, '"count"', req%count, present, ok)
+    if (present) then
+       req%range = .true.
+       if (.not. (ok .and. req%count .ge. 1 .and. req%count .le. 600 * req%rate)) then
+          call refuse_('count', 'count must be a JSON integer of samples from 1 to ' // &
+               'those of 600 s')
+          return
+       end if
+    end if
+    call request_string_(buf, '"state"', word, present, ok)
+    if (present) then
+       req%range = .true.
+       if (.not. ok .or. len(word) .eq. 0 .or. len(word) .gt. 512) then
+          call refuse_('state', 'state must be the JSON string a range''s rendered ' // &
+               'line gave')
+          return
+       end if
+       req%state = word
+    end if
+    if (req%range .and. (req%mode .eq. MODE_FOX .or. req%mode .eq. MODE_SUPERFOX)) then
+       key = 'from'
+       call value_category_(buf, '"from"', cat)
+       if (trim(cat) .eq. 'absent') key = 'count'
+       if (trim(cat) .eq. 'absent') call value_category_(buf, '"count"', cat)
+       if (trim(cat) .eq. 'absent') key = 'state'
+       call refuse_(key, 'from, count and state apply to the slot modes and TUNE; ' // &
+            'FOX and SUPERFOX render whole')
        return
     end if
 
@@ -3102,10 +3426,35 @@ contains
        return
     end if
 
+    ! The GUI's FST4 and FST4W waveform keeps the frequency it was made at
+    ! when a typed change moves the Modulator's (setFrequency alone).
+    call value_category_(buf, '"wavefreq"', cat)
+    if (trim(cat) .ne. 'absent') then
+       if (.not. any(req%mode .eq. [240, 241])) then
+          call refuse_('wavefreq', 'wavefreq applies to FST4 and FST4W')
+          return
+       end if
+       ok = trim(cat) .eq. 'number'
+       if (ok) then
+          call find_key_(buf, '"wavefreq"', vstart, blen, present)
+          ok = json_number_(buf(vstart:blen), .true.)
+       end if
+       if (ok) call get_real_(buf, '"wavefreq"', req%wavefreq, ok)
+       ! Written so that a NaN fails it.
+       if (.not. (ok .and. req%wavefreq .ge. 200.d0 .and. req%wavefreq .le. 5000.d0)) then
+          call refuse_('wavefreq', 'wavefreq must be a JSON number from 200 to 5000 Hz')
+          return
+       end if
+    end if
+
     call value_category_(buf, '"freq"', cat)
-    if (req%single) then
+    ! The GUI keys a single tone's CW ID at its Tx frequency, but in MSK144
+    ! and fast JT9 at 1500 Hz.
+    if (req%single .and. .not. (req%cwid .and. (any(req%mode .eq. [4, 65, 66]) .or. &
+         (req%mode .eq. 9 .and. .not. req%fast)))) then
        if (trim(cat) .ne. 'absent') call refuse_('freq', 'an @ message is a ' // &
-            'single tone at the frequency it gives, and takes no freq')
+            'single tone at the frequency it gives, and takes freq only with ' // &
+            'cwid true in JT4, slow JT9, JT65 and Q65, for its CW ID')
        return
     end if
     ! The GUI's Fox frequency is a whole number of Hz, and its SuperFox 750.
@@ -3406,11 +3755,79 @@ contains
     if (ok) call get_int_(buf, key, val, ok)
   end subroutine request_int_
 
+  ! Whether s starts with the JSON literal word, then JSON white space and
+  ! the ',' or '}' that ends the value.
+  logical function json_literal_(s, word)
+    character(len=*), intent(in) :: s, word
+    integer :: i
+
+    json_literal_ = .false.
+    if (len(s) .lt. len(word)) return
+    if (s(1:len(word)) .ne. word) return
+    i = len(word) + 1
+    do while (i .le. len(s))
+       if (.not. json_space_(s(i:i))) exit
+       i = i + 1
+    end do
+    if (i .gt. len(s)) return
+    json_literal_ = index(',}', s(i:i)) .gt. 0
+  end function json_literal_
+
+  ! Whether buf is one JSON object: JSON white space, a {, up to the } that
+  ! closes it (outside strings, nested objects and arrays counted; a ] there
+  ! closes nothing), then JSON white space only.
+  logical function one_object_(buf)
+    character(len=*), intent(in) :: buf
+    integer :: i, depth
+    logical :: in_string, escaped
+    character :: c
+
+    one_object_ = .false.
+    i = 1
+    do while (i .le. len(buf))
+       if (.not. json_space_(buf(i:i))) exit
+       i = i + 1
+    end do
+    if (i .gt. len(buf)) return
+    if (buf(i:i) .ne. '{') return
+    depth = 0
+    in_string = .false.
+    escaped = .false.
+    do while (i .le. len(buf))
+       c = buf(i:i)
+       if (in_string) then
+          if (escaped) then
+             escaped = .false.
+          else if (c .eq. '\') then
+             escaped = .true.
+          else if (c .eq. '"') then
+             in_string = .false.
+          end if
+       else if (c .eq. '"') then
+          in_string = .true.
+       else if (c .eq. '{' .or. c .eq. '[') then
+          depth = depth + 1
+       else if (c .eq. '}' .or. c .eq. ']') then
+          depth = depth - 1
+          if (depth .eq. 0) exit
+       end if
+       i = i + 1
+    end do
+    if (i .gt. len(buf)) return
+    if (buf(i:i) .ne. '}') return
+    i = i + 1
+    do while (i .le. len(buf))
+       if (.not. json_space_(buf(i:i))) return
+       i = i + 1
+    end do
+    one_object_ = .true.
+  end function one_object_
+
   ! Whether s starts with a JSON number, -?(0|[1-9][0-9]*), followed when
-  ! fraction is .true. by (\.[0-9]+)?([eE][+-]?[0-9]+)?, ending at ',', '}',
-  ! white space or the end of s. get_int_ and get_real_ read more: their
-  ! list-directed reads take '/', repeat counts and forms like '+5', '05' and
-  ! '1500.'.
+  ! fraction is .true. by (\.[0-9]+)?([eE][+-]?[0-9]+)?, then JSON white
+  ! space and the ',' or '}' that ends the value, so that '3 4' is none.
+  ! get_int_ and get_real_ read more: their list-directed reads take '/',
+  ! repeat counts and forms like '+5', '05' and '1500.'.
   logical function json_number_(s, fraction)
     character(len=*), intent(in) :: s
     logical,          intent(in) :: fraction
@@ -3439,10 +3856,12 @@ contains
           if (.not. digits_(i)) return
        end if
     end if
-    if (i .le. len(s)) then
-       if (index(',}', s(i:i)) .eq. 0 .and. iachar(s(i:i)) .gt. 32) return
-    end if
-    json_number_ = .true.
+    do while (i .le. len(s))
+       if (.not. json_space_(s(i:i))) exit
+       i = i + 1
+    end do
+    if (i .gt. len(s)) return
+    json_number_ = index(',}', s(i:i)) .gt. 0
 
   contains
 

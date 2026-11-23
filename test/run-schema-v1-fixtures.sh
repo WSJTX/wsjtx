@@ -124,7 +124,7 @@
 #      unpacked depth_level emits one configure_type_error key:"depth"
 #      expected:"depth alone" got:"conflict" and declines the whole frame
 #      (co-present mode=JT65 does not apply; FT8 decodes under its default). The
-#      conflicting-encodings rule, via the parse post-pass pack_phase9_.
+#      conflicting-encodings rule, via the parse post-pass pack_ndepth_nexp_decode_.
 #  26. (Phase 9 — TYPE DECLINE) A wrong-typed Phase 9 key (depth_level as a string)
 #      emits one configure_type_error key:"depth_level" expected:"int" got:"string"
 #      and declines the whole frame (mode=JT65 not applied; FT8 >= floor). Wires
@@ -638,7 +638,7 @@ echo ""
 echo "Gate 25 — depth + depth_level co-present (conflict) declines the frame"
 # A frame carrying BOTH the legacy depth (full int) and the unpacked depth_level is
 # a conflicting-encodings error (the two are mutually exclusive). The
-# parse post-pass pack_phase9_ emits configure_type_error key:"depth"
+# parse post-pass pack_ndepth_nexp_decode_ emits configure_type_error key:"depth"
 # expected:"depth alone" got:"conflict". The frame also sets mode=JT65, which must
 # NOT apply (whole-frame decline) -> FT8 decodes under its init default.
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode JT65 --phase9-conflict --quiet 2>/dev/null || true)

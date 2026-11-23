@@ -35,6 +35,22 @@
  *     wspr_decoder's knowledge import checks, its status codes, no reception
  *     after a failed prepare, and the 12 kHz transform planned and destroyed
  *     in each prepare.
+ *   test_wsprd_decode threads <wav>
+ *     Threads decode as one thread does, field for field: the sample at the
+ *     GUI's three depths and a crowded period whose type 3 message resolves
+ *     only through a type 1 decoded before it in the same pass, each with two,
+ *     four and the CPU count's threads, twice; the sample at wsprd's defaults
+ *     and with the stack decoder with four threads once; and one context
+ *     decoding the sample at 8, 2 and the CPU count's threads in turn, as a
+ *     codec session whose wspr_threads changes, against one thread. And the
+ *     count follows ft8_threads' rule on 1 to 64 cores. With no OpenMP every
+ *     count is one.
+ *   test_wsprd_decode osd_threads
+ *     osdwspr at the GUI's depth on eight threads at once (the process's
+ *     first calls among them), each thread with pattern boxes of its own, as
+ *     the decoder gives them, 96 noisy codewords 31 times over, returns what
+ *     it returns called one at a time, and more than one thread ran (with
+ *     OpenMP).
  */
 
 #include <stdio.h>
@@ -60,9 +76,22 @@
 #include "lib/wsprd/fano.h"
 #include "lib/wsprd/wsprsim_utils.h"
 
-extern void osdwspr_(float [], unsigned char [], int *, unsigned char [], int *, float *);
+extern void osdwspr_(float [], unsigned char [], int *, unsigned char [], int *, float *, int []);
+extern int wspr_parallel_threads(int requested);
+extern int wspr_parallel_thread_rule(int requested, int cores);
+extern int wspr_parallel_cpus(void);
+extern int wspr_parallel_for(int count, int threads, void (*body)(void *, int, int), void *arg);
 
 static int failures = 0;
+
+/* WSPRD_DECODE_THREADS_BRIEF set (ThreadSanitizer builds, which run decodes
+   tens of times slower): the threads row runs four threads once, at the
+   GUI's depth 2 only (OSD on), on the sample and the crowded period, and the
+   reused context at 2 and 8 threads. */
+static int brief_threads(void)
+{
+    return getenv("WSPRD_DECODE_THREADS_BRIEF") != NULL;
+}
 
 #define CHECK(cond, ...) do { \
     if( !(cond) ) { \
@@ -694,7 +723,10 @@ static int row_osd_distance(void)
         // Make the hard decisions differ from the challenger by one symbol.
         received[symbols-1] *= -1;
 
-        osdwspr_(received, apmask, &depth, cw, &nhard, &reported);
+        /* Below WSPR_OSD_BOX_DEPTH osdwspr reads no boxes, but its dummy is
+           an array: pass one rather than NULL. */
+        int no_boxes[1] = {0};
+        osdwspr_(received, apmask, &depth, cw, &nhard, &reported, no_boxes);
         int actual = 0, hard = 0;
         for( int i = 0; i < symbols; i++ ) {
             if( cw[i] != (received[i] >= 0) ) {
@@ -712,6 +744,258 @@ static int row_osd_distance(void)
               "prefix weight %d: reported distance %g and %d errors, expected %d/127 and %d",
               weight, reported, nhard, actual, hard);
     }
+    return 0;
+}
+
+/* Decodes at each option set from first to last - 1 (wsprd's defaults, the
+   GUI's three depths, the stack decoder) with every thread count, against
+   one thread. */
+static void compare_thread_counts(char const *what, short const *samples, size_t nsamples,
+                                  int first, int last, char const *must)
+{
+    struct wsprd_decode_options sets[5];
+    char const *labels[5] = {"defaults", "depth 1 (-qB)", "depth 2 (-C 500 -o 4)",
+                             "depth 3 (-C 500 -o 4 -d)", "-J"};
+    for( int i = 0; i < 5; i++ ) wsprd_decode_options_init(&sets[i]);
+    sets[1].quickmode = 1;
+    sets[1].npasses = 2;
+    sets[2].maxcycles = 500;
+    sets[2].ndepth = 4;
+    sets[3] = sets[2];
+    sets[3].more_candidates = 1;
+    sets[4].stackdecoder = 1;
+    int const counts[] = {4, 2, 0};
+    int const gui_depth[] = {0, 1, 1, 1, 0};
+    static struct wsprd_decode_result serial[WSPRD_DECODE_MAX_RESULTS];
+    static struct wsprd_decode_result threaded[WSPRD_DECODE_MAX_RESULTS];
+    for( int s = first; s < last; s++ ) {
+        struct wsprd_decode_options opt = sets[s];
+        opt.threads = 1;
+        struct wsprd_context *ctx = wsprd_context_new(NULL);
+        CHECK(ctx != NULL, "context allocation");
+        if( !ctx ) return;
+        int n1 = decode_once(samples, nsamples, &opt, NULL, ctx, serial);
+        wsprd_context_free(ctx);
+        CHECK(n1 > 0, "%s, %s: one thread decoded %d", what, labels[s], n1);
+        int found = must == NULL;
+        for( int i = 0; i < n1; i++ ) found |= must != NULL && strcmp(serial[i].message, must) == 0;
+        CHECK(found, "%s, %s: one thread did not decode %s", what, labels[s], must ? must : "");
+        /* wsprd's 10,000 cycles a bit (defaults, -J) are slow: four threads
+           there, once; every count at the GUI's depths, twice. */
+        size_t ncounts = gui_depth[s] && !brief_threads() ? sizeof counts / sizeof counts[0] : 1;
+        int repeats = gui_depth[s] && !brief_threads() ? 2 : 1;
+        for( size_t c = 0; c < ncounts; c++ ) {
+            for( int repeat = 0; repeat < repeats; repeat++ ) {
+                char label[160];
+                snprintf(label, sizeof label, "%s, %s, threads %d (%d), run %d", what, labels[s],
+                         counts[c], wspr_parallel_threads(counts[c]), repeat + 1);
+                opt.threads = counts[c];
+                ctx = wsprd_context_new(NULL);
+                CHECK(ctx != NULL, "context allocation");
+                if( !ctx ) return;
+                int n2 = decode_once(samples, nsamples, &opt, NULL, ctx, threaded);
+                wsprd_context_free(ctx);
+                compare_results(label, n1, serial, n2, threaded);
+            }
+        }
+    }
+}
+
+/* One context decoding at 2, 8, the CPU count's and 2 threads in turn, the
+   hash table carrying from decode to decode as in a codec session, against
+   one thread in a context reused the same way. */
+static void compare_reused_context(short const *samples, size_t nsamples)
+{
+    int const counts[] = {2, 8, 0, 2};    /* the workers grow, then fewer of them run */
+    static struct wsprd_decode_result serial[4][WSPRD_DECODE_MAX_RESULTS];
+    static struct wsprd_decode_result threaded[WSPRD_DECODE_MAX_RESULTS];
+    for( int depth = 2; depth <= (brief_threads() ? 2 : 3); depth++ ) {
+        struct wsprd_decode_options opt;
+        wsprd_decode_options_init(&opt);
+        opt.maxcycles = 500;
+        opt.ndepth = 4;
+        opt.more_candidates = depth == 3;
+        int n1[4];
+        opt.threads = 1;
+        struct wsprd_context *one = wsprd_context_new(NULL), *many = wsprd_context_new(NULL);
+        CHECK(one && many, "context allocation");
+        if( !one || !many ) {
+            wsprd_context_free(one);
+            wsprd_context_free(many);
+            return;
+        }
+        int decodes = brief_threads() ? 2 : 4;     /* 2, 8: the workers grow */
+        for( int k = 0; k < decodes; k++ ) n1[k] = decode_once(samples, nsamples, &opt, NULL, one, serial[k]);
+        for( int k = 0; k < decodes; k++ ) {
+            char label[96];
+            opt.threads = counts[k];
+            int n2 = decode_once(samples, nsamples, &opt, NULL, many, threaded);
+            snprintf(label, sizeof label, "one context, depth %d, decode %d at threads %d", depth, k + 1,
+                     counts[k]);
+            compare_results(label, n1[k], serial[k], n2, threaded);
+        }
+        wsprd_context_free(one);
+        wsprd_context_free(many);
+    }
+}
+
+static int row_threads(char const *wav)
+{
+    /* ft8_threads' rule (lib/ft8_engine_kernel.f90) on 1 to 64 cores: 0 from
+       the CPU count, 1 to 12 at most the CPU count, anything else one. */
+    for( int cores = 1; cores <= 64; cores++ ) {
+        int automatic = cores == 1 ? 1 : cores < 5 ? cores - 1 : cores < 9 ? cores - 2
+                      : cores < 16 ? cores - 3 : 12;
+        CHECK(wspr_parallel_thread_rule(0, cores) == automatic, "0 on %d cores: %d threads",
+              cores, wspr_parallel_thread_rule(0, cores));
+        for( int n = 1; n <= 12; n++ )
+            CHECK(wspr_parallel_thread_rule(n, cores) == (n < cores ? n : cores),
+                  "%d on %d cores: %d threads", n, cores, wspr_parallel_thread_rule(n, cores));
+        int const one[] = {-1, 13, 24, 25, 1000};
+        for( size_t i = 0; i < sizeof one / sizeof one[0]; i++ )
+            CHECK(wspr_parallel_thread_rule(one[i], cores) == 1, "%d on %d cores: %d threads",
+                  one[i], cores, wspr_parallel_thread_rule(one[i], cores));
+    }
+    /* This host: the rule with OpenMP's CPU count (known when below 12), one
+       without OpenMP. */
+    int cores = wspr_parallel_threads(12);
+    CHECK(cores >= 1 && cores <= 12, "12 requested: %d threads", cores);
+    for( int n = 1; n <= 12; n++ )
+        CHECK(wspr_parallel_threads(n) == (n < cores ? n : cores),
+              "%d requested: %d threads, %d cores", n, wspr_parallel_threads(n), cores);
+    int const one[] = {-1, 13, 24, 25, 1000};
+    for( size_t i = 0; i < sizeof one / sizeof one[0]; i++ )
+        CHECK(wspr_parallel_threads(one[i]) == 1, "%d requested: %d threads",
+              one[i], wspr_parallel_threads(one[i]));
+    int automatic = wspr_parallel_threads(0);
+    if( cores < 12 ) {
+        int expected = cores <= 1 ? 1 : cores < 5 ? cores - 1 : cores < 9 ? cores - 2 : cores - 3;
+        CHECK(automatic == expected, "0 requested: %d threads, %d cores", automatic, cores);
+    } else {
+        CHECK(automatic >= 6 && automatic <= 12, "0 requested: %d threads", automatic);
+    }
+    printf("threads: up to %d here, %d chosen from the CPU count\n", cores, automatic);
+
+    size_t nsamples = 0;
+    short *samples = read_wav(wav, &nsamples);
+    if( !samples ) return 1;
+    compare_thread_counts("sample", samples, nsamples, brief_threads() ? 2 : 0,
+                          brief_threads() ? 3 : 5, NULL);
+    compare_reused_context(samples, nsamples);
+    free(samples);
+
+    /* Eight stations, the type 3 among them strongest after its type 1, so
+       that it is tried in the same pass as the type 1 that resolves it. */
+    struct signal crowd[] = {
+        {"K1ABC FN42 37", 0, 0, -95.0, 260.0},
+        {"<K1ABC> FN42AX 37", 0, 0, -60.0, 240.0},
+        {"PJ4/W9XYZ 23", 0, 0, -30.0, 180.0},
+        {"G4ABC/P 10", 0, 0, 5.0, 150.0},
+        {"W5XYZ EM10 33", 0, 0, 30.0, 120.0},
+        {"VK2XYZ QF56 20", 0, 0, 55.0, 100.0},
+        {"DL1ABC JO62 30", 0, 0, 80.0, 90.0},
+        {"JA1ABC PM95 40", 0, 0, -10.0, 70.0},
+    };
+    double sigma = sqrt(1000.0 * 1000.0 / 2 / pow(10.0, -14.0 / 10) * 6000.0 / 2500.0);
+    samples = synthesize_signals(crowd, (int)(sizeof crowd / sizeof crowd[0]), sigma);
+    CHECK(samples != NULL, "synthesis");
+    if( !samples ) return 1;
+    /* The GUI's depths: at 10,000 cycles a bit (wsprd's defaults, -J) its
+       weak candidates take minutes. */
+    compare_thread_counts("crowded period", samples, wsprd_downsample_points(2),
+                          brief_threads() ? 2 : 1, brief_threads() ? 3 : 4,
+                          "<K1ABC> FN42AX 37");
+    free(samples);
+    return 0;
+}
+
+/* osd_threads: noisy codewords of random messages, OSD at the GUI's depth. */
+enum { OSD_WORDS = 96, OSD_SYMBOLS = 162 };
+struct osd_job {
+    int used[64];           /* the thread numbers that ran a word */
+    int *boxes[8];          /* each thread's pattern boxes, WSPR_OSD_BOX_INTS */
+    float received[OSD_WORDS][OSD_SYMBOLS];
+    unsigned char cw[OSD_WORDS][OSD_SYMBOLS];
+    int nhard[OSD_WORDS];
+    float dmin[OSD_WORDS];
+};
+
+static void osd_word(void *arg, int k, int thread)
+{
+    struct osd_job *job = arg;
+    unsigned char apmask[OSD_SYMBOLS] = {0};
+    float received[OSD_SYMBOLS];
+    int depth = 4;          /* -o 4, the GUI's depths 2 and 3 */
+    if( thread >= 0 && thread < 64 ) job->used[thread] = 1;
+    memcpy(received, job->received[k], sizeof received);
+    osdwspr_(received, apmask, &depth, job->cw[k], &job->nhard[k], &job->dmin[k],
+             job->boxes[thread]);
+}
+
+static int row_osd_threads(void)
+{
+    static struct osd_job serial, threaded;
+    unsigned long long state = 2718281828ULL;
+    double const pi = 3.14159265358979323846;
+    for( int k = 0; k < OSD_WORDS; k++ ) {
+        unsigned char message[11] = {0}, symbols[sizeof message * 16];
+        for( int i = 0; i < 7; i++ ) {
+            state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+            message[i] = (unsigned char)(state >> 56);
+        }
+        message[6] &= 0xC0;     /* 50 bits, then the tail */
+        encode(symbols, message, sizeof message);
+        for( int i = 0; i < OSD_SYMBOLS; i++ ) {
+            double u[2];
+            for( int j = 0; j < 2; j++ ) {
+                state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+                u[j] = ((state >> 11) + 0.5) / 9007199254740992.0;
+            }
+            double v = (symbols[i] ? 40.0 : -40.0) + 45.0 * sqrt(-2 * log(u[0])) * cos(2 * pi * u[1]);
+            serial.received[k][i] = (float)(v > 127 ? 127 : v < -128 ? -128 : v);
+        }
+    }
+    memcpy(threaded.received, serial.received, sizeof serial.received);
+    /* Each thread's pattern boxes, as the decoder gives each of its threads. */
+    for( int t = 0; t < 8; t++ ) {
+        serial.boxes[t] = malloc(WSPR_OSD_BOX_INTS * sizeof *serial.boxes[t]);
+        CHECK(serial.boxes[t] != NULL, "no memory for pattern boxes");
+        if( !serial.boxes[t] ) return 1;
+    }
+    memcpy(threaded.boxes, serial.boxes, sizeof serial.boxes);
+    /* The threads first: the process's first OSD calls fill osdwspr's
+       generator under its lock, at once. */
+    static struct osd_job first;
+    memcpy(first.received, serial.received, sizeof serial.received);
+    memcpy(first.boxes, serial.boxes, sizeof serial.boxes);
+    memset(first.used, 0, sizeof first.used);
+    wspr_parallel_for(OSD_WORDS, 8, osd_word, &first);
+    for( int k = 0; k < OSD_WORDS; k++ ) osd_word(&serial, k, 0);
+    for( int k = 0; k < OSD_WORDS; k++ )
+        CHECK(memcmp(serial.cw[k], first.cw[k], OSD_SYMBOLS) == 0 &&
+              serial.nhard[k] == first.nhard[k] && serial.dmin[k] == first.dmin[k],
+              "first run, word %d: the threads' result is not the one-at-a-time one", k);
+    memcpy(threaded.used, first.used, sizeof threaded.used);
+    for( int run = 0; run < 30; run++ ) {
+        memset(threaded.cw, 0, sizeof threaded.cw);
+        wspr_parallel_for(OSD_WORDS, 8, osd_word, &threaded);
+        for( int k = 0; k < OSD_WORDS; k++ )
+            CHECK(memcmp(serial.cw[k], threaded.cw[k], OSD_SYMBOLS) == 0 &&
+                  serial.nhard[k] == threaded.nhard[k] && serial.dmin[k] == threaded.dmin[k],
+                  "run %d, word %d: %d hard errors at distance %g one at a time, %d at %g on threads"
+                  " (or another codeword)", run + 1, k, serial.nhard[k], serial.dmin[k],
+                  threaded.nhard[k], threaded.dmin[k]);
+    }
+    /* Eight threads ran, not one: the row is registered with dynamic teams
+       on and one thread by default (OMP_DYNAMIC, OMP_NUM_THREADS), which the
+       shim overrides. Without OpenMP one runs, and the shim cannot override a
+       thread limit (OMP_THREAD_LIMIT, OMP_MAX_ACTIVE_LEVELS). */
+    int ran = 0;
+    for( int t = 0; t < 64; t++ ) ran += threaded.used[t];
+    if( wspr_parallel_cpus() > 1 && !getenv("OMP_THREAD_LIMIT") && !getenv("OMP_MAX_ACTIVE_LEVELS") )
+        CHECK(ran > 1, "one thread ran the 96 words");
+    printf("osd_threads: %d threads ran\n", ran);
+    for( int t = 0; t < 8; t++ ) free(serial.boxes[t]);
     return 0;
 }
 
@@ -738,10 +1022,15 @@ int main(int argc, char **argv)
         rc = row_osd_distance();
     } else if( argc == 2 && strcmp(argv[1], "decoder_api") == 0 ) {
         rc = row_decoder_api();
+    } else if( argc == 3 && strcmp(argv[1], "threads") == 0 ) {
+        rc = row_threads(argv[2]);
+    } else if( argc == 2 && strcmp(argv[1], "osd_threads") == 0 ) {
+        rc = row_osd_threads();
     } else {
         fprintf(stderr, "usage: %s repeat <wav> | hash_roundtrip <wav> <dir> | run_file <wav> <dir>"
                 " | short_name <wav> <dir> | unresolved_type3 | type2_grid <dir>"
-                " | unencodable_text | calibration_passes | osd_distance | decoder_api\n", argv[0]);
+                " | unencodable_text | calibration_passes | osd_distance | decoder_api"
+                " | threads <wav> | osd_threads\n", argv[0]);
         return 2;
     }
     if( rc == 0 && failures == 0 ) {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Phase 5 parse-unit regression (streaming-schema unit parse->pack assert).
+# Run by hand, not by ctest or CI: test/run-phase5-parse-unit.sh, from any directory (it finds the source from its own path); it needs gfortran, or the compiler $FC names.
 # Compiles lib/streaming_control.f90 and the driver
 # test/phase5_parse_test.f90 into an ISOLATED module dir and runs it. Guards the
 # PARSE side of the 12 Phase 5 decoder-tuning keys: each key -> correct
@@ -62,6 +63,10 @@ echo ""
 # shadow the fresh compile.
 # -J/-I alone do NOT remove cwd from the search order; the cd does.
 cd "$WORK"
+# streaming_control uses q65_callers (Q65_MAX_CALLERS), which uses types.
+"$FC" -c "$REPO_ROOT/lib/types.f90" -J"$WORK" -o "$WORK/types.o"
+"$FC" -c -cpp -I"$REPO_ROOT/lib/qra/q65" "$REPO_ROOT/lib/qra/q65/q65_callers.F90" -J"$WORK" \
+  -o "$WORK/q65_callers.o"
 "$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p5drv"
 "$WORK/p5drv"

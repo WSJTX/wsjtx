@@ -647,6 +647,26 @@ private slots:
       << QByteArray {R"({"t":"configure","mode":999,"trperiod":30})"};
   }
 
+  // FT8's mode option starts a session at FT8's 15 s, as no mode option
+  // does: 31 s of audio are two whole periods and a part one.
+  void wsjtCodecStartsFt8AtFifteenSeconds_data ()
+  {
+    QTest::addColumn<QStringList> ("options");
+    QTest::newRow ("-8") << QStringList {"-8"};
+    QTest::newRow ("--ft8") << QStringList {"--ft8"};
+    QTest::newRow ("-8 -p 60") << QStringList {"-8", "-p", "60"};
+  }
+
+  void wsjtCodecStartsFt8AtFifteenSeconds ()
+  {
+    QFETCH (QStringList, options);
+    auto const result = runJt9 (sessionHeader () + silentAudioFrame (31 * 12000), options);
+    verifyCompleted (result, 0);
+    auto const events = verifyEvents (result);
+    QCOMPARE (eventsMatching (events.values, "error").size (), 0);
+    QCOMPARE (eventsMatching (events.values, "decode_finished").size (), 3);
+  }
+
   void wsjtCodecRejectsUnknownMode ()
   {
     QFETCH (QByteArray, configure);
@@ -1134,7 +1154,7 @@ private slots:
     QTest::addColumn<QByteArray> ("line");
     auto const badVersion = QByteArray {R"({"v":1,"t":"error","code":"unknown_schema_version","got":2})"};
     QTest::newRow ("no t") << QByteArray {R"({"x":1})"} << QByteArray {
-      R"j({"v":1,"t":"error","code":"configure_parse_error","detail":"malformed control frame (missing or invalid t field)"})j"};
+      R"j({"v":1,"t":"error","code":"configure_parse_error","detail":"malformed control frame (not one JSON object with a string t)"})j"};
     QTest::newRow ("version") << QByteArray {R"({"t":"configure","version":2})"} << badVersion;
     QTest::newRow ("type") << QByteArray {R"({"t":"configure","depth":"abc"})"} << QByteArray {
       R"({"v":1,"t":"error","code":"configure_type_error","key":"depth","expected":"int","got":"string"})"};
@@ -1547,12 +1567,22 @@ private slots:
     QTest::newRow ("FT8 nfa above nfb") << ft8 << ft8Keys << QJsonObject {{"nfa", 3000}, {"nfb", 2000}}
       << QString {"nfa"} << QString {"FT8"} << QString {"nfa must not be above nfb in FT8"} << cq << QStringList {};
     QTest::newRow ("FT8 ft8_threads 25") << ft8 << ft8Keys << QJsonObject {{"ft8_threads", 25}}
-      << QString {"ft8_threads"} << QString {"FT8"} << QString {"ft8_threads must be from 0 to 24 in FT8"} << cq << QStringList {};
+      << QString {"ft8_threads"} << QString {"FT8"} << QString {"ft8_threads must be from 0 to 12 in FT8"} << cq << QStringList {};
+    // The kernel runs a count above 12 on one thread.
+    QTest::newRow ("FT8 ft8_threads 13") << ft8 << ft8Keys << QJsonObject {{"ft8_threads", 13}}
+      << QString {"ft8_threads"} << QString {"FT8"} << QString {"ft8_threads must be from 0 to 12 in FT8"} << cq << QStringList {};
     QTest::newRow ("FT8 qso_progress_state 99") << ft8 << ft8Keys << QJsonObject {{"qso_progress_state", 99}}
       << QString {"qso_progress_state"} << QString {"FT8"}
       << QString {"qso_progress_state must be from 0 to 5 in FT8"} << cq << QStringList {};
     QTest::newRow ("FT4 depth_level 4") << ft8 << ft8Keys << QJsonObject {{"mode", "FT4"}, {"depth_level", 4}}
       << QString {"depth_level"} << QString {"FT4"} << QString {"depth_level must be from 1 to 3 in FT4"} << cq << QStringList {};
+    // A level no setting of WSJT-X's gives, which its low bits would make 1.
+    QTest::newRow ("FT8 depth_level 9") << ft8 << ft8Keys << QJsonObject {{"depth_level", 9}}
+      << QString {"depth_level"} << QString {"FT8"} << QString {"depth_level must be from 1 to 3 in FT8"} << cq
+      << QStringList {};
+    QTest::newRow ("Q65 q65_maxiters_level 5") << q65 << q65Keys << QJsonObject {{"q65_maxiters_level", 5}}
+      << QString {"q65_maxiters_level"} << QString {"Q65"} << QString {"q65_maxiters_level must be from 1 to 3 in Q65"}
+      << k1abc << QStringList {};
     QTest::newRow ("JT9 rxfreq 6000") << ft8 << ft8Keys
       << QJsonObject {{"mode", "JT9"}, {"trperiod", 60}, {"rxfreq", 6000}}
       << QString {"rxfreq"} << QString {"JT9"} << QString {"rxfreq must be from 0 to 5000 Hz in JT9"} << cq << QStringList {};
@@ -1560,23 +1590,60 @@ private slots:
       << QString {"n_trials"} << QString {"JT65"} << QString {"n_trials must be at most 1000000 in JT65"} << k1abc << QStringList {};
     QTest::newRow ("JT65 rxfreq 6000") << jt65 << jt65Keys << QJsonObject {{"rxfreq", 6000}}
       << QString {"rxfreq"} << QString {"JT65"} << QString {"rxfreq must be from 0 to 5000 Hz in JT65"} << k1abc << QStringList {};
+    // Values the decoder takes but WSJT-X's controls cannot give: the
+    // decoding depth (Fast, Normal and Deep) and Aggressive, 0 to 10.
+    QTest::newRow ("FT8 depth 0") << ft8 << ft8Keys << QJsonObject {{"depth", 0}}
+      << QString {"depth"} << QString {"FT8"} << QString {"depth must hold a decoding depth from 1 to 3 in FT8"}
+      << cq << QStringList {};
+    QTest::newRow ("FT8 depth 7") << ft8 << ft8Keys << QJsonObject {{"depth", 7}}
+      << QString {"depth"} << QString {"FT8"} << QString {"depth must hold a decoding depth from 1 to 3 in FT8"}
+      << cq << QStringList {};
+    // Bits WSJT-X's depth never holds, in any mode: 8 (FT8 decoded 9 as
+    // Deep), 4 (Q65 reads only the low two bits), and 256 and up.
+    QString const bits {"depth must hold a decoding depth from 1 to 3 and no bits but 16, 32, 64 and 128 in %1"};
+    QTest::newRow ("FT8 depth 9") << ft8 << ft8Keys << QJsonObject {{"depth", 9}}
+      << QString {"depth"} << QString {"FT8"} << bits.arg ("FT8") << cq << QStringList {};
+    QTest::newRow ("FT8 depth 259") << ft8 << ft8Keys << QJsonObject {{"depth", 259}}
+      << QString {"depth"} << QString {"FT8"} << bits.arg ("FT8") << cq << QStringList {};
+    QTest::newRow ("JT65 depth 11") << jt65 << jt65Keys << QJsonObject {{"depth", 11}}
+      << QString {"depth"} << QString {"JT65"} << bits.arg ("JT65") << k1abc << QStringList {};
+    QTest::newRow ("Q65 depth 7") << q65 << q65Keys << QJsonObject {{"depth", 7}}
+      << QString {"depth"} << QString {"Q65"} << QString {"depth must hold a decoding depth from 1 to 3 in Q65"}
+      << k1abc << QStringList {};
+    QTest::newRow ("FT8 use_averaging alone") << ft8 << ft8Keys << QJsonObject {{"use_averaging", true}}
+      << QString {"depth_level"} << QString {"FT8"} << QString {"depth_level must be from 1 to 3 in FT8"}
+      << cq << QStringList {};
+    QTest::newRow ("JT65 aggressive 11") << jt65 << jt65Keys << QJsonObject {{"aggressive", 11}}
+      << QString {"aggressive"} << QString {"JT65"} << QString {"aggressive must be from 0 to 10 in JT65"} << k1abc
+      << QStringList {};
     QTest::newRow ("JT65 aggressive 12") << jt65 << jt65Keys << QJsonObject {{"aggressive", 12}}
-      << QString {"aggressive"} << QString {"JT65"} << QString {"aggressive must be from 0 to 11 in JT65"} << k1abc
+      << QString {"aggressive"} << QString {"JT65"} << QString {"aggressive must be from 0 to 10 in JT65"} << k1abc
       << QStringList {};
     QTest::newRow ("JT65 after FT8's aggressive") << ft8
       << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"aggressive", -1}} << jt65Keys
       << QString {"aggressive"} << QString {"JT65"}
-      << QString {"aggressive must be from 0 to 11 in JT65; it was set before this frame"} << cq << QStringList {};
+      << QString {"aggressive must be from 0 to 10 in JT65; it was set before this frame"} << cq << QStringList {};
+    QTest::newRow ("JT65+JT9 aggressive 11") << jt65
+      << QJsonObject {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"trperiod", 60}, {"depth_level", 1},
+                      {"nfa", 1300}, {"nfb", 1700}}
+      << QJsonObject {{"aggressive", 11}} << QString {"aggressive"} << QString {"JT65+JT9"}
+      << QString {"aggressive must be from 0 to 10 in JT65+JT9"} << k1abc << QStringList {};
+    // Values no decoder setting has: declined in any mode.
+    QTest::newRow ("FT8 contest_type NA_VHF") << ft8 << ft8Keys << QJsonObject {{"contest_type", "NA_VHF"}}
+      << QString {"contest_type"} << QString {"FT8"}
+      << QString {"contest_type must be none, na_vhf, eu_vhf, field_day, rtty, ww_digi, fox, hound, arrl_digi "
+                  "or q65_pileup"} << cq << QStringList {};
+    QTest::newRow ("FT8 npts_c0_array 0") << ft8 << ft8Keys << QJsonObject {{"npts_c0_array", 0}}
+      << QString {"npts_c0_array"} << QString {"FT8"} << QString {"npts_c0_array must be from 1 to 81648"}
+      << cq << QStringList {};
     QTest::newRow ("JT65 submode 3") << jt65 << jt65Keys << QJsonObject {{"submode", 3}}
       << QString {"submode"} << QString {"JT65"} << QString {"submode must be from 0 to 2 in JT65"} << k1abc << QStringList {};
     // An unpacked depth key alone leaves the depth level at 0.
     QTest::newRow ("JT65 use_averaging alone") << jt65 << jt65Keys << QJsonObject {{"use_averaging", true}}
       << QString {"depth_level"} << QString {"JT65"} << QString {"depth_level must be from 1 to 3 in JT65"}
       << k1abc << QStringList {};
-    QTest::newRow ("JT65 after FT8's rxfreq") << ft8
-      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"rxfreq", 5500}} << jt65Keys
-      << QString {"rxfreq"} << QString {"JT65"}
-      << QString {"rxfreq must be from 0 to 5000 Hz in JT65; it was set before this frame"} << cq << QStringList {};
+    // A carried rxfreq is held to 200..5000 Hz on entry, as WSJT-X's Rx Freq,
+    // so it is never declined there (test/apply_routing_test.f90, frame RX/TX).
     // JT65+JT9 runs JT65 when the transmit mode is JT9.
     QTest::newRow ("JT65+JT9 n_trials 3000000") << jt65
       << QJsonObject {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"trperiod", 60}, {"depth_level", 1},
@@ -1592,6 +1659,18 @@ private slots:
     QTest::newRow ("FST4 eme_delay_seconds 20.5") << fst4 << fst4Keys
       << QJsonObject {{"trperiod", 15}, {"eme_delay_seconds", 20.5}} << QString {"eme_delay_seconds"}
       << QString {"FST4"} << QString {"eme_delay_seconds must be from 0 s to the TR period in FST4"} << k1abc << QStringList {};
+    // In every mode but JTTY and FreqCal, which read no delay, as the engine
+    // holds FST4's: FT8 took -5 as on, and 1e300 as infinite.
+    QString const delay {"eme_delay_seconds must be from 0 s to the TR period in %1"};
+    QTest::newRow ("FT8 eme_delay_seconds -5") << ft8 << ft8Keys << QJsonObject {{"eme_delay_seconds", -5}}
+      << QString {"eme_delay_seconds"} << QString {"FT8"} << delay.arg ("FT8") << cq << QStringList {};
+    QTest::newRow ("FT8 eme_delay_seconds 1e300") << ft8 << ft8Keys << QJsonObject {{"eme_delay_seconds", 1e300}}
+      << QString {"eme_delay_seconds"} << QString {"FT8"} << delay.arg ("FT8") << cq << QStringList {};
+    QTest::newRow ("FT4 eme_delay_seconds 7.6") << ft8 << ft8Keys
+      << QJsonObject {{"mode", "FT4"}, {"eme_delay_seconds", 7.6}} << QString {"eme_delay_seconds"}
+      << QString {"FT4"} << delay.arg ("FT4") << cq << QStringList {};
+    QTest::newRow ("Q65 eme_delay_seconds 15.5") << q65 << q65Keys << QJsonObject {{"eme_delay_seconds", 15.5}}
+      << QString {"eme_delay_seconds"} << QString {"Q65"} << delay.arg ("Q65") << k1abc << QStringList {};
     QTest::newRow ("JT4 min_width 1") << jt4 << jt4Keys << QJsonObject {{"min_width", 1}}
       << QString {"min_width"} << QString {"JT4"} << QString {"min_width must be from 0 to the submode in JT4"}
       << k1abc << QStringList {};
@@ -1607,15 +1686,17 @@ private slots:
     QTest::newRow ("Q65 nfa above 5000") << q65 << q65Keys << QJsonObject {{"nfa", 5100}, {"nfb", 5500}}
       << QString {"nfa"} << QString {"Q65"} << QString {"nfa must be below nfb and below 5000 Hz in Q65"} << k1abc
       << QStringList {};
-    // A change of mode restores nfa and nfb from the command line.
+    // A change of mode keeps nfa and nfb, as WSJT-X's waterfall range: the
+    // command line's nfb, carried into JT65, was set before the frame.
     QTest::newRow ("JT65 after the command line's nfb") << ft8 << ft8Keys
       << QJsonObject {{"mode", "JT65"}, {"trperiod", 60}} << QString {"nfb"} << QString {"JT65"}
-      << QString {"nfb must be at most 5000 Hz in JT65; a change of mode or period restores it from the command line"}
+      << QString {"nfb must be at most 5000 Hz in JT65; it was set before this frame"}
       << cq << QStringList {"-H", "5500"};
   }
 
-  // A configure the decoder would refuse is declined with the key that set
-  // the value; the configure before it still decodes.
+  // A configure the decoder would refuse, or with a value WSJT-X cannot give,
+  // is declined with the key that set the value; the configure before it
+  // still decodes.
   void wsjtCodecDeclinesValuesTheEngineRefuses ()
   {
     if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
@@ -1721,12 +1802,12 @@ private slots:
     QJsonObject fst4Keys {{"mode", "FST4"}, {"trperiod", 15}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
                           {"rxfreq", 1500}, {"utc", "00:15:00"}};
     QTest::newRow ("FT8") << QString::fromUtf8 (FT8_ENGINE_WAV)
-      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"nfb", 6000}, {"ft8_threads", 24},
+      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"nfb", 6000}, {"ft8_threads", 12},
                       {"qso_progress_state", 5}}
       << QString {"CQ K1JT FN20"};
     QTest::newRow ("JT65") << QString::fromUtf8 (JT65_ENGINE_WAV)
       << QJsonObject {{"mode", "JT65"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
-                      {"n_trials", 1000000}, {"aggressive", 11}}
+                      {"n_trials", 1000000}, {"aggressive", 10}}
       << QString {"K1ABC W9XYZ FN42"};
     // The rows below need no decode: the recording does not suit the setting.
     auto blanker = fst4Keys;
@@ -1735,6 +1816,11 @@ private slots:
     auto delay = fst4Keys;
     delay.insert ("eme_delay_seconds", 15.0);
     QTest::newRow ("FST4 eme_delay_seconds 15") << fst4 << delay << QString {};
+    // So is every mode's: FT4's period is 7.5 s.
+    QTest::newRow ("FT4 eme_delay_seconds 7.5") << QString::fromUtf8 (FT8_ENGINE_WAV)
+      << QJsonObject {{"mode", "FT4"}, {"utc", "05:11:15"}, {"eme_delay_seconds", 7.5}} << QString {};
+    QTest::newRow ("FT8 eme_delay_seconds 0") << QString::fromUtf8 (FT8_ENGINE_WAV)
+      << QJsonObject {{"mode", "FT8"}, {"utc", "05:11:15"}, {"eme_delay_seconds", 0}} << QString {"CQ K1JT FN20"};
     // JT65+JT9 runs only JT9 unless the transmit mode is JT9, and JT9 takes no trials.
     QTest::newRow ("JT65+JT9 n_trials 3000000") << QString::fromUtf8 (JT65_ENGINE_WAV)
       << QJsonObject {{"mode", "JT65+JT9"}, {"trperiod", 60}, {"depth_level", 1}, {"nfa", 1300}, {"nfb", 1700},
@@ -1828,6 +1914,123 @@ private slots:
         QCOMPARE (errors[i].value ("detail").toString (), rule);
       }
     QVERIFY2 (result.standardError.contains ("<DecodeRejected> status=invalid"), result.standardError.constData ());
+  }
+
+  // A command-line starting value the decoder takes but WSJT-X's controls
+  // cannot give is reported once at the start, and the session goes on.
+  void wsjtCodecReportsStartValuesWsjtxCannotGive ()
+  {
+    if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
+    auto const result = runRecording (QString::fromUtf8 (FT8_ENGINE_WAV), {}, QStringList {"-d", "0"});
+    verifyCompleted (result, 0);
+    auto const errors = eventsMatching (verifyEvents (result).values, "error");
+    QCOMPARE (errors.size (), 1);
+    QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
+    QCOMPARE (errors.first ().value ("key").toString (), QString {"depth"});
+    QCOMPARE (errors.first ().value ("mode").toString (), QString {"FT8"});
+    QCOMPARE (errors.first ().value ("detail").toString (),
+              QString {"depth must hold a decoding depth from 1 to 3 in FT8; the command line set it"});
+  }
+
+  // The decoder gets the depth WSJT-X's decode gives it (MainWindow::decode):
+  // the whole depth in FT8 with the multithreaded decoder, its early passes
+  // too from a file, as here (live, the second early pass at
+  // ft8_decoder_start 1 runs at depth 2, as WSJT-X's does); otherwise without
+  // the Decode menu items the mode hides, which show
+  // only with VHF features: averaging and automatic clear in JT4, JT65 and
+  // Q65, deep search in JT4 and JT65, AP for the DX call in none. Each pass
+  // line gives the depth the pass ran at; 243 holds every bit WSJT-X's
+  // depth can.
+  void depthReachesTheDecoderAsWsjtxGivesIt_data ()
+  {
+    QTest::addColumn<QString> ("recording");
+    QTest::addColumn<QJsonObject> ("keys");
+    QTest::addColumn<int> ("depth");
+    QString const ft8 {QString::fromUtf8 (FT8_ENGINE_WAV)};
+    QJsonObject const ft8Keys {{"mode", "FT8"}, {"utc", "05:11:15"}, {"depth_level", 1}, {"use_averaging", true}};
+    QJsonObject const jt65Keys {{"mode", "JT65"}, {"trperiod", 60}, {"nfa", 1300}, {"nfb", 1700}, {"depth", 243}};
+    QJsonObject const vhf {{"vhf_features", true}};
+    QTest::newRow ("FT8") << ft8 << ft8Keys << 1;
+    QTest::newRow ("FT8 multithreaded") << ft8
+      << with (ft8Keys, {{"multithreaded_ft8", true}, {"ft8_threads", 2}}) << 17;
+    QTest::newRow ("FT4") << ft8 << QJsonObject {{"mode", "FT4"}, {"depth", 243}} << 3;
+    QTest::newRow ("JT65") << QString::fromUtf8 (JT65_ENGINE_WAV) << jt65Keys << 3;
+    QTest::newRow ("JT65 with VHF features") << QString::fromUtf8 (JT65_ENGINE_WAV) << with (jt65Keys, vhf)
+      << 3 + 16 + 32 + 128;
+    QTest::newRow ("JT4 with VHF features") << QString::fromUtf8 (JT4_ENGINE_WAV)
+      << QJsonObject {{"mode", "JT4"}, {"trperiod", 60}, {"submode", 0}, {"rxfreq", 1000}, {"ntol", 50},
+                      {"utc", "12:34:00"}, {"depth", 243}, {"vhf_features", true}}
+      << 3 + 16 + 32 + 128;
+    QTest::newRow ("Q65 with VHF features") << QString::fromUtf8 (Q65_ENGINE_WAV)
+      << QJsonObject {{"mode", "Q65"}, {"trperiod", 15}, {"submode", 0}, {"nfa", 1300}, {"nfb", 1700},
+                      {"rxfreq", 1500}, {"utc", "00:15:00"}, {"depth", 243}, {"vhf_features", true}}
+      << 3 + 16 + 128;
+  }
+
+  void depthReachesTheDecoderAsWsjtxGivesIt ()
+  {
+    if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
+    QFETCH (QString, recording);
+    QFETCH (QJsonObject, keys);
+    QFETCH (int, depth);
+    keys.insert ("t", "configure");
+    auto const result = runRecording (recording, controlFrame (QJsonDocument {keys}.toJson (QJsonDocument::Compact)));
+    verifyCompleted (result, 0);
+    QCOMPARE (eventsMatching (verifyEvents (result).values, "error").size (), 0);
+    auto const run = passes (result.standardError);
+    QVERIFY2 (!run.isEmpty (), result.standardError.constData ());
+    for (auto const& pass : run)
+      QVERIFY2 (pass.depth == depth, qPrintable (QString {"nzhsym %1 ran at depth %2"}.arg (pass.nzhsym).arg (pass.depth)));
+  }
+
+  // A depth WSJT-X's cannot hold is declined in every mode: in JTTY and
+  // FreqCal too, which read no depth, whether the frame sends it or carries
+  // it from the command line. JTTY's range errors carry no mode.
+  void depthWsjtxCannotHoldIsDeclinedInEveryMode_data ()
+  {
+    QTest::addColumn<QStringList> ("options");
+    QTest::addColumn<QJsonObject> ("keys");
+    QTest::addColumn<QString> ("mode");
+    QTest::addColumn<QString> ("detail");
+    QString const bits {"depth must hold a decoding depth from 1 to 3 and no bits but 16, 32, 64 and 128"};
+    QString const level {"depth must hold a decoding depth from 1 to 3"};
+    QJsonObject const freqcal {{"mode", "FREQCAL"}, {"trperiod", 15}};
+    QTest::newRow ("JTTY depth 9") << QStringList {} << QJsonObject {{"mode", "JTTY"}, {"depth", 9}} << QString {} << bits;
+    QTest::newRow ("JTTY depth 0") << QStringList {} << QJsonObject {{"mode", "JTTY"}, {"depth", 0}} << QString {} << level;
+    QTest::newRow ("JTTY after -d 9") << QStringList {"-d", "9"} << QJsonObject {{"mode", "JTTY"}} << QString {}
+      << bits + "; it was set before this frame";
+    QTest::newRow ("FREQCAL depth 9") << QStringList {} << with (freqcal, {{"depth", 9}}) << QString {"FREQCAL"}
+      << bits + " in FREQCAL";
+    QTest::newRow ("FREQCAL after -d 4") << QStringList {"-d", "4"} << freqcal << QString {"FREQCAL"}
+      << level + " in FREQCAL; it was set before this frame";
+  }
+
+  void depthWsjtxCannotHoldIsDeclinedInEveryMode ()
+  {
+    if (!rangeTests ()) QSKIP ("run by test_streaming_configure_ranges");
+    QFETCH (QStringList, options);
+    QFETCH (QJsonObject, keys);
+    QFETCH (QString, mode);
+    QFETCH (QString, detail);
+    keys.insert ("t", "configure");
+    auto const result = runRecording (QString::fromUtf8 (FT8_ENGINE_WAV),
+                                      controlFrame (QJsonDocument {keys}.toJson (QJsonDocument::Compact)), options);
+    verifyCompleted (result, 0);
+    auto errors = eventsMatching (verifyEvents (result).values, "error");
+    // A start value is reported once after ready, in the start mode.
+    if (!options.isEmpty ())
+      {
+        QVERIFY2 (!errors.isEmpty (), result.standardOutput.constData ());
+        QCOMPARE (errors.first ().value ("mode").toString (), QString {"FT8"});
+        QVERIFY (errors.first ().value ("detail").toString ().endsWith ("; the command line set it"));
+        errors.removeFirst ();
+      }
+    QCOMPARE (errors.size (), 1);
+    QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
+    QCOMPARE (errors.first ().value ("key").toString (), QString {"depth"});
+    QCOMPARE (errors.first ().contains ("mode"), !mode.isEmpty ());
+    QCOMPARE (errors.first ().value ("mode").toString (), mode);
+    QCOMPARE (errors.first ().value ("detail").toString (), detail);
   }
 
   void wsjtCodecKeepsStdoutJsonWithMultithreadedFt8_data ()
@@ -1960,7 +2163,8 @@ private slots:
     QTest::newRow ("start 4, delayed") << 4 << 1 << 1000;
   }
 
-  // The stream's multithreaded FT8 decodes what jt9 decodes from the same WAV.
+  // The stream's multithreaded FT8 decodes what jt9 decodes from the same WAV,
+  // each message once where WSJT-X shows it once.
   void multithreadedFt8MatchesWavMode ()
   {
     auto const sample = qEnvironmentVariable ("WSJT_FT8_SAMPLE_WAV");
@@ -2005,8 +2209,11 @@ private slots:
         streamed << decode.value ("message").toString ().trimmed ();
       }
     streamed.sort ();
-    auto const expected = wavModeFt8Messages (wavMode.standardOutput);
+    auto expected = wavModeFt8Messages (wavMode.standardOutput);
     QVERIFY2 (!expected.isEmpty (), wavMode.standardOutput.constData ());
+    // jt9 prints each pass's lines; at starts 0 and 1, whose final finds the
+    // early passes' messages again, WSJT-X shows each message once.
+    if (decoderStart < 2) expected.removeDuplicates ();
     QCOMPARE (streamed, expected);
   }
 
