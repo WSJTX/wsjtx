@@ -569,6 +569,9 @@ add_executable(wsprd
   $<TARGET_OBJECTS:wsjt_wspr>
   lib/indexx.f90
   lib/wsprd/osdwspr.f90
+  # Without OpenMP flags: wsprd decodes on one thread (wsjt-codec takes the
+  # OpenMP build of the same file from wsjt_fort_omp).
+  lib/wsprd/wspr_parallel.f90
 )
 
 if(WIN32)

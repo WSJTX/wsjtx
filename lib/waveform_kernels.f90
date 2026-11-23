@@ -39,6 +39,7 @@ module waveform_kernels
        cmplx(cos(sine_index*twopi32/table_size),sin(sine_index*twopi32/table_size),real32), &
        sine_index=0,table_size-1)]
   public :: waveform_workspace, render_gfsk, render_fsk, render_tone, apply_waveform_ramp
+  public :: render_gfsk_window
 
   type waveform_workspace
      real(real32), allocatable :: pulse(:),scaled_pulse(:)
@@ -472,6 +473,78 @@ contains
        first=first+n
     enddo
   end subroutine
+
+  ! render_gfsk's real table-output waveform for a narrow constant pulse (bt 2
+  ! or 8), sample_stride 1 and no repeated edges, but only its samples
+  ! out_first to out_first+size(wave)-1, counted from 0 (zero from
+  ! active_count). It runs render_gfsk's blocks from the one starting at
+  ! sample first, whose phase is phi (0 and 0: the waveform's start), and
+  ! returns in first and phi the block and phase holding sample
+  ! out_first+size(wave), first -1 when that is at or past active_count. ok is
+  ! false, with nothing written, when render_gfsk renders these arguments
+  ! otherwise or first is past out_first.
+  subroutine render_gfsk_window(work,tones,nsps,bt,hmod,carrier,source_offset, &
+       active_count,out_first,wave,first,phi,ok)
+    type(waveform_workspace), intent(inout) :: work
+    integer, intent(in) :: tones(:),nsps,hmod,source_offset,active_count,out_first
+    real(real32), intent(in) :: bt
+    real(real64), intent(in) :: carrier
+    real(real32), intent(out) :: wave(:)
+    integer, intent(inout) :: first
+    real(real64), intent(inout) :: phi
+    logical, intent(out) :: ok
+    real(real64) :: bound,constant_peak,block_phi
+    real(real64) :: phases(block_size)
+    integer :: wrap_mode,raw,q,r,n,i,j,index,nsym,next,last,block_first
+    integer :: t0,t1,t2,region_scale
+
+    ok=.false.
+    if(.not.(bt.eq.2.0_real32.or.bt.eq.8.0_real32)) return
+    region_scale=15
+    if(bt.eq.8.0_real32) region_scale=60
+    call prepare_pulse(work,nsps,bt,hmod,.true.)
+    nsym=size(tones)
+    constant_peak=twopi64*real(hmod,real64)/real(nsps,real64)
+    bound=abs(real(carrier,real64))+3.0_real64*work%pulse_bound*maxval(abs(real(tones,real64)))
+    wrap_mode=wrap_general
+    if(bound.le.0.5_real64*twopi64) wrap_mode=wrap_bounded
+    if(wrap_mode.eq.wrap_bounded.and.carrier.ge.0.and.minval(tones).ge.0.and.work%positive_pulse) wrap_mode=wrap_positive
+    if(wrap_mode.ne.wrap_positive.or.first.lt.0.or.first.gt.out_first) return
+    ok=.true.
+    wave=0
+    next=out_first+size(wave)
+    last=next-1
+    do while(first.lt.active_count)
+       raw=source_offset+first
+       q=raw/nsps
+       r=mod(raw,nsps)
+       n=min(block_size,nsps-r,active_count-first)
+       t0=0; t1=0; t2=0
+       if(q.ge.2.and.q.le.nsym+1) t0=tones(q-1)
+       if(q.ge.1.and.q.le.nsym) t1=tones(q)
+       if(q.ge.0.and.q.lt.nsym) t2=tones(q+1)
+       block_first=first
+       block_phi=phi
+       call prepare_narrow_steps(r,n,nsps,region_scale,t2,t1,t0,constant_peak, &
+            carrier,table_size/twopi64,phases(1:n))
+       do i=1,n
+          j=first+i-1
+          if(j.ge.out_first.and.j.le.last) then
+             index=iand(int(phi),table_size-1)
+             wave(j-out_first+1)=aimag(sine_table(index))
+          endif
+          phi=phi+phases(i)
+       enddo
+       phi=phi-real(table_size,real64)*aint(phi/real(table_size,real64))
+       first=first+n
+       if(next.lt.first) then
+          first=block_first
+          phi=block_phi
+          return
+       endif
+    enddo
+    first=-1
+  end subroutine render_gfsk_window
 
   pure real(real64) function advance_tone_phase(phase,increment) result(next_phase)
     real(real64), intent(in) :: phase,increment

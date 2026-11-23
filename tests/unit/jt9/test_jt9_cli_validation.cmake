@@ -148,6 +148,11 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
   require_rejection (-Q 6)
   require_rejection (-Q invalid)
   require_rejection (-N 25)
+  # The FT8 kernel runs a count above 12 on one thread.
+  require_rejection (-N 13)
+  require_rejection (-N 24)
+  # -S takes its value, as --split does.
+  require_mode_result ("cannot read WAV file" --ft8 -S 2700)
   require_rejection (-p invalid)
   require_rejection (-m invalid)
   require_rejection (--tr-period invalid)
@@ -169,6 +174,10 @@ foreach (program "${JT9}" "${WSJT_CODEC}")
       NOT help MATCHES "-W[\r\n ]+--fst4w[\r\n]" OR
       NOT help MATCHES "-Y[\r\n ]+--fst4w-hash[\r\n]")
     message (FATAL_ERROR "${program_name} has incorrect FST4W option mappings: ${help}${stderr}")
+  endif ()
+  # The help gives the defaults the program starts with (nQSOProg=0).
+  if (NOT help MATCHES "QSO progress \\(0-5\\), default PROGRESS=0")
+    message (FATAL_ERROR "${program_name} --help gives the wrong -Q default: ${help}")
   endif ()
 
   foreach (option -c --my-call -x --his-call)

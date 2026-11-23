@@ -11,6 +11,8 @@ COMMAND... starts the client; the check adds the subcommand and its options, and
   decode: lines that are not JSON objects are skipped, and a decode whose dt is null prints DT nan; exit status 1 after an error line (decode-error) and after the stand-in's exit status 1 (decode-status).
   render: exit status 1 when the rendered audio, a second of silence, decodes to nothing, with --out's WAV kept (render).
   NO_EXIT, all at once, each exit due 10 s after the logged event (from 0.5 s before to 2 s after): decode exits 3 when the stand-in, after halt, sends lines for 3 s more, then ends its standard output and does not exit (decode-noexit, from the end of its output); when it stops reading its input after 1 s of audio, so the client's writer blocks before halt, sends lines for 3 s, then ends its standard output and does not exit (decode-stopread); render exits 1 when the stand-in refuses the render and does not exit after halt (render-noexit, from halt).
+  RELEASE, with NO_EXIT, each exit due at most 2 s after the stand-in's exit (up to RELEASE_LATE, 1.5 s, late): the stand-in exits 0 and a child of it holds one or two of its pipes. decode exits 0 when the child holds standard error, after the stand-in answers and ends its standard output (decode-childerr), when it holds standard output, after the stand-in answers, whose finished line must be printed (decode-childout), when it holds standard input, which the stand-in stopped reading after 1 s of audio, so the client's writer is blocked (decode-childin), and when it holds standard input and standard output so, the client's reader and writer both waiting on it, which the client gives 2 s in all (decode-childboth); render exits 1 when the stand-in refuses the render and the child holds standard output after halt (render-childout).
+  SILENT, with NO_EXIT, each exit due SILENCE_CHECK_SECONDS after the stand-in's ready (from 0.5 s before to 2 s after), with the client's silence bound shortened to SILENCE_CHECK_SECONDS by CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, which the examples read for this check only: the stand-in sends ready and then nothing, neither ending its output nor exiting, and a child of it holds its output pipes. decode (decode-silent) and render with --out (render-silent) exit 3 with "no line from the codec in SILENCE_CHECK_SECONDS s: it has hung" on stderr, and render leaves no --out file.
   live (--live), in FT4, whose allowance is 6 s once a pass has completed: the real codec in real time, with exit status 0 and every expected message; then, at once, the LIVE_FAKES stand-ins. Exit status 3 within the allowance plus 2 s of the due time when the stand-in: hangs while busy and goes silent (hung), so the client must check its deadlines while no line comes, and does so in FT8, whose allowance is 10 s (hung8); hangs while busy, sending only lines that are not progress (noisy); runs one pass that ends with busy false and no decode_finished, then sends nothing (onepass; a busy false completes a pass, so due at the second period's scheduled end plus the allowance); answers every period, then hangs after halt (afterhalt; due the allowance after halt); answers the first period after 1 s of its audio, then stops reading, so the client's writer blocks before it sends halt (answerstop; due at the last sample's scheduled time plus the allowance); answers the first period and never the second (idle; due at the second's scheduled end plus the allowance); does so after answering the second period's label before the period starts, as a period a day earlier would have been (reused); stops reading its input during the second period (stopread); answers the first period only after the second is registered, and never the second (crossed). Exit status 0 when it: is slow but sends progress lines (slow); runs its first pass, before any completes, with no progress for longer than the allowance (slowstart); keeps a pass busy, with progress, until after the second period's scheduled end plus the allowance, then answers that period 1 s after its busy false (latebusy); answers each period before all its audio is sent (early). Exit status 1 within 32 s when it never sends ready (noready). The stand-in sends busy and pass_progress lines only after a configure turns on busy_events, and logs a problem unless live_audio is on too. In the HANGS a child of the stand-in holds its output pipes open after the client stops it, so a client that waits for them misses its due time.
 Every stdout line must be a decode, finished or rendered line, and the stand-in must not be running 2 s after the client has exited. Messages match by text with blanks collapsed; decodes beyond the expected messages are allowed. After each run, and when the check is interrupted, what the client started is stopped: on POSIX its process group, on Windows its process tree while the client runs. Exit status 0 when every run passes.
 """
@@ -66,6 +68,13 @@ FAKES = {"decode": 0, "decode-error": 1, "decode-status": 1}
 EXIT_SECONDS = 10.0  # how long a client gives the codec to exit once its output ends, or after halt on a failure
 NO_EXIT = {"decode-noexit": (3, "closed", EXIT_SECONDS), "decode-stopread": (3, "closed", EXIT_SECONDS), "render-noexit": (1, "halt", EXIT_SECONDS)}
 TAIL = 3.0  # how long decode-noexit and decode-stopread send lines after their input ends or they stop reading it, s
+# Stand-in scenarios without --live in which a child of the stand-in holds one of its pipes after the stand-in exits: the exit status expected, and when the client's exit is due at the latest: the logged event and the seconds after it.
+RELEASE_SECONDS = 2.0  # how long, once the codec has exited, a client waits for its pipes and its writes to them
+RELEASE_LATE = 1.5  # how late a RELEASE exit may come: the clients have been measured up to 0.5 s late (Java; the others 0.1 s), and a writer given a fresh 2 s once its reader has waited 2 s comes 2 s late
+RELEASE = {"decode-childerr": (0, "exit", RELEASE_SECONDS), "decode-childout": (0, "exit", RELEASE_SECONDS), "decode-childin": (0, "exit", RELEASE_SECONDS), "decode-childboth": (0, "exit", RELEASE_SECONDS), "render-childout": (1, "exit", RELEASE_SECONDS)}
+# Stand-in scenarios without --live that go silent after ready: the exit status expected, and when the client's exit is due: the logged event and the seconds after it.
+SILENCE_CHECK_SECONDS = 4  # the silence bound the check gives a client outside live (CODEC_EXAMPLE_CHECK_SILENCE_SECONDS) in place of 300 s, s
+SILENT = {"decode-silent": (3, "ready", SILENCE_CHECK_SECONDS), "render-silent": (3, "ready", SILENCE_CHECK_SECONDS)}
 RUNNING = set()  # the clients running now: an interrupted check stops them, and all they started
 
 
@@ -139,8 +148,8 @@ class Run:
             differ = sorted(set(self.lines) ^ set(reference.lines))
             self.fail("lines differ from the Python example's: %s" % "; ".join(differ[:6]))
 
-    def stand_in(self, event=None, delay=None):
-        """Fail on the problems the stand-in logged, and, given an event it logged, unless the client exited delay s after it."""
+    def stand_in(self, event=None, delay=None, early=EARLY, late=LATE):
+        """Fail on the problems the stand-in logged, and, given an event it logged, unless the client exited delay s after it, from early s before to late s after."""
         entries = []
         try:
             with open(os.path.join(self.data, "fake_codec.log")) as log:
@@ -154,10 +163,10 @@ class Run:
             self.fail("the client exited and left the stand-in running")
         times = {entry["event"]: entry["time"] for entry in entries if "event" in entry}
         if event and event in times and self.status is not None:
-            late = self.ended - times[event] - delay
-            self.timing = "exited %+.1f s from its due time" % late
-            if not -EARLY <= late <= LATE:
-                self.fail("exited %.1f s after %s, not %.0f s (from -%.1f to +%.1f)" % (late + delay, event, delay, EARLY, LATE))
+            off = self.ended - times[event] - delay
+            self.timing = "exited %+.1f s from its due time" % off
+            if not -early <= off <= late:
+                self.fail("exited %.1f s after %s, not %.0f s (from -%.1f to +%.1f)" % (off + delay, event, delay, early, late))
         elif event and entries and event not in times:
             self.fail("the stand-in logged no %s" % event)
 
@@ -227,9 +236,9 @@ def label_plus(label, seconds):
 
 
 def fake_codec():
-    """A stand-in for wsjt-codec: CODEC_EXAMPLE_FAKE names the scenario, one of FAKES, render, NO_EXIT or LIVE_FAKES, in FT8 for hung8 and FT4 otherwise.
+    """A stand-in for wsjt-codec: CODEC_EXAMPLE_FAKE names the scenario, one of FAKES, render, NO_EXIT, RELEASE, SILENT or LIVE_FAKES, in FT8 for hung8 and FT4 otherwise.
 
-    It checks what the client sends and logs each problem, and the times the check measures from, to fake_codec.log in its working directory, and writes about four pipe buffers to stderr before ready. It sends busy and pass_progress lines only after a configure turns on busy_events. hung, hung8, onepass, afterhalt and answerstop go silent; noisy, idle, stopread, reused and crossed keep sending lines that are not progress or an answer until the client stops them. In the HANGS a child of the stand-in holds its output pipes open after the stand-in is stopped. The NO_EXIT scenarios end their standard output, or refuse a render, and then do not exit; they keep standard error open.
+    It checks what the client sends and logs each problem, and the times the check measures from, to fake_codec.log in its working directory, and writes about four pipe buffers to stderr before ready. It sends busy and pass_progress lines only after a configure turns on busy_events. hung, hung8, onepass, afterhalt and answerstop go silent; noisy, idle, stopread, reused and crossed keep sending lines that are not progress or an answer until the client stops them. In the HANGS and SILENT a child of the stand-in holds its output pipes open after the stand-in is stopped. The NO_EXIT scenarios end their standard output, or refuse a render, and then do not exit; they keep standard error open. In the RELEASE scenarios a child of the stand-in holds one or two of its pipes for 40 s after the stand-in exits 0. The SILENT scenarios send ready and then nothing, and neither end their output nor exit.
     """
     scenario = os.environ.get("CODEC_EXAMPLE_FAKE", "")
     mode = "FT8" if scenario == "hung8" else "FT4"
@@ -285,7 +294,7 @@ def fake_codec():
         while True:
             if scenario == "stopread" and state["labels"] == 2 and state["in_period"] >= FT4_SAMPLES // 3 or state["answered"]:
                 return  # stops reading its input
-            if scenario == "decode-stopread" and (state["in_period"] or 0) >= 12000:
+            if scenario in ("decode-stopread", "decode-childin", "decode-childboth") and (state["in_period"] or 0) >= 12000:
                 stopped.set()
                 return  # stops reading its input after 1 s of audio
             head = stdin.read(5)
@@ -326,6 +335,13 @@ def fake_codec():
                 audio.set()
         ended.set()
 
+    def exit_holding(*held):
+        """Start a child that holds the stand-in's standard streams named (stdin, stdout, stderr) for 40 s, and exit 0."""
+        streams = {name: subprocess.DEVNULL for name in ("stdin", "stdout", "stderr") if name not in held}
+        subprocess.Popen([sys.executable, "-c", "import time; time.sleep(40)"], **streams)
+        log(event="exit", time=time.time())
+        os._exit(0)
+
     log(event="started", time=time.time(), pid=os.getpid())
     if not os.environ.get("OMP_STACKSIZE"):
         log(problem="OMP_STACKSIZE is not set")
@@ -334,7 +350,7 @@ def fake_codec():
         if option not in args[:-1] or os.path.realpath(args[args.index(option) + 1]) != here:
             log(problem="%s is not the working directory" % option)
     threading.Thread(target=read_input, daemon=True).start()
-    if scenario in HANGS:
+    if scenario in HANGS or scenario in SILENT:
         # A process that holds the stand-in's output pipes open for 40 s after the client stops it, as a codec's own child could: the client must not wait for them.
         subprocess.Popen([sys.executable, "-c", "import time; time.sleep(40)"], stdin=subprocess.DEVNULL)
     if scenario == "noready":
@@ -344,6 +360,20 @@ def fake_codec():
     sys.stderr.write("stand-in: diagnostics\n" * 12000)  # about four pipe buffers: a client that does not read stderr as it comes never sees ready
     sys.stderr.flush()
     emit({"t": "ready", "modes": [mode], "encodes": [mode], "protocol": 1})
+    log(event="ready", time=time.time())
+    if scenario in SILENT:  # sends nothing more, its input read to the end by read_input, and neither ends its output nor exits
+        time.sleep(70)
+        return 0
+    if scenario == "render-childout":  # refuses the render; after halt a child holds its standard output, and it exits 0
+        if not rendering.wait(30):
+            log(problem="no render request")
+            return 0
+        emit({"t": "rejected", "id": state["render"].get("id"), "reason": "bad_request", "detail": "stand-in"})
+        while not state["halt"] and not ended.wait(0.05):
+            pass
+        if not state["halt"]:
+            log(problem="no halt before the end of input")
+        exit_holding("stdout")
     if scenario == "render-noexit":  # refuses the render, then, after halt, neither exits nor ends its output
         if not rendering.wait(30):
             log(problem="no render request")
@@ -386,6 +416,12 @@ def fake_codec():
     if scenario == "decode-stopread":
         stopped.wait()
         close_and_stay()
+    if scenario == "decode-childin":  # stops reading after 1 s of audio, so the client's writer blocks; a child holds its standard input, and it exits 0
+        stopped.wait()
+        exit_holding("stdin")
+    if scenario == "decode-childboth":  # as decode-childin, but the child holds its standard output too, so the client's reader waits on it as well
+        stopped.wait()
+        exit_holding("stdin", "stdout")
 
     def period2(after):
         """Wait until the second period's label came after seconds ago."""
@@ -474,6 +510,12 @@ def fake_codec():
         log(problem="no halt before the end of input")
     if scenario == "decode-noexit":  # after halt, sends lines for TAIL s, ends its output, and then does not exit
         close_and_stay()
+    if scenario == "decode-childerr":  # answers the period; a child holds its standard error, and it exits 0
+        finished(first)
+        exit_holding("stderr")
+    if scenario == "decode-childout":  # answers the period; a child holds its standard output, and it exits 0
+        finished(first)
+        exit_holding("stdout")
     return 1 if scenario == "decode-status" else 0
 
 
@@ -608,17 +650,33 @@ def main():
         run.stand_in()
 
         def no_exit(scenario):
-            status, event, delay = NO_EXIT[scenario]
+            status, event, delay = NO_EXIT.get(scenario) or RELEASE.get(scenario) or SILENT[scenario]
             env = dict(fake_env, CODEC_EXAMPLE_FAKE=scenario)
+            if scenario in SILENT:
+                env["CODEC_EXAMPLE_CHECK_SILENCE_SECONDS"] = str(SILENCE_CHECK_SECONDS)
             data = os.path.join(work, "fake-" + scenario)
+            out = os.path.join(work, "fake-%s.wav" % scenario)
+            if os.path.exists(out):
+                os.remove(out)
             command = args.client + (["decode", "--codec", fake, "--data", data, "--mode", "FT4", sample] if scenario.startswith("decode")
-                                     else ["render", "--codec", fake, "--data", data, "--mode", "FT4", REFUSED])
+                                     else ["render", "--codec", fake, "--data", data, "--mode", "FT4"] + (["--out", out] if scenario == "render-silent" else []) + [REFUSED])
             run = Run("fake-" + scenario, command, work, data, 30, env)
             run.expect_status(status)
-            run.stand_in(event, delay)
+            if scenario in RELEASE:
+                run.stand_in(event, delay, early=delay, late=RELEASE_LATE)  # a RELEASE exit may come at once
+            else:
+                run.stand_in(event, delay)
+            if scenario == "decode-childout" and "finished " + label not in run.lines:
+                run.fail("no line 'finished %s': the client let go of output the stand-in wrote before it exited" % label)
+            if scenario in SILENT:
+                hung = "no line from the codec in %d s: it has hung" % SILENCE_CHECK_SECONDS
+                if hung not in run.err:
+                    run.fail("no %r on stderr" % hung)
+                if os.path.exists(out):
+                    run.fail("a render whose codec hung left %s behind" % out)
             return run
-        with concurrent.futures.ThreadPoolExecutor(len(NO_EXIT)) as pool:
-            runs.extend(pool.map(no_exit, NO_EXIT))
+        with concurrent.futures.ThreadPoolExecutor(len(NO_EXIT) + len(RELEASE) + len(SILENT)) as pool:
+            runs.extend(pool.map(no_exit, list(NO_EXIT) + list(RELEASE) + list(SILENT)))
 
     if args.live:
         run = start("live", "live", "--depth", "3", sample)

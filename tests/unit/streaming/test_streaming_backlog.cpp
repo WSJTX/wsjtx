@@ -489,6 +489,38 @@ Row mtdCancels ()
   return due (row);
 }
 
+// The Settings the GUI's decode reads beyond its FT8 decoder's own: an
+// accepted change of any cancels (MainWindow::on_actionSettings_triggered).
+// Periods 1 to 5 have their finals deferred, then Low sidelobes, Aggressive,
+// Two-pass, an activity that decodes as the one before it (WW Digi after NA
+// VHF) and Decode after EME delay with the delay eme_delay_seconds holds each
+// drop one; period 6's, after the same values again, runs.
+Row mtdSettingsCancel ()
+{
+  auto row = mtd (1, true, 8);
+  row.settings.insert ("contest_type", "na_vhf");
+  // Period 7's other recording shows period 6's drained final decoded its own.
+  row.recordings << samples ("WSJT_FT8_ENGINE_WAV", Ft8PeriodSamples);
+  row.sources = {0, 0, 0, 0, 0, 0, 0, 1};
+  QJsonObject const again {{"low_sidelobes", false}, {"aggressive", 4}, {"n_2pass", 1},
+                           {"contest_type", "ww_digi"}, {"decode_after_eme_delay", true},
+                           {"eme_delay_seconds", 0}};
+  row.sends = {gate (at (row, 0, 41)), gate (at (row, 0, 46)), anchor (at (row, 0, 50)),
+               burstCancel (start (row, 2), {{{"low_sidelobes", false}}}),
+               gate (at (row, 2, 41)), anchor (at (row, 2, 46)),
+               burstCancel (start (row, 3), {{{"aggressive", 4}}}),
+               gate (at (row, 3, 41)), anchor (at (row, 3, 46)),
+               burstCancel (start (row, 4), {{{"n_2pass", 1}}}),
+               gate (at (row, 4, 41)), anchor (at (row, 4, 46)),
+               burstCancel (start (row, 5), {{{"contest_type", "ww_digi"}}}),
+               gate (at (row, 5, 41)), anchor (at (row, 5, 46)),
+               burstCancel (start (row, 6), {{{"decode_after_eme_delay", true}, {"eme_delay_seconds", 0}}}),
+               gate (at (row, 6, 41)), anchor (at (row, 6, 46)),
+               burstConfigure (start (row, 7), {again}, false),
+               gate (at (row, 7, 41)), gate (at (row, 7, 46)), gate (at (row, 7, 50)), gate (start (row, 8))};
+  return due (row);
+}
+
 // SuperFox Hound decodes on the standard decoder with multithreading on
 // (MainWindow::usesFt8MtdFinal), so its final drops when busy.
 Row houndBehindOnePeriod ()
@@ -1183,6 +1215,12 @@ private slots:
   {
     if (!recordings ()) QSKIP ("run by test_streaming_backlog_*");
     check (mtdCancels ());
+  }
+
+  void mtdSettingsCancelDropTheDeferredFinal ()
+  {
+    if (!recordings ()) QSKIP ("run by test_streaming_backlog_*");
+    check (mtdSettingsCancel ());
   }
 
   void houndDropsTheFinalWhileBusy ()

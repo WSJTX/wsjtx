@@ -273,7 +273,8 @@ contains
     call ok('dt_center_seconds unset',   .not. cfg%dt_center_seconds_set)
   end subroutine frame_I
 
-  ! Frame J: truncated values exercise every scalar getter at end-of-buffer.
+  ! Frame J: a frame cut off where a value starts, t's or a string, integer,
+  ! real or boolean key's, is a parse error that sets nothing.
   subroutine frame_J()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
@@ -284,22 +285,22 @@ contains
     call ok('truncated required t -> parse error', action .eq. CTRL_PARSE_ERR)
 
     call parse_control_frame('{"t":"configure","mode":', action, cfg, terr)
-    call ok('truncated string key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('truncated string key: action == CTRL_PARSE_ERR', action .eq. CTRL_PARSE_ERR)
     call ok('truncated string key: terr not present', .not. terr%present)
     call ok('truncated string key: mode unset', .not. cfg%mode_set)
 
     call parse_control_frame('{"t":"configure","depth":', action, cfg, terr)
-    call ok('truncated int key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('truncated int key: action == CTRL_PARSE_ERR', action .eq. CTRL_PARSE_ERR)
     call ok('truncated int key: terr not present', .not. terr%present)
     call ok('truncated int key: depth unset', .not. cfg%depth_set)
 
     call parse_control_frame('{"t":"configure","trperiod":   ', action, cfg, terr)
-    call ok('space-only real key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('space-only real key: action == CTRL_PARSE_ERR', action .eq. CTRL_PARSE_ERR)
     call ok('space-only real key: terr not present', .not. terr%present)
     call ok('space-only real key: trperiod unset', .not. cfg%trperiod_set)
 
     call parse_control_frame('{"t":"configure","my_call_standard":', action, cfg, terr)
-    call ok('truncated bool key: action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('truncated bool key: action == CTRL_PARSE_ERR', action .eq. CTRL_PARSE_ERR)
     call ok('truncated bool key: terr not present', .not. terr%present)
     call ok('truncated bool key: my_call_standard unset', .not. cfg%my_call_standard_set)
   end subroutine frame_J

@@ -153,7 +153,7 @@ program jt9
     option ('dial', .true., 'O', 'WSPR files'' dial frequency, default MHZ=0', 'MHZ'), &
     option ('quiet', .false., 'q', 'Quiet mode, no <DecodeFinished>', ''),   &
     option ('msk144', .false., 'k', 'MSK144 mode', ''),                      &
-    option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=1',&
+    option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=0',&
         'QSOprogress'),                                                      &
     option ('sub-mode', .true., 'b',                                        &
         'Sub mode (mode-dependent A-H), default SUBMODE=A', 'SUBMODE'),      &
@@ -188,7 +188,7 @@ program jt9
   wspr_dial=0.d0
 
   do
-     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:2O:', &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklTMUZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:2O:', &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -249,8 +249,9 @@ program jt9
            call require_integer('R', optarg(:arglen), nft8rxfsens)
         case ('N')
            call require_integer('N', optarg(:arglen), nmt)
-           if (nmt < 0 .or. nmt > 24) then
-              call invalid_option('N', optarg(:arglen), 'must be between 0 and 24')
+           ! The FT8 kernel runs a count above 12 on one thread.
+           if (nmt < 0 .or. nmt > 12) then
+              call invalid_option('N', optarg(:arglen), 'must be between 0 and 12')
            end if
         case ('E')
            call require_integer('E', optarg(:arglen), nmtft8decsens)
@@ -419,10 +420,8 @@ program jt9
   if (.not. read_files) then
      if (stream_mode) then
         call streaming_emit_set_enabled(.true.)
-        if (mode .eq. 0) then
-           mode = 8                            ! default: FT8
-           if (TRperiod .eq. 60.d0) TRperiod = 15.d0
-        end if
+        if (mode .eq. 0) mode = 8              ! default: FT8
+        if (mode .eq. 8  .and. TRperiod .eq. 60.d0) TRperiod = 15.d0   ! FT8
         if (mode .eq. 5  .and. TRperiod .eq. 60.d0) TRperiod = 7.5d0   ! FT4
         if (mode .eq. 144 .and. TRperiod .eq. 60.d0) TRperiod = 30.d0  ! MSK144
 
@@ -444,7 +443,7 @@ program jt9
              nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,                &
              mygrid=mygrid, hisgrid=hisgrid,                                    &
              datetime='2026-Apr-25 00:00   ',                                  &
-             tx9=tx9, multift8=.false., hidedupes=.false.,                     &
+             tx9=tx9, multift8=.false., hidedupes=.true.,                      &
              lft8lowth=.true., lft8subpass=.true.,                             &
              lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,               &
              nexp_decode_set=nexp_decode_set)
@@ -452,9 +451,14 @@ program jt9
         call init_streaming_extra_fields(shared_data%params, args)
 
         ! Streaming-side overrides post-init.
+        ! (hidedupes above: WSJT-X's "Hide FT8 dupe messages" starts checked,
+        !  widgets/mainwindow_settings.cpp.)
         ! (mode=9 nfa=fsplit handled by init_default_params per-mode adjustment.)
         ! (configure switches multithreaded FT8 on; -M/-U/-E do not apply, and
         !  -N/-D/-C/-R/-Z only set starting values.)
+        ! Without -F the stream starts at WSJT-X's F Tol for the mode, which
+        ! it sets from this NTOL_UNSET (lib/streaming_apply.f90).
+        if (.not. have_ntol) shared_data%params%ntol = -999999
 
         call jt9_stream(shared_data, mode, TRperiod)
      else

@@ -19,8 +19,11 @@ namespace Jtty::Encoder
     Missing = 7          // it reads serial or report, and the request has none
   };
 
-  // In UTF-16 units: text and template; text once expanded; his call and exchange.
+  // In UTF-16 units: text and template; text once expanded; his call and
+  // exchange. n1mm takes as many characters as WSJT-X takes bytes in an
+  // MMTTY command (widgets/MMTTYIF.cpp).
   inline constexpr int maxRequestText = 32767;
+  inline constexpr int maxN1mmText = 64 * 1024;
   inline constexpr int maxExpandedText = 1 << 20;
   inline constexpr int maxContextText = 64;
 }
@@ -33,15 +36,24 @@ extern "C" {
   // 0 when no handle is free or the encoder failed. my_call and grid are the
   // station's from configure, their length -1 when none has set them and -2
   // when the configured value is longer than maxContextText; serial and
-  // report count only when their *_given is nonzero.
-  std::int32_t jtty_tx_encode (std::int32_t is_template, char const * text, std::int32_t text_length,
+  // report count only when their *_given is nonzero. open_columns and
+  // open_separator (0 or 1) are the receiver's message the request
+  // continues, both 0 for none (lib/streaming_jtty_width.f90); the request
+  // keeps every message within the receiver's 80 columns. kind says what
+  // text is: 0 typed text, 1 a template, 2 a TXTEXT from N1MM Logger+.
+  std::int32_t jtty_tx_encode (std::int32_t kind, char const * text, std::int32_t text_length,
                                char const * his_call, std::int32_t his_call_length,
                                char const * exchange, std::int32_t exchange_length,
                                char const * my_call, std::int32_t my_call_length,
                                char const * grid, std::int32_t grid_length,
                                std::int32_t serial, std::int32_t serial_given,
                                std::int32_t report, std::int32_t report_given,
-                               std::int32_t profile, std::int32_t is_final) noexcept;
+                               std::int32_t profile, std::int32_t is_final,
+                               std::int32_t open_columns, std::int32_t open_separator) noexcept;
+  // The receiver's message after an encoded request: both 0 when its last
+  // segment ends it, else the columns it holds and whether its last frame
+  // owes a separator.
+  void jtty_tx_open (std::int32_t handle, std::int32_t * columns, std::int32_t * separator) noexcept;
   // A TransmitStatus; substituted is any replacement in the request's text.
   std::int32_t jtty_tx_status (std::int32_t handle, std::int32_t * segments, std::int32_t * substituted) noexcept;
   // Why the request is not sent: the request key at fault (possibly none) and

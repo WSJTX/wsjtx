@@ -359,6 +359,8 @@ set (wsjt_FSRCS
   lib/jtty/jtty_receive_context.f90
   lib/jtty/jtty_filler.f90
   lib/spectrum_rows.f90
+  lib/streaming_jtty_width.f90
+  lib/stream_fst4_window.f90
   lib/streaming_jtty.f90
   lib/streaming_encode.f90
   lib/refspectrum.f90
@@ -534,6 +536,7 @@ set (wsjt_FSRCS
   lib/ft4/ft4_downsample.f90
   lib/77bit/my_hash.f90
   lib/wsprd/osdwspr.f90
+  lib/wsprd/wspr_parallel.f90
   lib/ft8/osd174_91.f90
   lib/osd128_90.f90
   lib/pctile.f90
@@ -769,6 +772,7 @@ set (wsprsim_CSRCS
 
 set (wspr_decoder_CSRCS
   lib/wsprd/wspr_decoder.c
+  lib/wsprd/wspr_tsan.c
   lib/wsprd/wspr_noncoherent.c
   lib/wsprd/wspr_demodulation.c
   lib/wsprd/wsprsim_utils.c

@@ -222,7 +222,8 @@ contains
   end subroutine frame_H
 
   ! Frame I: npts_c0_array feeds JT9 npts8. Values outside the downsam9
-  ! FFT input domain are ignored rather than routed to the decoder.
+  ! FFT input domain are not routed to the decoder: the parse flags them out
+  ! of range, which the stream declines (configure_range_error).
   subroutine frame_I()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
@@ -233,11 +234,14 @@ contains
     character(len=*), parameter :: b4 = '{"t":"configure","npts_c0_array":81648}'
     write(*,'(a)') 'Frame I: npts_c0_array domain guard'
     call parse_control_frame(b1, action, cfg, terr)
-    call ok('negative npts_c0_array ignored', .not. terr%present .and. .not. cfg%npts_c0_array_set)
+    call ok('negative npts_c0_array out of range', .not. terr%present .and. &
+         .not. cfg%npts_c0_array_set .and. cfg%npts_c0_array_out_of_range)
     call parse_control_frame(b2, action, cfg, terr)
-    call ok('zero npts_c0_array ignored',     .not. terr%present .and. .not. cfg%npts_c0_array_set)
+    call ok('zero npts_c0_array out of range',     .not. terr%present .and. &
+         .not. cfg%npts_c0_array_set .and. cfg%npts_c0_array_out_of_range)
     call parse_control_frame(b3, action, cfg, terr)
-    call ok('oversize npts_c0_array ignored', .not. terr%present .and. .not. cfg%npts_c0_array_set)
+    call ok('oversize npts_c0_array out of range', .not. terr%present .and. &
+         .not. cfg%npts_c0_array_set .and. cfg%npts_c0_array_out_of_range)
     call parse_control_frame(b4, action, cfg, terr)
     call ok('max npts_c0_array accepted',     .not. terr%present .and. cfg%npts_c0_array_set .and. &
          cfg%npts_c0_array .eq. 81648)

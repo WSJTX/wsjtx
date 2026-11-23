@@ -1,4 +1,4 @@
-subroutine osdwspr(ss,apmask,ndeep,cw,nhardmin,dmin)
+subroutine osdwspr(ss,apmask,ndeep,cw,nhardmin,dmin,boxes)
 ! 
 use iso_c_binding
 parameter (N=162, K=50, L=32)
@@ -22,7 +22,26 @@ data gg/1,1,0,1,0,1,0,0,1,0,0,0,1,1,0,0,1,0,1,0,0,1,0,1,1,1,0,1,1,0,0,0, &
         0,1,0,0,0,0,0,0,1,0,0,1,1,1,1,0,0,0,1,0,0,1,0,0,1,0,1,1,1,1,1,1/
 
 save first,gen
+! The pattern boxes boxit fills and fetchit reads at depth 3 and up (npre2):
+! indexes(4000,2), fp(0:525000) and np(4000) in turn, 537,001 integers
+! (2.1 MB, WSPR_OSD_BOX_INTS in lib/wsprd/wspr_decoder.h). The caller's:
+! WSPR's decoder allocates each thread's before a decode starts, so that a
+! decode without them fails before it changes anything. Not read below
+! depth 3.
+integer boxes(*)
+interface   ! ThreadSanitizer's view of the lock (lib/wsprd/wspr_tsan.c)
+  subroutine wspr_tsan_acquire_generator() bind(C)
+  end subroutine wspr_tsan_acquire_generator
+  subroutine wspr_tsan_release_generator() bind(C)
+  end subroutine wspr_tsan_release_generator
+end interface
 
+! Built with OpenMP (wsjt-codec), WSPR's decoder runs this on several threads
+! at once (lib/wsprd/wspr_parallel.f90): the first fills the generator matrix,
+! under a lock, fetchit's place is each thread's, and each thread passes
+! pattern boxes of its own.
+!$omp critical (osdwspr_generator)
+call wspr_tsan_acquire_generator()
 if( first ) then ! fill the generator matrix
   gen=0
   gen(1,1:2*L)=gg(1:2*L)
@@ -31,6 +50,8 @@ if( first ) then ! fill the generator matrix
   enddo
   first=.false.
 endif
+call wspr_tsan_release_generator()
+!$omp end critical (osdwspr_generator)
 
 rx=ss/127.0
 apmaskr=apmask
@@ -197,7 +218,7 @@ if(npre2.eq.1) then
       do i2=i1-1,1,-1
          ntotal=ntotal+1
          mi(1:ntau)=ieor(g2(K+1:K+ntau,i1),g2(K+1:K+ntau,i2))
-         call boxit(reset,mi(1:ntau),ntau,ntotal,i1,i2)
+         call boxit(reset,mi(1:ntau),ntau,ntotal,i1,i2,boxes(1),boxes(8001),boxes(533002))
       enddo
    enddo
 
@@ -218,7 +239,7 @@ if(npre2.eq.1) then
          if(i2.gt.0) ui(i2)=1 
          r2pat=ieor(e2sub,ui)
 778      continue 
-            call fetchit(reset,r2pat(1:ntau),ntau,in1,in2)
+            call fetchit(reset,r2pat(1:ntau),ntau,in1,in2,boxes(1),boxes(8001),boxes(533002))
             if(in1.gt.0.and.in2.gt.0) then
                ncount2=ncount2+1
                mi=misub               
@@ -289,11 +310,10 @@ subroutine nextpat(mi,k,iorder,iflag)
   return
 end subroutine nextpat
 
-subroutine boxit(reset,e2,ntau,npindex,i1,i2)
+subroutine boxit(reset,e2,ntau,npindex,i1,i2,indexes,fp,np)
   integer*1 e2(1:ntau)
   integer   indexes(4000,2),fp(0:525000),np(4000)
   logical reset
-  common/boxes/indexes,fp,np
 
   if(reset) then
     patterns=-1
@@ -325,13 +345,13 @@ subroutine boxit(reset,e2,ntau,npindex,i1,i2)
   return
 end subroutine boxit
 
-subroutine fetchit(reset,e2,ntau,i1,i2)
+subroutine fetchit(reset,e2,ntau,i1,i2,indexes,fp,np)
   integer   indexes(4000,2),fp(0:525000),np(4000)
   integer   lastpat
   integer*1 e2(ntau)
   logical reset
-  common/boxes/indexes,fp,np
   save lastpat,inext
+  !$omp threadprivate(lastpat,inext)
 
   if(reset) then
     lastpat=-1

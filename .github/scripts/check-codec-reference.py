@@ -18,8 +18,13 @@ or ranges.
 Scope:
 - Literals joined by // in Fortran are read as one.
 - Configure keys are the keys read outside the routines of
-  streaming_control.f90 whose names contain "request"; request keys are
-  those read inside them. Each has its own table.
+  streaming_control.f90 whose names contain "request", and outside the
+  routines that only such routines call; request keys are those read
+  inside them. Each has its own table.
+- A key list is a character array constructor declared as NAME(n) = [...]
+  whose NAME is passed whole or sliced to unknown_key_, has an element
+  passed as a key, or is named in another key list's constructor; its
+  quoted elements are keys. The elements of any other array are not.
 - A reason, stage or state written in a literal belongs to the rejected,
   pass_skipped or jtty_update line its statement names, so it is written in
   that statement; in any other statement it is reported as unparsed, and so
@@ -31,8 +36,12 @@ Scope:
   declaration, the read of "t" and a comparison with a literal; a code,
   reason or key passed as a variable, a keyword or a concatenation with
   anything but literals, or as
-  a dummy argument outside the routines in PASSERS; a code, reason, stage
-  or state written from outside a literal outside VALUE_WRITERS; a call of
+  a dummy argument outside the routines in PASSERS; a key list passed to
+  unknown_key_ in any other form than a key list's name; a code, reason,
+  stage or state written from outside a literal outside VALUE_WRITERS,
+  unless its statement names only lines whose field of that name
+  VALUE_LINES does not list, which is free text (a rendered line's
+  state); a call of
   an error or rejection emitter that the stream files do not define; a key
   read outside streaming_control.f90; an output line or field name built by
   concatenation or written with a blank at its colon.
@@ -92,8 +101,12 @@ LABELS = {name: label for name, _, label in SETS}
 # lines joined.
 CONTROL_T = re.compile(r"\bt_value\b\s*\)?\s*(?:\.eq\.|\.ne\.|==|/=)\s*'([a-z_0-9]+)'", re.I)
 QUOTED_KEY = re.compile(r"'\"([A-Za-z0-9_]+)\"'")
-KEY_ARRAY = re.compile(r"\[\s*character\s*\(\s*len\s*=\s*\d+\s*\)\s*::([^\]]*)\]")
+# A character array declared with its constructor: (name, the constructor's elements).
+ARRAY_DECLARATION = re.compile(r"\b(\w+)\s*\(\s*\d+\s*\)\s*=\s*\[\s*character\s*\(\s*len\s*=\s*\d+\s*\)\s*::([^\]]*)\]", re.I)
 ARRAY_NAME = re.compile(r"'([A-Za-z0-9_]+)\s*'")
+# An array passed whole or sliced, and a key built from an array's element.
+ARRAY_ARGUMENT = re.compile(r"^(\w+)\s*(?:\(.*\))?$", re.S)
+FROM_ARRAY = re.compile(r"^'\"'\s*//\s*(?:trim\s*\(\s*)?(\w+)\s*\(\s*\w+\s*\)\s*\)?\s*//\s*'\"'$")
 LINE_T = re.compile(r'"t":"([a-z_0-9]+)"')
 LINE_T_MERGE = re.compile(r"\"t\":\"'\s*//\s*(?:trim\s*\(\s*)?merge\s*\(\s*'([a-z_0-9]+)\s*'\s*,\s*'([a-z_0-9]+)\s*'")
 CODE_CALL = re.compile(r"streaming_emit_error_code\s*\(\s*'([a-z_0-9]+)'")
@@ -110,6 +123,7 @@ JTTY_STATE = re.compile(r"\bstate\s*=\s*'([a-z_0-9]+)'")
 VALUE_LITERAL = re.compile(r'"(reason|stage|state)":"([a-z_0-9]+)"')
 VALUE_LINES = {("rejected", "reason"): "reasons", ("pass_skipped", "reason"): "skip_reasons",
                ("pass_skipped", "stage"): "skip_stages", ("jtty_update", "state"): "jtty_states"}
+VALUE_FIELDS = {field for _, field in VALUE_LINES}
 
 # The fields of each output line: the tables under these headings, one
 # fourth-level heading (`line`) a line.
@@ -251,11 +265,64 @@ def fortran_code(text):
     return "\n".join(lines)
 
 
+def key_lists(code):
+    """Return the names of the arrays code uses as key lists, lower case.
+
+    An array is one when it is passed whole or sliced to unknown_key_, when
+    an element of it is passed as a key, or when another key list's
+    constructor names it.
+    """
+    lists, declarations = set(), defaultdict(str)
+    for name, body in ARRAY_DECLARATION.findall(code):
+        declarations[name.lower()] += " " + body
+    for statement in code.split("\n"):
+        for arguments in call_arguments(statement, "unknown_key_"):
+            match = ARRAY_ARGUMENT.match(arguments[1]) if len(arguments) > 1 else None
+            if match:
+                lists.add(match.group(1).lower())
+        for procedure in KEY_READERS:
+            for arguments in call_arguments(statement, procedure):
+                match = FROM_ARRAY.match(arguments[1]) if len(arguments) > 1 else None
+                if match:
+                    lists.add(match.group(1).lower())
+    pending = sorted(lists)
+    while pending:
+        for word in sorted((identifiers(declarations.get(pending.pop(), "")) & set(declarations)) - lists):
+            lists.add(word)
+            pending.append(word)
+    return lists
+
+
+def request_routines(source):
+    """Return the routines of CONTROL_SOURCE that read request keys, lower case.
+
+    They are the routines whose names contain "request", and the routines
+    that only such routines call, in any stream file.
+    """
+    routines = [routine for path in source.stream_files() for routine in fortran_routines(path, source.read(path))]
+    control = {name for path, name, _, _ in routines if path == CONTROL_SOURCE}
+    callers = defaultdict(set)
+    for _, name, _, statements in routines:
+        for statement in statements:
+            for word in identifiers(statement) & (control - {name}):
+                callers[word].add(name)
+    request = {name for name in control if "request" in name}
+    grown = True
+    while grown:
+        grown = False
+        for name in sorted(control - request):
+            if callers[name] and callers[name] <= request:
+                request.add(name)
+                grown = True
+    return request
+
+
 def source_names(source):
     """Return {set: set of names} read from the stream source."""
     names = {name: set() for name, _, _ in SETS}
     control = fortran_code(source.read(CONTROL_SOURCE))
     names["control"].update(CONTROL_T.findall(control))
+    lists, request = key_lists(control), request_routines(source)
     stack = []
     for statement in control.split("\n"):
         if ROUTINE_END.match(statement):
@@ -267,9 +334,10 @@ def source_names(source):
             stack.append(start.group(1).lower())
             continue
         keys = set(QUOTED_KEY.findall(statement))
-        for body in KEY_ARRAY.findall(statement):
-            keys.update(ARRAY_NAME.findall(body))
-        names["request_keys" if any("request" in name for name in stack) else "keys"].update(keys)
+        for name, body in ARRAY_DECLARATION.findall(statement):
+            if name.lower() in lists:
+                keys.update(ARRAY_NAME.findall(body))
+        names["request_keys" if any(name in request for name in stack) else "keys"].update(keys)
     for path in source.stream_files():
         code = fortran_code(source.read(path))
         for statement in code.split("\n"):
@@ -350,13 +418,13 @@ def unparsed(path, statement, what):
 def fortran_guards(path, routine, dummies, statements, arrays=frozenset(), defined=frozenset()):
     """Problems for the statements of one routine that name something in a form the patterns miss.
 
-    arrays names the key lists whose constructors KEY_ARRAY reads; a key
-    built from one of their elements is read. defined names the routines of
-    the stream files, whose literals the check reads; a call of an error or
-    rejection emitter that is not among them is reported.
+    arrays names the arrays whose constructors ARRAY_DECLARATION reads; a
+    key built from one of their elements, and a key list that is one of
+    them, are read. defined names the routines of the stream files, whose
+    literals the check reads; a call of an error or rejection emitter that
+    is not among them is reported.
     """
     problems = []
-    from_array = re.compile(r"^'\"'\s*//\s*(?:trim\s*\(\s*)?(\w+)\s*\(\s*\w+\s*\)\s*\)?\s*//\s*'\"'$")
 
     def passed(argument, kind=None):
         return bool(LITERAL.match(argument)) or (argument.lower() in dummies and routine in PASSERS.get(kind, ()))
@@ -372,7 +440,7 @@ def fortran_guards(path, routine, dummies, statements, arrays=frozenset(), defin
             if not passed(arguments[0], "code"):
                 problems.append(unparsed(path, statement, "error code"))
         for name, writers in VALUE_WRITERS.items():
-            if re.search(r'"%s":"\'' % name, statement) and routine not in writers:
+            if re.search(r'"%s":"\'' % name, statement) and routine not in writers and not free_text(statement, name):
                 problems.append(unparsed(path, statement, f"{name}, written from outside a literal"))
         for field, value in VALUE_LITERAL.findall(statement):
             if not value_sets(statement, field):
@@ -396,10 +464,11 @@ def fortran_guards(path, routine, dummies, statements, arrays=frozenset(), defin
                 if path != CONTROL_SOURCE:
                     problems.append(unparsed(path, statement, "key, read outside " + CONTROL_SOURCE))
                 elif not QUOTED_KEY.fullmatch(key) and not passed(key, "key") and not (
-                        from_array.match(key) and from_array.match(key).group(1).lower() in arrays):
+                        FROM_ARRAY.match(key) and FROM_ARRAY.match(key).group(1).lower() in arrays):
                     problems.append(unparsed(path, statement, "key"))
         for arguments in call_arguments(statement, "unknown_key_"):
-            if len(arguments) < 2 or not re.match(r"KEYS\s*\(", arguments[1]):
+            listed = ARRAY_ARGUMENT.match(arguments[1]) if len(arguments) > 1 else None
+            if not listed or listed.group(1).lower() not in arrays:
                 problems.append(unparsed(path, statement, "key list"))
         for match in re.finditer(r"\"t\":\"'", statement):
             following = re.match(r"\s*//(.*)", statement[match.end():], re.S)
@@ -418,6 +487,8 @@ def fortran_guards(path, routine, dummies, statements, arrays=frozenset(), defin
             if LITERAL.match(reason) or not passed(reason, "reason"):
                 problems.append(unparsed(path, statement, "pass_skipped reason"))
         for match in re.finditer(r"\"state\":\"'\s*//\s*(\w+)", statement):
+            if free_text(statement, "state"):
+                continue
             variable = match.group(1)
             assigned = [other for other in statements if re.match(r"^\s*%s\s*=" % re.escape(variable), other, re.I)]
             if not assigned or not all(JTTY_STATE.match(other.strip()) for other in assigned):
@@ -427,8 +498,7 @@ def fortran_guards(path, routine, dummies, statements, arrays=frozenset(), defin
 
 def source_guards(source):
     problems = []
-    arrays = {name.lower() for name in re.findall(r"(\w+)\s*\(\s*\d+\s*\)\s*=\s*\[\s*character",
-                                                  fortran_code(source.read(CONTROL_SOURCE)), re.I)}
+    arrays = {name.lower() for name, _ in ARRAY_DECLARATION.findall(fortran_code(source.read(CONTROL_SOURCE)))}
     routines = [routine for path in source.stream_files() for routine in fortran_routines(path, source.read(path))]
     defined = {name for _, name, _, _ in routines}
     for path, routine, dummies, statements in routines:
@@ -441,6 +511,12 @@ def line_types(statement):
     for pair in LINE_T_MERGE.findall(statement):
         types.update(pair)
     return types
+
+
+def free_text(statement, field):
+    """Whether a reason, stage or state that statement writes is free text: it names lines, and VALUE_LINES lists that field of none."""
+    types = line_types(statement)
+    return field in VALUE_FIELDS and bool(types) and not any((line, field) in VALUE_LINES for line in types)
 
 
 def value_sets(statement, field):

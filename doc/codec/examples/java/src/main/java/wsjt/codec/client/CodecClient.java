@@ -64,6 +64,8 @@ public final class CodecClient {
     static final Map<String, Double> LIVE_ALLOWANCE = Map.of("FT8", 10.0, "FT4", 6.0);  // a live pass's time between progress lines, once one has completed
     static final int READY_SECONDS = 30;                                                // how long the client waits for ready
     static final int EXIT_SECONDS = 10;                                                 // how long the codec has to exit once its output ends, or after halt on a failure
+    static final int RELEASE_SECONDS = 2;                                               // how long, once the codec has exited, the client waits for the end of its output and for its writes to its input: a process the codec started can hold the pipes
+    static final int SILENCE_SECONDS = silenceSeconds();                                // outside live, how long the codec may send no line: 300 s, the longest interface.md allows a decode pass between progress lines in FT8 and FT4
     static final int CHUNK = 1200;                                                      // samples in an audio frame: 0.1 s
 
     static final byte AUDIO = 0x01, CONTROL = 0x02;  // frame types
@@ -71,6 +73,18 @@ public final class CodecClient {
     static final byte[] HEADER = {'W', 'S', 'J', 'T', 0, 1, RATE / 1000, 0};
 
     static final int OK = 0, FAILED = 1, USAGE = 2, HUNG = 3;  // exit status
+
+    /** 300; for the examples' check only (README.md, "The check"), not a setting: CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, a whole number from 1 to 300, shortens it, so that a run that checks it need not last 300 s. */
+    static int silenceSeconds() {
+        String check = System.getenv("CODEC_EXAMPLE_CHECK_SILENCE_SECONDS");
+        if (check != null && check.matches("[0-9]{1,3}")) {
+            int seconds = Integer.parseInt(check);
+            if (seconds >= 1 && seconds <= 300) {
+                return seconds;
+            }
+        }
+        return 300;
+    }
 
     static final ObjectMapper JSON = new ObjectMapper();
     static final PrintStream OUT = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
@@ -130,6 +144,8 @@ public final class CodecClient {
         final BlockingQueue<JsonNode> lines = new LinkedBlockingQueue<>();
         private final OutputStream input;
         private volatile boolean inputOpen = true;
+        private long exitedAt;            // when the client saw the codec's exit (System.nanoTime())
+        private boolean exitSeen;
 
         Codec(String path, String dataDir) throws IOException {
             Path data = Path.of(dataDir).toAbsolutePath().normalize();
@@ -181,6 +197,26 @@ public final class CodecClient {
             return inputOpen;
         }
 
+        /** The next line; END once the codec's output has ended, or RELEASE_SECONDS after the codec has exited, as a process it started can hold the pipe; null when none comes within the time. */
+        JsonNode next(long time, TimeUnit unit) throws InterruptedException {
+            long deadline = System.nanoTime() + unit.toNanos(time);
+            while (true) {
+                JsonNode line = lines.poll(Math.min(TimeUnit.MILLISECONDS.toNanos(50), Math.max(0, deadline - System.nanoTime())), TimeUnit.NANOSECONDS);
+                if (line != null) {
+                    return line;
+                }
+                if (!process.isAlive()) {
+                    sawExit();
+                }
+                if (exitSeen && System.nanoTime() - exitedAt >= TimeUnit.SECONDS.toNanos(RELEASE_SECONDS)) {
+                    return END;  // what the codec wrote before it exited has been read: let go of the pipe
+                }
+                if (System.nanoTime() - deadline >= 0) {
+                    return null;
+                }
+            }
+        }
+
         synchronized void write(byte[] data) {
             if (!inputOpen) {
                 return;
@@ -196,7 +232,7 @@ public final class CodecClient {
         void send(ObjectNode message) {
             byte[] body;
             try {
-                // Jackson writes an int as a plain JSON integer: a configure ignores or misreads 3.0, without an error.
+                // Jackson writes an int as a plain JSON integer: a configure declines 3.0 for an integer key (configure_type_error).
                 body = JSON.writeValueAsBytes(message);
             } catch (JsonProcessingException e) {
                 throw new UncheckedIOException(e);
@@ -217,9 +253,24 @@ public final class CodecClient {
             }
         }
 
+        /** The codec has exited: what uses its pipes has RELEASE_SECONDS more, from the first time the client sees the exit. */
+        private void sawExit() {
+            if (!exitSeen) {
+                exitSeen = true;
+                exitedAt = System.nanoTime();
+            }
+        }
+
+        /** What is left, in nanoseconds, of RELEASE_SECONDS from the codec's exit as the client first saw it; all of it when the client has not seen the exit. */
+        long releaseLeft() {
+            long release = TimeUnit.SECONDS.toNanos(RELEASE_SECONDS);
+            return exitSeen ? release - (System.nanoTime() - exitedAt) : release;
+        }
+
         /** The codec's exit status once it exits, within EXIT_SECONDS; null, with the codec stopped, when it does not. */
         Integer exitStatus() throws InterruptedException {
             if (process.waitFor(EXIT_SECONDS, TimeUnit.SECONDS)) {
+                sawExit();
                 return process.exitValue();
             }
             ERR.println("codec_client: wsjt-codec did not exit within " + EXIT_SECONDS + " s: it has hung");
@@ -362,10 +413,14 @@ public final class CodecClient {
             }
         });
         int errors = 0;
+        double heard = now();
         while (true) {
-            JsonNode line = codec.lines.poll(500, TimeUnit.MILLISECONDS);
+            JsonNode line = codec.next(500, TimeUnit.MILLISECONDS);
             if (line == Codec.END) {
                 break;
+            }
+            if (line != null) {
+                heard = now();
             }
             if (watchdog != null) {
                 if (line != null) {
@@ -376,6 +431,10 @@ public final class CodecClient {
                     codec.kill();
                     return HUNG;  // without joining the threads, which may be blocked on the codec's pipes
                 }
+            } else if (now() - heard > SILENCE_SECONDS) {
+                ERR.println("codec_client: no line from the codec in " + SILENCE_SECONDS + " s: it has hung");
+                codec.kill();
+                return HUNG;  // without joining the threads, which may be blocked on the codec's pipes
             }
             if (line == null) {
                 continue;
@@ -399,7 +458,7 @@ public final class CodecClient {
         if (status == null) {
             return HUNG;  // without joining the writer, which may be blocked on the codec's pipe
         }
-        writer.join();
+        TimeUnit.NANOSECONDS.timedJoin(writer, codec.releaseLeft());  // what is left of the codec's RELEASE_SECONDS (none: no wait), then without it: it may be blocked on the codec's input, which a process the codec started holds
         if (status != 0) {
             ERR.println("codec_client: wsjt-codec exited with status " + status);
             return FAILED;
@@ -416,7 +475,7 @@ public final class CodecClient {
             ERR.println("codec_client: cannot start " + options.codec + ": " + e.getMessage());
             return null;
         }
-        JsonNode line = codec.lines.poll(READY_SECONDS, TimeUnit.SECONDS);
+        JsonNode line = codec.next(READY_SECONDS, TimeUnit.SECONDS);
         boolean named = false;
         for (JsonNode mode : line == null ? List.<JsonNode>of() : line.path(kinds)) {
             named |= mode.asText().equals(options.mode);
@@ -463,7 +522,7 @@ public final class CodecClient {
         return h < 24 && m < 60 && s < 60 ? h * 3600 + m * 60 + s : 0;
     }
 
-    /** The configure that sets the mode. These examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode resets nfa, nfb and ntol. */
+    /** The configure that sets the mode. These examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode sets the mode up as WSJT-X does, which can change the search keys and the frequencies, so the search keys go with it. */
     static ObjectNode modeConfigure(Options options) {
         return JSON.createObjectNode().put("t", "configure").put("mode", options.mode).put("depth", options.depth)
                 .put("mycall", "").put("his_call", "").put("his_grid", "").put("nfa", 200).put("nfb", 4000).put("ntol", 1000);
@@ -513,7 +572,12 @@ public final class CodecClient {
         JsonNode encoded = null;
         ByteArrayOutputStream pcm = new ByteArrayOutputStream();
         while (true) {  // the reply: encoded, its pcm lines, then rendered; or rejected
-            JsonNode line = codec.lines.take();
+            JsonNode line = codec.next(SILENCE_SECONDS, TimeUnit.SECONDS);
+            if (line == null) {
+                ERR.println("codec_client: no line from the codec in " + SILENCE_SECONDS + " s: it has hung");
+                codec.kill();
+                return HUNG;
+            }
             String kind = line.path("t").asText();
             if (line == Codec.END || kind.equals("rejected") || kind.equals("error") || kind.equals("rendered") && encoded == null) {
                 ERR.println("codec_client: render failed: " + (line == Codec.END ? "the output ended" : line));

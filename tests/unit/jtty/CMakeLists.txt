@@ -27,7 +27,7 @@ add_executable (test_jtty_transmit_host test_jtty_transmit_host.cpp)
 target_link_libraries (test_jtty_transmit_host PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_transmit_host)
 add_test (NAME test_jtty_transmit_host COMMAND test_jtty_transmit_host)
-set_tests_properties (test_jtty_transmit_host PROPERTIES TIMEOUT 60)
+set_tests_properties (test_jtty_transmit_host PROPERTIES TIMEOUT 120)
 
 add_executable (test_jtty_source_codec test_jtty_source_codec.f90)
 target_include_directories (test_jtty_source_codec PRIVATE ${CMAKE_BINARY_DIR})

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Phase 4 parse-unit regression (streaming-schema unit parse->pack assert).
+# Run by hand, not by ctest or CI: test/run-phase4-parse-unit.sh, from any directory (it finds the source from its own path); it needs gfortran, or the compiler $FC names.
 # Compiles lib/streaming_control.f90 and the driver
 # test/phase4_parse_test.f90 into an ISOLATED module dir and runs it. Guards the
 # PARSE side of the 9 Phase 4 keys: each key -> correct configure_fields member +
@@ -56,6 +57,10 @@ echo ""
 # shadow the fresh compile (the -J/-I flags alone do NOT remove cwd from the
 # search order; the cd does).
 cd "$WORK"
+# streaming_control uses q65_callers (Q65_MAX_CALLERS), which uses types.
+"$FC" -c "$REPO_ROOT/lib/types.f90" -J"$WORK" -o "$WORK/types.o"
+"$FC" -c -cpp -I"$REPO_ROOT/lib/qra/q65" "$REPO_ROOT/lib/qra/q65/q65_callers.F90" -J"$WORK" \
+  -o "$WORK/q65_callers.o"
 "$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p4drv"
 "$WORK/p4drv"

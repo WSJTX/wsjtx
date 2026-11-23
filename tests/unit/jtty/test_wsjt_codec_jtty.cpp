@@ -710,30 +710,36 @@ private Q_SLOTS:
   }
 
   // A configure that repeats the mode or changes only trperiod keeps the
-  // session but resets the search keys it does not set: here nfb, which
-  // had hidden 1500 Hz.
-  void repeatedModeResetsUnsetKeys_data ()
+  // session and the search keys it does not set, as WSJT-X's JTTY searches
+  // the waterfall's range (nStartFreq to Fmax,
+  // widgets/mainwindow_jtty_receive.cpp) with its own F Tol, which choosing
+  // JTTY again keeps: here nfb, which hides 1500 Hz until a frame sets it.
+  void repeatedModeKeepsUnsetKeys_data ()
   {
     QTest::addColumn<QByteArray> ("repeat");
     QTest::newRow ("mode") << QByteArray {R"({"t":"configure","mode":"JTTY"})"};
     QTest::newRow ("trperiod") << QByteArray {R"({"t":"configure","trperiod":30})"};
   }
 
-  void repeatedModeResetsUnsetKeys ()
+  void repeatedModeKeepsUnsetKeys ()
   {
     QFETCH (QByteArray, repeat);
     auto const& pcm = transmission (Quick);
     // These settings need FFT sizes the warm-up does not measure.
     auto const hidden = control (R"({"t":"configure","mode":"JTTY","rxfreq":2500,"ntol":50,"nfa":200,"nfb":1000})");
-    auto const unseen = runCodec (header () + hidden + audio (pcm, 4096), {}, PlanningTimeoutMs);
-    CHECK_RUN (unseen, 0);
-    QVERIFY (ofType (unseen.events, "jtty_update").isEmpty ());
+    auto const kept = runCodec (header () + hidden + audio (pcm, 4096, 0, LeadSamples) + control (repeat)
+                                + audio (pcm, 4096, LeadSamples), {}, PlanningTimeoutMs);
+    CHECK_RUN (kept, 0);
+    QCOMPARE (ofType (kept.events, "session").size (), 1);
+    QVERIFY (ofType (kept.events, "jtty_update").isEmpty ());
 
-    auto const run = runCodec (header () + hidden + audio (pcm, 4096, 0, LeadSamples) + control (repeat)
-                               + audio (pcm, 4096, LeadSamples), {}, PlanningTimeoutMs);
-    CHECK_RUN (run, 0);
-    QCOMPARE (ofType (run.events, "session").size (), 1);
-    auto const updates = updatesFor (run.events, messageNear (run.events, 1500.0));
+    // With nfb 4000 sent too it decodes: the range is what hides it.
+    auto const shown = runCodec (header () + hidden + audio (pcm, 4096, 0, LeadSamples) + control (repeat)
+                                 + control (R"({"t":"configure","nfb":4000})") + audio (pcm, 4096, LeadSamples),
+                                 {}, PlanningTimeoutMs);
+    CHECK_RUN (shown, 0);
+    QCOMPARE (ofType (shown.events, "session").size (), 1);
+    auto const updates = updatesFor (shown.events, messageNear (shown.events, 1500.0));
     QVERIFY (!updates.isEmpty ());
     QCOMPARE (updates.last ().value ("state").toString (), QString {"complete"});
     QCOMPARE (updates.last ().value ("text").toString (), Quick);
@@ -819,8 +825,10 @@ private Q_SLOTS:
       + audio (transmission (Quoted), 4096));
     CHECK_RUN (run, 0);
     auto const invalidTrperiod = codedError ("invalid_trperiod", "trperiod must be finite and between 0 and 1800 seconds");
-    auto const parseError = codedError ("configure_parse_error", "malformed control frame (missing or invalid t field)");
+    auto const parseError = codedError ("configure_parse_error", "malformed control frame (not one JSON object with a string t)");
     QCOMPARE (ofType (run.events, "error"), (QList<QJsonObject> {
+      {{"v", 1}, {"t", "error"}, {"code", "configure_type_error"}, {"key", "rxfreq"},
+       {"expected", "int"}, {"got", "number"}},
       {{"v", 1}, {"t", "error"}, {"code", "configure_type_error"}, {"key", "ntol"},
        {"expected", "int"}, {"got", "string"}},
       {{"v", 1}, {"t", "error"}, {"code", "configure_type_error"}, {"key", "depth"},
@@ -838,14 +846,16 @@ private Q_SLOTS:
   }
 
   // The range applies to the values JTTY would decode with, including one
-  // carried over from another mode, and only in JTTY.
+  // carried over from another mode (here the waterfall's nfb from MSK144,
+  // whose decoder takes any; a carried Rx is held to 200..5000 Hz on entry,
+  // as WSJT-X's), and only in JTTY.
   void carriedOverValueOutOfRange ()
   {
-    auto const run = runCodec (header () + control (R"({"t":"configure","mode":"FT8","rxfreq":9000})")
+    auto const run = runCodec (header () + control (R"({"t":"configure","mode":"MSK144","nfb":9000})")
                                + jtty () + audio (transmission (Quick), 4096));
     CHECK_RUN (run, 0);
-    QCOMPARE (ofType (run.events, "error"), QList<QJsonObject> {rangeError ("rxfreq")});
-    QVERIFY2 (ofType (run.events, "session").isEmpty (), "the declined configure left FT8");
+    QCOMPARE (ofType (run.events, "error"), QList<QJsonObject> {rangeError ("nfb")});
+    QVERIFY2 (ofType (run.events, "session").isEmpty (), "the declined configure left MSK144");
     QVERIFY (!ofType (run.events, "decode_finished").isEmpty ());
   }
 

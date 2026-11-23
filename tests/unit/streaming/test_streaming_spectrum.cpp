@@ -3050,7 +3050,8 @@ private slots:
   }
 
   // low_sidelobes windows the spectra JT9 alone decodes from, and starts on
-  // as in WSJT-X. The depth a client sends does not set the window, and a
+  // as in WSJT-X. A depth a client sends with the window's bit is declined,
+  // as no depth WSJT-X's holds has it, so the window stays as it was; a
   // configure that sends only depth keeps it. Weak recordings with the
   // receive frequency off the signal, where the window changes the decode
   // line (its SNR) on some of them.
@@ -3073,8 +3074,10 @@ private slots:
         QVERIFY2 (on->clean (), qPrintable (on->report ()));
         auto const start = run ({});
         QVERIFY2 (start->clean (), qPrintable (start->report ()));
-        auto const bit = run ({{"low_sidelobes", false}, {"depth", 1 | 256}});
+        auto const bit = runInput (sessionHeader () + configure (with (settings, {{"low_sidelobes", false}}))
+                                   + configure ({{"depth", 1 | 256}}) + audio (pcm) + halt ());
         QVERIFY2 (bit->clean (), qPrintable (bit->report ()));
+        QCOMPARE (count (bit->lines, outHas (R"("code":"configure_range_error","key":"depth")")), 1);
         auto const depthOnly = runInput (sessionHeader () + configure (with (settings, {{"low_sidelobes", true}}))
                                          + configure ({{"depth", 1}}) + audio (pcm) + halt ());
         QVERIFY2 (depthOnly->clean (), qPrintable (depthOnly->report ()));
