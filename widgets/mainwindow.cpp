@@ -5109,21 +5109,32 @@ void MainWindow::on_actionHeard_by_triggered()
       return HeardByWindow::Context {m_config.my_callsign (), m_config.my_grid (), m_mode, nominalRxBand ()};
     };
     auto band_of = [this] (quint64 frequency) {return m_config.bands ()->find (frequency);};
-    auto distance_to = [this] (QString const& grid) {
+    // true azimuth (degrees) and distance (km) from our grid to a locator;
+    // false if either grid is unusable
+    auto azimuth_and_km = [this] (QString const& grid, int& az, int& km) {
       auto const mine = m_config.my_grid ();
       // receivers may report 8 or 10 characters; the first 6 are enough here
       auto const theirs = grid.left (6);
-      if (mine.length () < 4 || !theirs.contains (MainWindow::grid_regexp)) return -1.0;
+      if (mine.length () < 4 || !theirs.contains (MainWindow::grid_regexp)) return false;
       double utch = 0.0;
-      int nAz, nEl, nDmiles, nDkm, nHotAz, nHotABetter;
+      int nEl, nDmiles, nHotAz, nHotABetter;
       auto const my_grid = (mine + "      ").left (6).toLatin1 ();
       auto const his_grid = (theirs + "      ").left (6).toLatin1 ();
       azdist_ (const_cast<char *> (my_grid.constData ()), const_cast<char *> (his_grid.constData ()), &utch,
-               &nAz, &nEl, &nDmiles, &nDkm, &nHotAz, &nHotABetter, (fortran_charlen_t)6, (fortran_charlen_t)6);
-      return static_cast<double> (nDkm);
+               &az, &nEl, &nDmiles, &km, &nHotAz, &nHotABetter, (fortran_charlen_t)6, (fortran_charlen_t)6);
+      return true;
+    };
+    auto distance_to = [azimuth_and_km] (QString const& grid) {
+      int az, km;
+      return azimuth_and_km (grid, az, km) ? static_cast<double> (km) : -1.0;
+    };
+    auto bearing_to = [azimuth_and_km] (QString const& grid) {
+      int az, km;
+      // the same spot has no direction
+      return azimuth_and_km (grid, az, km) && km > 0 ? static_cast<double> (az) : -1.0;
     };
     m_heardByWindow.reset (new HeardByWindow {m_settings, m_config.decoded_text_font (),
-                                              context, band_of, distance_to});
+                                              context, band_of, distance_to, bearing_to});
     connect (this, &MainWindow::finished, m_heardByWindow.data (), &HeardByWindow::close);
   }
   m_heardByWindow->showNormal ();

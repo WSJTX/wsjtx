@@ -66,11 +66,11 @@ private Q_SLOTS:
     w.tick ();
     QCOMPARE (w.in_use_text (), QString {"WSJT-X: Q65 on 20m"});
     QCOMPARE (w.model ()->rowCount (), 5);
-    // columns: the ones an operator wants first, band, MHz and mode last, no "Best"
+    // columns: the ones an operator wants first, band, MHz and mode, then the bearing; no "Best"
     QStringList heads;
     for (int c = 0; c < w.model ()->columnCount (); ++c)
       heads << w.model ()->headerData (c, Qt::Horizontal, Qt::DisplayRole).toString ();
-    QCOMPARE (heads, (QStringList {"UTC", "Ago", "Heard by", "Grid", "dB", "km", "Spots", "Band", "MHz", "Mode"}));
+    QCOMPARE (heads, (QStringList {"UTC", "Ago", "Heard by", "Grid", "dB", "km", "Spots", "Band", "MHz", "Mode", "Brg"}));
     QCOMPARE (w.model ()->index (0, HeardByModel::Ago).data ().toString (), QString {"0m"});   // "12m", no space
     ctx.call = "";
     w.tick ();
@@ -129,7 +129,8 @@ private Q_SLOTS:
     QSettings settings {ini.fileName (), QSettings::IniFormat};
     HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
     HeardByWindow w {&settings, QFont {}, [&ctx] {return ctx;}, band_of,
-                     [] (QString const& g) {return g.startsWith ("IO") ? 1000.0 : -1.0;}};
+                     [] (QString const& g) {return g.startsWith ("IO") ? 1000.0 : -1.0;},
+                     [] (QString const& g) {return g.startsWith ("IO") ? 293.4 : -1.0;}};
     HeardByWindow::Timing timing;
     timing.silent_after_ms = 60000;                      // no feed check in this test
     w.set_mqtt (fast (feed.port ()), timing);
@@ -151,6 +152,8 @@ private Q_SLOTS:
     QCOMPARE (feed.connections (), 2);
     QCOMPARE (w.model ()->visible (0).receiver, QString {"G4XYZ"});
     QCOMPARE (w.model ()->index (0, HeardByModel::Distance).data ().toInt (), 1000);
+    QCOMPARE (w.model ()->index (0, HeardByModel::Bearing).data ().toString (), QString::fromUtf8 ("293\xC2\xB0"));
+    QCOMPARE (w.model ()->index (1, HeardByModel::Bearing).data ().toString (), QString {});   // JO40: not given
     for (int i = 0; i < w.model ()->rowCount (); ++i) QCOMPARE (w.model ()->visible (i).count, 1);
     w.close ();
     feed.finish ();

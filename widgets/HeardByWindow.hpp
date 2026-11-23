@@ -64,7 +64,8 @@ public:
   using ContextProvider = std::function<Context ()>;
 
   HeardByWindow (QSettings *, QFont const&, ContextProvider,
-                 HeardByModel::BandOf, HeardByModel::DistanceTo, QWidget * parent = nullptr);
+                 HeardByModel::BandOf, HeardByModel::DistanceTo,
+                 HeardByModel::BearingTo = {}, QWidget * parent = nullptr);
 
   ~HeardByWindow () override;
 

@@ -32,6 +32,7 @@ private Q_SLOTS:
     HeardByModel m;
     m.set_band_of (band_of);
     m.set_distance_to ([] (QString const& g) {return g == "IN94" ? 1000.0 : -1.0;});
+    m.set_bearing_to ([] (QString const& g) {return g == "IN94" ? 252.6 : -1.0;});
     auto const now = qint64 (1795011000);
     QVERIFY (m.add_report (report ("F6BLP", now - 600, 10489541745ULL, 9)));
     QVERIFY (m.add_report (report ("F6BLP", now - 300, 10489541745ULL, 11)));
@@ -49,6 +50,28 @@ private Q_SLOTS:
     QCOMPARE (m.index (1, HeardByModel::Distance).data ().toInt (), 1000);
     QCOMPARE (m.index (0, HeardByModel::Distance).data ().toString (), QString {});  // unknown grid
     QCOMPARE (m.index (1, HeardByModel::Ago).data ().toString (), QString {"5m"});
+    // the bearing is the last column, rounded, with a degree sign; blank when unknown
+    QCOMPARE (int (HeardByModel::Bearing), int (HeardByModel::ColumnCount) - 1);
+    QCOMPARE (m.headerData (HeardByModel::Bearing, Qt::Horizontal, Qt::DisplayRole).toString (), QString {"Brg"});
+    QCOMPARE (m.index (1, HeardByModel::Bearing).data ().toString (), QString::fromUtf8 ("253\xC2\xB0"));
+    QCOMPARE (m.index (0, HeardByModel::Bearing).data ().toString (), QString {});
+  }
+
+  // 359.6 rounds to 360, which is north again: shown as 0, never 360; and a
+  // new grid of ours gives new bearings.
+  void bearing_wraps_and_follows_our_grid ()
+  {
+    HeardByModel m;
+    m.set_band_of (band_of);
+    double bearing = 359.6;
+    m.set_bearing_to ([&bearing] (QString const&) {return bearing;});
+    auto const now = qint64 (1795011000);
+    QVERIFY (m.add_report (report ("DK3RW", now - 60, 2400041745ULL, 4, "FT8", "JO40")));
+    m.refresh (now);
+    QCOMPARE (m.index (0, HeardByModel::Bearing).data ().toString (), QString::fromUtf8 ("0\xC2\xB0"));
+    bearing = 90.0;                                      // our grid changed
+    m.recompute_distances ();
+    QCOMPARE (m.index (0, HeardByModel::Bearing).data ().toString (), QString::fromUtf8 ("90\xC2\xB0"));
   }
 
   void refresh_with_the_same_rows_does_not_reset_the_view ()

@@ -24,7 +24,7 @@ class HeardByModel final
   Q_OBJECT
 
 public:
-  enum Column {When, Ago, Receiver, Locator, Snr, Distance, Reports, Band, Mhz, Mode, ColumnCount};
+  enum Column {When, Ago, Receiver, Locator, Snr, Distance, Reports, Band, Mhz, Mode, Bearing, ColumnCount};
 
   struct Row
   {
@@ -37,6 +37,7 @@ public:
     int count {0};
     qint64 when {0};            // epoch seconds
     double distance {-1};       // km, < 0 unknown
+    double bearing {-1};        // true bearing from us, degrees 0-359, < 0 unknown
   };
 
   static int constexpr keep_seconds = 6 * 3600;
@@ -47,11 +48,15 @@ public:
   // window so that the model needs nothing of Configuration.
   using BandOf = std::function<QString (quint64)>;
   using DistanceTo = std::function<double (QString const&)>;
+  // Great-circle true bearing in degrees (0 = north, 90 = east) from our
+  // grid to a locator (< 0 if unknown).
+  using BearingTo = std::function<double (QString const&)>;
 
   explicit HeardByModel (QObject * parent = nullptr);
 
   void set_band_of (BandOf);
   void set_distance_to (DistanceTo);
+  void set_bearing_to (BearingTo);
   // Show only this mode / these bands (empty = all).  More than one
   // band covers a satellite whose uplink and downlink are on two bands.
   void set_filter (QString const& mode, QStringList const& bands);
@@ -59,7 +64,7 @@ public:
   {
     set_filter (mode, band.isEmpty () ? QStringList {} : QStringList {band});
   }
-  // Distances depend on our grid: call when it changes.
+  // Distances and bearings depend on our grid: call when it changes.
   void recompute_distances ();
 
   // False if the report was already counted (a reconnect may repeat
@@ -100,6 +105,7 @@ private:
   QStringList band_filter_;
   BandOf band_of_;
   DistanceTo distance_to_;
+  BearingTo bearing_to_;
   qint64 now_ {0};
   int total_ {0};
 };

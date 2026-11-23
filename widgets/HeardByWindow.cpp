@@ -26,7 +26,8 @@ namespace
 
 HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
                               ContextProvider context, HeardByModel::BandOf band_of,
-                              HeardByModel::DistanceTo distance_to, QWidget * parent)
+                              HeardByModel::DistanceTo distance_to,
+                              HeardByModel::BearingTo bearing_to, QWidget * parent)
   : QWidget {parent}
   , settings_ {settings}
   , context_ {std::move (context)}
@@ -47,6 +48,7 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
   credit_->setWordWrap (true);               // so it can shrink with the window
   model_.set_band_of (std::move (band_of));
   model_.set_distance_to (std::move (distance_to));
+  model_.set_bearing_to (std::move (bearing_to));
   table_->setModel (&model_);
   table_->setSelectionMode (QAbstractItemView::NoSelection);
   table_->setEditTriggers (QAbstractItemView::NoEditTriggers);

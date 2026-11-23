@@ -20,10 +20,19 @@ void HeardByModel::set_distance_to (DistanceTo f)
   recompute_distances ();
 }
 
+void HeardByModel::set_bearing_to (BearingTo f)
+{
+  bearing_to_ = std::move (f);
+  recompute_distances ();
+}
+
 void HeardByModel::recompute_distances ()
 {
   for (auto it = rows_.begin (); it != rows_.end (); ++it)
-    it->distance = distance_to_ && !it->locator.isEmpty () ? distance_to_ (it->locator) : -1;
+    {
+      it->distance = distance_to_ && !it->locator.isEmpty () ? distance_to_ (it->locator) : -1;
+      it->bearing = bearing_to_ && !it->locator.isEmpty () ? bearing_to_ (it->locator) : -1;
+    }
   refresh (now_ ? now_ : -1);
 }
 
@@ -72,6 +81,7 @@ bool HeardByModel::add_report (HeardByReport const& report)
       it->snr = report.snr;
       it->when = report.when;
       it->distance = distance_to_ && !it->locator.isEmpty () ? distance_to_ (it->locator) : -1;
+      it->bearing = bearing_to_ && !it->locator.isEmpty () ? bearing_to_ (it->locator) : -1;
     }
   ++it->count;
   ++total_;
@@ -139,6 +149,7 @@ QVariant HeardByModel::headerData (int section, Qt::Orientation orientation, int
         case Snr: return tr ("dB");
         case Distance: return tr ("km");
         case Reports: return tr ("Spots");
+        case Bearing: return tr ("Brg");
         }
     }
   return {};
@@ -152,7 +163,7 @@ QVariant HeardByModel::data (QModelIndex const& index, int role) const
     {
       switch (index.column ())
         {
-        case Ago: case Mhz: case Snr: case Distance: case Reports:
+        case Ago: case Mhz: case Snr: case Distance: case Reports: case Bearing:
           return int (Qt::AlignRight | Qt::AlignVCenter);
         default: return int (Qt::AlignLeft | Qt::AlignVCenter);
         }
@@ -174,6 +185,7 @@ QVariant HeardByModel::data (QModelIndex const& index, int role) const
     case Snr: return r.snr;
     case Distance: return r.distance < 0 ? QVariant {QString {}} : QVariant {qRound (r.distance)};
     case Reports: return r.count;
+    case Bearing: return r.bearing < 0 ? QString {} : tr ("%1°").arg (qRound (r.bearing) % 360);
     }
   return {};
 }
