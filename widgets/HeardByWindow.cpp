@@ -41,7 +41,8 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Heard by"));
   banner_->setWordWrap (true);
   banner_->hide ();
-  credit_->setText (tr ("Reports from <a href=\"https://pskreporter.info/\">PSK Reporter</a>"));
+  credit_->setText (tr ("Data from <a href=\"https://pskreporter.info/\">PSK Reporter</a> by Philip Gladstone. "
+                        "Live spots from <a href=\"https://mqtt.pskreporter.info/\">mqtt.pskreporter.info</a> by Tom Fanning M0LTE."));
   credit_->setOpenExternalLinks (true);
   credit_->setWordWrap (true);               // so it can shrink with the window
   model_.set_band_of (std::move (band_of));
@@ -63,12 +64,13 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
 
   auto * bottom = new QHBoxLayout;
   bottom->addWidget (status_, 1);
-  bottom->addWidget (credit_);
+  credit_->setSizePolicy (QSizePolicy::Ignored, QSizePolicy::Preferred);
   auto * layout = new QVBoxLayout {this};
   layout->addWidget (in_use_);
   layout->addWidget (banner_);
   layout->addWidget (table_);
   layout->addLayout (bottom);
+  layout->addWidget (credit_);
 
   change_font (font);
   read_settings ();
