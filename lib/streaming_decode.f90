@@ -1479,7 +1479,7 @@ contains
     completion_due = .false.
     if (.not. deferred) return
     ! The GUI drops a waiting final whose period frequency is no longer the
-    ! receive frequency, as when its decode range or submode changed: the
+    ! receive frequency, as when its decode range, submode or depth changed: the
     ! frequency at the free's place in the stream.
     if (ft8_identity_change(deferred_params, stream_params) .or.             &
          (deferred_dial .ge. 0 .and. deferred_dial .ne. stream_rx)) then

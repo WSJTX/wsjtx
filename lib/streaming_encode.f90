@@ -40,7 +40,8 @@
 ! which the GUI keys as a channel tone, is refused, as is a / or , before any
 ! number there or anything else that leaves the frequency unread (2*, a null
 ! value), which leaves the GUI keying its last single tone's frequency. A
-! single tone takes copied and cwid only false.
+! single tone takes copied only false; with cwid true it takes freq in JT4,
+! slow JT9, JT65 and Q65, and none in MSK144 and fast JT9.
 ! ECHO's S is the GUI's Echo message, one to six letters and digits (longer
 ! is too_long); TUNE takes none.
 ! The other keys, each refused (bad_request) in a mode it does not name:
@@ -372,8 +373,9 @@
 ! read while 16 MiB of lines wait); a render's first FFT plan can wait for a
 ! decoder's, or a decoder's for it; and the stream reads no audio while it
 ! computes a render, so on live audio a pass whose audio arrives meanwhile
-! runs late, and FT8's wall-clock stops can shorten it. A render takes from a
-! fraction of a second (FT8) to seconds (JT65, WSPR or FST4 at 48000 Hz).
+! runs late, and FT8's wall-clock stops can shorten it. A render takes time
+! in proportion to its samples: on an 18-core arm64 Mac, under 0.01 s for FT8
+! and 0.2 s for 600 s of audio at 48000 Hz.
 
 module streaming_encode
   use, intrinsic :: iso_c_binding, only: c_int16_t, c_int32_t, c_double, c_char, &

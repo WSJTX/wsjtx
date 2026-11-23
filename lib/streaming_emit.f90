@@ -220,15 +220,16 @@
 !                     is cut short and the exit status is not guaranteed to be
 !                     1, as after JTTY's fatal errors (lib/streaming_jtty.f90).
 !
-! Memory, besides the input buffered and queued (pass_skipped): the decoder's
-! own buffer, 48 MB; once spectrum, ref_spectrum or prepared_audio has been
-! on, the output queue, up to 20 rows (about 0.7 MB) and 16 MiB of other
-! lines; up to three spare copies of a pass's audio, kept for the next, and
-! the last decoded period's copy, kept for a decode again, each up
-! to 43.2 MB (FST4W-1800); the decode thread's own copy of the decoders'
-! thread-local arrays (about 2.5 MB on Linux arm64), as each OpenMP thread has; and,
-! once a session has decoded both MSK144 and a period mode that runs OpenMP
-! threads, a second pool of those threads, each with its copy.
+! Memory, besides the input buffered and queued (pass_skipped): the stream's
+! period buffer, 48 MB, and the decoder's own buffer, 43.2 MB; once spectrum,
+! ref_spectrum or prepared_audio has been on, the output queue, up to 20 rows
+! (about 0.7 MB) and 16 MiB of other lines; up to three spare copies of a
+! pass's audio, kept for the next, and the last decoded period's copy, kept
+! for a decode again, each up to 43.2 MB (FST4W-1800); the decode thread's own
+! copy of the decoders' thread-local arrays (about 2.5 MB on Linux arm64), as
+! each OpenMP thread has; and, once a session has decoded both MSK144 and a
+! period mode that runs OpenMP threads, a second pool of those threads, each
+! with its copy.
 !
 ! The next three only while configure's busy_events (a boolean, false at the
 ! start) is true; a client that does not send it sees none of them.

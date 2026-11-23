@@ -2,9 +2,9 @@
 //
 // A wsjt-codec client: decode a WAV file, replay one as live audio, or render a message.
 //
-//   codec_client decode --codec PATH [--data DIR] [--mode FT8|FT4] [--depth N] WAV
+//   codec_client decode --codec PATH [--data DIR] [--mode MODE] [--submode X] [--period S] [--fast] [--depth N] [--freq HZ] [--low HZ] [--high HZ] [--mycall CALL] WAV
 //   codec_client live   --codec PATH [--data DIR] [--mode FT8|FT4] [--depth N] WAV
-//   codec_client render --codec PATH [--data DIR] [--mode FT8|FT4] [--depth N] [--freq HZ] [--out WAV] TEXT
+//   codec_client render --codec PATH [--data DIR] [--mode MODE] [--submode X] [--period S] [--fast] [--depth N] [--freq HZ] [--out WAV] [TEXT...]
 //
 // doc/codec/examples/README.md states what each prints and its exit status. C++17, the standard library and the platform's process API (POSIX or Win32), in one file:
 //
@@ -30,6 +30,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -67,25 +68,93 @@ const char HEADER[8] = {'W', 'S', 'J', 'T', 0, 1, 12, 0};
 enum Status { OK = 0, FAILED = 1, USAGE = 2, HUNG = 3 };  // exit status
 const int EXIT_SECONDS = 10;      // how long the codec has to exit once its output ends, or after halt on a failure
 const int RELEASE_SECONDS = 2;    // how long, once the codec has exited, the client waits for its pipes to close, its output included, and its writes to them to finish: a process the codec started can hold them open
-// Outside live, how long the codec may send no line: 300 s, the longest interface.md allows a decode pass between progress lines in FT8 and FT4. For the examples' check only (README.md, "The check"), not a setting: CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, a whole number from 1 to 300, shortens it, so that a run that checks it need not last 300 s.
-int silenceSeconds() {
+const int SILENCE_SECONDS = 300;  // outside live, how long the codec may send no line: the longest interface.md allows a decode pass between progress lines before one has completed, or four periods when that is longer (silenceBound)
+// For the examples' check only (README.md, "The check"), not a setting: CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, a whole number from 1 to 300, replaces the bound, so that a run that checks it need not last 300 s.
+std::optional<int> checkSilence() {
   const char *check = std::getenv("CODEC_EXAMPLE_CHECK_SILENCE_SECONDS");
   const size_t n = check ? std::strlen(check) : 0;
-  if (n < 1 || n > 3 || !std::all_of(check, check + n, [](char c) { return c >= '0' && c <= '9'; })) return 300;
+  if (n < 1 || n > 3 || !std::all_of(check, check + n, [](char c) { return c >= '0' && c <= '9'; })) return std::nullopt;
   const int seconds = std::atoi(check);
-  return seconds >= 1 && seconds <= 300 ? seconds : 300;
+  return seconds >= 1 && seconds <= 300 ? std::optional<int>(seconds) : std::nullopt;
 }
-const int SILENCE_SECONDS = silenceSeconds();
+const std::optional<int> CHECK_SILENCE = checkSilence();
 
-struct Mode {
-  const char *name;
-  double period;         // s
-  double txStart;        // where WSJT-X starts its transmission in the period, s
-  double liveAllowance;  // a live pass's time between progress lines, once one has completed, s
-};
-const Mode MODES[] = {{"FT8", 15.0, 0.5, 10.0}, {"FT4", 7.5, 0.3, 6.0}};
+// Outside live, how long the codec may send no line before the client takes it to have hung, s: 300, or four periods of the given seconds, up to the codec's 1800 s, when that is longer; the check's CHECK_SILENCE replaces it.
+double silenceBound(std::optional<double> seconds) {
+  if (CHECK_SILENCE) return *CHECK_SILENCE;
+  return seconds ? std::max<double>(SILENCE_SECONDS, 4 * std::min(*seconds, 1800.0)) : SILENCE_SECONDS;
+}
 
-size_t sampleCount(double seconds) { return size_t(std::lround(seconds * RATE)); }
+// Reports a codec silent for the bound, in whole seconds, as Python's %d prints them.
+void reportSilence(double bound) { std::fprintf(stderr, "codec_client: no line from the codec in %.0f s: it has hung\n", std::trunc(bound)); }
+
+const char *const DECODES[] = {"FT8", "FT4", "JT9", "JT65", "JT4", "FST4", "FST4W", "Q65", "MSK144", "ECHO", "JTTY", "FREQCAL", "WSPR"};  // what decode takes: the modes ready lists in modes
+const char *const ENCODES[] = {"FT8", "FT4", "JT4", "JT9", "JT65", "Q65", "FST4", "FST4W", "WSPR", "MSK144", "ECHO", "TUNE", "FOX", "SUPERFOX", "JTTY"};  // what render takes: those it lists in encodes
+const char *const LIVE[] = {"FT8", "FT4"};  // what live takes
+// The period, s, when --period gives none: the mode's own, as a configure that carries the mode sets it; FreqCal has none, so the examples take 15 s; TUNE's is the length of its tone. JTTY has no periods.
+const std::pair<const char *, double> PERIOD[] = {{"FT8", 15.0}, {"FT4", 7.5}, {"JT9", 60.0}, {"JT65", 60.0}, {"JT4", 60.0}, {"FST4", 60.0}, {"FST4W", 120.0}, {"Q65", 60.0}, {"MSK144", 30.0}, {"ECHO", 3.0}, {"FREQCAL", 15.0}, {"WSPR", 120.0}, {"TUNE", 15.0}, {"FOX", 15.0}, {"SUPERFOX", 15.0}};
+const char *const SUBMODES[] = {"JT4", "JT9", "JT65", "Q65"};      // the modes with a submode: A unless --submode gives one
+const char *const PERIODS[] = {"Q65", "FST4", "FST4W", "MSK144"};  // the slot modes whose render takes trperiod; fast JT9's does too
+const std::pair<const char *, const char *> DECODED_AS[] = {{"TUNE", "FREQCAL"}, {"FOX", "FT8"}, {"SUPERFOX", "FT8"}};  // what render decodes these back with; every other mode, itself
+const std::pair<const char *, double> LIVE_ALLOWANCE[] = {{"FT8", 10.0}, {"FT4", 6.0}};  // a live pass's time between progress lines, once one has completed, s
+
+template <size_t N>
+bool listed(const char *const (&list)[N], const std::string &name) {
+  return std::any_of(std::begin(list), std::end(list), [&](const char *item) { return name == item; });
+}
+
+template <typename T, size_t N>
+std::optional<T> lookup(const std::pair<const char *, T> (&table)[N], const std::string &name) {
+  for (const auto &entry : table)
+    if (name == entry.first) return entry.second;
+  return std::nullopt;
+}
+
+std::string decodedAs(const std::string &mode) {
+  const std::optional<const char *> as = lookup(DECODED_AS, mode);
+  return as ? *as : mode;
+}
+
+// nfa and nfb when --low and --high give none: in FST4 they are its F Low and F High, WSJT-X's 600 and 1400 Hz; elsewhere the waterfall's range.
+std::pair<int, int> searchRange(const std::string &mode) { return mode == "FST4" ? std::make_pair(600, 1400) : std::make_pair(200, 4000); }
+
+// The whole samples in the seconds, truncated as Python's int() truncates, so that every example sends as many; none below 0.
+size_t samplesIn(double seconds) { return seconds > 0 ? size_t(std::min(seconds * RATE, 1e15)) : 0; }
+
+// The whole seconds, truncated as Python's int() truncates: render's integer keys. The bound is far beyond any period the codec takes.
+long long wholeSeconds(double seconds) { return static_cast<long long>(std::max(-1e15, std::min(seconds, 1e15))); }
+
+// Where WSJT-X starts a transmission in its period, s.
+double txStart(const std::string &mode, double period, bool fast) {
+  if (mode == "MSK144" || mode == "ECHO" || mode == "TUNE" || fast) return 0.0;
+  if (mode == "SUPERFOX") return 0.4;
+  if (mode == "FT4") return 0.3;
+  if (mode == "FT8" || mode == "FOX" || (mode == "FST4" && period == 15) || (mode == "Q65" && (period == 15 || period == 30))) return 0.5;
+  return 1.0;
+}
+
+// The rendered audio, 36 dB down (an arithmetic shift right by 6), after offset samples of silence, over noise, in a buffer of total samples: about 12 dB SNR in 2500 Hz, as decoders expect a noise floor (JT65's decodes nothing without one).
+// The noise is integer arithmetic, so that every example sends the same samples: a 32-bit xorshift (13, 17, 5) from 1, and each sample the sum of its four bytes less 510.
+std::string overNoise(const std::string &audio, size_t offset, size_t total) {
+  const size_t length = audio.size() / 2;
+  std::string out(2 * total, '\0');
+  uint32_t x = 1;
+  for (size_t i = 0; i < total; ++i) {
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    int sample = int(x & 255) + int((x >> 8) & 255) + int((x >> 16) & 255) + int(x >> 24) - 510;
+    if (i >= offset && i - offset < length) {
+      int signal = uint8_t(audio[2 * (i - offset)]) | uint8_t(audio[2 * (i - offset) + 1]) << 8;
+      if (signal >= 0x8000) signal -= 0x10000;           // int16 little-endian
+      sample += (signal - (signal < 0 ? 63 : 0)) / 64;  // >> 6, rounding down as an arithmetic shift does, which C++17 leaves to the compiler
+    }
+    const uint16_t bits = uint16_t(sample);
+    out[2 * i] = char(bits & 0xFF);
+    out[2 * i + 1] = char(bits >> 8);
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------- JSON
 
@@ -282,6 +351,47 @@ std::string quote(const std::string &text) {
   return out + '"';
 }
 
+// A number as the Python example sends a period: a whole number as an integer, 15; otherwise the fewest digits that read back as the value, 7.5.
+std::string decimal(double value) {
+  char text[400];
+  if (value == std::floor(value) && std::fabs(value) < 1e16) {
+    std::snprintf(text, sizeof text, "%.0f", value);
+    return text;
+  }
+  for (int digits = 1; digits <= 17; ++digits) {
+    std::snprintf(text, sizeof text, "%.*g", digits, value);
+    if (std::strtod(text, nullptr) == value) break;
+  }
+  return text;
+}
+
+// A JSON number as the examples print it: one decimal, or nan for null (a value that is not finite). printf's %.1f rounds the value half to even on glibc and macOS, as WSJT-X shows DT: 0.25 prints 0.2.
+std::string number(const Json &value) {
+  if (value.type != Json::Number) return "nan";
+  char text[400];
+  std::snprintf(text, sizeof text, "%.1f", value.number);
+  return text;
+}
+
+// A JSON object, written a member at a time in the order given; each value is JSON text already (quote() for a string).
+class Object {
+ public:
+  Object &set(const std::string &key, const std::string &value) {
+    text_ += (text_.empty() ? "{" : ",") + quote(key) + ":" + value;
+    return *this;
+  }
+  std::string str() const { return text_.empty() ? "{}" : text_ + "}"; }
+
+ private:
+  std::string text_;
+};
+
+std::string join(const std::vector<std::string> &items, const char *separator) {
+  std::string out;
+  for (size_t i = 0; i < items.size(); ++i) out += (i ? separator : "") + items[i];
+  return out;
+}
+
 std::string fromBase64(const std::string &text) {
   static const std::string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   std::string out;
@@ -316,16 +426,19 @@ std::string utc(double seconds) {
   return text;
 }
 
-// WSJT-X names a saved period YYMMDD_HHMMSS.wav: its start, in seconds of the day, or 0.
+// WSJT-X names a saved period YYMMDD_HHMMSS.wav, or YYMMDD_HHMM.wav in periods of a minute or more: its start, in seconds of the day, or 0.
 double fileLabel(const std::string &path) {
-  if (path.size() < 11) return 0;
-  std::string tail = path.substr(path.size() - 11);  // _HHMMSS.wav
-  for (char &c : tail) c = char(std::tolower(static_cast<unsigned char>(c)));
-  if (tail[0] != '_' || tail.compare(7, 4, ".wav") != 0) return 0;
-  for (int i = 1; i <= 6; ++i)
-    if (!std::isdigit(static_cast<unsigned char>(tail[i]))) return 0;
-  const int h = std::stoi(tail.substr(1, 2)), m = std::stoi(tail.substr(3, 2)), s = std::stoi(tail.substr(5, 2));
-  return h < 24 && m < 60 && s < 60 ? h * 3600 + m * 60 + s : 0;
+  for (const size_t digits : {size_t(6), size_t(4)}) {  // _HHMMSS.wav, then _HHMM.wav
+    if (path.size() < digits + 5) continue;
+    std::string tail = path.substr(path.size() - digits - 5);
+    for (char &c : tail) c = char(std::tolower(static_cast<unsigned char>(c)));
+    if (tail[0] != '_' || tail.compare(digits + 1, 4, ".wav") != 0 ||
+        !std::all_of(tail.begin() + 1, tail.begin() + 1 + digits, [](char c) { return c >= '0' && c <= '9'; }))
+      continue;
+    const int h = std::stoi(tail.substr(1, 2)), m = std::stoi(tail.substr(3, 2)), s = digits == 6 ? std::stoi(tail.substr(5, 2)) : 0;
+    return h < 24 && m < 60 && s < 60 ? h * 3600 + m * 60 + s : 0;
+  }
+  return 0;
 }
 
 // The samples of a 12000 Hz mono 16-bit PCM WAV file, 16-bit little-endian as the stream takes them; false, with an error, when it is not one.
@@ -595,7 +708,7 @@ void addLine(Output &output, std::string text) {
   if (!text.empty() && text.back() == '\r') text.pop_back();  // lines end in CRLF on Windows
   Line line;
   if (!JsonReader(text).read(line.json) || line.json.type != Json::Object) {
-    std::fprintf(stderr, "codec_client: not JSON: %s\n", text.c_str());
+    std::fprintf(stderr, "codec_client: not a JSON object: %s\n", text.c_str());
     return;
   }
   line.text = std::move(text);
@@ -876,7 +989,8 @@ class Watchdog {
   using Clock = std::chrono::steady_clock;
 
  public:
-  explicit Watchdog(const Mode &mode) : mode_(mode) {}
+  // The mode's period and its live allowance, s.
+  Watchdog(double period, double liveAllowance) : period_(period), liveAllowance_(liveAllowance) {}
 
   double allowance() {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -925,12 +1039,12 @@ class Watchdog {
  private:
   static double seconds(Clock::duration d) { return std::chrono::duration<double>(d).count(); }
 
-  double allowanceNow() const { return completed_ ? mode_.liveAllowance : std::max(300.0, 4 * mode_.period); }
+  double allowanceNow() const { return completed_ ? liveAllowance_ : std::max(300.0, 4 * period_); }
 
   // A period's first answer. Its later ones, and those for a period not sent whole, find nothing waiting: a period waits from before its first sample, so no answer comes before it.
   void answer(const std::string &label) { waiting_.erase(label); }
 
-  const Mode &mode_;
+  const double period_, liveAllowance_;
   std::mutex mutex_;
   bool busy_ = false, sawBusy_ = false, completed_ = false;  // completed: a pass has completed
   std::string busyMode_;
@@ -938,13 +1052,15 @@ class Watchdog {
   std::map<std::string, Clock::time_point> waiting_;  // whole periods not answered yet, and when each is due
 };
 
-// Sends the audio a period at a time, each period's label in a configure before its first sample, then halt.
+// Sends the audio a period of the given seconds at a time, each period's label in a configure before its first sample, then halt; with no period (JTTY), all of it with no label.
 // Live, it starts on the next UTC period boundary, labels each period with its UTC start and sends each frame when its last sample is due, as a receiver's audio arrives.
-void sendAudio(Input &input, const std::string &audio, const Mode &mode, double label, bool live, Watchdog *watchdog) {
-  const size_t period = sampleCount(mode.period), total = audio.size() / 2;
+void sendAudio(Input &input, const std::string &audio, std::optional<double> seconds, double label, bool live, Watchdog *watchdog) {
+  const size_t total = audio.size() / 2;
+  const bool labelled = seconds.has_value();
+  const size_t period = labelled ? samplesIn(*seconds) : std::max<size_t>(total, 1);  // --period holds a sample at least
   if (live) {
     const double now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
-    label = (std::floor(now / mode.period) + 1) * mode.period;
+    label = (std::floor(now / *seconds) + 1) * *seconds;
     std::this_thread::sleep_for(std::chrono::duration<double>(label - now));
   }
   const auto start = std::chrono::steady_clock::now();
@@ -954,14 +1070,16 @@ void sendAudio(Input &input, const std::string &audio, const Mode &mode, double 
   // After halt the codec's exit is due as a period's answer is, from the last sample's scheduled time; no line answers it, and it is registered before the first sample, as a codec that stops reading blocks the writer.
   if (watchdog) watchdog->periodDue("halt", due(total));
   for (size_t k = 0, first = 0; first < total; ++k, first += period) {
-    const std::string periodLabel = utc(label + k * mode.period);
     const size_t end = std::min(first + period, total);
-    if (watchdog && end - first == period) {  // counted from the period's end, not from the last write, which a codec that stops reading blocks
-      std::string digits = periodLabel;
-      digits.erase(std::remove(digits.begin(), digits.end(), ':'), digits.end());
-      watchdog->periodDue(digits, due(end));
+    if (labelled) {
+      const std::string periodLabel = utc(label + k * *seconds);
+      if (watchdog && end - first == period) {  // counted from the period's end, not from the last write, which a codec that stops reading blocks
+        std::string digits = periodLabel;
+        digits.erase(std::remove(digits.begin(), digits.end(), ':'), digits.end());
+        watchdog->periodDue(digits, due(end));
+      }
+      input.send("{\"t\":\"configure\",\"utc\":" + quote(periodLabel) + "}");
     }
-    input.send("{\"t\":\"configure\",\"utc\":" + quote(periodLabel) + "}");
     for (size_t i = first; i < end; i += CHUNK) {
       const size_t j = std::min(i + CHUNK, end);
       if (live) std::this_thread::sleep_until(due(j));
@@ -972,13 +1090,15 @@ void sendAudio(Input &input, const std::string &audio, const Mode &mode, double 
   input.halt();
 }
 
-// Streams the audio, prints the decodes, and returns the exit status; messages gets each decode's message.
-int run(Codec &codec, const std::string &audio, const Mode &mode, double label, bool live, std::vector<std::string> &messages) {
+// Streams the audio, prints what the codec decodes and measures, and returns the exit status; messages gets each decode's message and each complete JTTY message's text, measured the echo and freqcal lines.
+int run(Codec &codec, const std::string &audio, const std::string &mode, std::optional<double> seconds, double label, bool live, std::vector<std::string> &messages,
+        std::vector<Json> &measured) {
   std::shared_ptr<Watchdog> watchdog;
-  if (live) watchdog = std::make_shared<Watchdog>(mode);
+  if (live) watchdog = std::make_shared<Watchdog>(lookup(PERIOD, mode).value_or(0), lookup(LIVE_ALLOWANCE, mode).value_or(0));  // live takes FT8 and FT4, which have both
   // The writer holds a share of all it uses: blocked on the codec's input, it can outlive this call.
-  Worker writer([input = codec.input(), audio, mode, label, live, watchdog] { sendAudio(*input, audio, mode, label, live, watchdog.get()); });
+  Worker writer([input = codec.input(), audio, seconds, label, live, watchdog] { sendAudio(*input, audio, seconds, label, live, watchdog.get()); });
   int errors = 0;
+  const double silence = silenceBound(seconds);
   auto heard = std::chrono::steady_clock::now();
   for (;;) {
     Line line;
@@ -991,21 +1111,30 @@ int run(Codec &codec, const std::string &audio, const Mode &mode, double label, 
         std::fprintf(stderr, "codec_client: no progress from the codec in %.0f s: it has hung\n", watchdog->allowance());
         abandon(codec, HUNG);
       }
-    } else if (std::chrono::steady_clock::now() - heard > std::chrono::seconds(SILENCE_SECONDS)) {
-      std::fprintf(stderr, "codec_client: no line from the codec in %d s: it has hung\n", SILENCE_SECONDS);
+    } else if (std::chrono::steady_clock::now() - heard > std::chrono::duration<double>(silence)) {
+      reportSilence(silence);
       abandon(codec, HUNG);
     }
     const Json &json = line.json;
     const std::string kind = json["t"].str();  // other lines, and kinds this client does not know, are skipped
     if (kind == "decode") {
       messages.push_back(json["message"].str());
-      // printf's %.1f rounds DT's value half to even on glibc and macOS, as WSJT-X shows it: 0.25 prints 0.2. A DT that is not finite comes as null.
-      char dt[64] = "nan";
-      if (json["dt"].type == Json::Number) std::snprintf(dt, sizeof dt, "%.1f", json["dt"].number);
-      std::printf("decode %s %lld %s %lld %s\n", json["time"].str().c_str(), json["snr"].integer(), dt, json["freq"].integer(), json["message"].str().c_str());
+      std::printf("decode %s %lld %s %lld %s\n", json["time"].str().c_str(), json["snr"].integer(), number(json["dt"]).c_str(), json["freq"].integer(), json["message"].str().c_str());
       std::fflush(stdout);
     } else if (kind == "decode_finished") {
       std::printf("finished %s\n", json["period_end"].str().c_str());
+      std::fflush(stdout);
+    } else if (kind == "echo") {  // Echo: one a period
+      std::printf("echo %s %s %s %s %lld\n", json["time"].str().c_str(), number(json["level"]).c_str(), number(json["snr"]).c_str(), number(json["dfreq"]).c_str(), json["quality"].integer());
+      std::fflush(stdout);
+      measured.push_back(std::move(line.json));
+    } else if (kind == "freqcal") {  // FreqCal: one a measurement
+      std::printf("freqcal %s %s %s %s %s\n", json["time"].str().c_str(), number(json["freq"]).c_str(), number(json["error"]).c_str(), number(json["level"]).c_str(), number(json["snr"]).c_str());
+      std::fflush(stdout);
+      measured.push_back(std::move(line.json));
+    } else if (kind == "jtty_update" && json["state"].str() != "growing") {  // JTTY: a message's last line; growing ones are its text so far
+      if (json["state"].str() == "complete") messages.push_back(json["text"].str());
+      std::printf("jtty %s %s %lld %s %s\n", json["state"].str().c_str(), number(json["start"]).c_str(), json["snr"].integer(), number(json["freq"]).c_str(), json["text"].str().c_str());
       std::fflush(stdout);
     } else if (kind == "error") {
       ++errors;
@@ -1025,19 +1154,31 @@ int run(Codec &codec, const std::string &audio, const Mode &mode, double label, 
 // ---------------------------------------------------------------- commands
 
 struct Options {
-  std::string command, codec, data = ".", out;
-  std::string input;  // the WAV file, or render's TEXT
-  const Mode *mode = &MODES[0];
-  int depth = 3, freq = 1500;
+  std::string command, codec, data = ".", out, mode = "FT8", submode = "A", mycall;
+  std::string wav;                     // decode and live: the WAV file
+  std::vector<std::string> texts;      // render: the TEXTs
+  std::optional<double> period;        // s: --period's, or the mode's; none in JTTY
+  bool fast = false;
+  int depth = 3;
+  std::optional<int> freq, low, high;  // Hz: render's freq always; decode's when given
 };
 
-const char USAGE_TEXT[] =
-    "usage: codec_client decode --codec PATH [--data DIR] [--mode FT8|FT4] [--depth N] WAV\n"
-    "       codec_client live   --codec PATH [--data DIR] [--mode FT8|FT4] [--depth N] WAV\n"
-    "       codec_client render --codec PATH [--data DIR] [--mode FT8|FT4] [--depth N] [--freq HZ] [--out WAV] TEXT\n";
+template <size_t N>
+std::string choices(const char *const (&modes)[N]) {
+  std::string out;
+  for (const char *mode : modes) out += (out.empty() ? "" : "|") + std::string(mode);
+  return out;
+}
 
-// Starts the codec and waits for its ready line, which lists the modes it decodes (modes) and encodes (encodes).
-std::unique_ptr<Codec> startCodec(const Options &options, const char *kinds) {
+std::string usage() {
+  return "usage: codec_client decode --codec PATH [--data DIR] [--mode MODE] [--submode X] [--period S] [--fast] [--depth N] [--freq HZ] [--low HZ] [--high HZ] [--mycall CALL] WAV\n"
+         "       codec_client live   --codec PATH [--data DIR] [--mode FT8|FT4] [--depth N] WAV\n"
+         "       codec_client render --codec PATH [--data DIR] [--mode MODE] [--submode X] [--period S] [--fast] [--depth N] [--freq HZ] [--out WAV] [TEXT...]\n"
+         "decode's MODE: " + choices(DECODES) + "\nrender's MODE: " + choices(ENCODES) + "\n";
+}
+
+// Starts the codec and waits for its ready line, which lists the modes it decodes (modes) and encodes (encodes); decodes, a mode it must decode too.
+std::unique_ptr<Codec> startCodec(const Options &options, const char *kinds, const std::string &decodes = std::string()) {
   auto codec = std::make_unique<Codec>();
   std::string error;
   if (!codec->start(options.codec, options.data, error)) {
@@ -1051,38 +1192,87 @@ std::unique_ptr<Codec> startCodec(const Options &options, const char *kinds) {
     abandon(*codec, FAILED);
   }
   const bool ended = got == Codec::END;
-  if (ended || line.json["t"].str() != "ready" || !line.json[kinds].contains(options.mode->name)) {
-    std::fprintf(stderr, "codec_client: no ready line naming %s in %s: %s\n", options.mode->name, kinds, ended ? "end of output" : line.text.c_str());
-    quit(*codec);
+  const Json &ready = line.json;
+  if (ended || ready["t"].str() != "ready" || !ready[kinds].contains(options.mode) || (!decodes.empty() && !ready["modes"].contains(decodes))) {
+    std::fprintf(stderr, "codec_client: no ready line naming %s in %s: %s\n", options.mode.c_str(), kinds, ended ? "end of output" : line.text.c_str());
+    codec->kill();  // at once, as when no ready line comes: there is no session to end
+    codec->wait();  // its standard error, which may say why, passed on until its pipes close, RELEASE_SECONDS after its exit at most
     return nullptr;
   }
   return codec;
 }
 
-std::string configure(const Options &options) {
-  // With the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise), and a configure that carries the mode sets the mode up as WSJT-X does, which can change the search keys and the frequencies, so the search keys go with it.
-  return "{\"t\":\"configure\",\"mode\":" + quote(options.mode->name) + ",\"depth\":" + std::to_string(options.depth) +
-         ",\"mycall\":\"\",\"his_call\":\"\",\"his_grid\":\"\",\"nfa\":200,\"nfb\":4000,\"ntol\":1000";
+// The configure that sets the mode up to decode, with the search keys and the calls; rxfreq, when given, is the receive frequency.
+// Sent with the mode: these examples have no station, so no calls (the decoders use the starting calls otherwise) but --mycall's, and a configure that carries the mode sets the mode up as WSJT-X does, which can change the search keys and the frequencies, so the search keys go with it.
+// Integers stay plain JSON integers: a configure declines 3.0 for an integer key (configure_type_error).
+Object configure(const Options &options, const std::string &mode, std::optional<int> rxfreq) {
+  const std::pair<int, int> range = searchRange(mode);
+  Object message;
+  message.set("t", quote("configure")).set("mode", quote(mode)).set("depth", std::to_string(options.depth)).set("mycall", quote(options.mycall));
+  message.set("nfa", std::to_string(options.low.value_or(range.first))).set("nfb", std::to_string(options.high.value_or(range.second)));
+  message.set("his_call", quote("")).set("his_grid", quote("")).set("ntol", "1000");
+  if (mode != "JTTY" && options.period) message.set("trperiod", decimal(*options.period));  // with the mode, as FreqCal and fast JT9 need it
+  if (listed(SUBMODES, mode)) message.set("submode", quote(options.submode));
+  if (mode == "JT9") message.set("fast", options.fast ? "true" : "false");  // with every JT9 configure that carries the mode
+  if (rxfreq) message.set("rxfreq", std::to_string(*rxfreq));
+  return message;
 }
 
 int decode(const Options &options) {
   std::string audio, error;
-  if (!readWav(options.input, audio, error)) {
+  if (!readWav(options.wav, audio, error)) {
     std::fprintf(stderr, "codec_client: %s\n", error.c_str());
     return USAGE;
   }
   std::unique_ptr<Codec> codec = startCodec(options, "modes");
   if (!codec) return FAILED;
   const bool live = options.command == "live";
-  // Integers stay plain JSON integers: a configure declines 3.0 for an integer key (configure_type_error).
-  codec->send(configure(options) + (live ? ",\"live_audio\":true,\"busy_events\":true}" : "}"));
+  Object message = configure(options, options.mode, options.freq);
+  if (live) message.set("live_audio", "true").set("busy_events", "true");
+  codec->send(message.str());
   std::vector<std::string> messages;
-  return run(*codec, audio, *options.mode, fileLabel(options.input), live, messages);
+  std::vector<Json> measured;
+  const std::optional<double> seconds = options.mode == "JTTY" ? std::optional<double>() : options.period;
+  return run(*codec, audio, options.mode, seconds, fileLabel(options.wav), live, messages, measured);
+}
+
+// The render request for the mode.
+std::string renderRequest(const Options &options) {
+  const std::string &mode = options.mode;
+  Object request;
+  request.set("t", quote("render")).set("id", "1").set("freq", std::to_string(*options.freq)).set("rate", std::to_string(RATE));
+  if (mode == "JTTY") return request.set("text", quote(join(options.texts, " "))).str();  // JTTY's requests carry no mode
+  request.set("mode", quote(mode));
+  if (mode == "FOX" || mode == "SUPERFOX") {
+    std::vector<std::string> slots;
+    for (const std::string &text : options.texts) slots.push_back(quote(text));
+    request.set("slots", "[" + join(slots, ",") + "]");  // one message a slot
+  } else if (mode == "TUNE") {
+    request.set("seconds", std::to_string(wholeSeconds(*options.period)));  // a steady tone for the period FreqCal measures it in
+  } else if (mode == "ECHO") {
+    request.set("kind", quote("tone"));  // WSJT-X's Fixed Tone
+  } else {
+    request.set("text", quote(join(options.texts, " ")));
+  }
+  if (listed(SUBMODES, mode)) request.set("submode", quote(options.submode));
+  if (listed(PERIODS, mode) || options.fast) request.set("trperiod", std::to_string(wholeSeconds(*options.period)));
+  if (options.fast) request.set("fast", "true");
+  return request.str();
+}
+
+// Whether a file exists, whatever its permissions: a file the client cannot read exists too.
+bool exists(const std::string &path) {
+#ifdef _WIN32
+  return GetFileAttributesA(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+#else
+  struct stat info;
+  return stat(path.c_str(), &info) == 0;
+#endif
 }
 
 int render(const Options &options) {
   // --out must be writable before the codec starts. A file made to find that out is removed, and the audio is written once it is all in.
-  const bool existed = !options.out.empty() && std::ifstream(options.out).good();
+  const bool existed = !options.out.empty() && exists(options.out);
   if (!options.out.empty()) {
     if (!std::ofstream(options.out, std::ios::binary | std::ios::app)) {
       std::fprintf(stderr, "codec_client: cannot write %s\n", options.out.c_str());
@@ -1090,36 +1280,52 @@ int render(const Options &options) {
     }
     if (!existed) std::remove(options.out.c_str());
   }
-  std::unique_ptr<Codec> codec = startCodec(options, "encodes");
+  const std::string mode = decodedAs(options.mode);  // what it decodes the render back with
+  std::unique_ptr<Codec> codec = startCodec(options, "encodes", mode);
   if (!codec) return FAILED;
-  const Mode &mode = *options.mode;
-  codec->send("{\"t\":\"render\",\"id\":1,\"mode\":" + quote(mode.name) + ",\"text\":" + quote(options.input) + ",\"freq\":" + std::to_string(options.freq) +
-              ",\"rate\":" + std::to_string(RATE) + "}");
-  Json encoded;
+  codec->send(renderRequest(options));
+  std::vector<std::string> sent;  // what it sent: the message, FOX's and SUPERFOX's slots, or JTTY's segments
+  long long samples = 0;
   std::string audio;
-  for (;;) {  // the reply: encoded, its pcm lines, then rendered; or rejected
+  const double silence = silenceBound(std::nullopt);  // a reply waits for no decode
+  for (;;) {  // the reply: encoded (JTTY: a segment line a segment), the pcm lines, then rendered; or rejected
     Line line;
-    const Codec::Got got = codec->next(line, std::chrono::seconds(SILENCE_SECONDS));
+    const Codec::Got got = codec->next(line, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::duration<double>(silence)));
     if (got == Codec::NOTHING_YET) {
-      std::fprintf(stderr, "codec_client: no line from the codec in %d s: it has hung\n", SILENCE_SECONDS);
+      reportSilence(silence);
       abandon(*codec, HUNG);
     }
     const bool ended = got == Codec::END;
-    const std::string kind = line.json["t"].str();
-    if (ended || kind == "rejected" || kind == "error") {
+    const Json &json = line.json;
+    const std::string kind = json["t"].str();
+    if (ended || kind == "rejected" || kind == "error" || (kind == "rendered" && sent.empty())) {  // a rendered line with nothing encoded before it is no render
       std::fprintf(stderr, "codec_client: render failed: %s\n", ended ? "end of output" : line.text.c_str());
       quit(*codec);
       return FAILED;
     }
-    if (kind == "encoded")
-      encoded = line.json;
-    else if (kind == "pcm")
-      audio += fromBase64(line.json["data"].str());  // int16 little-endian samples at the requested rate
-    else if (kind == "rendered")
+    if (kind == "encoded") {
+      samples = json["samples"].integer();
+      sent.clear();
+      if (options.mode == "FOX") {
+        for (const Json &slot : json["slots"].items) sent.push_back(slot["msgsent"].str());
+      } else if (options.mode == "SUPERFOX") {
+        for (std::string text : options.texts) {  // SuperFox's encoded line has no msgsent: WSJT-X shows the slots as written, upper case
+          for (char &c : text) c = char(std::toupper(static_cast<unsigned char>(c)));
+          sent.push_back(text);
+        }
+      } else {
+        sent.push_back(json["msgsent"].str());
+      }
+    } else if (kind == "segment") {  // JTTY: each segment's text and samples
+      sent.push_back(json["text"].str());
+      samples += json["samples"].integer();
+    } else if (kind == "pcm") {
+      audio += fromBase64(json["data"].str());  // int16 little-endian samples at the requested rate
+    } else if (kind == "rendered") {
       break;
+    }
   }
-  const std::string sent = encoded["msgsent"].str();
-  std::printf("rendered %lld %s\n", encoded["samples"].integer(), sent.c_str());
+  std::printf("rendered %lld %s\n", samples, join(sent, " | ").c_str());
   std::fflush(stdout);
   if (!options.out.empty() && !writeWav(options.out, audio)) {
     std::fprintf(stderr, "codec_client: cannot write %s\n", options.out.c_str());
@@ -1127,19 +1333,44 @@ int render(const Options &options) {
     quit(*codec);
     return FAILED;
   }
-  // Decode it back: the audio where WSJT-X starts it, in a period of silence.
-  const size_t period = 2 * sampleCount(mode.period), offset = 2 * sampleCount(mode.txStart);  // bytes
-  std::string signal = (std::string(offset, '\0') + audio).substr(0, period);
-  signal.resize(period, '\0');
-  codec->send(configure(options) + "}");
-  std::vector<std::string> messages;
-  int status = run(*codec, signal, mode, 0, false, messages);
-  const bool found = std::any_of(messages.begin(), messages.end(), [&](const std::string &message) { return words(message) == words(sent); });
-  if (status == OK && !found) {
-    std::fprintf(stderr, "codec_client: round trip failed: no decode of %s\n", sent.c_str());
-    status = FAILED;
+  // Decode it back, over noise: the audio where WSJT-X starts it in its period; JTTY's after a second, with a second after it.
+  std::optional<double> seconds;
+  std::string signal;
+  if (options.mode == "JTTY") {
+    signal = overNoise(audio, RATE, samplesIn(double(audio.size()) / 2 / RATE + 2));
+  } else {
+    seconds = options.period;
+    signal = overNoise(audio, samplesIn(txStart(options.mode, *seconds, options.fast)), samplesIn(*seconds));
   }
-  return status;
+  Options back = options;
+  if (mode == "FST4") {  // its F Low and F High around the render
+    back.low = *options.freq - 200;
+    back.high = *options.freq + 200;
+  }
+  Object message = configure(back, mode, mode == "MSK144" ? std::optional<int>() : options.freq);  // MSK144's Rx Freq is its tones' center
+  if (options.mode == "SUPERFOX") message.set("contest_type", quote("hound")).set("superfox_mode", "true").set("even_sequence", "true");  // a SuperFox Hound decodes it
+  if (options.mode == "ECHO") message.set("live_audio", "true").set("echo_freq", std::to_string(*options.freq));  // the echo's parameters from the keys, not from the audio's first samples as a saved file carries them
+  codec->send(message.str());
+  std::vector<std::string> messages;
+  std::vector<Json> measured;
+  const int status = run(*codec, signal, mode, seconds, 0, false, messages, measured);
+  if (status != OK) return status;
+  std::vector<std::string> missing;
+  if (options.mode == "TUNE") {
+    if (std::none_of(measured.begin(), measured.end(), [](const Json &m) { return m["t"].str() == "freqcal" && m["error"].type == Json::Number && std::fabs(m["error"].number) < 1; }))
+      missing.push_back("a measurement within 1 Hz of " + std::to_string(*options.freq) + " Hz");
+  } else if (options.mode == "ECHO") {
+    if (std::none_of(measured.begin(), measured.end(), [](const Json &m) { return m["t"].str() == "echo" && m["snr"].type == Json::Number && m["snr"].number > 0; }))  // a null snr is not above the noise
+      missing.push_back("an echo above the noise");
+  } else {
+    for (const std::string &text : sent)
+      if (std::none_of(messages.begin(), messages.end(), [&](const std::string &message) { return words(message) == words(text); })) missing.push_back(text);
+  }
+  if (!missing.empty()) {
+    std::fprintf(stderr, "codec_client: round trip failed: no decode of %s\n", join(missing, " | ").c_str());
+    return FAILED;
+  }
+  return OK;
 }
 
 bool toInteger(const std::string &text, int &value) {
@@ -1152,37 +1383,62 @@ bool toInteger(const std::string &text, int &value) {
   }
 }
 
+// A number of seconds, finite, as JSON carries numbers.
+bool toNumber(const std::string &text, double &value) {
+  char *end = nullptr;
+  value = std::strtod(text.c_str(), &end);
+  return !text.empty() && end == text.c_str() + text.size() && std::isfinite(value);
+}
+
 // Reads the command line into options: false, with the problem, when it is not usable.
 bool parse(int argc, char **argv, Options &options, std::string &problem) {
   options.command = argc > 1 ? argv[1] : "";
-  const bool render = options.command == "render";
-  if (!render && options.command != "decode" && options.command != "live") {
+  const bool render = options.command == "render", live = options.command == "live";
+  if (!render && !live && options.command != "decode") {
     problem = "the command is decode, live or render";
     return false;
   }
-  bool optionsEnded = false;  // after --, every argument is the WAV file or the TEXT
+  // What each command takes: decode and render a submode, a period, fast and a frequency; decode the search range and the call; render --out.
+  auto takes = [&](const std::string &option) {
+    return option == "--codec" || option == "--data" || option == "--mode" || option == "--depth" ||
+           (!live && (option == "--submode" || option == "--period" || option == "--fast" || option == "--freq")) ||
+           (!live && !render && (option == "--low" || option == "--high" || option == "--mycall")) || (render && option == "--out");
+  };
+  std::vector<std::string> arguments;  // the WAV file, or render's TEXTs
+  bool optionsEnded = false;           // after --, every argument is the WAV file or a TEXT
   for (int i = 2; i < argc; ++i) {
     std::string option = argv[i], value;
     if (!optionsEnded && option == "--") {
       optionsEnded = true;
       continue;
     }
-    if (optionsEnded || option.compare(0, 2, "--") != 0) {  // the WAV file, or render's TEXT
-      if (!options.input.empty()) {
-        problem = "more than one " + std::string(render ? "TEXT" : "WAV");
-        return false;
-      }
-      options.input = option;
+    if (optionsEnded || option.compare(0, 2, "--") != 0) {
+      arguments.push_back(option);
       continue;
     }
     const size_t equals = option.find('=');
-    if (equals != std::string::npos) {  // --option=value
+    const bool given = equals != std::string::npos;  // --option=value
+    if (given) {
       value = option.substr(equals + 1);
       option.erase(equals);
-    } else if (i + 1 == argc) {
-      problem = option + " needs a value";
+    }
+    if (!takes(option)) {
+      problem = "unknown option " + option;
       return false;
-    } else {
+    }
+    if (option == "--fast") {  // a flag, with no value
+      if (given) {
+        problem = "--fast takes no value";
+        return false;
+      }
+      options.fast = true;
+      continue;
+    }
+    if (!given) {
+      if (i + 1 == argc) {
+        problem = option + " needs a value";
+        return false;
+      }
       value = argv[++i];
     }
     if (option == "--codec") {
@@ -1190,26 +1446,51 @@ bool parse(int argc, char **argv, Options &options, std::string &problem) {
     } else if (option == "--data") {
       options.data = value;
     } else if (option == "--mode") {
-      options.mode = nullptr;
-      for (const Mode &mode : MODES)
-        if (value == mode.name) options.mode = &mode;
-      if (!options.mode) problem = "--mode is FT8 or FT4";
+      options.mode = value;
+      if (!(live ? listed(LIVE, value) : render ? listed(ENCODES, value) : listed(DECODES, value)))
+        problem = "--mode is one of " + (live ? choices(LIVE) : render ? choices(ENCODES) : choices(DECODES));
     } else if (option == "--depth") {
       if (!toInteger(value, options.depth) || options.depth < 1 || options.depth > 3) problem = "--depth is 1, 2 or 3";
-    } else if (render && option == "--freq") {
-      if (!toInteger(value, options.freq)) problem = "--freq is a whole number of Hz";
-    } else if (render && option == "--out") {
-      options.out = value;
+    } else if (option == "--submode") {
+      options.submode = value;
+      if (value.size() != 1 || value[0] < 'A' || value[0] > 'H') problem = "--submode is a letter from A to H";
+    } else if (option == "--period") {
+      double seconds = 0;
+      if (toNumber(value, seconds) && seconds * RATE >= 1)
+        options.period = seconds;
+      else
+        problem = "--period must be a number of seconds that holds a sample at least";
+    } else if (option == "--freq" || option == "--low" || option == "--high") {
+      int hz = 0;
+      if (toInteger(value, hz))
+        (option == "--freq" ? options.freq : option == "--low" ? options.low : options.high) = hz;
+      else
+        problem = option + " is a whole number of Hz";
+    } else if (option == "--mycall") {
+      options.mycall = value;
     } else {
-      problem = "unknown option " + option;
+      options.out = value;
     }
     if (!problem.empty()) return false;
   }
-  if (options.codec.empty())
+  if (options.codec.empty()) {
     problem = "--codec is required";
-  else if (options.input.empty())
-    problem = render ? "no TEXT" : "no WAV file";
-  return problem.empty();
+  } else if (!render) {
+    if (arguments.size() == 1)
+      options.wav = arguments[0];
+    else
+      problem = arguments.empty() ? "no WAV file" : "more than one WAV";
+  } else {
+    // TUNE and ECHO take no TEXT; FOX and SUPERFOX one a slot, and JTTY one or more, which it joins; the other modes one.
+    const bool none = options.mode == "TUNE" || options.mode == "ECHO", several = options.mode == "FOX" || options.mode == "SUPERFOX" || options.mode == "JTTY";
+    options.texts = arguments;
+    if (none ? !arguments.empty() : several ? arguments.empty() : arguments.size() != 1)
+      problem = "render --mode " + options.mode + " takes " + (none ? "no TEXT" : several ? "one TEXT or more" : "one TEXT");
+  }
+  if (!problem.empty()) return false;
+  if (live || !options.period) options.period = lookup(PERIOD, options.mode);  // live takes the mode's; JTTY has none
+  if (render && !options.freq) options.freq = options.mode == "MSK144" ? 1000 : options.mode == "SUPERFOX" ? 750 : 1500;  // MSK144's tones are at 1000 and 2000 Hz, and SuperFox goes at 750
+  return true;
 }
 
 }  // namespace
@@ -1222,14 +1503,14 @@ int main(int argc, char **argv) {
 #endif
   for (int i = 1; i < argc && std::strcmp(argv[i], "--") != 0; ++i) {
     if (std::strcmp(argv[i], "-h") == 0 || std::strcmp(argv[i], "--help") == 0) {
-      std::fputs(USAGE_TEXT, stdout);
+      std::fputs(usage().c_str(), stdout);
       return OK;
     }
   }
   Options options;
   std::string problem;
   if (!parse(argc, argv, options, problem)) {
-    std::fprintf(stderr, "codec_client: %s\n%s", problem.c_str(), USAGE_TEXT);
+    std::fprintf(stderr, "codec_client: %s\n%s", problem.c_str(), usage().c_str());
     return USAGE;
   }
   // The decoders' OpenMP threads need the stack WSJT-X gives them. The codec inherits this environment.

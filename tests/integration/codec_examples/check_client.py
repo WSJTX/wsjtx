@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Check a codec example client against the command line every example implements (doc/codec/examples/README.md).
 
-  check_client.py --codec PATH --sample WAV --expected FILE --work-dir DIR [--live] [--timeout S] -- COMMAND...
+  check_client.py --codec PATH --sample WAV --expected FILE --work-dir DIR [--samples DIR] [--fixtures DIR] [--live] [--timeout S] -- COMMAND...
 
 COMMAND... starts the client; the check adds the subcommand and its options, and runs:
-  decode: the sample at depth 3: exit status 0, every message of the expected file (a jt9 decode list), each decode labeled with the time in the sample's name, and finished for it; and the same lines, in any order, as the Python example prints for the same run, which pins every field's format. The sample rewritten as WAVE_FORMAT_EXTENSIBLE with the PCM subformat must print the same lines; with the float subformat, exit status 2.
-  render: an FT8 and an FT4 message: exit status 0, the rendered line with the message as sent, a decode of it, and --out's WAV holding the samples the rendered line counts. --out in a missing directory: exit status 2. A refused render: exit status 1, and no --out file left behind.
-  On POSIX, against a stand-in codec (fake_codec below), which checks what the client sends (OMP_STACKSIZE, -a, -t and -r, the header, an integer depth in every configure, a label before each period, halt), writes about four pipe buffers to stderr before ready, and logs to fake_codec.log in the client's --data directory:
+  decode: the sample at depth 3: exit status 0, every message of the expected file (a jt9 decode list), each decode labeled with the time in the sample's name, and finished for it; and the same lines, in any order, as the Python example prints for the same run, which pins every field's format. The sample rewritten as WAVE_FORMAT_EXTENSIBLE with the PCM subformat must print the same lines; with the float subformat, exit status 2. Then each recording in DECODES (below) under --samples, in its mode: exit status 0, its messages (a jt9 or wsprd decode list under --fixtures, less jt9's flags, or the messages DECODES gives), its label on every decode and finished line, and the Python example's lines.
+  render: each mode in RENDERS (below), every mode the codec encodes, JT9 slow and fast: exit status 0, the rendered line with what was sent, a decode of each message (an echo above 0 dB SNR for ECHO, a measurement within 1 Hz for TUNE), the Python example's lines, and --out's WAV holding the samples the rendered line counts, the Python example's samples (its own --out). --out in a missing directory: exit status 2. A refused render: exit status 1, and no --out file left behind.
+  On POSIX, against a stand-in codec (fake_codec below), which checks what the client sends (OMP_STACKSIZE, -a, -t and -r, the header, an integer depth in every configure and a whole trperiod written as an integer, a label before each period, halt), writes about four pipe buffers to stderr before ready, and logs to fake_codec.log in the client's --data directory:
   decode: lines that are not JSON objects are skipped, and a decode whose dt is null prints DT nan; exit status 1 after an error line (decode-error) and after the stand-in's exit status 1 (decode-status).
   render: exit status 1 when the rendered audio, a second of silence, decodes to nothing, with --out's WAV kept (render).
   NO_EXIT, all at once, each exit due 10 s after the logged event (from 0.5 s before to 2 s after): decode exits 3 when the stand-in, after halt, sends lines for 3 s more, then ends its standard output and does not exit (decode-noexit, from the end of its output); when it stops reading its input after 1 s of audio, so the client's writer blocks before halt, sends lines for 3 s, then ends its standard output and does not exit (decode-stopread); render exits 1 when the stand-in refuses the render and does not exit after halt (render-noexit, from halt).
   RELEASE, with NO_EXIT, each exit due at most 2 s after the stand-in's exit (up to RELEASE_LATE, 1.5 s, late): the stand-in exits 0 and a child of it holds one or two of its pipes. decode exits 0 when the child holds standard error, after the stand-in answers and ends its standard output (decode-childerr), when it holds standard output, after the stand-in answers, whose finished line must be printed (decode-childout), when it holds standard input, which the stand-in stopped reading after 1 s of audio, so the client's writer is blocked (decode-childin), and when it holds standard input and standard output so, the client's reader and writer both waiting on it, which the client gives 2 s in all (decode-childboth); render exits 1 when the stand-in refuses the render and the child holds standard output after halt (render-childout).
   SILENT, with NO_EXIT, each exit due SILENCE_CHECK_SECONDS after the stand-in's ready (from 0.5 s before to 2 s after), with the client's silence bound shortened to SILENCE_CHECK_SECONDS by CODEC_EXAMPLE_CHECK_SILENCE_SECONDS, which the examples read for this check only: the stand-in sends ready and then nothing, neither ending its output nor exiting, and a child of it holds its output pipes. decode (decode-silent) and render with --out (render-silent) exit 3 with "no line from the codec in SILENCE_CHECK_SECONDS s: it has hung" on stderr, and render leaves no --out file.
   live (--live), in FT4, whose allowance is 6 s once a pass has completed: the real codec in real time, with exit status 0 and every expected message; then, at once, the LIVE_FAKES stand-ins. Exit status 3 within the allowance plus 2 s of the due time when the stand-in: hangs while busy and goes silent (hung), so the client must check its deadlines while no line comes, and does so in FT8, whose allowance is 10 s (hung8); hangs while busy, sending only lines that are not progress (noisy); runs one pass that ends with busy false and no decode_finished, then sends nothing (onepass; a busy false completes a pass, so due at the second period's scheduled end plus the allowance); answers every period, then hangs after halt (afterhalt; due the allowance after halt); answers the first period after 1 s of its audio, then stops reading, so the client's writer blocks before it sends halt (answerstop; due at the last sample's scheduled time plus the allowance); answers the first period and never the second (idle; due at the second's scheduled end plus the allowance); does so after answering the second period's label before the period starts, as a period a day earlier would have been (reused); stops reading its input during the second period (stopread); answers the first period only after the second is registered, and never the second (crossed). Exit status 0 when it: is slow but sends progress lines (slow); runs its first pass, before any completes, with no progress for longer than the allowance (slowstart); keeps a pass busy, with progress, until after the second period's scheduled end plus the allowance, then answers that period 1 s after its busy false (latebusy); answers each period before all its audio is sent (early). Exit status 1 within 32 s when it never sends ready (noready). The stand-in sends busy and pass_progress lines only after a configure turns on busy_events, and logs a problem unless live_audio is on too. In the HANGS a child of the stand-in holds its output pipes open after the client stops it, so a client that waits for them misses its due time.
-Every stdout line must be a decode, finished or rendered line, and the stand-in must not be running 2 s after the client has exited. Messages match by text with blanks collapsed; decodes beyond the expected messages are allowed. After each run, and when the check is interrupted, what the client started is stopped: on POSIX its process group, on Windows its process tree while the client runs. Exit status 0 when every run passes.
+Every stdout line must be a decode, finished, rendered, echo, freqcal or jtty line, and the stand-in must not be running 2 s after the client has exited. Messages match by text with blanks collapsed; decodes beyond the expected messages are allowed. After each run, and when the check is interrupted, what the client started is stopped: on POSIX its process group, on Windows its process tree while the client runs. Exit status 0 when every run passes.
 """
 import argparse
 import base64
@@ -30,10 +30,45 @@ import threading
 import time
 import wave
 
-DECODE = re.compile(r"decode (\d{6}) (-?\d+) (-?\d+\.\d|nan) (-?\d+) (\S.*)")
+NUMBER = r"(-?\d+\.\d|nan)"  # a number as the examples print it: one decimal, or nan
+DECODE = re.compile(r"decode (\d{6}) (-?\d+) %s (-?\d+) (.*)" % NUMBER)  # a message can be empty (a JT65 or JT4 candidate without sync)
 FINISHED = re.compile(r"finished (\d{6})")
 RENDERED = re.compile(r"rendered (\d+) (\S.*)")
-RENDERS = (("FT8", "CQ K1ABC FN42"), ("FT4", "K1ABC W9XYZ R-07"))
+ECHO = re.compile(r"echo (\d{6}) %s %s %s (\d+)" % (NUMBER, NUMBER, NUMBER))
+FREQCAL = re.compile(r"freqcal (\d{6}) %s %s %s %s" % (NUMBER, NUMBER, NUMBER, NUMBER))
+JTTY = re.compile(r"jtty (complete|expired|ended) %s (-?\d+) %s (.*)" % (NUMBER, NUMBER))
+FORMS = (DECODE, FINISHED, RENDERED, ECHO, FREQCAL, JTTY)
+# The recordings decode runs in modes other than FT8: the mode, its options, the recording under --samples, the messages it must decode (a jt9 or wsprd decode list under --fixtures, or the messages), and the label of its decodes. FST4's runs at depth 1, which decodes the list's two strong signals in a third of depth 3's time. JT65's decode is an a priori one with the station's call; the list was made with jt9's starting call, K1ABC. JT4's recordings are 11025 Hz and FST4W's is 1800 s: render checks those modes, and Echo and FreqCal, which have no recordings.
+DECODES = (
+    ("FT4", [], "FT4/000000_000002.wav", "ft4_000000_000002.expected.txt", "000002"),
+    ("JT9", [], "JT9/130418_1742.wav", "jt9_130418_1742.expected.txt", "174200"),
+    ("JT65", ["--submode", "B", "--mycall", "K1ABC"], "JT65/JT65B/000000_0004.wav", "jt65_000000_0004.expected.txt", "000400"),
+    ("Q65", ["--period", "30"], "Q65/30A_Ionoscatter_6m/201203_024000.wav", "q65_30a_201203_024000.expected.txt", "024000"),
+    ("FST4", ["--depth", "1", "--low", "1000", "--high", "1400"], "FST4+FST4W/210115_0058.wav", ["CQ K9KFR EN71", "CQ N5TM EL29"], "005800"),
+    ("MSK144", ["--period", "15"], "MSK144/181211_120800.wav", "msk144_181211_120800.expected.txt", "120800"),
+    ("WSPR", [], "WSPR/150426_0918.wav", "wspr_150426_0918_d3.expected.txt", "091800"),
+    ("JTTY", [], "JTTY/261105_101915_567.wav", ["OK2PDH PD1ADA +12 OPR GEERT", "GLAD TO BE 1ST JTTY NAME ALAN ES QTH NOTTINGHAM BTU", "OK2PDH PD1ADA R+12"], None),
+)
+# Each mode render encodes: its options and its messages (FOX and SUPERFOX one a slot; ECHO and TUNE none, which print ECHO and TUNE as sent).
+RENDERS = (
+    ("FT8", [], ["CQ K1ABC FN42"]),
+    ("FT4", [], ["K1ABC W9XYZ R-07"]),
+    ("JT4", ["--submode", "F"], ["CQ K1ABC FN42"]),
+    ("JT9", [], ["CQ K1ABC FN42"]),
+    ("JT9", ["--fast", "--submode", "E", "--period", "15"], ["CQ K1ABC FN42"]),
+    ("JT65", ["--submode", "B"], ["CQ K1ABC FN42"]),
+    ("Q65", ["--period", "15"], ["CQ K1ABC FN42"]),
+    ("FST4", ["--period", "15"], ["CQ K1ABC FN42"]),
+    ("FST4W", [], ["K1ABC FN42 37"]),
+    ("WSPR", [], ["K1ABC FN42 37"]),
+    ("MSK144", ["--period", "15"], ["CQ K1ABC FN42"]),
+    ("ECHO", [], []),
+    ("TUNE", ["--period", "5"], []),
+    ("FOX", [], ["K1ABC W9XYZ -05", "K2DEF W9XYZ RR73"]),
+    ("SUPERFOX", [], ["K1ABC W9XYZ RR73", "K2DEF W9XYZ -12"]),
+    ("JTTY", [], ["CQ CQ DE K1ABC K1ABC K"]),
+)
+FLAGS = re.compile(r"(a\d+|q\d+|f|d\d+)")  # jt9's flags after a message: aN, qN, f, dN
 REFUSED = "THIS FREE TEXT IS FAR TOO LONG FOR ANY FT8 MESSAGE"  # more than the 37 bytes a message takes
 PCM, FLOAT = (bytes.fromhex("%02x00000000001000800000aa00389b71" % tag) for tag in (1, 3))  # WAVE_FORMAT_EXTENSIBLE subformats
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -73,7 +108,7 @@ RELEASE_SECONDS = 2.0  # how long, once the codec has exited, a client waits for
 RELEASE_LATE = 1.5  # how late a RELEASE exit may come: the clients have been measured up to 0.5 s late (Java; the others 0.1 s), and a writer given a fresh 2 s once its reader has waited 2 s comes 2 s late
 RELEASE = {"decode-childerr": (0, "exit", RELEASE_SECONDS), "decode-childout": (0, "exit", RELEASE_SECONDS), "decode-childin": (0, "exit", RELEASE_SECONDS), "decode-childboth": (0, "exit", RELEASE_SECONDS), "render-childout": (1, "exit", RELEASE_SECONDS)}
 # Stand-in scenarios without --live that go silent after ready: the exit status expected, and when the client's exit is due: the logged event and the seconds after it.
-SILENCE_CHECK_SECONDS = 4  # the silence bound the check gives a client outside live (CODEC_EXAMPLE_CHECK_SILENCE_SECONDS) in place of 300 s, s
+SILENCE_CHECK_SECONDS = 4  # the silence bound the check gives a client outside live (CODEC_EXAMPLE_CHECK_SILENCE_SECONDS) in place of the silence bound, s
 SILENT = {"decode-silent": (3, "ready", SILENCE_CHECK_SECONDS), "render-silent": (3, "ready", SILENCE_CHECK_SECONDS)}
 RUNNING = set()  # the clients running now: an interrupted check stops them, and all they started
 
@@ -83,10 +118,16 @@ def words(text):
 
 
 def expected_messages(path):
-    """The messages of a jt9 decode list: time, snr, dt, freq, a sync marker, then the message."""
+    """The messages of a jt9 decode list (time, snr, dt, freq, a sync marker, then the message and its flags) or a wsprd one (time, snr, dt, freq, drift, then the message): each without jt9's flags, which the examples do not print."""
+    messages = []
     with open(path) as lines:
-        return [words(line.split(None, 5)[5]) for line in lines
-                if line.strip() and not line.startswith("#") and not line.lstrip().startswith("<")]
+        for line in lines:
+            if line.strip() and not line.startswith("#") and not line.lstrip().startswith("<"):
+                message = line.split(None, 5)[5].split()
+                while message and FLAGS.fullmatch(message[-1]):
+                    message.pop()
+                messages.append(" ".join(message))
+    return messages
 
 
 class Run:
@@ -126,8 +167,11 @@ class Run:
         self.decodes = [m for m in map(DECODE.fullmatch, self.lines) if m]
         self.finished = [m.group(1) for m in map(FINISHED.fullmatch, self.lines) if m]
         self.rendered = [m for m in map(RENDERED.fullmatch, self.lines) if m]
+        self.echoes = [m for m in map(ECHO.fullmatch, self.lines) if m]
+        self.freqcals = [m for m in map(FREQCAL.fullmatch, self.lines) if m]
+        self.jtty = [m for m in map(JTTY.fullmatch, self.lines) if m]
         for line in self.lines:
-            if not (DECODE.fullmatch(line) or FINISHED.fullmatch(line) or RENDERED.fullmatch(line)):
+            if not any(form.fullmatch(line) for form in FORMS):
                 self.fail("stdout line in no stated form: %r" % line)
 
     def fail(self, text):
@@ -138,7 +182,7 @@ class Run:
             self.fail("exit status %d, not %d" % (self.status, status))
 
     def expect_messages(self, messages):
-        found = {words(m.group(5)) for m in self.decodes}
+        found = {words(m.group(5)) for m in self.decodes} | {words(m.group(5)) for m in self.jtty if m.group(1) == "complete"}
         missing = [m for m in messages if m not in found]
         if missing:
             self.fail("%d of %d messages missing: %s" % (len(missing), len(messages), "; ".join(missing)))
@@ -314,6 +358,8 @@ def fake_codec():
                         log(problem="the first configure does not set mode %s and an integer depth: %s" % (mode, body.decode()))
                     if "depth" in message and type(message["depth"]) is not int:
                         log(problem="a configure's depth is not an integer: %s" % body.decode())
+                    if type(message.get("trperiod")) is float and message["trperiod"].is_integer():
+                        log(problem="a configure's whole trperiod is not written as an integer, as the Python example writes it: %s" % body.decode())
                     first = False
                     state["busy_events"] = state["busy_events"] or message.get("busy_events") is True
                     state["live_audio"] = state["live_audio"] or message.get("live_audio") is True
@@ -545,6 +591,8 @@ def main():
     parser.add_argument("--codec", required=True)
     parser.add_argument("--sample", required=True, help="an FT8 period saved as YYMMDD_HHMMSS.wav")
     parser.add_argument("--expected", required=True, help="the messages the sample must decode, as jt9 lists them")
+    parser.add_argument("--samples", help="the samples directory, which holds the other modes' recordings (default: the directory above --sample's)")
+    parser.add_argument("--fixtures", help="the directory of the decode lists those recordings must decode (default: --expected's)")
     parser.add_argument("--work-dir", required=True)
     parser.add_argument("--live", action="store_true", help="also run live, in real time")
     parser.add_argument("--timeout", type=int, default=120, help="seconds each client run may take (default: 120)")
@@ -558,12 +606,33 @@ def main():
     label = re.search(r"_(\d{6})\.wav$", sample).group(1)
     runs = []
 
+    samples_dir = os.path.abspath(args.samples or os.path.dirname(os.path.dirname(sample)))
+    fixtures = os.path.abspath(args.fixtures or os.path.dirname(args.expected))
+    is_reference = os.path.abspath(args.client[-1]) == os.path.abspath(REFERENCE)  # the Python example is its own reference
+
     def start(name, *options, codec=codec, env=None, timeout=args.timeout, client=args.client):
         data = os.path.join(work, name)
         command = client + [options[0], "--codec", codec, "--data", data] + list(options[1:])
         run = Run(name, command, work, data, timeout, env)
         runs.append(run)
         return run
+
+    def against_reference(name, *options, reference_options=None):
+        """A run of the client, and the Python example's for the same options (or reference_options, its own --out), whose lines it must print, in any order."""
+        run = start(name, *options)
+        if not is_reference:
+            reference = start(name + "-reference", *(reference_options or options), client=[sys.executable, REFERENCE])
+            reference.expect_status(0)
+            run.expect_lines_of(reference)
+        return run
+
+    def wav_contents(path):
+        """A WAV file's shape (channels, sample width, rate, samples) and samples, or its error."""
+        try:
+            with wave.open(path) as w:
+                return (w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()), w.readframes(w.getnframes())
+        except (OSError, EOFError, wave.Error) as error:
+            return str(error), None
 
     reference = start("reference", "decode", "--depth", "3", sample, client=[sys.executable, REFERENCE])
     reference.expect_status(0)
@@ -586,25 +655,37 @@ def main():
         elif run.lines:
             run.fail("output from a file it cannot decode")
 
-    for mode, text in RENDERS:
-        name = "render-" + mode.lower()
-        out = os.path.join(work, name + ".wav")
-        if os.path.exists(out):
-            os.remove(out)
-        run = start(name, "render", "--mode", mode, "--out", out, text)
+    for mode, options, recording, expected, decode_label in DECODES:
+        run = against_reference("decode-" + mode.lower(), "decode", "--mode", mode, *options, os.path.join(samples_dir, recording))
         run.expect_status(0)
-        run.expect_messages([text])
-        if [m.group(2) for m in run.rendered] != [text]:
-            run.fail("not one rendered line with the message as sent")
+        run.expect_messages(expected_messages(os.path.join(fixtures, expected)) if isinstance(expected, str) else expected)
+        if decode_label and (any(m.group(1) != decode_label for m in run.decodes) or decode_label not in run.finished):
+            run.fail("decodes and finished not all labeled %s" % decode_label)
+
+    for mode, options, texts in RENDERS:
+        name = "render-" + mode.lower() + ("-fast" if "--fast" in options else "")
+        out, reference_out = (os.path.join(work, name + suffix) for suffix in (".wav", "-reference.wav"))
+        for path in (out, reference_out):
+            if os.path.exists(path):
+                os.remove(path)
+        head = ["render", "--mode", mode, *options]
+        run = against_reference(name, *head, "--out", out, *texts, reference_options=[*head, "--out", reference_out, *texts])
+        run.expect_status(0)
+        run.expect_messages(texts)
+        if mode == "ECHO" and not any(float(m.group(3)) > 0 for m in run.echoes):
+            run.fail("no echo line above the noise")
+        if mode == "TUNE" and not any(m.group(3) != "nan" and abs(float(m.group(3))) < 1 for m in run.freqcals):
+            run.fail("no freqcal line within 1 Hz of the tone")
+        sent = " | ".join(texts) or mode
+        if [m.group(2) for m in run.rendered] != [sent]:
+            run.fail("not one rendered line with %r as sent" % sent)
         else:
-            try:
-                with wave.open(out) as w:
-                    shape = (w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes())
-            except (OSError, EOFError, wave.Error) as error:
-                shape = str(error)
+            shape, samples = wav_contents(out)
             if shape != (1, 2, 12000, int(run.rendered[0].group(1))):
                 run.fail("--out WAV is %s, not 12000 Hz mono 16-bit with the rendered samples" % (shape,))
-    run = start("render-out-missing-directory", "render", "--out", os.path.join(work, "missing", "x.wav"), RENDERS[0][1])
+            elif not is_reference and samples != wav_contents(reference_out)[1]:
+                run.fail("--out WAV's samples differ from the Python example's")
+    run = start("render-out-missing-directory", "render", "--out", os.path.join(work, "missing", "x.wav"), RENDERS[0][2][0])
     run.expect_status(2)
     if run.lines:
         run.fail("output when --out cannot be written")
@@ -635,7 +716,7 @@ def main():
         out = os.path.join(work, "fake-render.wav")
         if os.path.exists(out):
             os.remove(out)
-        text = RENDERS[1][1]
+        text = RENDERS[1][2][0]
         run = start("fake-render", "render", "--mode", "FT4", "--out", out, text, codec=fake, env=dict(fake_env, CODEC_EXAMPLE_FAKE="render"))
         run.expect_status(1)  # the rendered audio decodes to nothing
         if [m.group(2) for m in run.rendered] != [text]:

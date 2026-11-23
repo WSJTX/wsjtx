@@ -42,10 +42,11 @@
 !               would leave the stream otherwise is declined with
 !               configure_range_error (key fast, trperiod or submode, in that
 !               order), and a session the command line starts in one of the
-!               first four at another period (-9, -4, -6, or -6 with -9, and
-!               a -p other than 60) sends that error instead of ready and
-!               exits with status 2. A configure that carries mode sets fast
-!               false unless it carries fast too.
+!               first three at another period (-9, -4 or -6, and a -p other
+!               than 60) sends that error instead of ready and exits with
+!               status 2 (-6 with -9 is refused before, on stderr). A
+!               configure that carries mode sets fast false unless it carries
+!               fast too.
 !   halt      : drain the current period (decode if it has samples), exit.
 !   flush     : as halt, without ending the session: a final deferred
 !               while the decoder was busy runs, the period in flight
