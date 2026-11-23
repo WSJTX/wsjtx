@@ -42,7 +42,7 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
   banner_->setWordWrap (true);
   banner_->hide ();
   credit_->setText (tr ("Data from <a href=\"https://pskreporter.info/\">PSK Reporter</a> by Philip Gladstone. "
-                        "Live spots from <a href=\"https://mqtt.pskreporter.info/\">mqtt.pskreporter.info</a> by Tom Fanning M0LTE."));
+                        "Live spots from <a href=\"https://www.mqtt.pskreporter.info/\">mqtt.pskreporter.info</a> by Tom Fanning M0LTE."));
   credit_->setOpenExternalLinks (true);
   credit_->setWordWrap (true);               // so it can shrink with the window
   model_.set_band_of (std::move (band_of));
