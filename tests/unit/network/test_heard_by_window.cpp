@@ -182,6 +182,7 @@ private Q_SLOTS:
     timing.silent_after_ms = 500;
     timing.check_window_ms = 800;
     timing.check_every_ms = 600000;                      // one check only
+    timing.reconnect_on_silent = false;                  // one connection in this test
     w.set_mqtt (fast (feed.port ()), timing);
     w.show ();
     QTRY_VERIFY_WITH_TIMEOUT (w.mqtt ()->subscribed (), 5000);
@@ -235,6 +236,43 @@ private Q_SLOTS:
     QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("delivering"), 8000);
     QVERIFY (!w.banner_text ().contains ("silent"));
     QCOMPARE (w.model ()->rowCount (), 0);
+    w.close ();
+    feed.finish ();
+  }
+
+  // The public name leads to London or Dallas: when the feed is silent a new
+  // connection may reach the other one, so the connection is made again - once,
+  // not again within reconnect_every_ms.
+  void silent_feed_reconnects_once()
+  {
+    using namespace fake_broker;
+    Broker feed {{[] (Broker& br, Conn& c) {
+        if (!br.handshake (c)) return;
+        br.listen (c, 30000, [] (Conn& c, QString const& topic) {   // status value never moves
+            for (int i = 0; i < 2; ++i) Broker::send (c, Broker::publish (topic, "2026-11-21T10:00:00.000Z"));
+          });
+      }}};
+    feed.start_and_wait ();
+    QTemporaryFile ini;
+    QVERIFY (ini.open ());
+    QSettings settings {ini.fileName (), QSettings::IniFormat};
+    HeardByWindow::Context ctx {"K1ABC", "FN42", "FT8", "3cm"};
+    HeardByWindow w {&settings, QFont {}, [&ctx] {return ctx;}, band_of, [] (QString const&) {return -1.0;}};
+    HeardByWindow::Timing timing;
+    timing.silent_after_ms = 300;
+    timing.check_window_ms = 500;
+    timing.check_every_ms = 600000;
+    timing.silent_retry_ms = 700;
+    timing.reconnect_every_ms = 600000;                  // once only in this test
+    w.set_mqtt (fast (feed.port ()), timing);
+    w.show ();
+    QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("silent"), 8000);
+    QTRY_COMPARE_WITH_TIMEOUT (feed.connections (), 2, 8000);
+    QTRY_VERIFY_WITH_TIMEOUT (w.mqtt ()->subscribed (), 8000);
+    QTRY_VERIFY_WITH_TIMEOUT (w.banner_text ().contains ("Reconnected"), 8000);
+    QTest::qWait (3000);                                 // checked again, still silent: no third connection
+    QCOMPARE (feed.connections (), 2);
+    QVERIFY (w.banner_text ().contains ("silent"));
     w.close ();
     feed.finish ();
   }

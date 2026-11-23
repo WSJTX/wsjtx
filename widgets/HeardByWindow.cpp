@@ -113,6 +113,7 @@ void HeardByWindow::on_spot (QJsonObject const& spot)
   model_.add_report (HeardByMqtt::report (spot));
   own_ref_ms_ = clock_.elapsed ();
   feed_ = Feed::Alive;
+  reconnected_ = false;
   feed_checked_ = utc_now_hhmm ();
   mqtt_.cancel_check ();                        // a spot of our own answers it
 }
@@ -121,6 +122,15 @@ void HeardByWindow::feed_checked (bool delivering)
 {
   feed_checked_ = utc_now_hhmm ();
   feed_ = delivering ? Feed::Alive : Feed::Silent;
+  if (delivering)
+    {
+      reconnected_ = false;
+    }
+  else if (timing_.reconnect_on_silent
+           && (last_reconnect_ms_ < 0 || clock_.elapsed () - last_reconnect_ms_ >= timing_.reconnect_every_ms))
+    {
+      reconnect_pending_ = true;               // perhaps the other server delivers
+    }
   update_status ();
 }
 
@@ -184,6 +194,9 @@ void HeardByWindow::tick ()
       stop_feed ();
       own_ref_ms_ = clock_.elapsed ();
       last_check_ms_ = -1;
+      last_reconnect_ms_ = -1;
+      reconnect_pending_ = false;
+      reconnected_ = false;
     }
   if (grid_changed) model_.recompute_distances ();
   in_use_->setText (tr ("WSJT-X: %1 on %2")
@@ -193,6 +206,13 @@ void HeardByWindow::tick ()
   fit_width ();
   if (isVisible () && !c.call.trimmed ().isEmpty ())
     {
+      if (reconnect_pending_)
+        {
+          reconnect_pending_ = false;
+          last_reconnect_ms_ = clock_.elapsed ();
+          reconnected_ = true;
+          mqtt_.stop ();                  // started again just below
+        }
       if (!mqtt_.running ())
         {
           own_ref_ms_ = clock_.elapsed ();
@@ -201,7 +221,7 @@ void HeardByWindow::tick ()
       // our own subscription has been quiet for a while: is it the feed or us?
       auto const t = clock_.elapsed ();
       if (mqtt_.subscribed () && !mqtt_.checking ()
-          && t - own_ref_ms_ >= timing_.silent_after_ms
+          && (Feed::Silent == feed_ || t - own_ref_ms_ >= timing_.silent_after_ms)
           && (last_check_ms_ < 0
               || t - last_check_ms_ >= (Feed::Silent == feed_ ? timing_.silent_retry_ms
                                         : timing_.check_every_ms)))
@@ -258,6 +278,7 @@ void HeardByWindow::update_status ()
         {
           banner = tr ("PSK Reporter's live feed is silent (checked %1 UTC), so your reports cannot "
                        "be shown until it recovers.").arg (feed_checked_);
+          if (reconnected_) banner += tr (" Reconnected to try another server.");
           style = "color: #b00020; font-weight: bold";
         }
       else if (mqtt_.checking ())

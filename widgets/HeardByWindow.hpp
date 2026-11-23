@@ -47,6 +47,11 @@ public:
                                             // publishes every ~2 s but delivery is bursty)
     int check_every_ms {10 * 60 * 1000};    // and how often at most
     int silent_retry_ms {60 * 1000};        // after a "silent" verdict: look again this often
+    // The public name leads to one of two servers (London, Dallas).  When one
+    // stops delivering, a new connection may be sent to the other: on a "silent"
+    // verdict the connection is dropped and made again, at most this often.
+    bool reconnect_on_silent {true};
+    int reconnect_every_ms {10 * 60 * 1000};
   };
 
   struct Context
@@ -106,6 +111,9 @@ private:
   QElapsedTimer clock_;
   qint64 own_ref_ms_ {0};       // last own spot, or when the subscription began
   qint64 last_check_ms_ {-1};
+  qint64 last_reconnect_ms_ {-1};
+  bool reconnect_pending_ {false};   // done from tick (), not from inside the feed's signal
+  bool reconnected_ {false};         // shown in the banner
   Feed feed_ {Feed::Unknown};
   QString feed_checked_;        // "HH:mm" UTC of the last check
 };
