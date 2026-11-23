@@ -11576,7 +11576,7 @@ void MainWindow::on_RxFreqSpinBox_valueChanged(int n)
       return;
     }
   }
-  m_wideGraph->setRxFreq(n);
+  if (m_mode != "FST4W") m_wideGraph->setRxFreq(n);
   if (m_mode == "FreqCal" && !m_modeSetupActive) {
     if (m_frequency_list_fcal_iter != m_config.frequencies ()->end ())
       {
@@ -12229,13 +12229,18 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
   if (m_mode=="Q65" && ui->actionDisable_clicks_on_waterfall->isVisible() && ui->actionDisable_clicks_on_waterfall->isChecked()
       && !(Qt::AltModifier & QApplication::keyboardModifiers ())) return;
   if (m_mode == Modes::name(Modes::Echo)) return; // Echo uses a fixed 1500 Hz audio frequency.
+  if (m_mode == "FST4W")
+    {
+      ui->WSPRfreqSpinBox->setValue(txFreq);
+      return;
+    }
   bool const vhf_dial_adjustment = !ui->TxFreqSpinBox->isEnabled ()
     && m_config.enable_VHF_features ()
     && (Qt::ControlModifier & QApplication::keyboardModifiers ());
   if (!vhf_dial_adjustment && ui->RxFreqSpinBox->isEnabled ()
       && !(SpecOp::HOUND==m_specOp && m_config.superFox() &&
       (rxFreq < 700 or rxFreq > 800))) ui->RxFreqSpinBox->setValue(rxFreq);
-  if(m_mode=="WSPR" or m_mode=="FST4W") {
+  if(m_mode=="WSPR") {
     ui->WSPRfreqSpinBox->setValue(txFreq);
   } else {
     if (ui->TxFreqSpinBox->isEnabled ()) {
@@ -13542,7 +13547,7 @@ void MainWindow::on_WSPRfreqSpinBox_valueChanged(int n)
 
 void MainWindow::on_sbFST4W_RxFreq_valueChanged(int n)
 {
-  m_wideGraph->setRxFreq(n);
+  if (m_mode == "FST4W") m_wideGraph->setRxFreq(n);
   statusUpdate ();
 }
 

@@ -31,6 +31,8 @@
 #include "models/FrequencyList.hpp"
 #include "ui_mainwindow.h"
 #include "widgets/mainwindow.h"
+#include "widgets/plotter.h"
+#include "widgets/widegraph.h"
 
 extern bool m_displayBand;
 extern bool no_decodes_to_UDP;
@@ -43,6 +45,10 @@ namespace
 {
   using Frequency = Radio::Frequency;
   using Frequencies = FrequencyList_v2_101;
+
+  constexpr int qso_offset {1200};
+  constexpr int fst4w_center {1850};
+  constexpr int edited_fst4w_center {1800};
 
   Frequencies::Item item (Frequency frequency, Modes::Mode mode,
                           IARURegions::Region region = IARURegions::ALL)
@@ -103,7 +109,18 @@ QString OperatingBandApplicationTestController::prepareSettings (QSettings * set
   auto const error = BestSPApplicationTestController::prepareSettings (settings);
   if (!error.isEmpty ()) return error;
   bool const echo_startup = qEnvironmentVariableIsSet ("WSJT_OPERATING_BAND_START_ECHO");
+  auto const rx_offset_mode = qEnvironmentVariable ("WSJT_OPERATING_BAND_RX_OFFSET_MODE");
   settings->setValue ("Common/Mode", echo_startup ? "Echo" : "FT8");
+  if (!rx_offset_mode.isEmpty ())
+    {
+      settings->setValue ("Common/Mode", rx_offset_mode);
+      settings->setValue ("Configuration/MonitorOFF", true);
+      settings->setValue ("Common/RxFreq", qso_offset);
+      settings->setValue ("Common/TxFreq", qso_offset);
+      settings->setValue ("Common/FST4W_RxFreq", fst4w_center);
+      settings->setValue ("RxFreq_old", qso_offset);
+      settings->setValue ("TxFreq_old", qso_offset);
+    }
   settings->setValue ("Common/DialFreq", QVariant::fromValue<Frequency> (
     echo_startup ? 144174000 : 14074000));
   if (echo_startup)
@@ -126,6 +143,7 @@ OperatingBandApplicationTestController::OperatingBandApplicationTestController (
   MainWindow * window, DecoderBackend * backend, QObject * parent)
   : QObject {parent}, window_ {window}, backend_ {backend}
   , echo_startup_ {qEnvironmentVariableIsSet ("WSJT_OPERATING_BAND_START_ECHO")}
+  , rx_offset_mode_ {qEnvironmentVariable ("WSJT_OPERATING_BAND_RX_OFFSET_MODE")}
 {
   retry_.setSingleShot (true);
   retry_.setInterval (20);
@@ -159,6 +177,7 @@ void OperatingBandApplicationTestController::begin ()
   if (echo_startup_
       && !require (window_->m_mode == "Echo" && !window_->m_monitoring,
                    "Saved Echo startup returned with the wrong mode or Monitor enabled.")) return;
+  if (!rx_offset_mode_.isEmpty () && !startupRxOffset ()) return;
   timeout_.start ();
   prepare ();
 }
@@ -197,6 +216,14 @@ void OperatingBandApplicationTestController::prepare ()
         finish (true, "Saved Echo startup established its working frequency with Monitor stopped.");
       return;
     }
+  if (!rx_offset_mode_.isEmpty ())
+    {
+      timeout_.stop ();
+      if (startupRxOffset () && (rx_offset_mode_ == "FST4W" || rxOffsetTransitions ()))
+        finish (true, "Receive offsets stayed in sync with the active mode.");
+      return;
+    }
+
   auto const state = window_->m_operatingFrequency.snapshot ();
   if (state.pendingRx || state.pendingTx)
     {
@@ -220,6 +247,80 @@ bool OperatingBandApplicationTestController::run ()
   return setFrequency (14074000) && filtering () && editorRequests ()
     && rendering () && modeEntry () && mskModeExit () && modalObservation ()
     && transitions () && hopping () && reporting ();
+}
+
+bool OperatingBandApplicationTestController::startupRxOffset ()
+{
+  scenario_ = "saved receive offset at startup";
+  auto * ui = window_->ui.data ();
+  auto const expected = rx_offset_mode_ == "FST4W" ? fst4w_center : qso_offset;
+  auto const actual = window_->m_wideGraph->rxFreq ();
+  return require (window_->m_mode == rx_offset_mode_ && !window_->m_monitoring,
+                  "Startup did not restore the requested mode with Monitor stopped.")
+    && require (ui->RxFreqSpinBox->value () == qso_offset
+                && ui->sbFST4W_RxFreq->value () == fst4w_center
+                && (rx_offset_mode_ == "FST4W" || ui->TxFreqSpinBox->value () == qso_offset),
+                "Startup did not restore the saved audio controls.")
+    && require (actual == expected,
+                QString {"Wide Graph restored RX at %1 Hz; expected %2 Hz."}.arg (actual).arg (expected));
+}
+
+bool OperatingBandApplicationTestController::rxOffsetTransitions ()
+{
+  scenario_ = "receive offsets on FST4W entry and exit";
+  auto * ui = window_->ui.data ();
+  auto * graph = window_->m_wideGraph.data ();
+  ui->actionFST4W->trigger ();
+  if (!require (window_->m_mode == "FST4W" && graph->rxFreq () == fst4w_center,
+                "Entering FST4W did not select its saved receive center.")) return false;
+
+  ui->sbFST4W_RxFreq->setValue (edited_fst4w_center);
+  if (!require (graph->rxFreq () == edited_fst4w_center,
+                "Editing the FST4W center did not update the graph.")) return false;
+  ui->RxFreqSpinBox->setValue (qso_offset + 100);
+  if (!require (graph->rxFreq () == edited_fst4w_center,
+                "The hidden QSO receive control moved the FST4W center.")) return false;
+  ui->RxFreqSpinBox->setValue (qso_offset);
+
+  auto * plot = graph->findChild<CPlotter *> ("widePlot");
+  if (!require (plot, "Cannot find the Wide Graph plot.")) return false;
+  Q_EMIT plot->setFreq1 (edited_fst4w_center, 1650);
+  if (!require (ui->WSPRfreqSpinBox->value () == 1650
+                && ui->RxFreqSpinBox->value () == qso_offset
+                && ui->sbFST4W_RxFreq->value () == edited_fst4w_center
+                && graph->rxFreq () == edited_fst4w_center,
+                "FST4W waterfall TX selection changed a receive offset.")) return false;
+
+  window_->monitor (false);
+  graph->setRxFreq (qso_offset);
+  ui->monitorButton->click ();
+  if (!require (window_->m_monitoring && graph->rxFreq () == edited_fst4w_center,
+                "Starting Monitor did not reapply the FST4W receive center.")) return false;
+  window_->monitor (false);
+
+  ui->actionFT8->trigger ();
+  if (!require (window_->m_mode == "FT8"
+                && ui->RxFreqSpinBox->value () == qso_offset && graph->rxFreq () == qso_offset,
+                "Leaving FST4W did not reapply the unchanged FT8 receive offset.")) return false;
+  if (!waitUntil ([&] {return ui->TxFreqSpinBox->value () == qso_offset;},
+                  "The FT8 transmit offset did not finish restoring.")) return false;
+
+  scenario_ = "receive and transmit offset copy controls";
+  ui->TxFreqSpinBox->setValue (qso_offset + 100);
+  ui->pbR2T->click ();
+  if (!require (ui->TxFreqSpinBox->value () == qso_offset && graph->rxFreq () == qso_offset,
+                "Copying RX to TX did not align the offsets.")) return false;
+  ui->TxFreqSpinBox->setValue (qso_offset + 200);
+  ui->pbT2R->click ();
+  if (!require (ui->RxFreqSpinBox->value () == qso_offset + 200
+                && graph->rxFreq () == qso_offset + 200,
+                "Copying TX to RX did not update the receive control and graph.")) return false;
+
+  window_->monitor (false);
+  graph->setRxFreq (edited_fst4w_center);
+  ui->monitorButton->click ();
+  return require (window_->m_monitoring && graph->rxFreq () == qso_offset + 200,
+                  "Starting Monitor did not reapply the FT8 receive offset.");
 }
 
 bool OperatingBandApplicationTestController::waitUntil (
