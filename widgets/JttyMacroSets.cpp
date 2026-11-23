@@ -115,6 +115,14 @@ namespace Jtty
     return call + QStringLiteral (": ") + text.trimmed ();
   }
 
+  bool overPrefixDue (bool prefixEnabled, bool chatStyle, int committed,
+                      bool nothingPending, bool prefixedThisOver, bool streaming,
+                      bool textNamesMyCall)
+  {
+    return prefixEnabled && chatStyle && committed == 0 && nothingPending
+      && !(prefixedThisOver && streaming) && !textNamesMyCall;
+  }
+
   QString macroKeyName (int key)
   {
     if (key < 1 || key > macroKeyCount) return {};

@@ -251,17 +251,21 @@ void MainWindow::sendJttyFillerPadding()
 // over" is that nothing of the box is committed or pending and no slice has
 // been prefixed yet (m_jttyOverPrefixed, cleared by PTT on and by clearing the
 // box); whether the transmitter is already keyed with diddle does not matter.
+// The flag only counts while PTT is armed: Enter/Send while not armed is an
+// over of its own and never reset the flag, so after an F9 over it stayed set
+// and the next Enter send went out without the prefix.
 // The one place that decides, used by the commit and by the frame estimate so
 // the two cannot drift apart. `expanded` is the macro-expanded text of the slice.
 QString MainWindow::withJttyOverPrefix(QString const& expanded, QString const& uncommitted,
                                        bool * added)
 {
   if (added) *added = false;
-  if (ui->cbJttyMyCallPrefix->isChecked ()
-      && m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off
-      && m_jttyLiveEntryCommitted == 0 && m_jttyLiveEntryPending.isEmpty ()
-      && !m_jttyOverPrefixed
-      && !Jtty::textHasCall (jtty_msg_expand (uncommitted), m_config.my_callsign ())) {
+  if (Jtty::overPrefixDue (ui->cbJttyMyCallPrefix->isChecked (),
+                           m_jttyMacros.current ().enterRole == Jtty::EnterRole::Off,
+                           m_jttyLiveEntryCommitted, m_jttyLiveEntryPending.isEmpty (),
+                           m_jttyOverPrefixed, m_jttyLiveEntryArmed,
+                           Jtty::textHasCall (jtty_msg_expand (uncommitted),
+                                              m_config.my_callsign ()))) {
     auto const prefixed = Jtty::withMyCallPrefix (expanded, m_config.my_callsign ());
     if (added) *added = prefixed != expanded;
     return prefixed;
