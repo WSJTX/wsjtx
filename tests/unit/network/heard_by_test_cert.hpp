@@ -1,0 +1,65 @@
+// A certificate and key for the Heard by TLS tests ONLY.  Self-signed for
+// "localhost" / 127.0.0.1, valid for 100 years, made with
+//   openssl req -x509 -newkey rsa:2048 -nodes -days 36500 -subj /CN=localhost
+//     -addext subjectAltName=DNS:localhost,IP:127.0.0.1
+//     -addext basicConstraints=critical,CA:TRUE
+// It protects nothing: the private key is right here.  Never trust it
+// anywhere but in these tests (they add it to the client's own list of
+// authorities and to nothing else).
+#ifndef HEARD_BY_TEST_CERT_HPP__
+#define HEARD_BY_TEST_CERT_HPP__
+
+namespace heard_by_test_cert
+{
+  char const * const certificate = R"PEM(-----BEGIN CERTIFICATE-----
+MIIDJzCCAg+gAwIBAgIUHjdX/G1/xewbwCzHgNSDH3V2oEIwDQYJKoZIhvcNAQEL
+BQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MCAXDTI2MTEyMzA3MjEzNFoYDzIxMjYx
+MDMwMDcyMTM0WjAUMRIwEAYDVQQDDAlsb2NhbGhvc3QwggEiMA0GCSqGSIb3DQEB
+AQUAA4IBDwAwggEKAoIBAQDG2Orwq1hDk+WhhEoLocxS+txbUEZ5XJ366KTo7wzi
+Vk8YXtkDqbe0EUodPRdBYEMv4ZUpSfbPLKMYo3HAL/vRvbSc3LfPNwfy13sUsYrs
+8SEsYQRpdJTeUNcybk6Ec3e88KsgWbOJ7dGclKy+fAL+yIczwymnZZWL9PbfbGNJ
+hkgxVweapqvbb6OSszBv2kYVahkTWeRt9r6hMTpoKm6bWmBkmsZz+XEopZHZDq+b
+z2eAxAoB9OvowSl9EMtp+0BFWgOpuX64JAwi594qyohcJOVo7x0l11KIQ0eV72Ia
+wQf+084lyFT0nYtQxH9xwllChuSc+OFQT+njEGpikZWNAgMBAAGjbzBtMB0GA1Ud
+DgQWBBS6HvAYPUkIngF7RQLW0tFORUudmzAfBgNVHSMEGDAWgBS6HvAYPUkIngF7
+RQLW0tFORUudmzAaBgNVHREEEzARgglsb2NhbGhvc3SHBH8AAAEwDwYDVR0TAQH/
+BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEABAnDLrXz7J5Cf9zOBZmWW911skJx
+GZdgkno/n5skXCUjFs9OiX9j96iOKvqsuROycklC2EHNbezgen3S/TB5Vlz4kIga
+/x9OCy1wNtkOIujHSETiOd8tjReLWwGkOjE8FVVRPY+Q7uMArwpyE2CJe/kMSmIf
+OYtf5VuKIiUYI1+kk0QZhH/36wDF3IGsGmYouCtxGndsvIbSmOgDsSQodyLw6tfE
+2GsN8yXCtzGFZ8Ov7c4K9UARUh4NYj7GpfQT9pc3rIQhC6X3beg6aE7ZDsWy4Sok
+S8Wd4ScP6BPao1ksjSqbp6OMxgP/X1nOYm7rxue0lbunnWKClV6TpRc32A==
+-----END CERTIFICATE-----
+)PEM";
+  char const * const private_key = R"PEM(-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDG2Orwq1hDk+Wh
+hEoLocxS+txbUEZ5XJ366KTo7wziVk8YXtkDqbe0EUodPRdBYEMv4ZUpSfbPLKMY
+o3HAL/vRvbSc3LfPNwfy13sUsYrs8SEsYQRpdJTeUNcybk6Ec3e88KsgWbOJ7dGc
+lKy+fAL+yIczwymnZZWL9PbfbGNJhkgxVweapqvbb6OSszBv2kYVahkTWeRt9r6h
+MTpoKm6bWmBkmsZz+XEopZHZDq+bz2eAxAoB9OvowSl9EMtp+0BFWgOpuX64JAwi
+594qyohcJOVo7x0l11KIQ0eV72IawQf+084lyFT0nYtQxH9xwllChuSc+OFQT+nj
+EGpikZWNAgMBAAECggEAB8HamHz2uobV2dE2r5wmQ8PJk5O0IXPoLdZO6KS6v0cC
+sD6y/0jrA7lQ8jG56zD9g1as4lQiWWldC3mvgayINGHO3qJgVqhyRO+nEOLu5S4a
++dznC9N3zfHKvgro6+iH7p+s7Vwn0Y+s3QuSbvPuN1D3WqDtymaqHjBLmTe56oT4
+R1E93CIz2EHrhy0yWt97O0SBVzGHIea8keIdRuJk3JOzE69x1bzPiy8hRBYEdU9y
+CoPMJ7IYVJy81lJBlteowbcUJk7qamigcEnndi7WdYfdoar9L+l9LKVxuz4sVwEN
+fp6pL1Doel3X978Mgm6WZ3zweEz2NGgOHkm5LknkuQKBgQDl9o0lUfrxS7h5dO8C
+np2fYp9j0hdPqEa4eIKktOv+ye5SglKx0UV9DUkp4sx9ydpavthUDSRNuPMdHAQR
+ndKmCpCNLxPGJ4j7jMpi6TERXPEu6nrtc+Y25Tq7To7z50GQEAjmtXgZzTxKdREA
+UO2ArcCZ6mFHoO33zBkrpghs2wKBgQDdXHr/LxkSw3ka64/TBoXNeVfl0KBnb9sI
+buetKggO3IOE95cqNkwXFhYz+QAe7e/GRQp73Vv/LPYFqhom9o491qxOFnogCKhl
+vTLNBUp/cAy+85xre5p8jKz9sOx0W616gJEdcdbkx9LEiY8oM0dx6BT/m/PvyzFc
+/p3ZM/vftwKBgQCVnb6hTGA3Q6unIgQrMSWeQF0xZcwS4In6lTVykd+FKr4q4m2J
+EX3jaZRzcwLWyFCPf+FhdhdrlexewQ6Io6UcsHzxznJQFwLRnv1CMzPgdxbYDmii
+OyjKCIQYv3jUiV4nq7cO23xjVRtn2hiQmxabBPDtcweNwc9xzFGIC4MpxwKBgQCy
+YyrDpuLf2iMobJkVCHafpaAOFdiOQvgSjb2qMOsZft+GMjjhzav4FtaBv7I3Oqw1
+7cGLHFJdC5Cf8/rrV1o9v1hP/ZEha5i5lITx78efd17uK0fs3kkbAgsOzptfEdp1
+lFJdljYFXHsf43M4hEqZItx5OOaWYfs/4/i0502ddQKBgBVDeuX3ZfnVs79dWLma
+k90b8Bla4MXuuKVTbYRq2K3S3EazuDipAoW/CfhB2HKcmL6oVGejs9GfilQnRNvT
+Ay7refZlGjEAcW916YUChc3VE/kk/vb7W4N/M3F7F6Ck0KuDuYwvKKfOVn4LKIh8
+obJHoA0POXcYJSqgvmtRBSx6
+-----END PRIVATE KEY-----
+)PEM";
+}
+
+#endif

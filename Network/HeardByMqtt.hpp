@@ -4,8 +4,10 @@
 #include <QByteArray>
 #include <QElapsedTimer>
 #include <QJsonObject>
+#include <QList>
 #include <QObject>
 #include <QPointer>
+#include <QSslCertificate>
 #include <QString>
 
 #include "Network/HeardByReport.hpp"
@@ -15,8 +17,16 @@ class QTimer;
 
 //
 // HeardByMqtt - PSK Reporter's live spot feed (mqtt.pskreporter.info),
-// MQTT 3.1.1, subscribe only, QoS 0, plain TCP.  Qt Core + Network only
-// (no QtMqtt).  Everything runs on the object's thread.
+// MQTT 3.1.1, subscribe only, QoS 0, over TLS (port 1884) or plain TCP
+// (1883).  Qt Core + Network only (no QtMqtt).  Everything runs on the
+// object's thread.
+//
+// TLS (Options::tls): the server's certificate AND host name are checked
+// against the system's trusted authorities.  A failed handshake is an
+// ordinary failed connection (status text, retry with backoff) and NEVER
+// a fall back to plain MQTT, which would defeat the check.  The spots are
+// public data and the only thing sent is the user's own call, but plain
+// MQTT lets anyone on the network path feed the window false reports.
 //
 // Built so that it never sits "connected" while dead:
 //   - one connection path and one reconnect path, with exponential
@@ -55,7 +65,10 @@ public:
   struct Options
   {
     QString host {"mqtt.pskreporter.info"};
-    quint16 port {1883};
+    quint16 port {1883};                // with tls: 1883 means "the TLS port" (1884)
+    bool tls {false};
+    QString tls_name;                   // name the certificate must carry; empty = host
+    QList<QSslCertificate> extra_cas;   // trusted besides the system's (tests)
     QString client_prefix {"WSJT-X"};
     int keep_alive_secs {60};           // sent in CONNECT
     int ping_every_ms {30000};
@@ -67,6 +80,9 @@ public:
     int stable_after_ms {60000};        // a subscription this long resets the backoff
     int first_retry_max_ms {60000};     // first retry after such a one: backoff_min .. this
     QString status_topic {"pskr2mqtt/stats/last_spot_published_to_broker"};
+
+    // 1883 is plain MQTT, 1884 the same over TLS
+    quint16 port_in_use () const {return tls && 1883 == port ? quint16 {1884} : port;}
   };
 
   struct Stats
@@ -92,6 +108,7 @@ public:
   void stop ();
   bool running () const {return state_ != State::Idle;}
   bool subscribed () const {return state_ == State::Subscribed;}
+  bool encrypted () const;                      // subscribed over TLS
   QString topic () const {return topic_;}
   QString status () const {return status_;}
 
@@ -151,6 +168,7 @@ private:
   QString topic_;
   QString call_;
   QString status_;
+  QString ssl_error_;                         // first certificate problem of this attempt
   Stats stats_;
   QPointer<QTcpSocket> socket_;
   QByteArray buffer_;

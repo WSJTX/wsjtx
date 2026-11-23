@@ -11,6 +11,9 @@
 #include <QJsonObject>
 #include <QMutex>
 #include <QSemaphore>
+#include <QSslCertificate>
+#include <QSslKey>
+#include <QSslSocket>
 #include <QStringList>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -21,6 +24,25 @@
 namespace fake_broker
 {
   using Packet = HeardByMqtt::Packet;
+
+  // Qt 5 has no QSslServer: each accepted socket becomes a server-side TLS one.
+  class SslServer final : public QTcpServer
+  {
+  public:
+    QSslCertificate certificate;
+    QSslKey key;
+
+  protected:
+    void incomingConnection (qintptr descriptor) override
+    {
+      auto * s = new QSslSocket {this};
+      s->setSocketDescriptor (descriptor);
+      s->setLocalCertificate (certificate);
+      s->setPrivateKey (key);
+      s->startServerEncryption ();
+      addPendingConnection (s);
+    }
+  };
 
   struct Conn
   {
@@ -37,7 +59,10 @@ namespace fake_broker
     explicit Broker (QList<Script> scripts) : scripts_ {scripts} {}
     ~Broker () override {finish ();}
     quint16 port () const {return port_;}
-    int connections () const {return connections_;}
+    int connections () const {return connections_;}         // (with TLS: those that got encrypted)
+    // Serve TLS with this certificate (call before start_and_wait).
+    void use_tls (QSslCertificate const& c, QSslKey const& k) {cert_ = c; key_ = k; tls_ = true;}
+    int tls_failures () const {return tls_failures_;}      // handshakes that did not finish
     QStringList client_ids () const {QMutexLocker l {&m_}; return ids_;}
     QStringList topics () const {QMutexLocker l {&m_}; return topics_;}
     int pings () const {return pings_;}
@@ -68,6 +93,12 @@ namespace fake_broker
               return true;
             }
           if (t.elapsed () >= ms || !running_) return false;
+          // (bytes already decrypted give no new readyRead: take them first)
+          if (c.s->bytesAvailable ())
+            {
+              c.buf += c.s->readAll ();
+              continue;
+            }
           if (!c.s->waitForReadyRead (qMin (100, ms)))
             {
               if (c.s->state () != QAbstractSocket::ConnectedState && !c.s->bytesAvailable ()) return false;
@@ -151,14 +182,30 @@ namespace fake_broker
   protected:
     void run () override
     {
-      QTcpServer server;
+      SslServer ssl_server;
+      QTcpServer plain_server;
+      QTcpServer& server = tls_ ? static_cast<QTcpServer&> (ssl_server) : plain_server;
+      ssl_server.certificate = cert_;
+      ssl_server.key = key_;
       server.listen (QHostAddress::LocalHost, 0);
       port_ = server.serverPort ();
       ready_.release ();
       while (running_)
         {
           if (!server.waitForNewConnection (100)) continue;
-          Conn c {server.nextPendingConnection (), {}, ++connections_};
+          auto * socket = server.nextPendingConnection ();
+          if (tls_)
+            {
+              // a client that distrusts our certificate ends here
+              auto * ssl = qobject_cast<QSslSocket *> (socket);
+              if (!ssl->waitForEncrypted (5000))
+                {
+                  ++tls_failures_;
+                  delete socket;
+                  continue;
+                }
+            }
+          Conn c {socket, {}, ++connections_};
           auto const& script = scripts_[qMin (c.n, scripts_.size ()) - 1];
           script (*this, c);
           c.s->disconnectFromHost ();
@@ -176,6 +223,10 @@ namespace fake_broker
     std::atomic<int> connections_ {0};
     std::atomic<int> pings_ {0};
     std::atomic<int> unsubscribes_ {0};
+    std::atomic<int> tls_failures_ {0};
+    QSslCertificate cert_;
+    QSslKey key_;
+    bool tls_ {false};
     quint16 port_ {0};
   };
 

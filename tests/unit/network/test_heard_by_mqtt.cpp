@@ -5,8 +5,13 @@
 #include <QSignalSpy>
 #include <QtTest>
 
+#include <QSslCertificate>
+#include <QSslKey>
+#include <QSslSocket>
+
 #include "Network/HeardByMqtt.hpp"
 #include "heard_by_fake_broker.hpp"
+#include "heard_by_test_cert.hpp"
 
 Q_DECLARE_METATYPE (QJsonObject)
 
@@ -344,6 +349,104 @@ private Q_SLOTS:
     QCOMPARE (b.topics (), (QStringList {"one", "two"}));
     c.stop ();
     b.finish ();
+  }
+
+  // ---- TLS ---------------------------------------------------------------
+
+  void tls_port_follows_the_flag ()
+  {
+    HeardByMqtt::Options o;
+    QCOMPARE (o.port_in_use (), quint16 {1883});          // plain unless asked
+    o.tls = true;
+    QCOMPARE (o.port_in_use (), quint16 {1884});          // 1883 would only fail
+    o.port = 4000;
+    QCOMPARE (o.port_in_use (), quint16 {4000});          // a chosen port is kept
+  }
+
+  void tls_trusted_certificate_gives_spots_even_in_a_burst ()
+  {
+    if (!QSslSocket::supportsSsl ()) QSKIP ("no OpenSSL here");
+    QSslCertificate const cert {QByteArray {heard_by_test_cert::certificate}};
+    QSslKey const key {QByteArray {heard_by_test_cert::private_key}, QSsl::Rsa};
+    QVERIFY (!cert.isNull ());
+    QVERIFY (!key.isNull ());
+    Broker b {{[] (Broker& br, Conn& c) {
+        if (!br.handshake (c)) return;
+        QByteArray all;                               // 50 spots in one write: the TLS layer
+        for (int i = 0; i < 50; ++i)                  // may hold decrypted bytes for a while
+          all += Broker::publish ("t", json (sp (QString {"S%1"}.arg (i), i)));
+        Broker::send (c, all);
+        br.sleep (1500);
+      }}};
+    b.use_tls (cert, key);
+    b.start_and_wait ();
+    auto o = fast (b.port ());
+    o.tls = true;
+    o.tls_name = "localhost";
+    o.extra_cas = {cert};
+    HeardByMqtt c {o};
+    QSignalSpy spy {&c, &HeardByMqtt::spot};
+    c.start ("t", "K1ABC");
+    QTRY_COMPARE_WITH_TIMEOUT (spy.count (), 50, 6000);
+    QCOMPARE (b.tls_failures (), 0);
+    QVERIFY (c.subscribed ());
+    QVERIFY (c.encrypted ());
+    QCOMPARE (spy[49][0].toJsonObject ()["rc"].toString (), QString {"S49"});
+    c.stop ();
+    b.finish ();
+  }
+
+  // Optional, for a human: the REAL broker over TLS (port 1884, the system's
+  // certificate authorities).  Run with HEARD_BY_LIVE=1; it needs the internet
+  // and takes up to 30 s.  Uses the 1 % sample topic, so spots come at once.
+  void live_broker_over_tls ()
+  {
+    if (qgetenv ("HEARD_BY_LIVE").isEmpty ()) QSKIP ("set HEARD_BY_LIVE=1 to try the real broker");
+    HeardByMqtt::Options o;
+    o.tls = true;                                         // the TLS port, default host
+    HeardByMqtt c {o};
+    QSignalSpy spy {&c, &HeardByMqtt::spot};
+    c.start ("pskr/filter/v2raw_1pc/#", "K1ABC");
+    QTRY_VERIFY_WITH_TIMEOUT (c.subscribed (), 20000);
+    QVERIFY2 (c.encrypted (), qPrintable (c.status ()));
+    QTRY_VERIFY_WITH_TIMEOUT (spy.count () >= 5, 20000);
+    qInfo () << "LIVE TLS:" << c.status () << "spots" << spy.count () << "failures" << c.stats ().failures;
+    QCOMPARE (c.stats ().failures, 0);
+    c.stop ();
+  }
+
+  // An untrusted certificate, or one for another name, is a failed connection
+  // that keeps failing - and is never answered by a plain connection.
+  void tls_untrusted_or_misnamed_certificate_is_refused ()
+  {
+    if (!QSslSocket::supportsSsl ()) QSKIP ("no OpenSSL here");
+    QSslCertificate const cert {QByteArray {heard_by_test_cert::certificate}};
+    QSslKey const key {QByteArray {heard_by_test_cert::private_key}, QSsl::Rsa};
+    for (bool misnamed : {false, true})
+      {
+        Broker b {{[] (Broker& br, Conn& c) {
+            if (!br.handshake (c)) return;
+            Broker::send (c, Broker::publish ("t", json (sp ("NEVER"))));
+            br.sleep (1000);
+          }}};
+        b.use_tls (cert, key);
+        b.start_and_wait ();
+        auto o = fast (b.port ());
+        o.tls = true;
+        o.tls_name = misnamed ? "example.org" : "localhost";
+        if (misnamed) o.extra_cas = {cert};           // trusted, but not for this name
+        HeardByMqtt c {o};
+        QSignalSpy spy {&c, &HeardByMqtt::spot};
+        c.start ("t", "K1ABC");
+        QTRY_VERIFY_WITH_TIMEOUT (c.stats ().failures >= 2, 6000);
+        QVERIFY (!c.stats ().last_error.isEmpty ());
+        QVERIFY2 (c.status ().contains ("disconnected"), qPrintable (c.status ()));
+        QCOMPARE (spy.count (), 0);
+        QVERIFY (!c.subscribed ());
+        QCOMPARE (b.connections (), 0);               // nothing ever got through
+        c.stop ();
+        b.finish ();
+      }
   }
 };
 

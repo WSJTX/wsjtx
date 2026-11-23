@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <QApplication>
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QFont>
@@ -37,6 +38,7 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
   , status_ {new QLabel}
   , credit_ {new QLabel}
   , in_use_ {new QLabel}
+  , tls_box_ {new QCheckBox {tr ("Encrypted (TLS)")}}
 {
   clock_.start ();
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Heard by"));
@@ -67,8 +69,13 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
   auto * bottom = new QHBoxLayout;
   bottom->addWidget (status_, 1);
   credit_->setSizePolicy (QSizePolicy::Ignored, QSizePolicy::Preferred);
+  tls_box_->setToolTip (tr ("Connect to PSK Reporter's feed over TLS (port 1884), checking its certificate. "
+                            "If the encrypted connection cannot be made it is NOT replaced by a plain one."));
+  auto * top = new QHBoxLayout;
+  top->addWidget (tls_box_);
+  top->addWidget (in_use_, 1);
   auto * layout = new QVBoxLayout {this};
-  layout->addWidget (in_use_);
+  layout->addLayout (top);
   layout->addWidget (banner_);
   layout->addWidget (table_);
   layout->addLayout (bottom);
@@ -76,6 +83,18 @@ HeardByWindow::HeardByWindow (QSettings * settings, QFont const& font,
 
   change_font (font);
   read_settings ();
+  tls_box_->setChecked (tls_);
+  apply_tls ();
+  connect (tls_box_, &QCheckBox::toggled, this, [this] (bool on) {
+      tls_ = on;
+      apply_tls ();
+      if (mqtt_.running ())
+        {
+          stop_feed ();                  // a new connection, the other way
+          last_check_ms_ = -1;
+          if (isVisible ()) tick ();
+        }
+    });
   connect (&mqtt_, &HeardByMqtt::spot, this, [this] (QJsonObject const& s, bool) {on_spot (s); });
   connect (&mqtt_, &HeardByMqtt::status_changed, this, [this] {
       if (mqtt_.subscribed ()) own_ref_ms_ = clock_.elapsed ();      // a new silence starts now
@@ -102,6 +121,16 @@ void HeardByWindow::set_mqtt (HeardByMqtt::Options const& feed, Timing const& ti
 {
   mqtt_.set_options (feed);
   timing_ = timing;
+  tls_ = feed.tls;                              // the box shows what the feed does
+  QSignalBlocker block {tls_box_};
+  tls_box_->setChecked (tls_);
+}
+
+void HeardByWindow::apply_tls ()
+{
+  auto o = mqtt_.options ();
+  o.tls = tls_;
+  mqtt_.set_options (o);
 }
 
 void HeardByWindow::stop_feed ()
@@ -152,6 +181,7 @@ void HeardByWindow::read_settings ()
   SettingsGroup g {settings_, "HeardBy"};
   move (settings_->value ("window/pos", pos ()).toPoint ());
   restoreGeometry (settings_->value ("geometry").toByteArray ());
+  tls_ = settings_->value ("tls", true).toBool ();
 }
 
 void HeardByWindow::write_settings ()
@@ -159,6 +189,7 @@ void HeardByWindow::write_settings ()
   SettingsGroup g {settings_, "HeardBy"};
   settings_->setValue ("window/pos", pos ());
   settings_->setValue ("geometry", saveGeometry ());
+  settings_->setValue ("tls", tls_);
 }
 
 void HeardByWindow::showEvent (QShowEvent * e)
@@ -265,7 +296,7 @@ void HeardByWindow::update_status ()
   else
     {
       text = tr ("%1 stations heard %2. Live feed: %3")
-        .arg (model_.rowCount ()).arg (last_.call, mqtt_.status ());
+        .arg (model_.rowCount ()).arg (last_.call, mqtt_.status () + (mqtt_.encrypted () ? tr (" (encrypted)") : QString {}));
       if (mqtt_.stats ().failures) text += tr (" (%1 failed connections)").arg (mqtt_.stats ().failures);
     }
   status_->setText (text);

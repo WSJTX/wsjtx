@@ -11,6 +11,7 @@
 #include "Network/HeardByMqtt.hpp"
 #include "models/HeardByModel.hpp"
 
+class QCheckBox;
 class QFont;
 class QLabel;
 class QSettings;
@@ -91,6 +92,7 @@ private:
   void update_status ();
   void fit_width ();            // no wider than the columns need
   void stop_feed ();
+  void apply_tls ();            // the feed's options follow the tick box
   void on_spot (QJsonObject const&);
   void feed_checked (bool delivering);
 
@@ -107,6 +109,8 @@ private:
   QLabel * status_;
   QLabel * credit_;
   QLabel * in_use_;             // mode and band read from the main window
+  QCheckBox * tls_box_;         // "Encrypted (TLS)", saved, on unless unticked
+  bool tls_ {true};
   QTimer timer_;
   Context last_;
   QElapsedTimer clock_;

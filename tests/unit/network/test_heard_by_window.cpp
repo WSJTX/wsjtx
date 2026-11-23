@@ -1,7 +1,10 @@
 // Tests for HeardByWindow: nothing is asked until it is shown, then the
 // reports of the call in use arrive over the live feed and are all shown.
+#include <QCheckBox>
 #include <QDateTime>
+#include <QScopedPointer>
 #include <QSettings>
+#include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QtTest>
 
@@ -278,6 +281,40 @@ private Q_SLOTS:
     QVERIFY (w.banner_text ().contains ("silent"));
     w.close ();
     feed.finish ();
+  }
+
+  // The feed is encrypted unless the user unticks the box, and the choice is saved.
+  void tls_is_on_by_default_and_the_choice_is_saved ()
+  {
+    // (a settings file of our own in a folder of our own: QSettings replaces the
+    // file when it saves, which a QTemporaryFile on Windows does not allow)
+    QTemporaryDir dir;
+    QVERIFY (dir.isValid ());
+    struct {QString path; QString fileName () const {return path;}} ini {dir.filePath ("heard_by.ini")};
+    HeardByWindow::Context ctx {"", "FN42", "FT8", "3cm"};      // no call: nothing connects
+    auto const make = [&ctx] (QSettings * s) {
+      return new HeardByWindow {s, QFont {}, [&ctx] {return ctx;}, band_of, [] (QString const&) {return -1.0;}};
+    };
+    {
+      QSettings settings {ini.fileName (), QSettings::IniFormat};
+      QScopedPointer<HeardByWindow> w {make (&settings)};
+      auto * box = w->findChild<QCheckBox *> ();
+      QVERIFY (box);
+      QVERIFY (box->isChecked ());                              // on by default
+      QVERIFY (w->mqtt ()->options ().tls);
+      box->setChecked (false);
+      QVERIFY (!w->mqtt ()->options ().tls);
+      w->show ();
+      w->close ();                                              // saves
+    }
+    {
+      QSettings settings {ini.fileName (), QSettings::IniFormat};
+      QScopedPointer<HeardByWindow> w {make (&settings)};
+      QVERIFY (!w->findChild<QCheckBox *> ()->isChecked ());    // remembered
+      QVERIFY (!w->mqtt ()->options ().tls);
+      w->findChild<QCheckBox *> ()->setChecked (true);
+      QVERIFY (w->mqtt ()->options ().tls);
+    }
   }
 };
 

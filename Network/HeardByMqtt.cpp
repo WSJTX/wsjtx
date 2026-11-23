@@ -3,6 +3,10 @@
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QRandomGenerator>
+#include <QSslCipher>
+#include <QSslConfiguration>
+#include <QSslError>
+#include <QSslSocket>
 #include <QTcpSocket>
 #include <QTimer>
 #include <QtGlobal>
@@ -242,17 +246,61 @@ void HeardByMqtt::start_connection ()
   teardown ();
   set_status (tr ("connecting to %1").arg (options_.host));
   state_ = State::Connecting;
-  socket_ = new QTcpSocket {this};
-  connect (socket_.data (), &QTcpSocket::connected, this, &HeardByMqtt::on_connected);
+  ssl_error_.clear ();
+  auto const port = options_.port_in_use ();
+  QSslSocket * tls_socket {nullptr};
+  if (options_.tls)
+    {
+      if (!QSslSocket::supportsSsl ())
+        {
+          // no OpenSSL here: say so, never go on in plain
+          socket_.clear ();
+          state_ = State::Connecting;
+          fail (tr ("TLS is not available (no OpenSSL)"));
+          return;
+        }
+      tls_socket = new QSslSocket {this};
+      socket_ = tls_socket;
+      auto config = QSslConfiguration::defaultConfiguration ();
+      if (!options_.extra_cas.isEmpty ()) config.addCaCertificates (options_.extra_cas);
+      tls_socket->setSslConfiguration (config);
+      tls_socket->setPeerVerifyMode (QSslSocket::VerifyPeer);
+      // the first certificate problem is the useful text; the socket's own
+      // error after a refused handshake is generic
+      connect (tls_socket, QOverload<QList<QSslError> const&>::of (&QSslSocket::sslErrors), this,
+               [this] (QList<QSslError> const& errors) {
+                 if (ssl_error_.isEmpty () && !errors.isEmpty ()) ssl_error_ = errors.first ().errorString ();
+               });
+      connect (tls_socket, &QSslSocket::encrypted, this, [this] {
+          if (State::Connecting != state_ || !socket_) return;
+          set_status (tr ("encrypted (%1)").arg (qobject_cast<QSslSocket *> (socket_.data ())->sessionCipher ().protocolString ()));
+          on_connected ();
+        });
+    }
+  else
+    {
+      socket_ = new QTcpSocket {this};
+      connect (socket_.data (), &QTcpSocket::connected, this, &HeardByMqtt::on_connected);
+    }
   connect (socket_.data (), &QTcpSocket::readyRead, this, &HeardByMqtt::on_ready_read);
   connect (socket_.data (), &QTcpSocket::disconnected, this, [this] {
       fail (tr ("closed by the broker"));
     });
   connect (socket_.data (), &QAbstractSocket::errorOccurred, this, [this] {
-      fail (socket_ ? socket_->errorString () : tr ("socket error"));
+      fail (!ssl_error_.isEmpty () ? ssl_error_ : socket_ ? socket_->errorString () : tr ("socket error"));
     });
   phase_timer_->start (options_.connect_timeout_ms);
-  socket_->connectToHost (options_.host, options_.port);
+  if (tls_socket)
+    tls_socket->connectToHostEncrypted (options_.host, port,
+                                        options_.tls_name.isEmpty () ? options_.host : options_.tls_name);
+  else
+    socket_->connectToHost (options_.host, port);
+}
+
+bool HeardByMqtt::encrypted () const
+{
+  auto const * s = qobject_cast<QSslSocket const *> (socket_.data ());
+  return State::Subscribed == state_ && s && s->isEncrypted ();
 }
 
 void HeardByMqtt::fail (QString const& reason)
