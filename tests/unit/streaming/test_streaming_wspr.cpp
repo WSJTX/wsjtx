@@ -28,6 +28,7 @@
 #include <QJsonObject>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QSet>
 #include <QTemporaryDir>
 #include <QtEndian>
@@ -567,6 +568,17 @@ QString compare (Run const& codec, Wsprd const& w, Period const& p, int pass, bo
 
 QJsonObject wsprKeys (int depth, bool live) {return {{"mode", "WSPR"}, {"depth", depth}, {"live_audio", live}};}
 
+// ft8_threads' rule for wspr_threads on cpus CPUs (lib/wsprd/wspr_parallel.f90);
+// one where the codec has no OpenMP (cpus 0).
+int wsprThreadRule (int requested, int cpus)
+{
+  if (cpus < 1) return 1;
+  if (0 == requested)
+    return cpus == 1 ? 1 : cpus < 5 ? cpus - 1 : cpus < 9 ? cpus - 2 : cpus < 16 ? cpus - 3 : 12;
+  if (requested > 0 && requested < 13) return std::min (requested, cpus);
+  return 1;
+}
+
 // The rows' audio: the recording, and mixes of renders.
 Period audioCase (QString const& name, QString* failure)
 {
@@ -967,6 +979,107 @@ private Q_SLOTS:
     auto const wspr = wsprDecodes (codec.events);
     QCOMPARE (!wspr.isEmpty (), decodes);
     for (auto const& e : wspr) QCOMPARE (e.value ("pass").toInt (), Stop);
+  }
+
+  // WSPR's threads: one thread, two, the CPU count's (wspr_threads 0) and 12
+  // give the same
+  // decode lines, every field, from a file at the GUI's three depths.
+  void threadCountsDecodeAlike_data ()
+  {
+    QTest::addColumn<QString> ("name");
+    QTest::addColumn<int> ("depth");
+    for (auto const* name : {"golden", "dense", "weak"})
+      for (int depth = 1; depth <= 3; ++depth)
+        QTest::newRow (qPrintable (QString {"%1 depth %2"}.arg (name).arg (depth))) << QString {name} << depth;
+  }
+
+  void threadCountsDecodeAlike ()
+  {
+    QFETCH (QString, name);
+    QFETCH (int, depth);
+    QString failure;
+    auto const p = audioCase (name, &failure);
+    QVERIFY2 (failure.isEmpty (), qPrintable (failure));
+    QList<QJsonObject> one;
+    for (int threads : {1, 2, 0, 12})
+      {
+        auto const codec = codecOn (p, with (wsprKeys (depth, false), {{"wspr_threads", threads}}));
+        QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+        QVERIFY2 (ofType (codec.events, "error").isEmpty (), qPrintable (codec.report ()));
+        // The decode ran on the threads ft8_threads' rule gives for the
+        // count sent (its stderr line; one without OpenMP, cpus 0).
+        QRegularExpression const line {R"(wsjt-codec: wspr threads=(\d+) cpus=(\d+)\r?\n)"};
+        auto const ran = line.match (QString::fromUtf8 (codec.err));
+        QVERIFY2 (ran.hasMatch (), qPrintable (codec.report ()));
+        QCOMPARE (ran.captured (1).toInt (), wsprThreadRule (threads, ran.captured (2).toInt ()));
+        auto const decodes = wsprDecodes (codec.events);
+        if (1 == threads)
+          {
+            one = decodes;
+            QVERIFY2 (!one.isEmpty () || ("weak" == name && 1 == depth), qPrintable (codec.report ()));
+          }
+        else
+          QVERIFY2 (decodes == one, qPrintable (QString {"wspr_threads %1:\n%2"}.arg (threads).arg (codec.report ())));
+      }
+  }
+
+  // The stderr line gives the threads that ran, not those asked for: under
+  // OMP_THREAD_LIMIT=1, wspr_threads 4 runs one, with one thread's decodes.
+  void threadLimitIsReported ()
+  {
+    QString failure;
+    auto const p = audioCase ("dense", &failure);
+    QVERIFY2 (failure.isEmpty (), qPrintable (failure));
+    auto const one = codecOn (p, with (wsprKeys (2, false), {{"wspr_threads", 1}}));
+    auto const limited = codecOn (p, with (wsprKeys (2, false), {{"wspr_threads", 4}}), {"OMP_THREAD_LIMIT=1"});
+    QVERIFY2 (one.clean (), qPrintable (one.report ()));
+    QVERIFY2 (limited.clean (), qPrintable (limited.report ()));
+    QRegularExpression const line {R"(wsjt-codec: wspr threads=(\d+) cpus=(\d+)\r?\n)"};
+    auto const ran = line.match (QString::fromUtf8 (limited.err));
+    QVERIFY2 (ran.hasMatch (), qPrintable (limited.report ()));
+    QCOMPARE (ran.captured (1).toInt (), 1);
+    QVERIFY2 (wsprDecodes (limited.events) == wsprDecodes (one.events), qPrintable (limited.report ()));
+  }
+
+  // wspr_threads takes ft8_threads' range in WSPR: outside 0 to 12 (the rule
+  // runs a count above 12 on one thread) a configure is declined
+  // (configure_range_error, key wspr_threads), and so is one entering WSPR
+  // with such a value set in another mode.
+  void threadsRange_data ()
+  {
+    QTest::addColumn<QByteArray> ("frames");
+    QTest::addColumn<QString> ("detail");     // empty: accepted
+    auto const keys = [] (QJsonObject const& more) {return control (with ({{"utc", "09:18:00"}, {"depth", 1}}, more));};
+    QString const range {"wspr_threads must be from 0 to 12 in WSPR"};
+    QTest::newRow ("25") << keys ({{"mode", "WSPR"}, {"wspr_threads", 25}}) << range;
+    QTest::newRow ("-1") << keys ({{"mode", "WSPR"}, {"wspr_threads", -1}}) << range;
+    QTest::newRow ("24") << keys ({{"mode", "WSPR"}, {"wspr_threads", 24}}) << range;
+    QTest::newRow ("13") << keys ({{"mode", "WSPR"}, {"wspr_threads", 13}}) << range;
+    QTest::newRow ("0") << keys ({{"mode", "WSPR"}, {"wspr_threads", 0}}) << QString {};
+    QTest::newRow ("25 in FT8, then WSPR") << keys ({{"mode", "FT8"}, {"wspr_threads", 25}}) + control ({{"mode", "WSPR"}})
+                                           << range + "; it was set before this frame";
+  }
+
+  void threadsRange ()
+  {
+    QFETCH (QByteArray, frames);
+    QFETCH (QString, detail);
+    QString failure;
+    auto const pcm = audioCase ("golden", &failure).pcm;
+    QVERIFY2 (failure.isEmpty (), qPrintable (failure));
+    auto const codec = runCodec (sessionHeader () + frames + audio (pcm) + halt ());
+    QVERIFY2 (codec.clean (), qPrintable (codec.report ()));
+    auto const errors = ofType (codec.events, "error");
+    if (detail.isEmpty ()) QVERIFY2 (errors.isEmpty (), qPrintable (codec.report ()));
+    else
+      {
+        QCOMPARE (errors.size (), 1);
+        QCOMPARE (errors.first ().value ("code").toString (), QString {"configure_range_error"});
+        QCOMPARE (errors.first ().value ("key").toString (), QString {"wspr_threads"});
+        QCOMPARE (errors.first ().value ("mode").toString (), QString {"WSPR"});
+        QCOMPARE (errors.first ().value ("detail").toString (), detail);
+      }
+    QCOMPARE (!wsprDecodes (codec.events).isEmpty (), detail.isEmpty ());
   }
 
   // WSPR keeps no period to decode again, as the GUI's Decode button does

@@ -1,6 +1,7 @@
 #include "DecodeOutputPlan.hpp"
 
 #include "MessageFilter.hpp"
+#include "Radio.hpp"
 #include "qt_helpers.hpp"
 
 #include <QRegularExpression>
@@ -14,22 +15,64 @@ namespace
   using ActionKind = DecodeOutputPlan::ActionKind;
   using SpecOp = SpecialOperatingActivity;
 
-  // Matches a standalone signal report token, e.g. " R-10"; shared by right-window
-  // routing and the competing-Fox alert so the two rules cannot drift.
-  QRegularExpression const fox_report_regexp {" R\\W\\d"};
+  bool isResolvedCall(QString const& call, DecodedCallState state)
+  {
+    return !call.isEmpty() && call != "..."
+      && (state == DecodedCallState::Literal || state == DecodedCallState::ResolvedHash);
+  }
+
+  bool isFoxRecipient(DecodedMessageFields const& fields, QString const& myCall)
+  {
+    return !myCall.isEmpty() && (fields.destination == myCall
+      || fields.destination == Radio::base_callsign(myCall) || fields.destination == "DE");
+  }
+
+  bool isFoxReport(DecodedText const& message)
+  {
+    auto const& fields = message.fields();
+    if (!message.hasValidHeader() || message.modeMarker() != "~" || message.isTX() || fields.hasMalformedCalls
+        || !fields.acknowledgedRecipient.isEmpty() || fields.payloadWords.size() != 3
+        || !isResolvedCall(fields.destination, fields.destinationState)
+        || !isResolvedCall(fields.sender, fields.senderState)
+        || !fields.completeTail || !fields.reportPresent
+        || fields.exchangeKind != DECODER_EXCHANGE_RREPORT) return false;
+    return true;
+  }
+
+  bool involvesCall(DecodedText const& message, QString const& call)
+  {
+    if (call.isEmpty()) return false;
+    auto const& fields = message.fields();
+    return fields.destination == call || fields.sender == call || fields.acknowledgedRecipient == call;
+  }
+
+  bool containsCallPair(DecodedText const& message, QString const& first, QString const& second)
+  {
+    if (first.isEmpty() || second.isEmpty()) return false;
+    auto const& words = message.payloadWords();
+    for (int index = 1; index < words.size(); ++index) {
+      if (words[index - 1] == first && words[index] == second) return true;
+    }
+    return false;
+  }
 
   void appendAction(QVector<Action>& actions, ActionKind kind, QString text = QString {})
   {
     actions.append(Action {kind, text});
   }
 
-  bool isFalseDecode(QByteArray const& line, DecodedText const& decoded,
-                     QString const& message, DecodeOutputPlan::PreparationContext const& context,
+  bool isFalseDecode(DecodedText const& decoded, DecodeOutputPlan::PreparationContext const& context,
                      QString& reason)
   {
-    bool const rejectA7 = (context.noA7Decodes && line.contains("a7") && !context.diskData)
-      || (line.contains("a7") && SpecOp::NONE != context.specOp && !context.diskData
-          && !(line.contains(" R ") || line.contains("RR73") || line.contains("CQ ")));
+    auto const& fields = decoded.fields();
+    auto const& annotations = decoded.annotations();
+    auto const message = decoded.payload();
+    auto const& words = decoded.payloadWords();
+    bool const rogerExchange = words.contains("R");
+    auto const ap = context.displayPoints && annotations.ap == 7 ? 0 : annotations.ap;
+    bool const rejectA7 = ap == 7 && !context.diskData
+      && (context.noA7Decodes || (SpecOp::NONE != context.specOp
+          && !rogerExchange && !words.contains("RR73") && !fields.cq));
     if (rejectA7) {
       reason = "a7 decode rejected";
       return true;
@@ -37,79 +80,47 @@ namespace
 
     bool const earlyMode = SpecOp::NONE == context.specOp
       || (context.multithreadFt8 && context.ft8DecoderStart < 2);
-    // A blank key would match any accumulator via contains(""), silently
-    // swallowing lines shorter than 24 bytes.
-    QString const duplicateKey = QString::fromUtf8(line.mid(23, 19));
+    auto const duplicateKey = DecodeOutputPlan::duplicateKey(decoded);
     bool const duplicate = context.mode == "FT8"
       && ((context.multithreadFt8 && context.ft8DecoderStart < 2)
           || context.nominalFrequency > 45000000)
-      && !duplicateKey.trimmed().isEmpty()
-      && context.earlyDecodes.contains(duplicateKey);
+      && !duplicateKey.isEmpty() && context.earlyDecodeKeys.contains(duplicateKey);
+    bool const rover = fields.destination.endsWith("/R") || fields.sender.endsWith("/R");
+    bool const portable = fields.destination.endsWith("/P") || fields.sender.endsWith("/P");
+    bool const unresolved = fields.destination == "..." || fields.sender == "..."
+      || fields.acknowledgedRecipient == "...";
+    bool const dual = !fields.acknowledgedRecipient.isEmpty() || message.contains(';');
+    bool const twoHashes = (fields.destinationState == DecodedCallState::ResolvedHash
+                           || fields.destinationState == DecodedCallState::UnresolvedHash)
+      && (fields.senderState == DecodedCallState::ResolvedHash
+          || fields.senderState == DecodedCallState::UnresolvedHash);
     bool const suspiciousLowSnr = SpecOp::NONE == context.specOp && decoded.snr() < -12
-      && (message.contains("> <")
-          || message.contains(QRegularExpression {"(\\w+)/P (\\w+)/P "})
-          || message.contains(QRegularExpression {"(\\w+)/R (\\w+)/R "})
-          || (message.contains("/R ") && message.contains("?"))
-          || (message.contains(";") && message.contains(" R ")));
+      && (twoHashes || (fields.destination.endsWith("/P") && fields.sender.endsWith("/P"))
+          || (fields.destination.endsWith("/R") && fields.sender.endsWith("/R"))
+          || (rover && annotations.lowConfidence) || (dual && rogerExchange));
     if (earlyMode && (duplicate || suspiciousLowSnr)) {
       reason = duplicate ? "early duplicate rejected" : "suspicious low-SNR decode rejected";
       return true;
     }
 
-    bool const suspiciousShape = (message.contains("/P ") && message.contains(" R "))
-      || (message.contains(";") && message.contains("/R "))
-      || (message.contains(";") && message.contains("/P "))
-      || (message.contains("<...>") && message.contains(" R "))
-      || (message.contains("<...>") && message.contains("/P "))
-      || (message.contains("<...>") && message.contains(";"))
+    bool const timingShape = qAbs(decoded.dt()) >= 2.0f;
+    bool const suspiciousShape = (portable && rogerExchange) || (dual && rover)
+      || (dual && portable) || (unresolved && rogerExchange)
+      || (unresolved && portable) || (unresolved && dual)
       || message.contains(QRegularExpression {"\\w\\w\\w\\w\\w\\w\\w\\w"})
       || message.contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})
-      || message.contains("3.") || message.contains("2.");
+      || timingShape;
     bool const reduceFalseDecode = SpecOp::NONE == context.specOp && context.reduceFalseDecodes
       && context.mode == "FT8"
       && ((suspiciousShape && decoded.snr() < -15)
-          || ((message.contains("/R ") || message.contains(" R ")) && decoded.snr() < -18)
-          || ((message.contains("<...>") || message.contains(";")
-               || message.contains("? a") || message.contains("/R ")
-               || message.contains(" R ") || decoded.snr() < -20)
-              && (message.contains("3.") || message.contains("2."))));
+          || ((rover || rogerExchange) && decoded.snr() < -18)
+          || ((unresolved || dual || (annotations.lowConfidence && ap)
+               || rover || rogerExchange || decoded.snr() < -20) && timingShape));
     if (reduceFalseDecode) {
       reason = "reduce-false-decodes rule rejected line";
       return true;
     }
     return false;
-  }
-
-  void parseAveragingInfo(QByteArray const& line, QString const& mode, bool& averaged, int& count)
-  {
-    if (mode != "JT4" && mode != "JT65" && mode != "Q65") return;
-
-    // Decoder suffixes f/d/a/q carry pass-specific averaging counts;
-    // '*' represents ten or more contributing decodes.
-    int const nf = line.indexOf("f");
-    if (nf > 0) {
-      count = line.mid(nf + 1, 1).toInt();
-      if (line.indexOf("f*") > 0) count = 10;
-    }
-    int nd = -1;
-    if (nf < 0) nd = line.indexOf("d");
-    if (nd > 0) {
-      count = line.mid(nd + 2, 1).toInt();
-      if (line.mid(nd + 2, 1) == "*") count = 10;
-    }
-    int na = -1;
-    if (nf < 0 && nd < 0) na = line.indexOf("a");
-    if (na > 0) {
-      count = line.mid(na + 2, 1).toInt();
-      if (line.mid(na + 2, 1) == "*") count = 10;
-    }
-    int nq = -1;
-    if (nf < 0 && nd < 0 && na < 0) nq = line.indexOf("q");
-    if (nq > 0) {
-      count = line.mid(nq + 2, 1).toInt();
-      if (line.mid(nq + 2, 1) == "*") count = 10;
-    }
-    averaged = count >= 2;
   }
 
   bool shouldResetScores(DecodeOutputPlan::KeywordFilterContext const& context)
@@ -158,6 +169,12 @@ namespace
 
 namespace DecodeOutputPlan
 {
+  QString duplicateKey(DecodedText const& message)
+  {
+    return message.hasValidHeader() && !message.fields().hasMalformedCalls
+      ? message.payloadWords().join(' ') : QString {};
+  }
+
   PreparedLine prepareLine(QByteArray const& rawLine, PreparationContext const& context)
   {
     PreparedLine result;
@@ -166,18 +183,21 @@ namespace DecodeOutputPlan
 
     if (context.qsyEnabled) appendAction(result.actions, ActionKind::ShowQsyMessage,
                                          QString {rawLine});
-    if (context.mode == "FT8" && context.specOp == SpecOp::FOX
-        && context.activeStationsAvailable
-        && (!context.activeStationsWantedOnly
-            || rawLine.contains(" " + context.myCall.toLocal8Bit() + " ")
-            || rawLine.contains(" <" + context.myCall.toLocal8Bit() + "> "))) {
-      appendAction(result.actions, ActionKind::AccumulateFoxActivity, QString {rawLine});
-    }
-
     if (auto p = std::strpbrk(result.normalizedLine.constData(), "\n\r")) {
       result.normalizedLine = result.normalizedLine.left(p - result.normalizedLine.constData());
     }
-    if (context.displayPoints) result.normalizedLine.replace("a7", "  ");
+    DecodedText const rawMessage {QString::fromUtf8(result.normalizedLine)};
+    if (context.mode == "FT8" && context.specOp == SpecOp::FOX
+        && context.activeStationsAvailable
+        && (!context.activeStationsWantedOnly
+            || involvesCall(rawMessage, context.myCall))) {
+      appendAction(result.actions, ActionKind::AccumulateFoxActivity, QString {rawLine});
+    }
+
+    if (context.displayPoints && rawMessage.annotations().ap == 7) {
+      auto const position = result.normalizedLine.lastIndexOf("a7");
+      if (position >= 0) result.normalizedLine.replace(position, 2, "  ");
+    }
 
     if (context.mode.startsWith("FST4")) {
       auto const spreadText = result.normalizedLine.mid(64, 6).trimmed();
@@ -185,18 +205,15 @@ namespace DecodeOutputPlan
         result.frequencySpread = spreadText.toFloat(&result.haveFrequencySpread);
         result.normalizedLine = result.normalizedLine.left(64);
       }
-      auto const ownCall = context.myCall.toLocal8Bit();
       if (context.mode == "FST4W" && context.noOwnCall
-          && (result.normalizedLine.contains(" " + ownCall + " ")
-              || result.normalizedLine.contains("<" + ownCall + ">"))) {
+          && involvesCall(rawMessage, context.myCall)) {
         result.disposition = LineDisposition::Ignore;
         result.reason = "FST4W own-call decode ignored";
         return result;
       }
     }
 
-    // Classify batch completion before false-decode rejection so it can never
-    // be swallowed by a coincidental early-duplicate substring match.
+    // Batch completion must bypass decode-only filtering.
     if (result.normalizedLine.indexOf("<DecodeFinished>") >= 0) {
       result.disposition = LineDisposition::Finish;
       // decoder.f90 emits nsynced, ndecoded, and navg0 after the marker;
@@ -210,11 +227,16 @@ namespace DecodeOutputPlan
     }
 
     result.decodedOriginal = QString::fromUtf8(result.normalizedLine.constData());
+    result.originalMessage = result.decodedOriginal == rawMessage.string()
+      ? rawMessage : DecodedText {result.decodedOriginal};
     result.decodedForLogic = result.decodedOriginal;
-    result.decodedForLogic.remove("TU; ");
-    result.logicMessage = DecodedText {result.decodedForLogic};
-    if (isFalseDecode(result.normalizedLine, result.logicMessage, result.decodedOriginal,
-                      context, result.reason)) {
+    if (rawMessage.payload().startsWith("TU; ")) {
+      auto const position = result.decodedForLogic.indexOf(rawMessage.payload());
+      if (position >= 0) result.decodedForLogic.remove(position, 4);
+    }
+    result.logicMessage = result.decodedForLogic == rawMessage.string()
+      ? rawMessage : DecodedText {result.decodedForLogic};
+    if (isFalseDecode(result.logicMessage, context, result.reason)) {
       result.disposition = LineDisposition::Ignore;
       return result;
     }
@@ -227,7 +249,10 @@ namespace DecodeOutputPlan
     }
     QString const actionLine = QString::fromUtf8(result.normalizedLine.constData());
 
-    parseAveragingInfo(result.normalizedLine, context.mode, result.averaged, result.averageCount);
+    if (context.mode == "JT4" || context.mode == "JT65" || context.mode == "Q65") {
+      result.averageCount = result.logicMessage.annotations().averageCount;
+      result.averaged = result.averageCount >= 2;
+    }
     appendAction(result.actions, ActionKind::IncrementDecodeCount);
     appendAction(result.actions, ActionKind::WriteAll, actionLine.trimmed());
     if (context.mode == "FST4W") {
@@ -235,7 +260,7 @@ namespace DecodeOutputPlan
     }
     if (!result.averaged && !(context.mode == "FT8" && context.specOp == SpecOp::FOX)
         && (context.mode == "FT4" || context.mode == "FT8") && context.displayPoints
-        && DecodedText {actionLine}.isStandardMessage()) {
+        && result.logicMessage.isStandardMessage()) {
       appendAction(result.actions, ActionKind::UpdateArrlActivity);
     }
     return result;
@@ -249,22 +274,21 @@ namespace DecodeOutputPlan
     if (context.mode != "FT8" || context.multithreadFt8 || !context.reduceFalseDecodes
         || message.snr() >= -20) return decision;
 
-    QString deCall;
-    QString deGrid;
-    message.deCallAndGrid(deCall, deGrid);
-    QStringList const words = message.string().mid(24).replace("<", "").replace(">", "")
-      .replace("/P", "").replace("/R", "").replace("/QRP", "").replace("/5W", "")
-      .split(" ", SkipEmptyParts);
+    auto const& fields = message.fields();
+    auto const payload = message.payload();
+    QString deCall = fields.sender;
+    QStringList words = message.payloadWords();
+    for (auto& word : words) {
+      word = word.replace("/P", "").replace("/R", "").replace("/QRP", "").replace("/5W", "");
+    }
 
     bool notInAllCallsigns = deCall != "TNX" && deCall != "73" && deCall != "GL"
       && deCall != "HNY" && deCall != "TU" && !deCall.left(4).contains("/")
-      && !message.string().contains("<...>") && !context.allCallsigns.contains(deCall);
+      && !payload.contains("<...>") && !context.allCallsigns.contains(deCall);
     if (!words.isEmpty() && !context.allCallsigns.contains(words[0])
-        && !(message.string().contains(" CQ ") || message.string().contains("TNX")
-             || message.string().contains("...") || message.string().contains("HNY")
-             || message.string().contains("QSY") || message.string().contains("73 ")
-             || message.string().contains("GL ") || message.string().contains("PSE")
-             || message.string().contains("/") || message.string().contains("<...>"))) {
+        && !(fields.cq || words.contains("TNX") || payload.contains("...")
+             || words.contains("HNY") || words.contains("QSY") || words.contains("73")
+             || words.contains("GL") || words.contains("PSE") || payload.contains("/"))) {
       notInAllCallsigns = true;
     }
     if (!notInAllCallsigns) return decision;
@@ -278,14 +302,14 @@ namespace DecodeOutputPlan
     };
     if (deCall != "TNX" && deCall != "73" && deCall != "GL" && deCall != "HNY"
         && !(plausiblePrefix(deCall) || deCall.left(4).contains("/")
-             || message.string().contains("<...>"))) {
+             || payload.contains("<...>"))) {
       decision.filtered = true;
       decision.reason = "experimental FT8 callsign filter";
     }
     if (!words.isEmpty() && words[0] != "CQ" && words[0] != "TNX" && words[0] != "73 "
         && words[0] != "HNY" && words[0] != "QSY" && words[0] != "PSE"
-        && !(plausiblePrefix(words[0]) || message.string().contains("/")
-             || message.string().contains("<...>"))) {
+        && !(plausiblePrefix(words[0]) || payload.contains("/")
+             || payload.contains("<...>"))) {
       decision.filtered = true;
       decision.reason = "experimental FT8 payload filter";
     }
@@ -297,26 +321,15 @@ namespace DecodeOutputPlan
   {
     KeywordFilterDecision decision;
     decision.filtered = context.alreadyFiltered;
-    QString const text = message.string().replace("<", "").replace(">", "");
+    QString const text = message.payloadWords().join(' ');
 
     QString selectedWord;
     bool passMatch = false;
     bool blacklistMatch = false;
     bool whitelistMiss = false;
     if (context.filterBySecondWord) {
-      int const payloadOffset = context.mode == "FT8" || context.mode == "FT4"
-        || context.mode == "Q65" || context.mode == "FST4" ? 24 : 22;
-      auto const words = text.mid(payloadOffset).split(" ", SkipEmptyParts);
-      if (words.size() < 2) {
-        selectedWord = "___";
-      } else if (words[1].length() == 2
-                 && words[1].contains(QRegularExpression {"\\w\\w"})) {
-        selectedWord = words.size() > 2 ? words[2] : "___";
-      } else if (text.contains(";")) {
-        selectedWord = words.size() > 3 ? words[3] : "___";
-      } else {
-        selectedWord = words[1];
-      }
+      selectedWord = message.fields().sender;
+      if (selectedWord.isEmpty()) selectedWord = "___";
       passMatch = MessageFilter::startsWithAny(selectedWord, context.passKeywords);
       blacklistMatch = MessageFilter::startsWithAny(selectedWord, context.blacklistKeywords);
       whitelistMiss = !MessageFilter::startsWithAny(selectedWord, context.whitelistKeywords);
@@ -357,9 +370,8 @@ namespace DecodeOutputPlan
     VisibilityFilterDecision decision;
     decision.filtered = context.alreadyFiltered;
 
-    QString deCall;
-    QString deGrid;
-    message.deCallAndGrid(deCall, deGrid);
+    auto const& deCall = message.fields().sender;
+    auto const& deGrid = message.fields().grid;
 
     if (!context.alwaysPassed && hiddenByGeographyOrWorkedBefore(context, deCall, deGrid)) {
       decision.filtered = true;
@@ -392,29 +404,24 @@ namespace DecodeOutputPlan
                                 bool averaged, RoutingContext const& context)
   {
     RoutingDecision decision;
+    if (!displayMessage.hasValidHeader()) return decision;
     bool displayRight = averaged;
     int const audioFrequency = displayMessage.frequencyOffset();
+    auto const& fields = displayMessage.fields();
     if (context.mode == "FT8" || context.mode == "FT4" || context.mode == "FST4"
         || context.mode == "Q65") {
       int const tolerance = context.mode == "Q65" ? context.q65Tolerance : 10;
-      auto const parts = QString {displayMessage.string()}.remove("<").remove(">")
-        .split(" ", SkipEmptyParts);
-      if (parts.size() > 6) {
-        decision.forUs = parts[5].contains(context.baseCall)
-          || (parts[5] == "DE" && qAbs(context.rxFrequency - audioFrequency) <= tolerance);
-        if (context.baseCall == context.myCall) {
-          if (context.baseCall != parts[5]) decision.forUs = false;
-        } else if (context.myCall != parts[5]) {
-          // A shared base call does not make another prefix/suffix ours, as can
-          // happen with multi-station special events.
-          decision.forUs = false;
-        }
-        // Compound Hounds address the Fox using DE plus their full callsign.
-        if (context.specOp == SpecOp::FOX && displayMessage.string().contains(" DE ")) {
+      if (!fields.sender.isEmpty() && !fields.hasMalformedCalls) {
+        decision.forUs = !context.myCall.isEmpty()
+          && (fields.destination == context.myCall || fields.acknowledgedRecipient == context.myCall);
+        if (context.specOp == SpecOp::FOX) {
+          decision.forUs = isFoxRecipient(fields, context.myCall);
+        } else if (fields.destination == "DE" && context.myCall == context.baseCall
+                   && qAbs(context.rxFrequency - audioFrequency) <= tolerance) {
           decision.forUs = true;
         }
         if (context.specOp == SpecOp::FOX && decision.forUs
-            && displayMessage.string().contains(fox_report_regexp)) {
+            && isFoxReport(displayMessage)) {
           displayRight = true;
         }
         if (context.specOp != SpecOp::FOX
@@ -423,28 +430,59 @@ namespace DecodeOutputPlan
         }
         if (context.specOp == SpecOp::HOUND && !decision.forUs) displayRight = false;
         decision.competingFoxReport = context.specOp == SpecOp::FOX && audioFrequency < 1000
-          && !decision.forUs && displayMessage.string().contains(fox_report_regexp);
+          && !decision.forUs && isFoxReport(displayMessage);
       }
     } else if (qAbs(audioFrequency - context.wideGraphRxFrequency) <= 10
                && !context.enableVhfFeatures) {
       displayRight = true;
     }
     if (context.mode == "Q65" && !averaged
-        && !displayMessage.string().contains(context.baseCall)) displayRight = false;
+        && !involvesCall(displayMessage, context.baseCall)) displayRight = false;
     if ((context.mode == "JT4" || context.mode == "Q65" || context.mode == "JT65")
-        && displayMessage.string().contains(context.baseCall) && context.includeAveragingVisible
+        && involvesCall(displayMessage, context.baseCall) && context.includeAveragingVisible
         && !context.includeAveraging) displayRight = true;
-    QString unwrappedOriginal = originalMessage.string();
-    unwrappedOriginal.replace("<", "").replace(">", "");
     // Keep messages involving our base call and current QSO partner in the Rx
     // Frequency pane even when they are outside the passband.
     if ((context.mode == "FT8" || context.mode == "FT4") && context.specOp != SpecOp::FOX
-        && !context.baseCall.isEmpty() && !context.hisCall.isEmpty()
-        && unwrappedOriginal.contains(context.baseCall + " " + context.hisCall)) {
+        && containsCallPair(originalMessage, context.baseCall, context.hisCall)) {
       displayRight = true;
     }
 
     decision.displayRight = displayRight && !context.blockRightDisplay;
+    return decision;
+  }
+
+  FoxReportDecision decideFoxReport(DecodedText const& message, FoxReportContext const& context)
+  {
+    FoxReportDecision decision;
+    auto const& fields = message.fields();
+    if (!isFoxReport(message)) {
+      decision.reason = "message is not a resolved Fox acknowledgement";
+      return decision;
+    }
+    if (!isFoxRecipient(fields, context.myCall)) {
+      decision.reason = "Fox acknowledgement is addressed to another station";
+      return decision;
+    }
+    if (context.activeHounds.contains(fields.sender)) {
+      decision.houndCall = fields.sender;
+    } else if (!fields.sender.contains('/')) {
+      for (auto const& hound : context.activeHounds) {
+        if (hound.contains('/') && Radio::base_callsign(hound) == fields.sender) {
+          if (!decision.houndCall.isEmpty()) {
+            decision.houndCall.clear();
+            decision.reason = "Fox acknowledgement has an ambiguous Hound base call";
+            return decision;
+          }
+          decision.houndCall = hound;
+        }
+      }
+    }
+    if (decision.houndCall.isEmpty()) {
+      decision.reason = "Fox acknowledgement has no active Hound";
+      return decision;
+    }
+    decision.report = fields.exchange.mid(1);
     return decision;
   }
 

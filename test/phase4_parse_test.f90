@@ -1,5 +1,5 @@
 ! Phase 4 parse-unit regression driver ("unit parse->pack assert").
-! Exercises parse_control_frame for the 9 Phase 4
+! Exercises parse_control_frame for the 8 Phase 4
 ! keys + the tricky cases: bool true/false, his_call vs his_call_standard
 ! substring non-collision (both orderings), wrong-type detection (bool/string/
 ! int), and value-vs-key aliasing (a string value equal to a key token must NOT
@@ -10,7 +10,7 @@
 ! point). The configure_fields -> params APPLY routing now lives in the module-
 ! public streaming_apply::apply_configure_fields (extracted from the
 ! former nested-internal apply_configure_) and is asserted by
-! test/run-apply-routing-unit.sh — so the 9 inert Phase 4 fields' apply routing
+! test/run-apply-routing-unit.sh — so the 8 inert Phase 4 fields' apply routing
 ! IS now unit-guarded, not just code-review + no-regression.
 program p4_parse_test
   use streaming_control, only: parse_control_frame, configure_fields,        &
@@ -50,7 +50,7 @@ contains
     end if
   end subroutine ok
 
-  ! Frame A: all 9 keys, bools true.
+  ! Frame A: all 8 keys, bools true.
   subroutine frame_A()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
@@ -59,8 +59,8 @@ contains
       '{"t":"configure","mode":"FT8","his_call":"DX1ABC","his_grid":"FN20",' //  &
       '"my_b_call":"KJ5HST/P","his_b_call":"DX1ABC/P","my_call_standard":true,' //&
       '"his_call_standard":true,"tx_audio_offset_hz":1234,' //                 &
-      '"jt65_jt9_split_hz":2500,"max_drift_hz":8}'
-    write(*,'(a)') 'Frame A: all 9 keys present, bools true'
+      '"max_drift_hz":8}'
+    write(*,'(a)') 'Frame A: all 8 keys present, bools true'
     call parse_control_frame(b, action, cfg, terr)
     call ok('action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
     call ok('terr not present',          .not. terr%present)
@@ -71,7 +71,6 @@ contains
     call ok('my_call_standard == true',  cfg%my_call_standard_set  .and. cfg%my_call_standard)
     call ok('his_call_standard == true', cfg%his_call_standard_set .and. cfg%his_call_standard)
     call ok('tx_audio_offset_hz == 1234',cfg%tx_audio_offset_hz_set .and. cfg%tx_audio_offset_hz .eq. 1234)
-    call ok('jt65_jt9_split_hz == 2500', cfg%jt65_jt9_split_hz_set  .and. cfg%jt65_jt9_split_hz  .eq. 2500)
     call ok('max_drift_hz == 8',         cfg%max_drift_hz_set .and. cfg%max_drift_hz .eq. 8)
   end subroutine frame_A
 
@@ -199,7 +198,6 @@ contains
     call ok('my_call_standard unset',    .not. cfg%my_call_standard_set)
     call ok('his_call_standard unset',   .not. cfg%his_call_standard_set)
     call ok('tx_audio_offset_hz unset',  .not. cfg%tx_audio_offset_hz_set)
-    call ok('jt65_jt9_split_hz unset',   .not. cfg%jt65_jt9_split_hz_set)
     call ok('max_drift_hz unset',        .not. cfg%max_drift_hz_set)
   end subroutine frame_I
 

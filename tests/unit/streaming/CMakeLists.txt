@@ -71,7 +71,9 @@ if (WSJT_ENABLE_TSAN)
 endif ()
 add_test (NAME test_streaming_configure_ranges
   COMMAND test_streaming_consumers wsjtCodecDeclinesValuesTheEngineRefuses wsjtCodecDeclinesBadLabels
-    wsjtCodecAcceptsValuesAtTheEngineLimits wsjtCodecReportsRefusedDecodes)
+    wsjtCodecAcceptsValuesAtTheEngineLimits wsjtCodecReportsRefusedDecodes
+    wsjtCodecReportsStartValuesWsjtxCannotGive depthReachesTheDecoderAsWsjtxGivesIt
+    depthWsjtxCannotHoldIsDeclinedInEveryMode)
 set_tests_properties (test_streaming_configure_ranges PROPERTIES
   LABELS "streaming;runtime"
   ENVIRONMENT "${streaming_range_environment}"
@@ -221,7 +223,7 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
   set (streaming_backlog_rows
     mtdBehindOnePeriodSkipsAndDefers mtdRunsEveryPassWhenFree mtdFromAFileNeverSkips
     mtdBehindTwoPeriodsReplacesTheFinal mtdFinalDuringItsProbeBacksOff mtdRecoveryRestartsTheBackoff
-    mtdCancelDropsTheDeferredFinal houndDropsTheFinalWhileBusy
+    mtdCancelDropsTheDeferredFinal mtdSettingsCancelDropTheDeferredFinal houndDropsTheFinalWhileBusy
     standardFt8DropsPassesWhileBusy standardFt8RunsPassesWhenFree
     ft4DropsTheDecodeWhileBusy ft4DecodesWhenFree
     decodeAgainRefusedWhileBusy decodeAgainRunsWhenFree msk144NeverRefused
@@ -318,7 +320,7 @@ function (wsjt_add_streaming_render_test name function fixtures)
 endfunction ()
 set (streaming_render_rows fst4-15 fst4-15-doppler q65-15)
 set (streaming_render_sample_rows ft8 ft8-d3 ft8-mtd ft4 jt9 jt9-d3 jt65 jt65-seq jt65-seq-avg
-  jt65-seq-avg-utc jt65-seq-vhf-avg jt65jt9 jt4f jt4a jt4a-avg q65-30a q65-30a-ap q65-30a-seq
+  jt65-seq-avg-utc jt65-seq-vhf-avg jt4f jt4a jt4a-avg q65-30a q65-30a-ap q65-30a-seq
   q65-30a-seq-avg q65-60a q65-60b-seq-avg q65-60d q65-120d q65-120e-seq-avg-counts q65-300a fst4
   fst4-doppler fst4w)
 set (streaming_render_ap_rows ft8-ap ft4-ap q65-pileup-ap q65-pileup-off-counts)
@@ -333,6 +335,14 @@ endforeach ()
 if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
   foreach (row IN LISTS streaming_render_sample_rows)
     wsjt_add_streaming_render_test (${row} "matchesJt9:${row}" "")
+  endforeach ()
+  foreach (row "suspicious low snr" "reduce false decodes")
+    string (REPLACE " " "_" name "${row}")
+    wsjt_add_streaming_render_test (false_decodes_${name} "rejectsWhatWsjtxRejects:${row}" "")
+  endforeach ()
+  foreach (row hold activity mode "hold after audio" "hold restarted" "arrl digi closed")
+    string (REPLACE " " "_" name "${row}")
+    wsjt_add_streaming_render_test (a7_${name} "rejectsA7AsWsjtx:${row}" "")
   endforeach ()
   if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
     wsjt_add_streaming_render_test (clear_average clearAverageClearsOnce "")
@@ -384,6 +394,13 @@ wsjt_link_common_fortran (test_streaming_period)
 add_test (NAME test_streaming_period COMMAND test_streaming_period)
 set_tests_properties (test_streaming_period PROPERTIES LABELS "streaming")
 
+# WSJT-X's a7 rule on a decode that carries its AP mark as ap.
+add_executable (test_streaming_emit_a7 test_streaming_emit_a7.f90)
+wsjt_link_common_fortran (test_streaming_emit_a7)
+add_test (NAME test_streaming_emit_a7 COMMAND test_streaming_emit_a7)
+set_tests_properties (test_streaming_emit_a7 PROPERTIES LABELS "streaming"
+  PASS_REGULAR_EXPRESSION "test_streaming_emit_a7: all checks passed")
+
 if (TARGET wsjt_fort_omp)
   add_executable (test_streaming_emit_progress test_streaming_emit_progress.f90
     test_streaming_emit_progress_thread.c ${CMAKE_SOURCE_DIR}/lib/stream_decode.c
@@ -414,6 +431,13 @@ add_executable (test_streaming_control test_streaming_control.f90)
 wsjt_link_common_fortran (test_streaming_control)
 add_test (NAME test_streaming_control COMMAND test_streaming_control)
 set_tests_properties (test_streaming_control PROPERTIES LABELS "streaming")
+
+add_executable (test_streaming_jtty_width test_streaming_jtty_width.f90)
+wsjt_link_common_fortran (test_streaming_jtty_width)
+add_test (NAME test_streaming_jtty_width COMMAND test_streaming_jtty_width)
+set_tests_properties (test_streaming_jtty_width PROPERTIES
+  LABELS "streaming"
+  PASS_REGULAR_EXPRESSION "test_streaming_jtty_width: all checks passed")
 
 add_executable (test_streaming_apply ${PROJECT_SOURCE_DIR}/test/apply_routing_test.f90)
 wsjt_link_common_fortran (test_streaming_apply)
@@ -527,8 +551,9 @@ set (streaming_fast_jt9_rows decodesMatchTheGui busyDecoderSkipsThePeriod busyDe
   "fastEntryDefaults:trperiod alone keeps rxfreq" "fastEntryDefaults:redundant fast keeps rxfreq and ntol"
   "fastEntryDefaults:fast turning on from slow JT9" "fastEntryDefaults:mode frame in fast JT9 enters again"
   "txFollowsFastEntry:entry sets it to 700" "txFollowsFastEntry:entry keeps a sent tx_audio_offset_hz"
-  "slowJt9DefaultsAfterFast:back to slow JT9 resets ntol"
-  "slowJt9DefaultsAfterFast:slow JT9 from FT8 keeps rxfreq")
+  "slowJt9DefaultsAfterFast:back to slow JT9 keeps fast JT9's F Tol"
+  "slowJt9DefaultsAfterFast:slow JT9 from FT8 keeps FT8's F Tol"
+  "slowJt9DefaultsAfterFast:VHF features turned on put back JT9's F Tol")
 if (WSJT_ENABLE_STREAM_TIMING_TESTS)
   list (APPEND streaming_fast_jt9_rows decodesArriveOnTime)
 endif ()
@@ -602,15 +627,16 @@ set_tests_properties (test_streaming_decode_thread_deadline_model PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL!;ThreadSanitizer;AddressSanitizer")
 # TIMING rows, the measurements and the rows whose time is mostly the slowest
 # decodes or a cold FFTW_MEASURE plan, register only with
-# WSJT_ENABLE_STREAM_TIMING_TESTS: routine CI runs the behaviour rows. Windows
-# runs its suite serially within its job limit, so without the option it runs
-# only the inline registrations below.
+# WSJT_ENABLE_STREAM_TIMING_TESTS: routine CI runs the behaviour rows. On
+# Windows this option also controls the threaded behaviour rows, which are
+# expensive on CI runners. The inline rows below still run in routine CI.
 # LONG rows, those that took 30 s or more on some CI platform when labelled,
 # carry the label decode-thread-long, which the slow legs and release builds
 # leave out (ci-cd/DEVELOPMENT_WORKFLOW.md, Test Failure Policy).
 function (wsjt_add_decode_thread_test name function)
-  cmake_parse_arguments (row "SERIAL;TIMING;LONG" "PROCESSORS;TIMEOUT" "" ${ARGN})
-  if (NOT WSJT_ENABLE_STREAM_TIMING_TESTS AND (row_TIMING OR WIN32))
+  cmake_parse_arguments (row "SERIAL;TIMING;LONG;PORTABLE" "PROCESSORS;TIMEOUT" "" ${ARGN})
+  # PORTABLE: a row that depends on no timing runs on Windows too.
+  if (NOT WSJT_ENABLE_STREAM_TIMING_TESTS AND (row_TIMING OR (WIN32 AND NOT row_PORTABLE)))
     return ()
   endif ()
   add_test (NAME test_streaming_decode_thread_${name} COMMAND test_streaming_decode_thread "${function}")
@@ -660,13 +686,23 @@ foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav 
   endif ()
 endforeach ()
 if (decode_thread_samples)
-  # On the sanitizer legs: encodes beside every decode, a halt during one, and
-  # MSK144 and JTTY beside one.
-  foreach (row ft8 ft8-mtd ft4 fst4 q65 jt4 jt9 jt65 jt65jt9)
+  # On the sanitizer legs: encodes beside every decode, a halt during one,
+  # MSK144 and JTTY beside one, and FT8's repeats, which the multithreaded
+  # decoder's workers send.
+  foreach (row ft8 ft8-mtd ft4 fst4 q65 jt4 jt9 jt65)
     wsjt_add_decode_thread_test (encodes_${row} "encodesDuringEachDecode:${row}" SERIAL PROCESSORS 2)
   endforeach ()
   foreach (row ft8 ft8-mtd)
     wsjt_add_decode_thread_test (halt_${row} "haltDuringADecode:${row}" PROCESSORS 2)
+  endforeach ()
+  foreach (row "multithreaded start 0" "multithreaded start 1" "above 45 MHz")
+    string (REPLACE " " "_" name "${row}")
+    wsjt_add_decode_thread_test (ft8_repeats_${name} "ft8RepeatsAsWsjtxShowsThem:${row}" PROCESSORS 2 PORTABLE)
+  endforeach ()
+  foreach (row "9.9 s into the next period" "10 s into the next period" "fox")
+    string (REPLACE " " "_" name "${row}")
+    string (REPLACE "." "_" name "${name}")
+    wsjt_add_decode_thread_test (ft8_repeat_windows_${name} "ft8RepeatWindowsAsWsjtx:${row}" PROCESSORS 2 PORTABLE)
   endforeach ()
   wsjt_add_decode_thread_test (msk144_beside_jt9 "modeEnteredDuringADecode:msk144 beside jt9")
   wsjt_add_decode_thread_test (jtty_beside_jt9 "modeEnteredDuringADecode:jtty beside jt9" LONG)
@@ -680,14 +716,53 @@ if (decode_thread_samples)
     endforeach ()
     wsjt_add_decode_thread_test (fox_fst4 "foxRendersLeaveLiveDecodes:fst4" LONG)
     wsjt_add_decode_thread_test (reference_ft8-mtd "decodesMatchTheReference:ft8-mtd" PROCESSORS 2 LONG)
-    wsjt_add_decode_thread_test (reference_jt65jt9 "decodesMatchTheReference:jt65jt9" PROCESSORS 2)
     wsjt_add_decode_thread_test (mtd_labels multithreadedDecodesCarryTheirPassAndTime PROCESSORS 2)
     # Each mode's deepest decode against inline, up to about 80 s each on the Linux CI image: run before a merge.
-    foreach (row ft8 ft8-mtd ft4 fst4-60 fst4w-1800 q65-300a jt4 jt9 jt65 jt65jt9)
+    foreach (row ft8 ft8-mtd ft4 fst4-60 fst4w-1800 q65-300a jt4 jt9 jt65)
       wsjt_add_decode_thread_test (deepest_${row} "deepestDecodeOnTheDecodeThread:${row}" PROCESSORS 2 TIMING)
     endforeach ()
     wsjt_add_decode_thread_test (marker markerDuringADecodeFollowsIt)
     wsjt_add_decode_thread_test (cancel_after_the_decode cancelAfterTheDecodeRunsTheWaitingFinal SERIAL PROCESSORS 2 LONG)
+    foreach (row "cancel" "dial change" "dial change and back" "same dial" "hound nfb change" "hound same nfb"
+        "hide duplicates off" "hide duplicates on")
+      string (REPLACE " " "_" name "${row}")
+      wsjt_add_decode_thread_test (waiting_final_${name} "waitingFinalDroppedAsTheGui:${row}" PROCESSORS 2)
+    endforeach ()
+    foreach (row "change" "same dial")
+      string (REPLACE " " "_" name "${row}")
+      wsjt_add_decode_thread_test (dial_lag_${name} "dialChangeDropsDecodesUntilThePeriodFollows:${row}" PROCESSORS 2)
+    endforeach ()
+    foreach (row "cancel" "dial change" "same dial" "my call" "same my call")
+      string (REPLACE " " "_" name "${row}")
+      wsjt_add_decode_thread_test (running_decode_${name} "runningDecodeLinesAsTheGui:${row}" PROCESSORS 2)
+    endforeach ()
+    foreach (row "my call" "same my call")
+      string (REPLACE " " "_" name "${row}")
+      wsjt_add_decode_thread_test (identity_before_pass_${name} "identityChangeBeforeThePassBegins:${row}" PROCESSORS 2)
+    endforeach ()
+    foreach (row "hound" "none")
+      wsjt_add_decode_thread_test (hound_range_${row} "houndDecodesUpToAThousandHz:${row}" PORTABLE)
+    endforeach ()
+    foreach (row "dial change" "same dial")
+      string (REPLACE " " "_" name "${row}")
+      wsjt_add_decode_thread_test (mtd_dial_${name} "multithreadedDecodesDroppedAsTheGui:${row}" PROCESSORS 3)
+    endforeach ()
+    wsjt_add_decode_thread_test (deferred_under_old_dial finalDeferredUnderTheOldFrequencyDropped PROCESSORS 2)
+    # These rows depend on no timing, so they run on Windows too.
+    wsjt_add_decode_thread_test (dial_file dialChangeFromAFileDropsNothing PORTABLE)
+    foreach (row FT4 FT8)
+      wsjt_add_decode_thread_test (again_in_flight_${row} "decodeAgainDecodesThePeriodInFlight:${row}" PORTABLE)
+    endforeach ()
+    foreach (row "negative" "fraction" "too large" "string" "boolean" "whole" "zero" "largest")
+      string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
+      wsjt_add_decode_thread_test (dial_declined_${name} "dialFrequencyDeclined:${row}" PORTABLE)
+    endforeach ()
+    foreach (row "Q65" "FST4" "FST4W file" "FST4W live" "before any decode")
+      string (REPLACE " " "_" name "${row}")
+      wsjt_add_decode_thread_test (again_refused_${name} "decodeAgainRefusedAsTheGui:${row}" PORTABLE)
+    endforeach ()
+    wsjt_add_decode_thread_test (no_result_files streamWritesNoResultFiles PORTABLE)
+    wsjt_add_decode_thread_test (again_between_ft8_passes decodeAgainBetweenFt8PassesDecodesThePeriod PORTABLE)
     wsjt_add_decode_thread_test (deferred_plain "deferredFinalRunsWithNoFurtherInput:plain" PROCESSORS 2 LONG)
     wsjt_add_decode_thread_test (deferred_take_held "deferredFinalRunsWithNoFurtherInput:take held" PROCESSORS 2 LONG)
     wsjt_add_decode_thread_test (reply_declined "repliesComeAtOnce:declined configure" SERIAL)
@@ -886,7 +961,7 @@ foreach (sample FT8/210703_133430.wav FT4/000000_000002.wav JT9/130418_1742.wav 
 endforeach ()
 if (streaming_spectrum_samples)
   foreach (row "ft8 live" "ft8 live low sidelobes" "ft8 live and a half" "ft8 file" "ft8 file short" "ft8-mtd file"
-      "ft4 live" "ft4 file low sidelobes" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 file" "fst4 file"
+      "ft4 live" "ft4 file low sidelobes" "jt4 file" "jt9 file" "jt65 file" "q65 file" "fst4 file"
       "fst4w file" "fst4-60 live low sidelobes" "wspr live" "wspr file")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (rows_${name} "periodRowsMatchTheGui:${row}")
@@ -897,8 +972,8 @@ if (streaming_spectrum_samples)
   wsjt_add_spectrum_test (rows_after_a_one_block_period "rowsAfterAOneBlockPeriod:ft8")
   wsjt_add_spectrum_test (fast_after_a_one_block_period "rowsAfterAOneBlockPeriod:msk144")
   wsjt_add_spectrum_test (rows_after_spectrum_off_at_block_1 periodRowsAfterSpectrumOffAtBlock1)
-  wsjt_add_spectrum_test (rows_jt65jt9_after_a_period_mode_row jt65jt9RowsAfterAPeriodModeRow)
-  wsjt_add_spectrum_test (rows_after_a_jt65jt9_period periodRowsAfterAJt65jt9Period)
+  wsjt_add_spectrum_test (rows_jt9_after_a_period_mode_row jt9RowsAfterAPeriodModeRow)
+  wsjt_add_spectrum_test (rows_after_a_jt9_period periodRowsAfterAJt9Period)
   wsjt_add_spectrum_test (jtty_on_mid_block_while_equalizing jttyRowsOnMidBlockWhileEqualizing)
   wsjt_add_spectrum_test (queue_drops_the_oldest rowsPastTheCapDropTheOldest)
   wsjt_add_spectrum_test (queue_file_drops_nothing fileRowsPastTheCapAreAllKept)
@@ -954,7 +1029,7 @@ if (streaming_spectrum_samples)
   endforeach ()
   wsjt_add_spectrum_test (equalized_decodes equalizedDecodesMatchTheFilteredInput)
   wsjt_add_spectrum_test (file_input_never_equalized fileInputIsNeverEqualized)
-  foreach (row "ft8 apply" "ft8 apply without rows" "ft8 off" "ft8 measure" "msk144 apply" "msk144 off" "jt65jt9 off"
+  foreach (row "ft8 apply" "ft8 apply without rows" "ft8 off" "ft8 measure" "msk144 apply" "msk144 off"
       "jtty apply" "jtty off" "wspr apply")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (prepared_audio_${name} "preparedAudioMatchesTheGui:${row}")
@@ -974,7 +1049,7 @@ if (streaming_spectrum_samples)
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (keys_${name} "newKeysDeclineBadValues:${row}")
   endforeach ()
-  foreach (row "ft8 file" "ft8-mtd file" "ft4 live" "jt4 file" "jt9 file" "jt65 file" "jt65jt9 file" "q65 live"
+  foreach (row "ft8 file" "ft8-mtd file" "ft4 live" "jt4 file" "jt9 file" "jt65 file" "q65 live"
       "fst4 file" "fst4w file" "msk144 live" "jtty" "wspr live")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
     wsjt_add_spectrum_test (decodes_${name} "decodesUnchangedByRows:${row}")
@@ -982,7 +1057,6 @@ if (streaming_spectrum_samples)
   endforeach ()
   wsjt_add_spectrum_test (decodes_deferred_final deferredFinalUnchangedByRows PROCESSORS 2)
   wsjt_add_spectrum_test (decodes_again_after_the_stop decodeAgainAfterTheStopUnchangedByRows)
-  wsjt_add_spectrum_test (low_sidelobes_jt65jt9_decodes lowSidelobesReachesTheJt65Jt9Decoder)
   wsjt_add_spectrum_test (low_sidelobes_jt9_decodes lowSidelobesReachesTheJt9Decoder)
   foreach (row "spectrum" "fast_spectrum" "ref_spectrum" "spectrum jtty" "prepared_audio" "prepared_audio jtty")
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${row}")
@@ -1037,7 +1111,8 @@ foreach (row
     "timeIsTheLabelPlusTheSamples:30 s across midnight" "timeIsTheLabelPlusTheSamples:10 s nutc"
     "periodRules:trperiod 60" "periodRules:trperiod 20" "periodRules:trperiod 7.5" "periodRules:no trperiod"
     "periodRules:trperiod 45 later" "periodRules:fast" "periodRules:rxfreq 199" "periodRules:rxfreq 5001"
-    "periodRules:ntol 0" "periodRules:ntol 1001 later" "periodRules:integer code"
+    "periodRules:ntol 0" "periodRules:ntol 1001 later" "periodRules:depth 9 later" "periodRules:depth 0"
+    "periodRules:integer code"
     "periodRules:lower case" "periodRules:mixed case" "periodRules:edges" "periodRules:ntol 2000 with mode, capped"
     "entryDefaults:from FT8 with rxfreq 100" "entryDefaults:from fast JT9 with rxfreq 700"
     "entryDefaults:trperiod alone keeps rxfreq" "entryDefaults:mode again"
@@ -1147,8 +1222,21 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/WSPR/150426_0918.wav")
   list (APPEND streaming_wspr_cases golden)
   list (APPEND streaming_wspr_rows decodeAgainIsRefused busyLinesFrameTheDecode commandLineStartsWspr
     "periodRules:trperiod 60" "periodRules:trperiod 30 later" "periodRules:trperiod 120"
-    "periodRules:no trperiod" "periodRules:lower case" "periodRules:integer code")
+    "periodRules:no trperiod" "periodRules:lower case" "periodRules:integer code"
+    "threadsRange:25" "threadsRange:-1" "threadsRange:24" "threadsRange:13" "threadsRange:0"
+    "threadsRange:25 in FT8, then WSPR")
+  foreach (depth 1 2 3)
+    list (APPEND streaming_wspr_rows "threadCountsDecodeAlike:golden depth ${depth}")
+  endforeach ()
 endif ()
+# WSPR's threads: one thread, two and the CPU count's decode alike, and the
+# threads that ran are reported.
+list (APPEND streaming_wspr_rows threadLimitIsReported)
+foreach (case dense weak)
+  foreach (depth 1 2 3)
+    list (APPEND streaming_wspr_rows "threadCountsDecodeAlike:${case} depth ${depth}")
+  endforeach ()
+endforeach ()
 foreach (case IN LISTS streaming_wspr_cases)
   foreach (depth 1 2 3)
     list (APPEND streaming_wspr_rows "decodesMatchWsprd:${case} live depth ${depth}"
@@ -1270,7 +1358,7 @@ if (streaming_side_samples)
     wsjt_add_side_test (equal_jt9_${name} "eventsEqualJt9sSideFiles:${row}" "")
   endforeach ()
   foreach (row "jt4 A then F" "q65 A then D" "jt65 B" "jt9 A then fast E then fast H" "msk144 15 then 30"
-      "jt65jt9 JT65 lines only" "ft8 none")
+      "ft8 none")
     string (TOLOWER "${row}" name)
     string (REGEX REPLACE "[^a-z0-9]+" "_" name "${name}")
     wsjt_add_side_test (labels_${name} "decodesCarryTheirLabels:${row}" "")
@@ -1278,6 +1366,7 @@ if (streaming_side_samples)
   foreach (row averages q65_sync)
     wsjt_add_side_test (ignored_${row} "clientsIgnoringTheSideEventsStillWork:${row}" "")
   endforeach ()
+  wsjt_add_side_test (dial_change_clears_jt65_averages dialChangeClearsJt65Averages "")
 endif ()
 if (WSJT_BUILD_UTILS)
   foreach (row "fox" "fox mtd" "jt4 averages" "q65 sync and callers")

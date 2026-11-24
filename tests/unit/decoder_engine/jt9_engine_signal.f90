@@ -71,11 +71,11 @@ subroutine decoder_engine_test_jt9_signal_level(submode,start_sample,spread_hz, 
   enddo
 end subroutine
 
-subroutine decoder_engine_test_jt9_reference(submode,windowed,samples,result) bind(C)
+subroutine decoder_engine_test_jt9_reference(submode,windowed,rows,count,samples,result) bind(C)
   use jt9_decode, only: jt9_spectrum_workspace
   use jt9_engine_test_reference, only: reference_decoder,observe_reference
   include 'jt9com.f90'
-  integer(c_int), value :: submode,windowed
+  integer(c_int), value :: submode,windowed,rows,count
   integer(c_short), intent(in) :: samples(720000)
   real(c_float), intent(out) :: result(4)
   type(dec_data), allocatable :: shared
@@ -89,16 +89,19 @@ subroutine decoder_engine_test_jt9_reference(submode,windowed,samples,result) bi
   allocate(shared,spectra(184,NSMAX),waterfall(NSMAX))
   shared%ss=0.
   shared%id2(:720000)=samples
+  ! The engine sees zeros past the samples it was given (count).
+  if(count<720000) shared%id2(count+1:)=0
   low_sidelobes=windowed/=0
-  do row=1,181
+  do row=1,rows
      call symspec(shared,row*3456,6912,0,low_sidelobes,0,power,waterfall, &
           df,half_symbols,npts8,peak,0.0)
   enddo
-  call workspace%prepare_spectra(samples,181,spectra,logical(low_sidelobes))
+  call workspace%prepare_spectra(samples,rows,spectra,logical(low_sidelobes))
   if(maxval(abs(spectra-shared%ss))>2.e-6*maxval(shared%ss)) &
        error stop 'JT9 PCM spectrum differs from the legacy symspec spectrum'
-  call decoder%decode(observe_reference,shared%ss,shared%id2,1000,.true.,90000, &
-       900,900,1100,20,181,.false.,3,9,submode,0)
+  npts8=count/8
+  call decoder%decode(observe_reference,shared%ss,shared%id2,1000,.true.,npts8, &
+       900,1100,20,rows,.false.,3,submode)
   call decoder%reset()
   call workspace%clear()
   if(.not.decoder%found) error stop 'JT9 legacy spectrum reference did not decode'

@@ -3,7 +3,7 @@
 ! true/false (distinguishing "set false" from "absent"), int parse, wrong-type
 ! detection (int-as-string, bool-as-number), the "mode" substring non-collision
 ! introduced by mode_changed (it contains "mode", which is also a key and a
-! substring of tx_mode), and value-vs-key aliasing.
+! substring of mode_changed), and value-vs-key aliasing.
 ! Compiled + run by test/run-phase7-parse-unit.sh against lib/streaming_control.f90.
 !
 ! SCOPE: this guards the JSON -> configure_fields PARSE (the module-public entry
@@ -92,7 +92,7 @@ contains
   end subroutine frame_B
 
   ! Frame C: "mode" substring non-collision. "mode" is itself a key AND a
-  ! substring of tx_mode / mode_changed — the structural key locator (quoted token
+  ! substring of mode_changed — the structural key locator (quoted token
   ! + anchor) must keep them distinct in BOTH orderings. A raw-index regression
   ! would mis-classify mode_changed as mode (or vice-versa).
   subroutine frame_C()
@@ -100,24 +100,22 @@ contains
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: b1 =                                      &
-      '{"t":"configure","mode":"FT8","tx_mode":"JT9","mode_changed":true}'
+      '{"t":"configure","mode":"FT8","mode_changed":true}'
     character(len=*), parameter :: b2 =                                      &
-      '{"t":"configure","mode_changed":true,"tx_mode":"JT9","mode":"FT8"}'
-    write(*,'(a)') 'Frame C: mode vs tx_mode vs mode_changed (substring non-collision)'
+      '{"t":"configure","mode_changed":true,"mode":"FT8"}'
+    write(*,'(a)') 'Frame C: mode vs mode_changed (substring non-collision)'
     call parse_control_frame(b1, action, cfg, terr)
     call ok('order1: terr not present',     .not. terr%present)
     call ok('order1: mode == 8 (FT8)',      cfg%mode_set         .and. cfg%mode    .eq. 8)
-    call ok('order1: tx_mode == 9 (JT9)',   cfg%tx_mode_set      .and. cfg%tx_mode .eq. 9)
     call ok('order1: mode_changed true',    cfg%mode_changed_set .and. cfg%mode_changed)
     call parse_control_frame(b2, action, cfg, terr)
     call ok('order2: terr not present',     .not. terr%present)
     call ok('order2: mode == 8 (FT8)',      cfg%mode_set         .and. cfg%mode    .eq. 8)
-    call ok('order2: tx_mode == 9 (JT9)',   cfg%tx_mode_set      .and. cfg%tx_mode .eq. 9)
     call ok('order2: mode_changed true',    cfg%mode_changed_set .and. cfg%mode_changed)
   end subroutine frame_C
 
   ! Frame D: int key carrying a string -> configure_type_error (mirrors the
-  ! Gate 17 fixture, last_tx_seconds_ago:"soon").
+  ! Gate 16 fixture, last_tx_seconds_ago:"soon").
   subroutine frame_D()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr

@@ -28,11 +28,19 @@
 #include "SettingsGroup.hpp"
 #include "MessageBox.hpp"
 #include "DaysCalendar.hpp"
+#include "qt_helpers.hpp"
 
 #include "moc_EmeCabrilloDialog.cpp"
 
 namespace
 {
+  // The application style sheet sets font-family for "*", and a style sheet
+  // outranks setFont, so a fixed font has to be asked for the same way.
+  QString fixed_font_style_sheet ()
+  {
+    return font_as_stylesheet (QFontDatabase::systemFont (QFontDatabase::FixedFont));
+  }
+
   QString escaped (QString const& text) {return text.toHtmlEscaped ();}
 
   QString qso_text (EmeCabrillo::Qso const& qso)
@@ -53,7 +61,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   , save_directory_ {save_directory}
   , days_ {days}
 {
-  setWindowTitle (QApplication::applicationName () + " - " + tr ("Cabrillo log for the ARRL EME contest"));
+  setWindowTitle (QApplication::applicationName () + " - " + tr ("ARRL EME Contest Log"));
   // everything but the Save/Close row scrolls, so the buttons stay in view
   // however small the window or long the list of missing grids
   auto outer = new QVBoxLayout {this};
@@ -76,14 +84,14 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   logs_box_layout->addLayout (logs_layout_);
   auto logs_buttons = new QHBoxLayout;
   auto other = new QPushButton {tr ("Add file…"), logs_box};
-  other->setToolTip (tr ("Add another ADIF log, e.g. one from another PC of the station. It is only read."));
+  other->setToolTip (tr ("Add another ADIF log, e.g. one from another PC of the station."));
   connect (other, &QPushButton::clicked, this, &EmeCabrilloDialog::choose_file);
   logs_buttons->addWidget (other);
   add_own_button_ = new QPushButton {tr ("Add WSJT-X's log"), logs_box};
   add_own_button_->setToolTip (tr ("Add WSJT-X's own ADIF log (%1).").arg (QDir::toNativeSeparators (own_log_path_)));
   connect (add_own_button_, &QPushButton::clicked, this, [this] {add_log (own_log ());});
   logs_buttons->addWidget (add_own_button_);
-  logs_buttons->addWidget (new QLabel {tr ("Only read."), logs_box}, 1);
+  logs_buttons->addStretch (1);
   logs_box_layout->addLayout (logs_buttons);
   layout->addWidget (logs_box);
 
@@ -91,6 +99,7 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   auto days_row = new QHBoxLayout;
   days_row->addWidget (new QLabel {tr ("Contest days"), this});
   days_button_ = new QToolButton {this};
+  days_button_->setToolTip (tr ("Choose the contest days"));
   connect (days_button_, &QToolButton::clicked, this, [this] {
       DaysCalendar::show (days_button_, &days_, [this] {
           Q_EMIT days_changed (days_);
@@ -163,14 +172,14 @@ EmeCabrilloDialog::EmeCabrilloDialog (QSettings * settings, QString const& adif_
   preview_ = new QPlainTextEdit {this};
   preview_->setReadOnly (true);
   preview_->setLineWrapMode (QPlainTextEdit::NoWrap);
-  preview_->setFont (QFontDatabase::systemFont (QFontDatabase::FixedFont));
+  // The application style sheet sets font-family for "*", and a style sheet
+  // outranks setFont, so the fixed font must be asked for the same way.
+  preview_->setStyleSheet (fixed_font_style_sheet ());
   preview_->setMinimumHeight (160);
   layout->addWidget (preview_, 1);
 
   auto buttons = new QHBoxLayout;
-  auto hint = new QLabel {tr ("Upload at contests.arrl.org/arrlemescoresubmission.php"), this};
-  hint->setTextInteractionFlags (Qt::TextSelectableByMouse);
-  buttons->addWidget (hint, 1);
+  buttons->addStretch (1);
   save_button_ = new QPushButton {tr ("Save…"), this};
   connect (save_button_, &QPushButton::clicked, this, &EmeCabrilloDialog::save);
   buttons->addWidget (save_button_);
@@ -436,8 +445,8 @@ void EmeCabrilloDialog::update_text ()
 void EmeCabrilloDialog::refresh ()
 {
   auto const n = days_.size ();
-  days_button_->setText (n == 0 ? tr ("choose…") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
-  days_label_->setText (DaysCalendar::text (days_, tr ("(choose the contest days)")));
+  days_button_->setText (n == 0 ? tr ("Choose days …") : n == 1 ? tr ("1 day") : tr ("%1 days").arg (n));
+  days_label_->setText (DaysCalendar::text (days_, QString {}));
 
   // bands with QSOs on the days; those unticked are left out
   auto const all = EmeCabrillo::select (log_, days_, my_call_, my_grid_, {}, fixes_);
@@ -487,12 +496,26 @@ void EmeCabrilloDialog::refresh ()
         .arg (selection_.off_weekend.size ())
         .arg (off.mid (0, 6).join (", ") + (off.size () > 6 ? QString {" ..."} : QString {}));
     }
-  if (selection_.no_grid.size ())
+  QString notes_no_grid;
+  if (selection_.no_grid_or_report.size ())
     {
       QStringList calls;
-      for (auto const& qso : selection_.no_grid) calls << qso.call;
-      warnings << tr ("%1 QSO(s) need a grid: %2")
-        .arg (selection_.no_grid.size ()).arg (calls.join (", "));
+      for (auto const& qso : selection_.no_grid_or_report) calls << qso.call;
+      // ARRL refuse the whole log, not just these lines, when the column is
+      // empty, so this is worse than a QSO scoring less.
+      warnings << tr ("%1 QSO(s) have neither a grid nor a report, so ARRL will "
+                      "refuse the log: type a grid for %2")
+        .arg (selection_.no_grid_or_report.size ()).arg (calls.join (", "));
+    }
+  if (selection_.no_grid.size () > selection_.no_grid_or_report.size ())
+    {
+      QStringList calls;
+      for (auto const& qso : selection_.no_grid)
+        if (!qso.report.isEmpty ()) calls << qso.call;
+      notes_no_grid = tr ("%1 QSO(s) go out with the report in the grid column, "
+                          "for ARRL to work the grid out: %2. Type a grid to "
+                          "count it as a multiplier.")
+        .arg (calls.size ()).arg (calls.join (", "));
     }
   if (selection_.no_time.size ())
     warnings << tr ("%1 QSO(s) without a time left out: %2")
@@ -522,11 +545,15 @@ void EmeCabrilloDialog::refresh ()
   if (no_own_grid)
     warnings << tr ("Some QSOs have no own grid: cannot be saved.");
 
-  QString html;
-  for (auto const& w : warnings) html += "<p style='color:#c00000'>" + escaped (w) + "</p>";
+  QString html, table;
+  QStringList note_lines;              // one paragraph, so the lines sit together
+  for (auto const& w : warnings)
+    note_lines << "<span style='color:#c00000'>" + escaped (w) + "</span>";
   if (selection_.qsos.size ())
     {
       auto const s = EmeCabrillo::score (selection_.qsos);
+      int scored_qsos = 0;             // the band columns already leave dupes out
+      for (auto const& b : s.bands) scored_qsos += b.qsos;
       // the bands across, so that many bands do not push the file out of view
       QString bands_row, qsos_row, grids_row;
       for (auto const& b : s.bands)
@@ -535,15 +562,15 @@ void EmeCabrilloDialog::refresh ()
           qsos_row += QString {"<td align='right'>%1</td>"}.arg (b.qsos);
           grids_row += QString {"<td align='right'>%1</td>"}.arg (b.grids);
         }
-      html += "<table cellspacing='0' cellpadding='1'><tr><th align='left'>" + tr ("Band") + "</th>" + bands_row
+      table += "<table cellspacing='0' cellpadding='1'><tr><th align='left'>" + tr ("Band") + "</th>" + bands_row
         + "<th align='right'>&nbsp;&nbsp;" + tr ("Total") + "</th></tr><tr><td>" + tr ("QSOs") + "</td>" + qsos_row
-        + QString {"<td align='right'><b>%1</b></td></tr>"}.arg (selection_.qsos.size ())
+        + QString {"<td align='right'><b>%1</b></td></tr>"}.arg (scored_qsos)
         + "<tr><td>" + tr ("Grids") + "</td>" + grids_row
         + QString {"<td align='right'><b>%1</b></td></tr></table>"}.arg (s.multipliers)
         + "<p><b>" + escaped (tr ("Claimed score %1 x %2 = %3").arg (s.points).arg (s.multipliers).arg (s.claimed))
         + "</b></p>";
     }
-  // Below the score: one line for what was left out, the weekends only
+  // Above the score: what is and is not in the entry, the weekends only
   // when they matter; the details (which dupes, the counts) in the tooltip.
   QStringList details;
   bool weekends_matter = !selection_.off_weekend.isEmpty ();
@@ -560,22 +587,28 @@ void EmeCabrilloDialog::refresh ()
                                                  ? tr ("no QSOs") : weekend.group);
       details << tr ("Weekend %1: %2").arg (days.join ('/'), counts.isEmpty () ? tr ("no QSOs") : counts.join (", "));
     }
-  if (weekends_matter) html += "<p>" + escaped (tr ("Weekends: %1").arg (weekend_texts.join ("; "))) + "</p>";
+  if (weekends_matter) note_lines << escaped (tr ("Weekends: %1").arg (weekend_texts.join ("; ")));
   int copies = 0;
   for (auto const& record : copies_) copies += days_.contains (EmeCabrillo::record_date (record));
   QStringList left_out;
-  if (selection_.dupes.size ()) left_out << tr ("%1 dupes").arg (selection_.dupes.size ());
   if (copies) left_out << tr ("%1 in two logs").arg (copies);
   if (selection_.satellite) left_out << tr ("%1 satellite").arg (selection_.satellite);
   if (selection_.not_eme) left_out << tr ("%1 not EME (PROP_MODE)").arg (selection_.not_eme);
   if (selection_.mode_out) left_out << tr ("%1 in unticked modes").arg (selection_.mode_out);
-  if (left_out.size ()) html += "<p>" + escaped (tr ("Left out: %1.").arg (left_out.join (", "))) + "</p>";
+  if (!notes_no_grid.isEmpty ()) note_lines << escaped (notes_no_grid);
+  if (left_out.size ()) note_lines << escaped (tr ("Left out: %1.").arg (left_out.join (", ")));
+  if (selection_.dupes.size ())
+    note_lines << escaped (tr ("%1 dupes in log (scored 0).").arg (selection_.dupes.size ()));
   if (selection_.dupes.size ())
     {
       QStringList dupes;
       for (auto const& qso : selection_.dupes) dupes << qso_text (qso);
       details << tr ("Dupes (worked before on the band from the same grid): %1").arg (dupes.join (", "));
     }
+  // A trailing blank line: Qt gives the paragraph no bottom margin, so
+  // without it the table headings sit against the last note.
+  if (note_lines.size ()) html += "<p>" + note_lines.join ("<br>") + "<br>&nbsp;</p>";
+  html += table;                   // what is in the entry, then what it scores
   // the operators the logs name, if the Operators box does not have them all
   if (multi_op_->isChecked ())
     {
@@ -601,7 +634,9 @@ void EmeCabrilloDialog::show_modes ()
       delete item;
     }
   if (modes_shown_.isEmpty ()) return;
-  modes_layout_->addWidget (new QLabel {tr ("Modes"), this});
+  auto modes_label = new QLabel {tr ("Modes"), this};
+  modes_label->setToolTip (tr ("Untick any mode whose QSOs were not EME."));
+  modes_layout_->addWidget (modes_label);
   for (auto i = modes_shown_.cbegin (); i != modes_shown_.cend (); ++i)
     {
       auto const mode = i.key ();
@@ -614,9 +649,6 @@ void EmeCabrilloDialog::show_modes ()
         });
       modes_layout_->addWidget (box);
     }
-  auto hint = new QLabel {tr ("untick any that weren't EME"), this};
-  hint->setStyleSheet ("color:#666666");
-  modes_layout_->addWidget (hint);
   modes_layout_->addStretch ();
 }
 
@@ -667,17 +699,17 @@ void EmeCabrilloDialog::show_grid_rows ()
     if (qso.dupe)                       // that grid makes it a repeat: say so, keep the row
       {
         colour = "#b06000";
-        return tr ("%1: already counted - retype if it was another grid").arg (qso.grid);
+        return tr ("%1? Dupe?").arg (qso.grid);
       }
     if (qso.entered)
       {
         colour = "#008000";
-        return tr ("entered");
+        return QString {QChar {0x2713}};        // a tick: typed in and accepted
       }
     if (qso.filled)
       {
         colour = "#b06000";
-        return tr ("%1 from another QSO - check").arg (qso.grid);
+        return tr ("%1? check").arg (qso.grid);
       }
     colour = "#c00000";
     return tr ("needed");
@@ -713,18 +745,18 @@ void EmeCabrilloDialog::show_grid_rows ()
   grid_states_.clear ();
   grid_keys_ = keys;
   grids_box_->setVisible (!keys.isEmpty ());
-  auto const fixed = QFontDatabase::systemFont (QFontDatabase::FixedFont);
+  auto const fixed = fixed_font_style_sheet ();
   int row = 0;
   for (auto const& qso : rows)
     {
       auto what = new QLabel {QString {"%1 %2  %3 %4"}.arg (qso.call, -10).arg (qso.band, 4)
                               .arg (qso.date.toString (Qt::ISODate), qso.time), grids_box_};
-      what->setFont (fixed);
+      what->setStyleSheet (fixed);
       grids_layout_->addWidget (what, row, 0);
       auto edit = new QLineEdit {typed.value (qso.key, fixes_.value (qso.key)), grids_box_};
       edit->setObjectName ("grid_" + qso.call);
       edit->setMaximumWidth (80);
-      edit->setFont (fixed);
+      edit->setStyleSheet (fixed);
       auto const key = qso.key;
       connect (edit, &QLineEdit::editingFinished, this, [this, key] {grid_typed (key);});
       grids_layout_->addWidget (edit, row, 1);
@@ -748,18 +780,18 @@ void EmeCabrilloDialog::grid_typed (QString const& key)
   if (text.isEmpty ())
     {
       fixes_.remove (key);
-      edit->setStyleSheet ({});
+      edit->setStyleSheet (fixed_font_style_sheet ());
     }
   else if (grid.match (text).hasMatch () && !EmeCabrillo::grid4 (text).isEmpty ())
     {
       fixes_[key] = text;
       if (edit->text () != text) edit->setText (text);
-      edit->setStyleSheet ({});
+      edit->setStyleSheet (fixed_font_style_sheet ());
     }
   else                                  // not a grid: ignored, shown pink
     {
       fixes_.remove (key);
-      edit->setStyleSheet ("background:#ffd0d0");
+      edit->setStyleSheet (fixed_font_style_sheet () + "background:#ffd0d0;");
     }
   refresh ();
 }
@@ -818,6 +850,5 @@ void EmeCabrilloDialog::save ()
   if (typed)
     message += "\n\n" + tr ("The %1 grid(s) you typed are in the Cabrillo file only: the ADIF logs are not changed.")
       .arg (typed);
-  message += "\n\n" + tr ("Upload it at contests.arrl.org/arrlemescoresubmission.php.");
   MessageBox::information_message (this, message);
 }

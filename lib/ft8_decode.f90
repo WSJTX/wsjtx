@@ -12,6 +12,10 @@ module ft8_decode
   integer n30fox(MAXFOX)
   integer n30z
   integer nfox
+  ! The Fox caller list starts again at the next FT8 attempt in Fox mode, as
+  ! when houndcallers.txt is missing: the codec's fox_callers_clear, on the
+  ! decode thread between attempts (lib/streaming_side.f90).
+  logical :: fox_list_reset=.false.
 
   type :: ft8_decoder
      procedure(ft8_decode_callback), pointer :: callback

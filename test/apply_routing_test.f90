@@ -9,7 +9,8 @@
 ! parse-unit drivers (phase4/phase5_parse_test.f90) which drive the PARSE side
 ! (JSON -> configure_fields). It also exercises the order-sensitive logic that was
 ! previously review-only: the rxfreq/tx_audio_offset decouple, emedelay-before-
-! per-mode-policy (D1), nfa/nfb baseline restore, and the ntol per-mode cap/restore.
+! per-mode-policy (D1), and WSJT-X's F Tol and search range across modes
+! (search_controls).
 !
 ! Bool swap-blindness (known, bounded): the Phase 6 bool asserts alternate T/F in
 ! source order, so an ADJACENT apply-line transposition (the realistic copy-paste
@@ -21,14 +22,16 @@
 !
 ! params_block is re-exported from streaming_apply (it owns the include); the
 ! baseline is a realistic params built via jt9_params_init's init routines.
-! Registered with CTest as test_streaming_apply; the standalone
-! test/run-apply-routing-unit.sh also supports running this driver.
+! Registered with CTest as test_streaming_apply; test/run-apply-routing-unit.sh,
+! given a configured build directory, builds it there and runs it through ctest.
 program apply_routing_test
   use streaming_control, only: configure_fields, parse_control_frame, control_type_error
   use jt9_params_init,   only: cli_args_t, init_default_params,             &
        init_streaming_extra_fields
   use streaming_apply,   only: apply_configure_fields, params_block, engine_range_key, &
-       ft8_settings_change, ft8_identity_change, apply_msk144_fields
+       ft8_settings_change, ft8_identity_change, apply_msk144_fields,          &
+       search_controls, start_search_controls, apply_search_controls, NTOL_UNSET
+  use streaming_control, only: MODE_JTTY, MODE_FREQCAL, MODE_ECHO
   use msk144_stream,     only: msk144_settings
   implicit none
   integer :: nfail
@@ -37,13 +40,13 @@ program apply_routing_test
 
   call frame_flat()
   call frame_call_flags()
-  call frame_npts_c0_guard()
   call frame_rxfreq()
   call frame_decouple()
   call frame_emedelay_survive()
   call frame_emedelay_ft8()
   call frame_emedelay_q65()
   call frame_nfa_nfb_restore()
+  call frame_rx_tx()
   call frame_ntol_policy()
   call frame_mode_trperiod()
   call frame_multithreaded_pass_through()
@@ -84,29 +87,7 @@ contains
     call init_streaming_extra_fields(p, args)
   end subroutine fresh
 
-  subroutine frame_npts_c0_guard()
-    type(configure_fields) :: cfg
-    type(params_block) :: p
-    integer :: md
-    real(8) :: tr
-    write(*,'(a)') 'Frame npts_c0_array domain guard'
-    call fresh(p)
-    md = 9; tr = 60.d0
-    p%npts8 = 74736
-    cfg%npts_c0_array_set = .true.
-    cfg%npts_c0_array = -1
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('negative npts_c0_array not applied', p%npts8 .eq. 74736)
-    cfg%npts_c0_array = 0
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('zero npts_c0_array not applied', p%npts8 .eq. 74736)
-    cfg%npts_c0_array = 81649
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('oversize npts_c0_array not applied', p%npts8 .eq. 74736)
-    cfg%npts_c0_array = 81648
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('max npts_c0_array applied', p%npts8 .eq. 81648)
-  end subroutine frame_npts_c0_guard
+
 
   ! Read back a c_char(N) params field as a fixed-length string (inverse of the
   ! transfer() the apply does).
@@ -127,8 +108,7 @@ contains
   ! per-mode-policy block does NOT fire — emedelay survives, ntol/nfa/nfb keep
   ! the explicit value). This is the core routing assertion: each value must
   ! land in its OWN slot. The mis-route killers are the same-shaped pairs
-  ! (his_call/hisgrid, tx_audio_offset/nfsplit, min_width/min_sync,
-  ! dt_tolerance/emedelay).
+  ! (his_call/hisgrid, min_width/min_sync, dt_tolerance/emedelay).
   subroutine frame_flat()
     type(params_block)     :: p
     type(configure_fields) :: cfg
@@ -203,20 +183,16 @@ contains
     cfg%my_call_standard_set = .true.;  cfg%my_call_standard = .true.
     cfg%his_call_standard_set = .true.; cfg%his_call_standard = .false.
     cfg%tx_audio_offset_hz_set = .true.; cfg%tx_audio_offset_hz = 1234
-    cfg%jt65_jt9_split_hz_set = .true.;  cfg%jt65_jt9_split_hz = 2345
     cfg%max_drift_hz_set = .true.;       cfg%max_drift_hz = 55
     cfg%dt_tolerance_seconds_set = .true.; cfg%dt_tolerance_seconds = 0.7d0
     cfg%eme_delay_seconds_set = .true.;    cfg%eme_delay_seconds = 1.3d0
     cfg%kin_samples_set = .true.;      cfg%kin_samples = 99000
     cfg%nzhsym_per_period_set = .true.; cfg%nzhsym_per_period = 42
-    cfg%npts_c0_array_set = .true.;    cfg%npts_c0_array = 60000
     cfg%min_width_set = .true.;        cfg%min_width = 3
     cfg%min_sync_set = .true.;         cfg%min_sync = 4
     cfg%n_2pass_set = .true.;          cfg%n_2pass = 1
     cfg%aggressive_set = .true.;       cfg%aggressive = 7
-    cfg%robust_mode_set = .true.;      cfg%robust_mode = .true.
     cfg%nagain_flag_set = .true.;      cfg%nagain_flag = .true.
-    cfg%tx_mode_set = .true.;          cfg%tx_mode = 9
     cfg%clear_average_set = .true.;    cfg%clear_average = .true.
     cfg%nutc_set = .true.;             cfg%nutc = 133430
     cfg%ntol_set = .true.;             cfg%ntol = 250
@@ -263,7 +239,7 @@ contains
     cfg%n_trials_set = .true.;          cfg%n_trials_nranera = 8
     cfg%candthin_threshold_set = .true.; cfg%candthin_threshold = 1.5d0
     cfg%dt_center_seconds_set = .true.;  cfg%dt_center_seconds = 0.2d0
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('depth -> ndepth = 7',            p%ndepth   .eq. 7)
     call ok('submode -> nsubmode = 2',        p%nsubmode .eq. 2)
     call ok('mycall -> mycall = K5TST',       trim(s12(p%mycall))  .eq. 'K5TST')
@@ -274,21 +250,17 @@ contains
     call ok('his_b_call -> hisbcall = DX1/B',  trim(s12(p%hisbcall)) .eq. 'DX1/B')
     call ok('my_call_standard -> lmycallstd true',       logical(p%lmycallstd))
     call ok('his_call_standard -> lhiscallstd false', .not. logical(p%lhiscallstd))
-    call ok('tx_audio_offset_hz -> nftx = 1234 (not nfsplit)', p%nftx     .eq. 1234)
-    call ok('jt65_jt9_split_hz -> nfsplit = 2345 (not nftx)',  p%nfsplit  .eq. 2345)
+    call ok('tx_audio_offset_hz -> nftx = 1234', p%nftx     .eq. 1234)
     call ok('max_drift_hz -> max_drift = 55',  p%max_drift .eq. 55)
     call ok('dt_tolerance_seconds -> dttol = 0.7', abs(p%dttol - 0.7) .lt. 1.0e-6)
     call ok('eme_delay_seconds -> emedelay = 1.3 (survives)', abs(p%emedelay - 1.3) .lt. 1.0e-6)
     call ok('kin_samples -> kin = 99000',      p%kin     .eq. 99000)
     call ok('nzhsym_per_period -> nzhsym = 42', p%nzhsym .eq. 42)
-    call ok('npts_c0_array -> npts8 = 60000',  p%npts8   .eq. 60000)
     call ok('min_width -> minw = 3 (not minsync)',  p%minw    .eq. 3)
     call ok('min_sync -> minsync = 4 (not minw)',   p%minsync .eq. 4)
     call ok('n_2pass -> n2pass = 1',           p%n2pass  .eq. 1)
     call ok('aggressive -> naggressive = 7',   p%naggressive .eq. 7)
-    call ok('robust_mode -> nrobust true',     logical(p%nrobust))
     call ok('nagain_flag -> nagain true',      logical(p%nagain))
-    call ok('tx_mode -> ntxmode = 9',          p%ntxmode .eq. 9)
     call ok('clear_average -> nclearave true', logical(p%nclearave))
     call ok('nutc -> nutc = 133430',           p%nutc    .eq. 133430)
     call ok('ntol -> ntol = 250 (no policy)',  p%ntol    .eq. 250)
@@ -352,12 +324,12 @@ contains
     p%lhiscallstd = .false.   ! asserted .true.
     cfg%mycall_set = .true.;   cfg%mycall = 'PJ4/K1ABC'
     cfg%his_call_set = .true.; cfg%his_call = 'W9XYZ'
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('mycall PJ4/K1ABC alone -> lmycallstd false', .not. logical(p%lmycallstd))
     call ok('his_call W9XYZ alone -> lhiscallstd true', logical(p%lhiscallstd))
     cfg%mycall = 'K1ABC'
     cfg%his_call = ' '
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('mycall K1ABC alone -> lmycallstd true', logical(p%lmycallstd))
     call ok('his_call empty alone -> lhiscallstd false', .not. logical(p%lhiscallstd))
     ! A standard call with its key false: the key wins. One side per frame, so a
@@ -365,12 +337,12 @@ contains
     p%lmycallstd  = .true.    ! asserted .false.
     cfg_my%mycall_set = .true.; cfg_my%mycall = 'K1ABC'
     cfg_my%my_call_standard_set = .true.; cfg_my%my_call_standard = .false.
-    call apply_configure_fields(cfg_my, md, tr, p, BNFA, BNFB)
+    call apply(cfg_my, md, tr, p)
     call ok('mycall K1ABC with my_call_standard false -> false', .not. logical(p%lmycallstd))
     p%lhiscallstd = .true.    ! asserted .false.
     cfg_his%his_call_set = .true.; cfg_his%his_call = 'W9XYZ'
     cfg_his%his_call_standard_set = .true.; cfg_his%his_call_standard = .false.
-    call apply_configure_fields(cfg_his, md, tr, p, BNFA, BNFB)
+    call apply(cfg_his, md, tr, p)
     call ok('his_call W9XYZ with his_call_standard false -> false', .not. logical(p%lhiscallstd))
   end subroutine frame_call_flags
 
@@ -384,7 +356,7 @@ contains
     call fresh(p)
     md = 8; tr = 15.d0
     cfg%rxfreq_set = .true.; cfg%rxfreq = 1600
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('rxfreq -> nfqso = 1600', p%nfqso .eq. 1600)
     call ok('rxfreq -> nftx  = 1600', p%nftx  .eq. 1600)
   end subroutine frame_rxfreq
@@ -400,7 +372,7 @@ contains
     md = 8; tr = 15.d0
     cfg%rxfreq_set = .true.;             cfg%rxfreq = 1600
     cfg%tx_audio_offset_hz_set = .true.; cfg%tx_audio_offset_hz = 1700
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('nfqso = 1600 (rxfreq)',         p%nfqso .eq. 1600)
     call ok('nftx  = 1700 (offset overrides)', p%nftx .eq. 1700)
   end subroutine frame_decouple
@@ -415,7 +387,7 @@ contains
     call fresh(p)
     md = 8; tr = 15.d0
     cfg%eme_delay_seconds_set = .true.; cfg%eme_delay_seconds = 1.9d0
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('emedelay = 1.9 (no policy)', abs(p%emedelay - 1.9) .lt. 1.0e-6)
   end subroutine frame_emedelay_survive
 
@@ -431,7 +403,7 @@ contains
     md = 8; tr = 15.d0
     cfg%eme_delay_seconds_set = .true.; cfg%eme_delay_seconds = 1.9d0
     cfg%mode_set = .true.;              cfg%mode = 8
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('emedelay = 0.0 (FT8 policy)', abs(p%emedelay - 0.0) .lt. 1.0e-6)
   end subroutine frame_emedelay_ft8
 
@@ -447,83 +419,475 @@ contains
     cfg%eme_delay_seconds_set = .true.; cfg%eme_delay_seconds = 1.9d0
     cfg%mode_set = .true.;              cfg%mode = 66
     cfg%trperiod_set = .true.;          cfg%trperiod = 60.d0
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('emedelay = 2.5 (Q65 60s policy)', abs(p%emedelay - 2.5) .lt. 1.0e-6)
   end subroutine frame_emedelay_q65
 
-  ! Frame NFA/NFB restore: on a mode change with NO explicit nfa/nfb, the
-  ! session baseline is restored; an explicit nfa is honored instead.
-  subroutine frame_nfa_nfb_restore()
-    type(params_block)     :: p
-    type(configure_fields) :: cfg, blank
-    integer :: md
-    real(8) :: tr
-    write(*,'(a)') 'Frame NFA/NFB: mode change restores baseline unless explicit'
-    ! (a) no explicit nfa/nfb -> baseline restored
-    call fresh(p)
-    md = 8; tr = 15.d0
-    cfg = blank
-    cfg%mode_set = .true.; cfg%mode = 8
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('no nfa/nfb + mode change -> nfa = baseline 111', p%nfa .eq. BNFA)
-    call ok('no nfa/nfb + mode change -> nfb = baseline 222', p%nfb .eq. BNFB)
-    ! (b) explicit nfa wins over baseline
-    call fresh(p)
-    md = 8; tr = 15.d0
-    cfg = blank
-    cfg%mode_set = .true.; cfg%mode = 8
-    cfg%nfa_set = .true.;  cfg%nfa = 900
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('explicit nfa=900 + mode change -> nfa = 900 (not baseline)', p%nfa .eq. 900)
-  end subroutine frame_nfa_nfb_restore
+  ! A configure as the stream applies it: the fields, then the search
+  ! controls of a session that started with p's values (its nfa and nfb the
+  ! command line's -L and -H, its ntol -F), set up again when the frame
+  ! carries mode.
+  subroutine apply(cfg, md, tr, p)
+    type(configure_fields), intent(in)    :: cfg
+    integer,                intent(inout) :: md
+    real(8),                intent(inout) :: tr
+    type(params_block),     intent(inout) :: p
+    type(search_controls) :: c
+    call start_search_controls(c, md, p)
+    call apply_configure_fields(cfg, md, tr, p)
+    call apply_search_controls(c, cfg, md, md, p, cfg%mode_set, .false., .false.)
+  end subroutine apply
 
-  ! Frame NTOL policy: per-mode cap (consumer set) vs restore (consumer unset),
-  ! on a mode/trperiod change.
+  ! One configure against the controls c: mode md entered when entry is true
+  ! (a mode key, or an accepted Settings change), with ntol when nt >= 0.
+  subroutine step(c, p, md, entry, nt)
+    type(search_controls), intent(inout) :: c
+    type(params_block),    intent(inout) :: p
+    integer,               intent(in)    :: md, nt
+    logical,               intent(in)    :: entry
+    type(configure_fields) :: cfg
+    cfg%mode_set = entry
+    cfg%mode = md
+    cfg%ntol_set = nt .ge. 0
+    cfg%ntol = nt
+    call apply_search_controls(c, cfg, -2, md, p, entry, .false., .false.)
+  end subroutine step
+
+  ! WSJT-X's F Tol across modes (widgets/mainwindow_modes.cpp, each setup;
+  ! widgets/mainwindow_settings.cpp, its start): one box, which FT8, Q65 and
+  ! MSK144 set to their saved F Tol on entry, JT4, JT9 and JT65 too with VHF
+  ! features, FST4 to 20 without single decode and FST4W to 100; the other
+  ! entries keep it. FST4W and JTTY have their own boxes.
   subroutine frame_ntol_policy()
     type(params_block)     :: p
-    type(configure_fields) :: cfg, blank
-    integer :: md
-    real(8) :: tr
-    write(*,'(a)') 'Frame NTOL: per-mode cap/restore on mode change'
-    ! FT8, consumer unset -> restore default 1000. Sentinel 7777 first (review
-    ! HIGH: the mode-8 baseline is already 1000, so without a sentinel a deleted
-    ! restore line would pass vacuously).
-    call fresh(p); md = 8; tr = 15.d0; cfg = blank
-    p%ntol = 7777
-    cfg%mode_set = .true.; cfg%mode = 8
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('FT8 + no ntol -> ntol = 1000 (restored from 7777)', p%ntol .eq. 1000)
-    ! FT8, consumer 5000 -> min(5000,1000) = 1000
-    call fresh(p); md = 8; tr = 15.d0; cfg = blank
-    cfg%mode_set = .true.; cfg%mode = 8
-    cfg%ntol_set = .true.; cfg%ntol = 5000
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('FT8 + ntol 5000 -> ntol = 1000 (capped)', p%ntol .eq. 1000)
-    ! FT8, consumer 200 -> 200 (under cap)
-    call fresh(p); md = 8; tr = 15.d0; cfg = blank
-    cfg%mode_set = .true.; cfg%mode = 8
-    cfg%ntol_set = .true.; cfg%ntol = 200
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('FT8 + ntol 200 -> ntol = 200', p%ntol .eq. 200)
-    ! Q65, consumer 999 -> hard 10
-    call fresh(p); md = 8; tr = 60.d0; cfg = blank
-    cfg%mode_set = .true.; cfg%mode = 66
-    cfg%trperiod_set = .true.; cfg%trperiod = 60.d0
-    cfg%ntol_set = .true.; cfg%ntol = 999
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('Q65 + ntol 999 -> ntol = 10 (hard)', p%ntol .eq. 10)
-    ! JT65+JT9 (mode 74), consumer unset -> hard 20
-    call fresh(p); md = 8; tr = 60.d0; cfg = blank
-    cfg%mode_set = .true.; cfg%mode = 65 + 9
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('JT65+JT9 + no ntol -> ntol = 20 (hard)', p%ntol .eq. 20)
-    ! FST4 (241), consumer 50 -> min(50,100) = 50
-    call fresh(p); md = 8; tr = 60.d0; cfg = blank
-    cfg%mode_set = .true.; cfg%mode = 241
-    cfg%ntol_set = .true.; cfg%ntol = 50
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
-    call ok('FST4 + ntol 50 -> ntol = 50 (under cap)', p%ntol .eq. 50)
+    type(search_controls)  :: c
+    type(configure_fields) :: cfg
+    write(*,'(a)') 'Frame NTOL: WSJT-X''s F Tol across modes'
+    ! The session's start without -F: FT8, Q65 and JT9 50, FT4 the form's 10,
+    ! FST4 20, FST4W its own 100.
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 8, p)
+    call ok('start FT8 -> 50', p%ntol .eq. 50)
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 66, p)
+    call ok('start Q65 -> 50 (was 10)', p%ntol .eq. 50)
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 5, p)
+    call ok('start FT4 -> 10', p%ntol .eq. 10)
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 240, p)
+    call ok('start FST4 -> 20', p%ntol .eq. 20)
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 241, p)
+    call ok('start FST4W -> 100', p%ntol .eq. 100)
+    ! -F is set as a configure's ntol: at most 1000, FST4W at most 100.
+    call fresh(p); p%ntol = 5000
+    call start_search_controls(c, 8, p)
+    call ok('start FT8 -F 5000 -> 1000', p%ntol .eq. 1000)
+    call fresh(p); p%ntol = 300
+    call start_search_controls(c, 241, p)
+    call ok('start FST4W -F 300 -> 100', p%ntol .eq. 100)
+
+    ! From FT8: JT9, JT4, JT65 and FreqCal without VHF features keep F Tol.
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 8, p)
+    call step(c, p, 8, .false., 30)
+    call ok('FT8 ntol 30 -> 30', p%ntol .eq. 30)
+    call step(c, p, 9, .true., -1)
+    call ok('-> JT9, VHF off -> 30 kept (was 1000)', p%ntol .eq. 30)
+    call step(c, p, 4, .true., -1)
+    call ok('-> JT4, VHF off -> 30 kept', p%ntol .eq. 30)
+    call step(c, p, 65, .true., -1)
+    call ok('-> JT65, VHF off -> 30 kept', p%ntol .eq. 30)
+    call step(c, p, MODE_FREQCAL, .true., -1)
+    call ok('-> FreqCal, VHF off -> 30 kept', p%ntol .eq. 30)
+    ! With VHF features they put back their own (50 until set).
+    p%nexp_decode = ior(p%nexp_decode, 64)
+    call step(c, p, 9, .true., -1)
+    call ok('-> JT9, VHF on -> 50', p%ntol .eq. 50)
+    call step(c, p, 9, .false., 100)
+    call ok('JT9 ntol 100 -> 100', p%ntol .eq. 100)
+    call step(c, p, 8, .true., -1)
+    call ok('-> FT8 -> its saved 30', p%ntol .eq. 30)
+    call step(c, p, 9, .true., -1)
+    call ok('-> JT9, VHF on -> its saved 100', p%ntol .eq. 100)
+    call step(c, p, 4, .true., -1)
+    call ok('-> JT4, VHF on -> 50', p%ntol .eq. 50)
+    call step(c, p, 65, .true., -1)
+    call ok('-> JT65, VHF on -> 50', p%ntol .eq. 50)
+    call step(c, p, MODE_FREQCAL, .true., -1)
+    call ok('-> FreqCal, VHF on -> JT9''s 100', p%ntol .eq. 100)
+    ! An accepted Settings change sets the mode up again: VHF features turned
+    ! on in JT9 put back JT9's F Tol.
+    p%nexp_decode = iand(p%nexp_decode, not(64))
+    call step(c, p, 8, .true., -1)
+    call step(c, p, 9, .true., -1)
+    call ok('FT8 -> JT9, VHF off -> FT8''s 30', p%ntol .eq. 30)
+    p%nexp_decode = ior(p%nexp_decode, 64)
+    call step(c, p, 9, .false., -1)
+    call ok('VHF turned on, no Settings accept -> 30', p%ntol .eq. 30)
+    cfg = configure_fields()
+    call apply_search_controls(c, cfg, 9, 9, p, .true., .false., .false.)
+    call ok('VHF turned on, Settings accepted -> JT9''s 100', p%ntol .eq. 100)
+    ! Fast JT9 (VHF features in WSJT-X) puts back JT9's too.
+    p%nexp_decode = iand(p%nexp_decode, not(64))
+    call step(c, p, 8, .true., -1)
+    cfg = configure_fields()
+    cfg%mode_set = .true.; cfg%mode = 9
+    call apply_search_controls(c, cfg, 9, 9, p, .true., .true., .false.)
+    call ok('FT8 -> fast JT9 -> JT9''s 100', p%ntol .eq. 100)
+
+    ! Q65 and MSK144 put back theirs; Q65 takes the value sent (was 10).
+    call step(c, p, 66, .true., -1)
+    call ok('-> Q65 -> 50 (was 10)', p%ntol .eq. 50)
+    call step(c, p, 66, .true., 999)
+    call ok('Q65 with ntol 999 -> 999 (was 10)', p%ntol .eq. 999)
+    cfg = configure_fields()
+    cfg%trperiod_set = .true.; cfg%trperiod = 30.d0
+    call apply_search_controls(c, cfg, 66, 66, p, .false., .false., .false.)
+    call ok('Q65 trperiod alone -> 999 kept', p%ntol .eq. 999)
+    call step(c, p, 144, .true., -1)
+    call ok('-> MSK144 -> 50 (was 1000)', p%ntol .eq. 50)
+    call step(c, p, 66, .true., -1)
+    call ok('-> Q65 -> its saved 999', p%ntol .eq. 999)
+    call step(c, p, 8, .true., 5000)
+    call ok('FT8 with mode and ntol 5000 -> 1000', p%ntol .eq. 1000)
+    call step(c, p, 8, .false., 2000)
+    call ok('FT8 ntol 2000 alone -> 2000, left to the range checks', p%ntol .eq. 2000)
+
+    ! FST4: 20 without single decode; with it F Tol is kept. FST4W's own box
+    ! (100, at most 100), and F Tol 100 after it.
+    call step(c, p, 8, .true., 40)
+    call step(c, p, 240, .true., -1)
+    call ok('-> FST4 -> 20 (was 1000)', p%ntol .eq. 20)
+    call step(c, p, 8, .true., -1)
+    p%nexp_decode = ior(p%nexp_decode, 32)
+    call step(c, p, 240, .true., -1)
+    call ok('-> FST4, single decode -> FT8''s 40 kept', p%ntol .eq. 40)
+    p%nexp_decode = iand(p%nexp_decode, not(32))
+    call step(c, p, 241, .true., -1)
+    call ok('-> FST4W -> 100', p%ntol .eq. 100)
+    call step(c, p, 241, .true., 500)
+    call ok('FST4W with mode and ntol 500 -> 100', p%ntol .eq. 100)
+    call step(c, p, 241, .false., 30)
+    call ok('FST4W ntol 30 -> 30', p%ntol .eq. 30)
+    call step(c, p, 5, .true., -1)
+    call ok('-> FT4 -> the 100 FST4W''s setup left in F Tol', p%ntol .eq. 100)
+    call step(c, p, 241, .true., -1)
+    call ok('-> FST4W -> its own 30', p%ntol .eq. 30)
+    ! JTTY's own box: 20 until set, kept across modes.
+    call step(c, p, MODE_JTTY, .true., -1)
+    call ok('-> JTTY -> 20', p%ntol .eq. 20)
+    call step(c, p, MODE_JTTY, .false., 60)
+    call step(c, p, 8, .true., -1)
+    call ok('-> FT8 -> its saved 40', p%ntol .eq. 40)
+    call step(c, p, MODE_JTTY, .true., -1)
+    call ok('-> JTTY -> its own 60', p%ntol .eq. 60)
+    ! SuperFox Hound: Rx Freq 750 on entry unless 700 to 800, held to
+    ! 200..1400; F Tol held to 100 and saved so.
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 8, p)
+    p%nexp_decode = ior(iand(p%nexp_decode, not(7)), 7)
+    p%b_superfox = .true.
+    p%nfqso = 1500
+    call step(c, p, 8, .true., -1)
+    call ok('SuperFox Hound entry, Rx 1500 -> 750', p%nfqso .eq. 750)
+    call ok('SuperFox Hound entry -> F Tol 50', p%ntol .eq. 50)
+    call rx(c, p, 8, 8, .false., 760)
+    call step(c, p, 8, .true., -1)
+    call ok('SuperFox Hound entry, Rx 760 -> 760 kept', p%nfqso .eq. 760)
+    call step(c, p, 8, .false., 500)
+    call ok('SuperFox Hound ntol 500 -> 100', p%ntol .eq. 100)
+    cfg = configure_fields()
+    cfg%rxfreq_set = .true.; cfg%rxfreq = 1500
+    p%nfqso = 1500
+    call apply_search_controls(c, cfg, 8, 8, p, .false., .false., .false.)
+    call ok('SuperFox Hound rxfreq 1500 -> 1400', p%nfqso .eq. 1400)
+    ! With multithreaded FT8 WSJT-X's SuperFox Hound decode takes 50.
+    p%lmultift8 = .true.
+    call step(c, p, 8, .false., 80)
+    call ok('SuperFox Hound, multithreaded, F Tol 80 -> 50', p%ntol .eq. 50)
+    p%lmultift8 = .false.
+    call step(c, p, 8, .false., -1)
+    call ok('SuperFox Hound, single-threaded -> F Tol 80', p%ntol .eq. 80)
+    p%b_superfox = .false.
+    call step(c, p, 8, .true., -1)
+    call ok('Hound without SuperFox -> FT8''s saved 80', p%ntol .eq. 80)
+
+    ! Each mode's own saved F Tol, distinct values (JT4 70, JT65 60, MSK144
+    ! 300, JT9 90, Q65 40, FT8 30); Echo with VHF features takes JT4's.
+    call fresh(p); p%ntol = NTOL_UNSET
+    call start_search_controls(c, 8, p)
+    p%nexp_decode = ior(p%nexp_decode, 64)
+    call step(c, p, 4, .true., 70)
+    call step(c, p, 65, .true., 60)
+    call step(c, p, 144, .true., 300)
+    call step(c, p, 9, .true., 90)
+    call step(c, p, 66, .true., 40)
+    call step(c, p, 8, .true., 30)
+    call step(c, p, 4, .true., -1)
+    call ok('-> JT4, VHF -> 70', p%ntol .eq. 70)
+    call step(c, p, 65, .true., -1)
+    call ok('-> JT65, VHF -> 60', p%ntol .eq. 60)
+    call step(c, p, 144, .true., -1)
+    call ok('-> MSK144 -> 300', p%ntol .eq. 300)
+    call step(c, p, 9, .true., -1)
+    call ok('-> JT9, VHF -> 90', p%ntol .eq. 90)
+    call step(c, p, 66, .true., -1)
+    call ok('-> Q65 -> 40', p%ntol .eq. 40)
+    call step(c, p, MODE_ECHO, .true., -1)
+    call step(c, p, 5, .true., -1)
+    call ok('-> Echo, VHF -> JT4''s 70, then FT4 keeps it', p%ntol .eq. 70)
+    ! Entering a mode holds a carried F Tol to its range: 1 to 1000, MSK144
+    ! 20 to 500, saved so.
+    call step(c, p, 9, .false., 3000)
+    call ok('JT9 ntol 3000 alone -> 3000', p%ntol .eq. 3000)
+    call step(c, p, 9, .true., -1)
+    call ok('-> JT9 again -> held to 1000', p%ntol .eq. 1000)
+    call step(c, p, 144, .false., 10)
+    call step(c, p, 8, .true., -1)
+    call step(c, p, 144, .true., -1)
+    call ok('MSK144 saved 10 -> entry holds to 20', p%ntol .eq. 20)
+    call step(c, p, 8, .false., 0)
+    call step(c, p, 5, .true., -1)
+    call ok('FT8 ntol 0 alone -> FT4 entry holds to 1', p%ntol .eq. 1)
+
+    ! A negative -F is -F.
+    call fresh(p); p%ntol = -5
+    call start_search_controls(c, 8, p)
+    call ok('start FT8 -F -5 -> -5, for the range check', p%ntol .eq. -5)
   end subroutine frame_ntol_policy
+
+  ! The search range: the waterfall's (the command line's -L and -H until a
+  ! frame sets it) in every mode but FST4, which searches F Low to F High
+  ! (600 and 1400 until set, held inside the waterfall's range, F High in
+  ! whole hundreds: chk_FST4_freq_range), or Rx Freq +/- F Tol with single
+  ! decode (MainWindow::decode). A mode change keeps them, as WSJT-X's do.
+  subroutine frame_nfa_nfb_restore()
+    type(params_block)     :: p
+    type(search_controls)  :: c
+    type(configure_fields) :: cfg
+    write(*,'(a)') 'Frame NFA/NFB: the waterfall''s range, and FST4''s'
+    call fresh(p); p%ntol = NTOL_UNSET
+    p%nfa = 200; p%nfb = 4000
+    call start_search_controls(c, 8, p)
+    call ok('start -> nfa = -L 200', p%nfa .eq. 200)
+    cfg = configure_fields()
+    cfg%nfa_set = .true.; cfg%nfa = 300
+    call apply_search_controls(c, cfg, 8, 8, p, .false., .false., .false.)
+    call ok('nfa 300 -> 300', p%nfa .eq. 300)
+    call step(c, p, 66, .true., -1)
+    call ok('-> Q65 -> nfa 300 kept (was the baseline)', p%nfa .eq. 300)
+    call ok('-> Q65 -> nfb 4000 kept', p%nfb .eq. 4000)
+    call step(c, p, 240, .true., -1)
+    call ok('-> FST4 -> F Low 600', p%nfa .eq. 600)
+    call ok('-> FST4 -> F High 1400', p%nfb .eq. 1400)
+    cfg = configure_fields()
+    cfg%nfa_set = .true.; cfg%nfa = 700
+    call apply_search_controls(c, cfg, 240, 240, p, .false., .false., .false.)
+    call ok('FST4 nfa 700 -> F Low 700', p%nfa .eq. 700)
+    p%nexp_decode = ior(p%nexp_decode, 32)
+    p%nfqso = 1500
+    cfg = configure_fields()
+    cfg%ntol_set = .true.; cfg%ntol = 50
+    call apply_search_controls(c, cfg, 240, 240, p, .false., .false., .false.)
+    call ok('FST4 single decode -> nfa = Rx - F Tol', p%nfa .eq. 1450)
+    call ok('FST4 single decode -> nfb = Rx + F Tol', p%nfb .eq. 1550)
+    p%nexp_decode = iand(p%nexp_decode, not(32))
+    call step(c, p, 240, .false., -1)
+    call ok('single decode off -> F Low 700 again', p%nfa .eq. 700)
+    call step(c, p, 8, .true., -1)
+    call ok('-> FT8 -> the waterfall''s 300', p%nfa .eq. 300)
+    cfg = configure_fields()
+    cfg%nfb_set = .true.; cfg%nfb = 1050
+    call apply_search_controls(c, cfg, 8, 8, p, .false., .false., .false.)
+    call step(c, p, 240, .true., -1)
+    call ok('waterfall to 1050 -> FST4 F High 1000', p%nfb .eq. 1000)
+    cfg = configure_fields()
+    cfg%nfa_set = .true.; cfg%nfa = 100
+    call apply_search_controls(c, cfg, 240, 240, p, .false., .false., .false.)
+    call ok('FST4 nfa 100 -> held to the waterfall''s 300', p%nfa .eq. 300)
+    ! A session that starts in FST4 takes -L and -H as F Low and F High.
+    call fresh(p); p%ntol = NTOL_UNSET
+    p%nfa = 250; p%nfb = 3000
+    call start_search_controls(c, 240, p)
+    call ok('start FST4 -> nfa = -L', p%nfa .eq. 250)
+  end subroutine frame_nfa_nfb_restore
+
+  ! Rx and Tx Freq on a mode's entry (widgets/mainwindow_modes.cpp). WSJT-X
+  ! decodes at the waterfall's Rx (MSK144, fast JT9 and FreqCal at the Rx
+  ! box), which a change of the Rx box moves, as do
+  ! the setups of FST4, JT65, Q65, JTTY, SuperFox Hound, FreqCal and FST4W
+  ! (its own box); FST4, FT4, JT4, JT65, Q65, JTTY (from another mode) and
+  ! Hound without SuperFox put back the last Rx set in a mode that keeps it
+  ! (not MSK144, FST4W, WSPR, Echo, FreqCal, SuperFox Hound), and the Tx
+  ! likewise (FT8 too, but in Fox); MSK144 sets 1500; every setup but Hound's
+  ! holds the box to its range. A frame's rxfreq wins.
+  subroutine frame_rx_tx()
+    type(params_block)     :: p
+    type(search_controls)  :: c
+    write(*,'(a)') 'Frame RX/TX: WSJT-X''s Rx and Tx Freq on entry'
+    call fresh(p); p%ntol = NTOL_UNSET
+    p%nfqso = 1500; p%nftx = 1500
+    call start_search_controls(c, 8, p)
+    call rx(c, p, 8, 8, .false., 1200)
+    call go(c, p, 8, 144)
+    call ok('FT8 Rx 1200 -> MSK144 -> Rx 1500', p%nfqso .eq. 1500)
+    call ok('FT8 Tx 1200 -> MSK144 -> Tx 1500', p%nftx .eq. 1500)
+    call go(c, p, 144, 8)
+    call ok('MSK144 -> FT8 keeps Rx 1500 (FT8 sets no Rx)', p%nfqso .eq. 1500)
+    call ok('MSK144 -> FT8 puts back Tx 1200', p%nftx .eq. 1200)
+    call go(c, p, 8, 5)
+    call ok('-> FT4 -> Rx 1200, the last kept', p%nfqso .eq. 1200)
+    call ok('-> FT4 -> Tx 1200, the last kept', p%nftx .eq. 1200)
+    call go(c, p, 5, MODE_FREQCAL)
+    call ok('-> FreqCal -> Rx 1500', p%nfqso .eq. 1500)
+    call go(c, p, MODE_FREQCAL, 66)
+    call ok('FreqCal -> Q65 -> Rx 1200 (FreqCal keeps none)', p%nfqso .eq. 1200)
+    call rx(c, p, 66, 65, .true., 900)
+    call ok('-> JT65 with rxfreq 900 -> 900 (the frame wins)', p%nfqso .eq. 900)
+    call go(c, p, 65, 9)
+    call go(c, p, 9, MODE_JTTY)
+    call ok('-> JTTY from JT9 -> Rx 900, the last kept', p%nfqso .eq. 900)
+    call rx(c, p, MODE_JTTY, MODE_JTTY, .false., 2000)
+    call go(c, p, MODE_JTTY, MODE_JTTY)
+    call ok('JTTY again keeps Rx 2000', p%nfqso .eq. 2000)
+    call rx(c, p, MODE_JTTY, 8, .true., 100)
+    call go(c, p, 8, 9)
+    call ok('a carried Rx 100 -> JT9 -> held to 200', p%nfqso .eq. 200)
+    ! Fast JT9's 700 is kept for the modes that put Rx back; FT4 puts back
+    ! Tx too, straight after MSK144's 1500.
+    call fresh(p); p%ntol = NTOL_UNSET
+    p%nfqso = 1200; p%nftx = 1200
+    call start_search_controls(c, 8, p)
+    call apply_search_controls(c, entering(9), 8, 9, p, .true., .true., .false.)
+    call go(c, p, 9, 144)
+    call ok('FT8 1200 -> MSK144 -> Tx 1500', p%nftx .eq. 1500)
+    call go(c, p, 144, 5)
+    call ok('fast JT9 -> MSK144 -> FT4 -> Rx 700, fast JT9''s kept', p%nfqso .eq. 700)
+    call ok('fast JT9 -> MSK144 -> FT4 -> Tx 700, fast JT9''s kept', p%nftx .eq. 700)
+    ! FST4W's own Rx; leaving it the waterfall keeps it where the next setup
+    ! sets no Rx (FT8, and FT4 when the box is already the last kept), and
+    ! takes the box's where it does (JT65), FreqCal's 1500 and fast JT9's 700.
+    call fresh(p); p%ntol = NTOL_UNSET
+    p%nfqso = 1200; p%nftx = 1200
+    call start_search_controls(c, 8, p)
+    call go(c, p, 8, 241)
+    call ok('FT8 Rx 1200 -> FST4W -> its Rx 1500', p%nfqso .eq. 1500)
+    call rx(c, p, 241, 241, .false., 1400)
+    call ok('FST4W rxfreq 1400 -> 1400', p%nfqso .eq. 1400)
+    call go(c, p, 241, 8)
+    call ok('-> FT8 -> still FST4W''s 1400, as WSJT-X''s waterfall', p%nfqso .eq. 1400)
+    call go(c, p, 8, 5)
+    call ok('-> FT4, box already 1200 -> still 1400', p%nfqso .eq. 1400)
+    call go(c, p, 5, 65)
+    call ok('-> JT65 -> the box''s 1200', p%nfqso .eq. 1200)
+    call go(c, p, 65, 241)
+    call ok('-> FST4W -> its own 1400', p%nfqso .eq. 1400)
+    call go(c, p, 241, MODE_FREQCAL)
+    call ok('FST4W -> FreqCal -> Rx 1500', p%nfqso .eq. 1500)
+    call go(c, p, MODE_FREQCAL, 241)
+    call apply_search_controls(c, entering(9), 241, 9, p, .true., .true., .false.)
+    call ok('FST4W -> fast JT9 -> Rx 700', p%nfqso .eq. 700)
+    call ok('FST4W -> fast JT9 -> Tx 700', p%nftx .eq. 700)
+    ! MSK144 and fast JT9 decode at the box: back from FST4W with the box
+    ! already 1500 or 700 they keep it, where the waterfall kept FST4W's.
+    call go(c, p, 9, 144)
+    call go(c, p, 144, 241)
+    call rx(c, p, 241, 241, .false., 1400)
+    call go(c, p, 241, 144)
+    call ok('MSK144 -> FST4W 1400 -> MSK144 -> 1500, the box', p%nfqso .eq. 1500)
+    call apply_search_controls(c, entering(9), 144, 9, p, .true., .true., .false.)
+    call go(c, p, 9, 241)
+    call apply_search_controls(c, entering(9), 241, 9, p, .true., .true., .false.)
+    call ok('fast JT9 -> FST4W -> fast JT9 -> 700, the box', p%nfqso .eq. 700)
+    ! Hound without SuperFox puts back Rx without setting the box's range:
+    ! after MSK144 it stays 1400..1600, so the last kept 1300 is held to 1400,
+    ! as in WSJT-X (setupFT8 skips switch_mode in Hound).
+    call fresh(p); p%ntol = NTOL_UNSET
+    p%nfqso = 1300; p%nftx = 1300
+    call start_search_controls(c, 8, p)
+    call go(c, p, 8, MODE_FREQCAL)
+    p%nexp_decode = ior(iand(p%nexp_decode, not(7)), 7)
+    call go(c, p, MODE_FREQCAL, 8)
+    call ok('FreqCal -> Hound -> Rx 1300', p%nfqso .eq. 1300)
+    p%nexp_decode = iand(p%nexp_decode, not(7))
+    call go(c, p, 8, 144)
+    p%nexp_decode = ior(iand(p%nexp_decode, not(7)), 7)
+    call go(c, p, 144, 8)
+    call ok('MSK144 -> Hound -> Rx 1400, held to MSK144''s range', p%nfqso .eq. 1400)
+    ! Fox takes its own Tx, 300 until set, saved there; SuperFox Fox holds 750.
+    p%nexp_decode = ior(iand(p%nexp_decode, not(7)), 6)
+    call go(c, p, 8, 8)
+    call ok('-> Fox -> Tx 300', p%nftx .eq. 300)
+    call tx(c, p, 450)
+    p%nexp_decode = iand(p%nexp_decode, not(7))
+    call go(c, p, 8, 8)
+    call ok('Fox Tx 450 -> plain FT8 -> Tx 1300, not Fox''s', p%nftx .eq. 1300)
+    p%nexp_decode = ior(iand(p%nexp_decode, not(7)), 6)
+    call go(c, p, 8, 8)
+    call ok('-> Fox again -> its own 450', p%nftx .eq. 450)
+    p%b_superfox = .true.
+    call go(c, p, 8, 8)
+    call ok('-> SuperFox Fox -> Tx 750', p%nftx .eq. 750)
+    call tx(c, p, 900)
+    call ok('SuperFox Fox Tx 900 -> held to 750', p%nftx .eq. 750)
+    p%b_superfox = .false.
+    p%nexp_decode = iand(p%nexp_decode, not(7))
+    ! A session that starts in Fox takes -f as Fox's Tx.
+    call fresh(p); p%ntol = NTOL_UNSET
+    p%nfqso = 1500; p%nftx = 600
+    p%nexp_decode = ior(iand(p%nexp_decode, not(7)), 6)
+    call start_search_controls(c, 8, p)
+    p%nexp_decode = iand(p%nexp_decode, not(7))
+    call go(c, p, 8, 8)
+    p%nexp_decode = ior(iand(p%nexp_decode, not(7)), 6)
+    call go(c, p, 8, 8)
+    call ok('start in Fox with Tx 600 -> back in Fox -> 600', p%nftx .eq. 600)
+  end subroutine frame_rx_tx
+
+  ! A configure that chooses mode md, from was.
+  subroutine go(c, p, was, md)
+    type(search_controls), intent(inout) :: c
+    type(params_block),    intent(inout) :: p
+    integer,               intent(in)    :: was, md
+    call apply_search_controls(c, entering(md), was, md, p, .true., .false., .false.)
+  end subroutine go
+
+  function entering(md) result(cfg)
+    integer, intent(in) :: md
+    type(configure_fields) :: cfg
+    cfg%mode_set = .true.
+    cfg%mode = md
+  end function entering
+
+  ! A configure with rxfreq n (and so Tx n), choosing md when entry.
+  subroutine rx(c, p, was, md, entry, n)
+    type(search_controls), intent(inout) :: c
+    type(params_block),    intent(inout) :: p
+    integer,               intent(in)    :: was, md, n
+    logical,               intent(in)    :: entry
+    type(configure_fields) :: cfg
+    cfg%mode_set = entry
+    cfg%mode = md
+    cfg%rxfreq_set = .true.
+    cfg%rxfreq = n
+    p%nfqso = n
+    p%nftx = n
+    call apply_search_controls(c, cfg, was, md, p, entry, .false., .false.)
+  end subroutine rx
+
+  ! A configure in FT8 with tx_audio_offset_hz n.
+  subroutine tx(c, p, n)
+    type(search_controls), intent(inout) :: c
+    type(params_block),    intent(inout) :: p
+    integer,               intent(in)    :: n
+    type(configure_fields) :: cfg
+    cfg%tx_audio_offset_hz_set = .true.
+    cfg%tx_audio_offset_hz = n
+    p%nftx = n
+    call apply_search_controls(c, cfg, 8, 8, p, .false., .false., .false.)
+  end subroutine tx
 
   ! Frame MODE/TRPERIOD: mode routes to io_mode + nmode; default TRperiod is
   ! derived when no explicit trperiod follows; explicit trperiod -> ntr.
@@ -536,7 +900,7 @@ contains
     ! mode=5 (FT4), no explicit trperiod -> io_mode=5, nmode=5, TRperiod=7.5, ntr=7
     call fresh(p); md = 8; tr = 15.d0; cfg = blank
     cfg%mode_set = .true.; cfg%mode = 5
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('mode=5 -> io_mode = 5',      md .eq. 5)
     call ok('mode=5 -> nmode = 5',        p%nmode .eq. 5)
     call ok('mode=5 -> TRperiod = 7.5',   abs(tr - 7.5d0) .lt. 1.0e-9)
@@ -545,7 +909,7 @@ contains
     call fresh(p); md = 8; tr = 15.d0; cfg = blank
     cfg%mode_set = .true.; cfg%mode = 144
     cfg%trperiod_set = .true.; cfg%trperiod = 30.d0
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('trperiod=30 -> ntr = 30',    p%ntr .eq. 30)
   end subroutine frame_mode_trperiod
 
@@ -560,12 +924,12 @@ contains
     call fresh(p); md = 8; tr = 15.d0; cfg = blank
     p%lmultift8 = .false.
     cfg%multithreaded_ft8_set = .true.; cfg%multithreaded_ft8 = .true.
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('multithreaded_ft8=true -> lmultift8 true', logical(p%lmultift8))
     call fresh(p); md = 8; tr = 15.d0; cfg = blank
     p%lmultift8 = .true.
     cfg%multithreaded_ft8_set = .true.; cfg%multithreaded_ft8 = .false.
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('multithreaded_ft8=false -> lmultift8 false', .not. logical(p%lmultift8))
   end subroutine frame_multithreaded_pass_through
 
@@ -587,21 +951,21 @@ contains
     do i = 1, size(qso)
        call fresh(p); cfg = blank; p%nQSOProgress = 2
        cfg%qso_progress_state_set = .true.; cfg%qso_progress_state = qso(i)
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        write(v, '(i0)') qso(i)
        call ok('qso_progress_state=' // trim(v) // ' applied as sent', p%nQSOProgress .eq. qso(i))
     end do
     do i = 1, size(threads)
        call fresh(p); cfg = blank; p%nmt = 2
        cfg%ft8_threads_set = .true.; cfg%ft8_threads = threads(i)
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        write(v, '(i0)') threads(i)
        call ok('ft8_threads=' // trim(v) // ' applied as sent', p%nmt .eq. threads(i))
     end do
     do i = 1, size(nranera)
        call fresh(p); cfg = blank; p%nranera = 4
        cfg%n_trials_set = .true.; cfg%n_trials_nranera = nranera(i)
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        write(v, '(i0)') nranera(i)
        call ok('n_trials nranera=' // trim(v) // ' applied as sent', p%nranera .eq. nranera(i))
     end do
@@ -695,18 +1059,18 @@ contains
     ! (a) utc alone -> nutc = utc_nutc.
     call fresh(p); cfg = blank; p%nutc = 999999
     cfg%utc_set = .true.; cfg%utc_nutc = 133430
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('utc alone -> nutc = 133430', p%nutc .eq. 133430)
     ! (b) legacy nutc alone -> nutc = nutc.
     call fresh(p); cfg = blank; p%nutc = 999999
     cfg%nutc_set = .true.; cfg%nutc = 120000
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('nutc alone -> nutc = 120000', p%nutc .eq. 120000)
     ! (c) BOTH -> utc wins (120000 overwritten by 133430).
     call fresh(p); cfg = blank; p%nutc = 999999
     cfg%nutc_set = .true.; cfg%nutc = 120000
     cfg%utc_set  = .true.; cfg%utc_nutc = 133430
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('nutc+utc -> utc WINS (nutc = 133430, not 120000)', p%nutc .eq. 133430)
   end subroutine frame_utc_precedence
 
@@ -725,25 +1089,25 @@ contains
        cfg%trperiod_set = .true.; cfg%trperiod = 120.d0
        cfg%nutc_set = .true.; cfg%nutc = 120000
        md = 8; tr = 15.d0
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        call ok(trim(label)//': full numeric noon stays HHMMSS', p%nutc .eq. 120000)
 
        cfg%mode_set = .false.; cfg%trperiod_set = .false.
        cfg%nutc = 1234
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        call ok(trim(label)//': legacy numeric HHMM becomes HHMMSS', p%nutc .eq. 123400)
 
        cfg%nutc = 15
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        call ok(trim(label)//': legacy numeric 0015 means 00:15:00', p%nutc .eq. 1500)
 
        cfg%nutc = 2359
        cfg%utc_set = .true.; cfg%utc_nutc = 1500
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        call ok(trim(label)//': ISO 00:15:00 overrides numeric HHMM', p%nutc .eq. 1500)
 
        cfg%nutc_set = .false.; cfg%utc_nutc = 30
-       call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+       call apply(cfg, md, tr, p)
        call ok(trim(label)//': ISO 00:00:30 retains seconds', p%nutc .eq. 30)
     end do
   end subroutine frame_fst4_utc
@@ -770,7 +1134,7 @@ contains
     p%nexp_decode = 99        ! sentinel != 1382
     cfg%ndepth_packed_set = .true.;      cfg%ndepth_packed = 178
     cfg%nexp_decode_packed_set = .true.; cfg%nexp_decode_packed = 1382
-    call apply_configure_fields(cfg, md, tr, p, BNFA, BNFB)
+    call apply(cfg, md, tr, p)
     call ok('ndepth_packed -> ndepth = 178 (not sentinel 99)',        p%ndepth      .eq. 178)
     call ok('nexp_decode_packed -> nexp_decode = 1382 (not sentinel 99)', p%nexp_decode .eq. 1382)
   end subroutine frame_phase9_pack
@@ -785,6 +1149,26 @@ contains
     call ok('cancel: an unchanged copy changes no identity', .not. ft8_identity_change(was, now))
     now = was; now%ndepth = was%ndepth + 1
     call setting('depth', was, now)
+    ! The rest of ndepth (averaging 16, deep search 32, automatic clear 128,
+    ! 64) is checked at take-up, as WSJT-X's pending identity.
+    now = was; now%ndepth = ieor(was%ndepth, 16)
+    call identity('use_averaging', was, now)
+    now = was; now%ndepth = ieor(was%ndepth, 32)
+    call identity('deep_ap_search', was, now)
+    now = was; now%ndepth = ieor(was%ndepth, 128)
+    call identity('q65_auto_clear_average', was, now)
+    ! Bit 0x100 of ndepth is the JT9 window request, not a depth.
+    now = was; now%ndepth = ior(was%ndepth, 256)
+    call ok('cancel: setting the JT9 window bit alone is not an FT8 setting', &
+         .not. ft8_settings_change(was, now))
+    call ok('cancel: clearing the JT9 window bit alone is not an FT8 setting', &
+         .not. ft8_settings_change(now, was))
+    now = was; now%ndepth = ior(was%ndepth + 1, 256)
+    call setting('a depth change that also sets the window bit', was, now)
+    was%ndepth = ior(was%ndepth, 256)
+    now = was; now%ndepth = was%ndepth + 1
+    call setting('a depth change with the window bit already set', was, now)
+    call fresh(was)
     now = was; now%lmultift8 = .not. was%lmultift8
     call setting('multithreaded_ft8', was, now)
     now = was; now%nmt = was%nmt + 1
@@ -821,6 +1205,12 @@ contains
     call setting('vhf_features', was, now)
     now = was; now%nranera = was%nranera + 1
     call setting('n_trials', was, now)
+    now = was; now%naggressive = was%naggressive + 1
+    call setting('aggressive', was, now)
+    now = was; now%n2pass = 3 - was%n2pass
+    call setting('n_2pass', was, now)
+    now = was; now%nexp_decode = ieor(was%nexp_decode, 128)
+    call setting('q65_pileup', was, now)
     now = was; now%emedelay = was%emedelay + 1
     call setting('decode_after_eme_delay', was, now)
     now = was; now%nexp_decode = was%nexp_decode + 256

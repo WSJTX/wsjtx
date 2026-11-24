@@ -10,6 +10,9 @@
 ! zeros after it.
 ! depth is the GUI's (m_ndepth&7 in MainWindow::decode): 1 wsprd -qB, 2
 ! -C 500 -o 4, 3 -C 500 -o 4 -d, any other value wsprd's defaults.
+! wspr_threads sets the decode's threads by ft8_threads' rule (0, its
+! default, from the CPU count; lib/wsprd/wspr_parallel.f90); the decodes are
+! the same whatever the count.
 ! The hash table, which resolves type 3 messages, lives for the session: it
 ! is loaded from <-a>/hashtable.txt before the session's first WSPR decode
 ! and written back, in wsprd's format, after every WSPR period decoded;
@@ -75,11 +78,11 @@ module streaming_wspr
   end type wspr_result
 
   interface
-     function stream_wspr_decode(samples, k, ndepth, dir, dir_len, out) result(n) &
+     function stream_wspr_decode(samples, k, ndepth, threads, dir, dir_len, out) result(n) &
           bind(C, name='stream_wspr_decode')
        import :: c_int, c_short, c_char, wspr_result
        integer(c_short), intent(in) :: samples(*)
-       integer(c_int), value :: k, ndepth, dir_len
+       integer(c_int), value :: k, ndepth, threads, dir_len
        character(kind=c_char), intent(in) :: dir(*)
        type(wspr_result), intent(out) :: out(*)
        integer(c_int) :: n
@@ -93,17 +96,18 @@ module streaming_wspr
 
 contains
 
-  ! The period's first k samples at depth ndepth, each decode a line labelled
-  ! nutc in the form the decode pass set; count is the number sent, or -1
-  ! when the decoder could not run (no memory for its buffers or plans).
-  subroutine wspr_decode(samples, k, ndepth, nutc, count)
+  ! The period's first k samples at depth ndepth on wspr_threads' threads,
+  ! each decode a line labelled nutc in the form the decode pass set; count
+  ! is the number sent, or -1 when the decoder could not run (no memory for
+  ! its buffers, plans or threads' workspaces).
+  subroutine wspr_decode(samples, k, ndepth, threads, nutc, count)
     integer(int16), intent(in) :: samples(*)
-    integer, intent(in) :: k, ndepth, nutc
+    integer, intent(in) :: k, ndepth, threads, nutc
     integer, intent(out) :: count
     type(wspr_result) :: results(MAX_DECODES)
     type(wspr_marks) :: marks
     integer :: i, n
-    n = stream_wspr_decode(samples, k, ndepth, data_dir, len_trim(data_dir), results)
+    n = stream_wspr_decode(samples, k, ndepth, threads, data_dir, len_trim(data_dir), results)
     count = 0
     if (n .lt. 0) then
        count = -1

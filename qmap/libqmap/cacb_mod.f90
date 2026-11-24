@@ -1,7 +1,7 @@
 module cacb_mod
   implicit none
 
-  complex, allocatable :: ca(:)  ! FFT of raw I/Q data from Linrad
+  complex, allocatable, target :: ca(:)  ! FFT of raw I/Q data from Linrad
 
 contains
 

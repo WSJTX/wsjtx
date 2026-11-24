@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <hamlib/rig.h>
@@ -14,7 +15,9 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "RadioModePolicy.hpp"
 #include "Transceiver/HamlibTransceiver.hpp"
+#include "Transceiver/TxInhibitTransceiver.hpp"
 #include "widgets/itoneAndicw.h"
 
 // The transceiver factory links TCI's references to application-owned DSP data.
@@ -123,13 +126,18 @@ namespace
       active = nullptr;
     }
 
-    void start (bool read_meters = false)
+    HamlibTransceiver& start (bool read_meters = false, bool wrap_ptt = false)
     {
       TransceiverFactory::ParameterPack parameters {};
       parameters.ptt_type = TransceiverFactory::PTT_method_CAT;
       parameters.split_mode = TransceiverFactory::split_mode_rig;
       if (read_meters) parameters.poll_interval |= do__pwr;
-      transceiver.reset (new HamlibTransceiver {&logger, model, parameters});
+      auto backend = std::make_unique<HamlibTransceiver> (&logger, model, parameters);
+      auto& hamlib = *backend;
+      if (wrap_ptt)
+        transceiver = std::make_unique<TxInhibitTransceiver> (&logger, std::move (backend));
+      else
+        transceiver = std::move (backend);
       QObject::connect (transceiver.get (), &Transceiver::failure,
                         [&] (QString const& message) { failure = message; });
       QObject::connect (transceiver.get (), &Transceiver::update,
@@ -137,6 +145,7 @@ namespace
       QObject::connect (transceiver.get (), &Transceiver::resolution,
                         [&] (int value) { negotiated_resolution = value; });
       transceiver->start (1);
+      return hamlib;
     }
 
     void establish_split ()
@@ -166,7 +175,7 @@ namespace
     rig_caps original {};
     rig_caps caps {};
     Transceiver::logger_type logger;
-    std::unique_ptr<HamlibTransceiver> transceiver;
+    std::unique_ptr<Transceiver> transceiver;
     Transceiver::TransceiverState state;
     QString failure;
     std::vector<vfo_t> mode_targets;
@@ -520,14 +529,36 @@ private:
     QCOMPARE (mode, rmode_t {RIG_MODE_CW});
   }
 
+  Q_SLOT void pttPreparesTransmitModeAfterModePreservingCorrection_data ()
+  {
+    QTest::addColumn<bool> ("wrap_ptt");
+    QTest::newRow ("direct") << false;
+    QTest::newRow ("RTS-DTR-wrapper") << true;
+  }
+
   Q_SLOT void pttPreparesTransmitModeAfterModePreservingCorrection ()
   {
+    QFETCH (bool, wrap_ptt);
+    RadioModePolicy policy;
+    policy.configure (Transceiver::DIG_U);
+    std::optional<bool> ready_at_first_ptt_update;
     RigFixture fixture {RIG_VFO_B};
     QVERIFY (fixture.registered);
-    fixture.start ();
+    auto& backend = fixture.start (false, wrap_ptt);
+    connect (fixture.transceiver.get (), &Transceiver::mode_status,
+             [&] (Transceiver::ModeStatus status, unsigned sequence) {policy.observe (status, sequence);});
+    connect (fixture.transceiver.get (), &Transceiver::update,
+             [&] (Transceiver::TransceiverState const& state, unsigned) {
+               if (state.ptt () && !ready_at_first_ptt_update.has_value ())
+                 ready_at_first_ptt_update = policy.ready ();
+             });
     fixture.state.frequency (14074000);
     fixture.state.mode (Transceiver::DIG_U);
     fixture.transceiver->set (fixture.state, 2);
+    QCOMPARE (policy.state (), RadioModePolicy::State::Preparing);
+    for (int poll = 0; poll != 3 && !policy.ready (); ++poll)
+      QVERIFY (QMetaObject::invokeMethod (&backend, "handle_timeout", Qt::DirectConnection));
+    QVERIFY (policy.ready ());
     fixture.state.tx_frequency (14075000);
     fixture.state.mode (Transceiver::UNK);
     fixture.transceiver->set (fixture.state, 3);
@@ -541,6 +572,9 @@ private:
     fixture.transceiver->set (fixture.state, 4);
     QVERIFY2 (fixture.failure.isEmpty (), qPrintable (fixture.failure));
     QCOMPARE (fixture.ptt_on_count, 1);
+    QVERIFY (fixture.state.ptt ());
+    QVERIFY (ready_at_first_ptt_update.has_value ());
+    QVERIFY (*ready_at_first_ptt_update);
     QCOMPARE (fixture.mode_at_ptt_result, RIG_OK);
     QCOMPARE (fixture.mode_at_ptt, rmode_t {RIG_MODE_PKTUSB});
     rmode_t receive_mode;

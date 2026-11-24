@@ -6,7 +6,7 @@
 # Phase 7 diagnostic / sequencing field group, the Phase 8 string / scaled /
 # derived field group, and the Phase 9 bit-packed ndepth / nexp_decode fields).
 #
-# Twenty-six gates:
+# Twenty-five gates:
 #   1. Unknown schema version: a configure with version=2 is declined with
 #      exactly one {"t":"error","code":"unknown_schema_version","got":2}.
 #   2. Explicit version=1 accepted: configure applies normally; FT8 decodes
@@ -30,27 +30,21 @@
 #      the literal token "mygrid" (with no real mygrid key) must be ACCEPTED, not
 #      falsely declined (type validation must anchor keys to structural
 #      positions, not match a quoted value).
-#   7. (Phase 4) All 9 operator-identity / frequency-window keys present with
+#   7. (Phase 4) All 8 operator-identity / frequency-window keys present with
 #      correct types (his_call/his_grid/my_b_call/his_b_call strings,
-#      my_call_standard/his_call_standard bools, tx_audio_offset_hz/
-#      jt65_jt9_split_hz/max_drift_hz ints) are ACCEPTED end-to-end: ZERO
+#      my_call_standard/his_call_standard bools, tx_audio_offset_hz/max_drift_hz ints) are ACCEPTED end-to-end: ZERO
 #      configure_type_error and FT8 still decodes >= floor (parse + apply run
 #      without corrupting params). These fields are no-ops on the FT8 fixture
-#      (tx/Q65/split-only), so this gate proves the path, not a decode effect.
+#      (transmit and Q65 settings), so this gate proves the path, not a decode effect.
 #   8. (Phase 4) A wrong-typed Phase 4 key (my_call_standard as a NUMBER) on a
 #      frame that also sets mode=JT65 emits exactly one {"code":
 #      "configure_type_error","key":"my_call_standard","expected":"bool",
 #      "got":"number"} and the whole frame is declined — mode JT65 does NOT
 #      apply, so the FT8 audio still decodes under the FT8 init default
 #      (>= floor). Proves Phase 4 type checks are wired into atomic-decline.
-#   9. (Phase 5) All 12 decoder-tuning keys (dt_tolerance_seconds/
-#      eme_delay_seconds reals, kin_samples/nzhsym_per_period/npts_c0_array/
-#      min_width/min_sync/n_2pass ints, robust_mode/nagain_flag/clear_average
-#      bools, tx_mode enum) present with correct types are ACCEPTED end-to-end:
-#      ZERO configure_type_error and FT8 still decodes >= floor (parse + apply
-#      run without corrupting params). 10 of 12 are inert on FT8 (per-period
-#      recompute / JT65-Q65-only); this gate proves the PATH, not per-key routing
-#      (that is the parse-unit driver + Gates 11/12).
+#   9. (Phase 5) Eight decoder-tuning keys with correct types are accepted
+#      end-to-end: zero configure_type_error and FT8 still decodes >= floor.
+#      Decode again has a separate gate because it requires a completed period.
 #  10. (Phase 5) A wrong-typed Phase 5 key (dt_tolerance_seconds as a STRING) on
 #      a frame that also sets mode=JT65 emits exactly one {"code":
 #      "configure_type_error","key":"dt_tolerance_seconds","expected":"real",
@@ -59,26 +53,22 @@
 #  11. (Phase 5) nagain_flag=true asks to decode the last period again; sent
 #      before any period, it gets exactly one decode_again_unavailable error and
 #      the period decodes the same message set as the no-key baseline.
-#  12. (Phase 5 — APPLY ROUTING) npts_c0_array=60000 changes the JT9 decode
-#      message-set vs the no-key baseline (empirically 7 -> 6). npts8 is
-#      the Phase 5 key that reaches the JT9 decoder, so an observable change
-#      proves npts_c0_array was applied to a JT9-affecting param.
-#  13. (Phase 6) All 24 FT8/FT4-specifics keys present with correct types are
+#  12. (Phase 6) All 24 FT8/FT4-specifics keys present with correct types are
 #      ACCEPTED end-to-end: ZERO configure_type_error and FT8 still decodes
 #      >= floor. 23 of 24 are inert on the FT8 fixture (read only in the
 #      multithread-FT8 block / JT65 / superfox-Q65 / WAV path; or AP keys that
 #      this fixture has no AP-only decodes for); the 24th,
 #      multithreaded_ft8, is sent FALSE here, because with it on nagain_filter
-#      narrows the decode to rxfreq +-25 Hz (Gate 15 decodes multithreaded). So this proves the parse->apply
+#      narrows the decode to rxfreq +-25 Hz (Gate 14 decodes multithreaded). So this proves the parse->apply
 #      PATH; per-key routing is guarded by the parse-unit + apply-routing units.
-#  14. (Phase 6) A wrong-typed Phase 6 key (ft8_ap_on as a NUMBER) on a frame that
+#  13. (Phase 6) A wrong-typed Phase 6 key (ft8_ap_on as a NUMBER) on a frame that
 #      also sets mode=JT65 emits exactly one {"code":"configure_type_error",
 #      "key":"ft8_ap_on","expected":"bool","got":"number"} and the whole frame is
 #      declined (mode JT65 not applied, FT8 >= floor). Wires Phase 6 type checks
 #      into atomic-decline.
-#  15. (Phase 6) multithreaded_ft8=true decodes FT8 >= floor through the
+#  14. (Phase 6) multithreaded_ft8=true decodes FT8 >= floor through the
 #      multithreaded decoder.
-#  16. (Phase 7) All 6 diagnostic / sequencing keys (last_tx_seconds_ago/
+#  15. (Phase 7) All 6 diagnostic / sequencing keys (last_tx_seconds_ago/
 #      qso_progress_state/sec_band_changed/delay_units ints, currently_txing/
 #      mode_changed bools) present with correct types are ACCEPTED end-to-end:
 #      ZERO configure_type_error and FT8 still decodes >= floor (parse + apply run
@@ -86,46 +76,46 @@
 #      in the multithread-FT8 block / AP passes with no AP-only decodes),
 #      so this gate proves the PATH, not a decode effect; per-key routing is
 #      guarded by run-phase7-parse-unit.sh + run-apply-routing-unit.sh.
-#  17. (Phase 7) A wrong-typed Phase 7 key (last_tx_seconds_ago as a STRING) on a
+#  16. (Phase 7) A wrong-typed Phase 7 key (last_tx_seconds_ago as a STRING) on a
 #      frame that also sets mode=JT65 emits exactly one {"code":
 #      "configure_type_error","key":"last_tx_seconds_ago","expected":"int",
 #      "got":"string"} and the whole frame is declined (mode JT65 not applied,
 #      FT8 >= floor). Wires Phase 7 type checks into atomic-decline.
-#  18. (Phase 7 — CORRECTNESS GUARD) qso_progress_state OUT OF RANGE (here 99)
+#  17. (Phase 7 — CORRECTNESS GUARD) qso_progress_state OUT OF RANGE (here 99)
 #      declines the frame with one configure_range_error, and FT8 still decodes
 #      >= floor. The decoders index their AP tables with nQSOProgress, so an
 #      unchecked value faults them; a regression to a pass-through fails here.
-#  19. (Phase 8 — APPLY ROUTING) All 5 string/scaled/derived keys (utc/date/
+#  18. (Phase 8 — APPLY ROUTING) All 5 string/scaled/derived keys (utc/date/
 #      n_trials/candthin_threshold/dt_center_seconds) accepted with 0 type errors,
 #      AND utc:"13:34:30" -> nutc 133430 is reflected in EVERY decode's "time"
 #      field (utc is decode-observable; the other 4 are inert — superfox / JT65 /
 #      multithread-variant only). A real apply-routing guard for utc.
-#  20. (Phase 8 — PRECEDENCE) A frame with BOTH nutc:120000 and utc:"13:34:30"
+#  19. (Phase 8 — PRECEDENCE) A frame with BOTH nutc:120000 and utc:"13:34:30"
 #      applies utc (time 133430), not nutc (120000) — apply order is nutc then utc
 #      (utc wins). Asserts 133430 present AND 120000 absent.
-#  21. (Phase 8 — VALUE VALIDATION) n_trials=500 (a number, but not 10^N or 3*10^N)
+#  20. (Phase 8 — VALUE VALIDATION) n_trials=500 (a number, but not 10^N or 3*10^N)
 #      emits one configure_type_error key:"n_trials" and declines the whole frame
 #      (co-present mode=JT65 does not apply; FT8 decodes under its default).
 #      A non-conforming value would integer-divide into a wrong ntrials.
-#  22. (Phase 8 — VALUE VALIDATION) date=2200-01-01 (year >= 2100) emits one
+#  21. (Phase 8 — VALUE VALIDATION) date=2200-01-01 (year >= 2100) emits one
 #      configure_type_error key:"date" and declines the whole frame.
 #      The 2000+offset YYMMDD encoding caps at 2099.
-#  23. (Phase 9 — ACCEPTED) All 9 unpacked ndepth/nexp_decode keys accepted with 0
+#  22. (Phase 9 — ACCEPTED) All 9 unpacked ndepth/nexp_decode keys accepted with 0
 #      type errors and FT8 >= floor (depth_level=3/q65_maxiters_level=3 keep ndepth=3
 #      so the count is unperturbed; the other 7 are inert on FT8 — Q65/JT65/FST4/JT4
 #      or contest-branch only). Proves the parse->pack->apply path runs clean.
-#  24. (Phase 9 — APPLY ROUTING) depth_level is decode-observable: the FT8 fixture
+#  23. (Phase 9 — APPLY ROUTING) depth_level is decode-observable: the FT8 fixture
 #      runs at depth=3 -> ndepth=3 (21 decodes); depth_level=1 -> ndepth=1 changes
 #      the FT8 pass structure (ft8_decode.f90:178/182) -> 14 decodes. Assertion:
 #      baseline >= floor AND with-key >= floor AND with-key != baseline (both-sides-
 #      healthy differs guard — a crash/empty with-key also "differs", so guard it).
 #      A real apply-routing guard for the one FT8-observable Phase-9 key.
-#  25. (Phase 9 — CONFLICT DECLINE) A frame carrying BOTH the legacy depth and the
+#  24. (Phase 9 — CONFLICT DECLINE) A frame carrying BOTH the legacy depth and the
 #      unpacked depth_level emits one configure_type_error key:"depth"
 #      expected:"depth alone" got:"conflict" and declines the whole frame
 #      (co-present mode=JT65 does not apply; FT8 decodes under its default). The
-#      conflicting-encodings rule, via the parse post-pass pack_phase9_.
-#  26. (Phase 9 — TYPE DECLINE) A wrong-typed Phase 9 key (depth_level as a string)
+#      conflicting-encodings rule, via the parse post-pass pack_ndepth_nexp_decode_.
+#  25. (Phase 9 — TYPE DECLINE) A wrong-typed Phase 9 key (depth_level as a string)
 #      emits one configure_type_error key:"depth_level" expected:"int" got:"string"
 #      and declines the whole frame (mode=JT65 not applied; FT8 >= floor). Wires
 #      Phase 9 type checks into atomic-decline.
@@ -140,9 +130,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 JT9="$REPO_ROOT/$BUILD_DIR/wsjt-codec"
 HARNESS="$REPO_ROOT/test/wav_to_stream_harness.py"
 WAV="$REPO_ROOT/samples/FT8/210703_133430.wav"
-JT9_WAV="$REPO_ROOT/samples/JT9/130418_1742.wav"
 FT8_FLOOR=14
-JT9_FLOOR=6
 
 if [[ ! -x "$JT9" ]]; then
   echo "ERROR: wsjt-codec binary not found or not executable: $JT9" >&2
@@ -252,13 +240,12 @@ else
   fail=1
 fi
 
-# --- Gate 7: Phase 4 — all 9 keys accepted (parse + apply run clean) ---------
+# --- Gate 7: Phase 4 — all 8 keys accepted (parse + apply run clean) ---------
 echo ""
 echo "Gate 7 — Phase 4 fields accepted (his_call/his_grid/my_b_call/his_b_call/"
-echo "         my_call_standard/his_call_standard/tx_audio_offset_hz/"
-echo "         jt65_jt9_split_hz/max_drift_hz)"
-# All 9 keys present with correct types and benign values. They are no-ops on
-# the FT8 fixture (tx/Q65/split-only — an all-9-keys configure yields a
+echo "         my_call_standard/his_call_standard/tx_audio_offset_hz/max_drift_hz)"
+# All 8 keys present with correct types and benign values. They are no-ops on
+# the FT8 fixture (transmit and Q65 settings — this configure yields a
 # byte-identical 21-message FT8 decode set), so the assertion is: ZERO type
 # errors (every key accepted) AND FT8 still decodes >= floor (apply ran without
 # corrupting params). This proves the parse->apply PATH executes cleanly; it
@@ -268,12 +255,12 @@ echo "         jt65_jt9_split_hz/max_drift_hz)"
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 \
       --his-call DX1ABC --his-grid FN20 --my-b-call KJ5HST/P --his-b-call DX1ABC/P \
       --my-call-standard --his-call-standard \
-      --tx-audio-offset-hz 1234 --jt65-jt9-split-hz 2500 --max-drift-hz 8 \
+      --tx-audio-offset-hz 1234 --max-drift-hz 8 \
       --quiet 2>/dev/null || true)
 te=$(printf '%s\n' "$out" | grep -c '"code":"configure_type_error"' || true)
 dec=$(printf '%s\n' "$out" | grep -c '"t":"decode"' || true)
 if [[ "$te" -eq 0 && "$dec" -ge "$FT8_FLOOR" ]]; then
-  echo "  PASS: all 9 Phase 4 keys accepted (0 type errors); $dec decodes >= $FT8_FLOOR (apply clean)"
+  echo "  PASS: all 8 Phase 4 keys accepted (0 type errors); $dec decodes >= $FT8_FLOOR (apply clean)"
 else
   echo "  FAIL: type_err=$te (want 0), decodes=$dec (want >= $FT8_FLOOR)"
   fail=1
@@ -297,26 +284,19 @@ else
   fail=1
 fi
 
-# --- Gate 9: Phase 5 — all 12 keys accepted (parse + apply run clean) --------
+# --- Gate 9: Phase 5 — decoder-tuning keys accepted -------------------------
 echo ""
-echo "Gate 9 — Phase 5 fields accepted (dt_tolerance_seconds/eme_delay_seconds/"
-echo "         kin_samples/nzhsym_per_period/npts_c0_array/min_width/min_sync/"
-echo "         n_2pass/robust_mode/nagain_flag/tx_mode/clear_average)"
-# All 12 keys present with correct types and benign values. 10 are inert on FT8
-# (per-period recompute or JT65/Q65-only); nagain_flag=true does affect FT8
-# (21->16, still >= floor) and npts_c0_array is set to its streaming default
-# (74736, a no-op). Assertion: ZERO type errors (every key accepted) AND FT8 still
-# decodes >= floor (apply ran without corrupting params). Proves the parse->apply
-# PATH; per-key routing is guarded by run-phase5-parse-unit.sh + Gates 11/12.
+echo "Gate 9 — Phase 5 decoder-tuning keys accepted (eight keys)"
+# Decode again is exercised separately in Gate 11.
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 \
       --dt-tolerance-seconds 2.0 --eme-delay-seconds 0.0 --kin-samples 64800 \
-      --nzhsym-per-period 50 --npts-c0-array 74736 --min-width 1 --min-sync 1 \
-      --n-2pass 1 --robust-mode --nagain-flag --tx-mode JT9 --clear-average \
+      --nzhsym-per-period 50 --min-width 1 --min-sync 1 \
+      --n-2pass 1 --clear-average \
       --quiet 2>/dev/null || true)
 te=$(printf '%s\n' "$out" | grep -c '"code":"configure_type_error"' || true)
 dec=$(printf '%s\n' "$out" | grep -c '"t":"decode"' || true)
 if [[ "$te" -eq 0 && "$dec" -ge "$FT8_FLOOR" ]]; then
-  echo "  PASS: all 12 Phase 5 keys accepted (0 type errors); $dec decodes >= $FT8_FLOOR (apply clean)"
+  echo "  PASS: all 8 Phase 5 keys accepted (0 type errors); $dec decodes >= $FT8_FLOOR (apply clean)"
 else
   echo "  FAIL: type_err=$te (want 0), decodes=$dec (want >= $FT8_FLOOR)"
   fail=1
@@ -358,38 +338,13 @@ else
   fail=1
 fi
 
-# --- Gate 12: Phase 5 APPLY ROUTING — npts_c0_array observably changes JT9 ----
+# --- Gate 12: Phase 6 — all 24 keys accepted (parse + apply run clean) --------
 echo ""
-echo "Gate 12 — npts_c0_array changes the JT9 decode set (apply-routing proof)"
-# npts8 reaches the JT9 decoder (decoder.f90:1349). Baseline (no key) vs
-# --npts-c0-array 60000 (off the 74736 default) must DIFFER, proving apply routed
-# npts_c0_array to a JT9-affecting param. Uses the JT9 fixture; baseline fresh.
-if [[ -f "$JT9_WAV" ]]; then
-  base=$(python3 "$HARNESS" "$JT9" "$JT9_WAV" --mode JT9 --quiet 2>/dev/null \
-         | grep '"t":"decode"' | grep -oE '"message":"[^"]*"' | sort || true)
-  withk=$(python3 "$HARNESS" "$JT9" "$JT9_WAV" --mode JT9 --npts-c0-array 60000 --quiet 2>/dev/null \
-          | grep '"t":"decode"' | grep -oE '"message":"[^"]*"' | sort || true)
-  nbase=$(printf '%s\n' "$base" | grep -c '"message"' || true)
-  nwith=$(printf '%s\n' "$withk" | grep -c '"message"' || true)
-  # Same both-sides guard as Gate 11 (crash / shmem-collision -> empty withk
-  # must NOT pass as a spurious "difference").
-  if [[ -n "$base" && "$nbase" -ge "$JT9_FLOOR" && "$nwith" -ge 1 && "$base" != "$withk" ]]; then
-    echo "  PASS: npts_c0_array observably changed JT9 decode set (baseline $nbase msgs != with-key $nwith msgs)"
-  else
-    echo "  FAIL: npts_c0_array effect unproven (baseline=$nbase >= $JT9_FLOOR?, with-key=$nwith >= 1?, sets differ=$([[ "$base" != "$withk" ]] && echo yes || echo no))"
-    fail=1
-  fi
-else
-  echo "  SKIP: JT9 fixture not found ($JT9_WAV)"
-fi
-
-# --- Gate 13: Phase 6 — all 24 keys accepted (parse + apply run clean) --------
-echo ""
-echo "Gate 13 — Phase 6 FT8/FT4-specifics keys accepted (24 keys: 19 bools + 5 ints)"
+echo "Gate 12 — Phase 6 FT8/FT4-specifics keys accepted (24 keys: 19 bools + 5 ints)"
 # All 24 keys present with correct types and benign values. 23 are inert on the
 # FT8 fixture (multithread-block / JT65 / superfox / WAV-path / AP-no-effect).
 # multithreaded_ft8 is sent FALSE: with it on, nagain_filter narrows the decode
-# to rxfreq +-25 Hz (Gate 15 decodes multithreaded). Assertion: ZERO type errors
+# to rxfreq +-25 Hz (Gate 14 decodes multithreaded). Assertion: ZERO type errors
 # (every key accepted) AND FT8 still decodes >= floor (apply ran without
 # corrupting params). Per-key routing is guarded by run-phase6-parse-unit.sh +
 # run-apply-routing-unit.sh (no Phase 6 key is decode-observable in a healthy way).
@@ -410,9 +365,9 @@ else
   fail=1
 fi
 
-# --- Gate 14: Phase 6 — wrong-typed key -> type error + atomic decline --------
+# --- Gate 13: Phase 6 — wrong-typed key -> type error + atomic decline --------
 echo ""
-echo "Gate 14 — Phase 6 wrong-typed key (ft8_ap_on as number) declines frame"
+echo "Gate 13 — Phase 6 wrong-typed key (ft8_ap_on as number) declines frame"
 # MAIN configure carries ft8_ap_on:5 (number, wrong type for a bool) AND sets
 # mode=JT65. Atomic decline: the entire frame -> mode JT65 must NOT apply, so the
 # FT8 audio decodes under the FT8 init default (>= floor). The error must name the
@@ -428,9 +383,9 @@ else
   fail=1
 fi
 
-# --- Gate 15: Phase 6 — multithreaded_ft8 decodes ---
+# --- Gate 14: Phase 6 — multithreaded_ft8 decodes ---
 echo ""
-echo "Gate 15 — multithreaded_ft8=true decodes FT8"
+echo "Gate 14 — multithreaded_ft8=true decodes FT8"
 # Compare against a fresh baseline to keep the assertion meaningful (both runs healthy).
 base=$(python3 "$HARNESS" "$JT9" "$WAV" --mode FT8 --quiet 2>/dev/null \
        | grep -c '"t":"decode"' || true)
@@ -443,9 +398,9 @@ else
   fail=1
 fi
 
-# --- Gate 16: Phase 7 — all 6 keys accepted (parse + apply run clean) ---------
+# --- Gate 15: Phase 7 — all 6 keys accepted (parse + apply run clean) ---------
 echo ""
-echo "Gate 16 — Phase 7 diagnostic/sequencing keys accepted (6 keys: 4 ints + 2 bools)"
+echo "Gate 15 — Phase 7 diagnostic/sequencing keys accepted (6 keys: 4 ints + 2 bools)"
 # All 6 keys present with correct types and benign values. All are inert on the
 # FT8 fixture (multithread-block-only / AP passes with no AP-only decodes).
 # qso_progress_state=5 reaches the single-pass FT8 decoder but
@@ -466,9 +421,9 @@ else
   fail=1
 fi
 
-# --- Gate 17: Phase 7 — wrong-typed key -> type error + atomic decline --------
+# --- Gate 16: Phase 7 — wrong-typed key -> type error + atomic decline --------
 echo ""
-echo "Gate 17 — Phase 7 wrong-typed key (last_tx_seconds_ago as string) declines frame"
+echo "Gate 16 — Phase 7 wrong-typed key (last_tx_seconds_ago as string) declines frame"
 # MAIN configure carries last_tx_seconds_ago:"soon" (string, wrong type for an
 # int) AND sets mode=JT65. Atomic decline: the entire frame -> mode JT65 must
 # NOT apply, so the FT8 audio decodes under the FT8 init default (>= floor). The
@@ -484,9 +439,9 @@ else
   fail=1
 fi
 
-# --- Gate 18: Phase 7 CORRECTNESS GUARD — qso_progress_state out-of-range ------
+# --- Gate 17: Phase 7 CORRECTNESS GUARD — qso_progress_state out-of-range ------
 echo ""
-echo "Gate 18 — qso_progress_state=99 (out of range) declines the frame"
+echo "Gate 17 — qso_progress_state=99 (out of range) declines the frame"
 # The decoders index their AP tables with nQSOProgress, so the stream declines a
 # configure with it outside [0,5] with configure_range_error, and FT8 decodes
 # under the configure before it (here the init default). A pass-through would
@@ -504,9 +459,9 @@ else
   fail=1
 fi
 
-# --- Gate 19: Phase 8 — all 5 keys accepted + utc DECODE-OBSERVABLE -----------
+# --- Gate 18: Phase 8 — all 5 keys accepted + utc DECODE-OBSERVABLE -----------
 echo ""
-echo "Gate 19 — Phase 8 string/scaled/derived keys accepted; utc reflected in time"
+echo "Gate 18 — Phase 8 string/scaled/derived keys accepted; utc reflected in time"
 # All 5 keys present with benign values. utc:"13:34:30" -> nutc 133430 is
 # DECODE-OBSERVABLE in the decode "time" field (unlike Phases 4/6/7's inert
 # fields, this is a real apply-routing guard, like the Gate 5 nutc pattern).
@@ -529,9 +484,9 @@ else
   fail=1
 fi
 
-# --- Gate 20: Phase 8 — utc WINS over the legacy int nutc (precedence) --------
+# --- Gate 19: Phase 8 — utc WINS over the legacy int nutc (precedence) --------
 echo ""
-echo "Gate 20 — utc precedence: utc beats a co-present nutc"
+echo "Gate 19 — utc precedence: utc beats a co-present nutc"
 # A frame carrying BOTH nutc:120000 (legacy int) AND utc:"13:34:30" (ISO) must
 # apply utc (133430), not nutc (120000). apply_configure_fields applies nutc then
 # utc, so utc wins. Assertion: time 133430 present AND time 120000 ABSENT.
@@ -547,13 +502,12 @@ else
   fail=1
 fi
 
-# --- Gate 21: Phase 8 — n_trials out of {10^N,3*10^N} -> type error + decline -
+# --- Gate 20: Phase 8 — n_trials out of {10^N,3*10^N} -> type error + decline -
 echo ""
-echo "Gate 21 — n_trials=500 (invalid value) declines the frame"
-# n_trials is type-correct (a number) but VALUE-invalid (not 10^N or 3*10^N), so the
-# receiver emits configure_type_error (a bad nranera would silently corrupt ntrials,
-# decoder.f90:100-102). The frame also sets mode=JT65; atomic decline of the WHOLE
-# frame -> JT65 must NOT apply, so the FT8 audio decodes under the FT8 init default.
+echo "Gate 20 — n_trials=500 (invalid value) declines the frame"
+# n_trials is a number outside the allowed sequence (10^N or 3*10^N).
+# The receiver emits configure_type_error and rejects the entire frame.
+# The co-present mode=JT65 has no effect, so the audio still decodes as FT8.
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode JT65 --n-trials 500 --quiet 2>/dev/null || true)
 te=$(printf '%s\n' "$out" | grep -c '"code":"configure_type_error"' || true)
 triple=$(printf '%s\n' "$out" | grep -F '"key":"n_trials","expected":"int 10^N|3*10^N","got":"number"' | grep -c . || true)
@@ -565,9 +519,9 @@ else
   fail=1
 fi
 
-# --- Gate 22: Phase 8 — date year >= 2100 -> type error + decline -------------
+# --- Gate 21: Phase 8 — date year >= 2100 -> type error + decline -------------
 echo ""
-echo "Gate 22 — date=2200-01-01 (year >= 2100) declines the frame"
+echo "Gate 21 — date=2200-01-01 (year >= 2100) declines the frame"
 # The 2000+offset YYMMDD encoding caps at 2099; a year >= 2100 is a
 # configure_type_error. The frame also sets mode=JT65, which must NOT apply
 # (whole-frame decline) -> FT8 decodes under its init default.
@@ -582,9 +536,9 @@ else
   fail=1
 fi
 
-# --- Gate 23: Phase 9 — all 9 unpacked keys accepted (parse + pack + apply clean)
+# --- Gate 22: Phase 9 — all 9 unpacked keys accepted (parse + pack + apply clean)
 echo ""
-echo "Gate 23 — Phase 9 bit-packed keys accepted (9 keys: ndepth group + nexp_decode group)"
+echo "Gate 22 — Phase 9 bit-packed keys accepted (9 keys: ndepth group + nexp_decode group)"
 # All 9 unpacked keys present. depth_level=3 / q65_maxiters_level=3 keep ndepth=3
 # (== the harness default depth=3), so the count is unperturbed; q65_maxiters agrees
 # with depth_level's low 2 bits (consistency OK). use_averaging/deep_ap_search/
@@ -607,9 +561,9 @@ else
   fail=1
 fi
 
-# --- Gate 24: Phase 9 APPLY ROUTING — depth_level is decode-observable ---------
+# --- Gate 23: Phase 9 APPLY ROUTING — depth_level is decode-observable ---------
 echo ""
-echo "Gate 24 — depth_level=1 changes the FT8 decode set (real apply-routing guard)"
+echo "Gate 23 — depth_level=1 changes the FT8 decode set (real apply-routing guard)"
 # The FT8 fixture default runs at depth=3 -> ndepth=3 (21 decodes). Sending
 # depth_level=1 (which auto-drops the legacy depth key) -> ndepth=1 takes the FT8
 # fast-decode path (ft8_decode.f90:178 npass=2, :182 syncmin) -> FEWER decodes
@@ -633,12 +587,12 @@ else
   fail=1
 fi
 
-# --- Gate 25: Phase 9 — depth + depth_level conflict -> type error + decline ---
+# --- Gate 24: Phase 9 — depth + depth_level conflict -> type error + decline ---
 echo ""
-echo "Gate 25 — depth + depth_level co-present (conflict) declines the frame"
+echo "Gate 24 — depth + depth_level co-present (conflict) declines the frame"
 # A frame carrying BOTH the legacy depth (full int) and the unpacked depth_level is
 # a conflicting-encodings error (the two are mutually exclusive). The
-# parse post-pass pack_phase9_ emits configure_type_error key:"depth"
+# parse post-pass pack_ndepth_nexp_decode_ emits configure_type_error key:"depth"
 # expected:"depth alone" got:"conflict". The frame also sets mode=JT65, which must
 # NOT apply (whole-frame decline) -> FT8 decodes under its init default.
 out=$(python3 "$HARNESS" "$JT9" "$WAV" --mode JT65 --phase9-conflict --quiet 2>/dev/null || true)
@@ -652,9 +606,9 @@ else
   fail=1
 fi
 
-# --- Gate 26: Phase 9 — wrong-typed key -> type error + atomic decline ---------
+# --- Gate 25: Phase 9 — wrong-typed key -> type error + atomic decline ---------
 echo ""
-echo "Gate 26 — Phase 9 wrong-typed key (depth_level as string) declines frame"
+echo "Gate 25 — Phase 9 wrong-typed key (depth_level as string) declines frame"
 # MAIN configure carries depth_level:"deep" (string, wrong type for an int) AND sets
 # mode=JT65. Atomic decline: the entire frame -> mode JT65 must NOT apply, so the
 # FT8 audio decodes under the FT8 init default (>= floor). The error must name the

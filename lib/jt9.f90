@@ -77,13 +77,14 @@ program jt9
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0,ncycles=3,  &
        nft8rxfsens=3,nmt=0,nmtft8decsens=3,ndecoderstart=3, samples_read, wav_status
-  logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
+  logical :: read_files = .true., jt65_selected = .false., jt9_selected = .false., &
+       display_help = .false.,     &
        display_version = .false.,                                            &
        nexp_decode_set = .false.,                                             &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lwidedxcsearch = .true., low_sidelobes = .false.,                  &
        stream_mode = .false., use_mtd_fft_plans = .false., wav_utc_has_seconds
-  type (option) :: long_options(48) = [                                      &
+  type (option) :: long_options(47) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use native shared memory for sample data','NAME'), &
@@ -104,11 +105,11 @@ program jt9
         'Location of read-only data files (ALLCALL7.TXT), default PATH="."', &
         'PATH'),                                                             &
     option ('lowest', .true., 'L',                                           &
-        'Lowest frequency decoded (JT65), default HERTZ=200', 'HERTZ'),      &
+        'Lower search frequency, default HERTZ=200', 'HERTZ'),      &
     option ('highest', .true., 'H',                                          &
         'Highest frequency decoded, default HERTZ=4000', 'HERTZ'),           &
     option ('split', .true., 'S',                                            &
-        'Lowest JT9 frequency decoded, default HERTZ=2700', 'HERTZ'),        &
+        'JT9 lower search frequency override, 2700 uses --lowest', 'HERTZ'),        &
     option ('rx-frequency', .true., 'f',                                     &
         'Receive frequency offset, default HERTZ=1500', 'HERTZ'),            &
     option ('freq-tolerance', .true., 'F',                                   &
@@ -153,7 +154,7 @@ program jt9
     option ('dial', .true., 'O', 'WSPR files'' dial frequency, default MHZ=0', 'MHZ'), &
     option ('quiet', .false., 'q', 'Quiet mode, no <DecodeFinished>', ''),   &
     option ('msk144', .false., 'k', 'MSK144 mode', ''),                      &
-    option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=1',&
+    option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=0',&
         'QSOprogress'),                                                      &
     option ('sub-mode', .true., 'b',                                        &
         'Sub mode (mode-dependent A-H), default SUBMODE=A', 'SUBMODE'),      &
@@ -161,8 +162,6 @@ program jt9
         'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
     option ('low-sidelobes', .false., 'l',                                  &
         'Low-sidelobe (Nuttall) window on JT9 spectra when decoding files', ''), &
-    option ('tx-jt9', .false., 'T',                                         &
-        'Tx mode is JT9 (combined-mode streaming only)', ''),                &
     option ('my-call', .true., 'c', 'my callsign', 'CALL'),                  &
     option ('my-grid', .true., 'G', 'my grid locator', 'GRID'),              &
     option ('his-call', .true., 'x', 'his callsign', 'CALL'),                &
@@ -188,7 +187,7 @@ program jt9
   wspr_dial=0.d0
 
   do
-     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:2O:', &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:98765430WYqklMUZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:1:2O:', &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -249,8 +248,9 @@ program jt9
            call require_integer('R', optarg(:arglen), nft8rxfsens)
         case ('N')
            call require_integer('N', optarg(:arglen), nmt)
-           if (nmt < 0 .or. nmt > 24) then
-              call invalid_option('N', optarg(:arglen), 'must be between 0 and 24')
+           ! The FT8 kernel runs a count above 12 on one thread.
+           if (nmt < 0 .or. nmt > 12) then
+              call invalid_option('N', optarg(:arglen), 'must be between 0 and 12')
            end if
         case ('E')
            call require_integer('E', optarg(:arglen), nmtft8decsens)
@@ -280,7 +280,8 @@ program jt9
            mode = 5
            wav_mode = mode
         case ('6')
-           if (mode.lt.65) mode = mode + 65
+           jt65_selected = .true.
+           mode = 65
            wav_mode = 65
         case ('7')
            mode = 240
@@ -289,15 +290,14 @@ program jt9
            mode = 8
            wav_mode = mode
         case ('9')
-           if (mode.lt.9.or.mode.eq.65) mode = mode + 9
+           jt9_selected = .true.
+           mode = 9
            wav_mode = 9
         case ('2')
            mode = MODE_WSPR
            wav_mode = mode
         case ('O')
            call require_real('O', optarg(:arglen), wspr_dial)
-        case ('T')
-           tx9 = .true.
         case ('w')
            call require_integer('w', optarg(:arglen), npatience)
         case ('W')
@@ -366,7 +366,12 @@ program jt9
      stop
   endif
 
-  ! WAV decoding selects one mode; stream startup retains the legacy mode combinations.
+  if (stream_mode .and. jt65_selected .and. jt9_selected) then
+     write(error_unit, '(A)') trim(program_name) // ': -6 and -9 cannot be combined'
+     stop 2
+  end if
+
+  ! WAV decoding selects the last mode.
   if (read_files) mode = wav_mode
   if (read_files .and. mode == 0) then
      write(error_unit, '(A)') trim(program_name) // ': WAV decoding requires a mode (for example, --ft8)'
@@ -419,10 +424,8 @@ program jt9
   if (.not. read_files) then
      if (stream_mode) then
         call streaming_emit_set_enabled(.true.)
-        if (mode .eq. 0) then
-           mode = 8                            ! default: FT8
-           if (TRperiod .eq. 60.d0) TRperiod = 15.d0
-        end if
+        if (mode .eq. 0) mode = 8              ! default: FT8
+        if (mode .eq. 8  .and. TRperiod .eq. 60.d0) TRperiod = 15.d0   ! FT8
         if (mode .eq. 5  .and. TRperiod .eq. 60.d0) TRperiod = 7.5d0   ! FT4
         if (mode .eq. 144 .and. TRperiod .eq. 60.d0) TRperiod = 30.d0  ! MSK144
 
@@ -444,7 +447,7 @@ program jt9
              nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,                &
              mygrid=mygrid, hisgrid=hisgrid,                                    &
              datetime='2026-Apr-25 00:00   ',                                  &
-             tx9=tx9, multift8=.false., hidedupes=.false.,                     &
+             multift8=.false., hidedupes=.true.,                              &
              lft8lowth=.true., lft8subpass=.true.,                             &
              lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,               &
              nexp_decode_set=nexp_decode_set)
@@ -452,9 +455,14 @@ program jt9
         call init_streaming_extra_fields(shared_data%params, args)
 
         ! Streaming-side overrides post-init.
+        ! (hidedupes above: WSJT-X's "Hide FT8 dupe messages" starts checked,
+        !  widgets/mainwindow_settings.cpp.)
         ! (mode=9 nfa=fsplit handled by init_default_params per-mode adjustment.)
         ! (configure switches multithreaded FT8 on; -M/-U/-E do not apply, and
         !  -N/-D/-C/-R/-Z only set starting values.)
+        ! Without -F the stream starts at WSJT-X's F Tol for the mode, which
+        ! it sets from this NTOL_UNSET (lib/streaming_apply.f90).
+        if (.not. have_ntol) shared_data%params%ntol = -999999
 
         call jt9_stream(shared_data, mode, TRperiod)
      else
@@ -626,7 +634,6 @@ contains
     character(len=64) :: reason
 
     maximum = submode_limit(selected_mode)
-    if (selected_mode == 74 .and. tx9) maximum = submode_limit(65)
     if (nsubmode <= maximum) return
     select case (selected_mode)
     case (4)
@@ -635,8 +642,6 @@ contains
        mode_name = 'JT65'
     case (66)
        mode_name = 'Q65'
-    case (74)
-       mode_name = 'JT9+JT65'
     case default
        mode_name = 'selected mode'
     end select

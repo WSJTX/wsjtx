@@ -53,13 +53,6 @@ subroutine filbigvar(f0,newfft,c4a,n4,sq0,c6a,n2)
 
   if(f0.lt.0.) go to 900                    !Clean up at end of program
 
-  nthreadsmin=nthreads !single JT65 mode
-  if(nnmode.eq.74) then
-    nthreadsmin=max(nthreads-1,1)
-    if(nthreads.ge.8 .and. nthreads.lt.12) nthreadsmin=nthreads-2
-    if(nthreads.ge.12) nthreadsmin=nthreads-3
-  endif
-  
   if(first) then
      nflags=FFTW_ESTIMATE
      if(npatience.eq.1) nflags=FFTW_ESTIMATE_PATIENT
@@ -70,7 +63,7 @@ subroutine filbigvar(f0,newfft,c4a,n4,sq0,c6a,n2)
 ! Plan the FFTs just once
      !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
      call wsjt_tsan_acquire_fftw()
-     call fftwf_plan_with_nthreads(nthreadsmin)
+     call fftwf_plan_with_nthreads(nthreads)
      plan1=fftwf_plan_dft_r2c_1d(nfft1,rca,ca,nflags)
      plan2=fftwf_plan_dft_1d(nfft2,c4a,c4a,-1,nflags)
      plan3=fftwf_plan_dft_1d(nfft2,cfilt,cfilt,+1,nflags)

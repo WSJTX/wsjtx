@@ -673,7 +673,7 @@ public:
                  , QDir const& temp_directory
                  , QSettings * settings
                  , LogBook * logbook
-                 , QWidget * parent);
+                 , QWidget * parent, SerialPortEnumerator enumerate_ports);
   ~impl ();
 
   bool have_rig ();
@@ -745,12 +745,20 @@ private:
 
   void find_tab (QWidget *);
 
-  void initialize_models ();
+  void initialize_models (QList<QSerialPortInfo> const * ports = nullptr);
   bool split_mode () const
   {
-    return
-      (WSJT_RIG_NONE_CAN_SPLIT || !rig_is_dummy_) &&
-      (rig_params_.split_mode != TransceiverFactory::split_mode_none);
+    auto const& params = operating_rig_params ();
+    return (WSJT_RIG_NONE_CAN_SPLIT || !operating_rig_is_dummy ())
+      && params.split_mode != TransceiverFactory::split_mode_none;
+  }
+  TransceiverFactory::ParameterPack const& operating_rig_params () const
+  {
+    return rig_active_ ? opened_rig_params_ : rig_params_;
+  }
+  bool operating_rig_is_dummy () const
+  {
+    return operating_rig_params ().rig_name == TransceiverFactory::basic_transceiver_name_;
   }
   MODE configured_mode () const;
   void send_transceiver (MODE = Transceiver::UNK);
@@ -768,8 +776,8 @@ private:
   //bool set_mode ();
   void close_rig (bool failed = false);
   TransceiverFactory::ParameterPack gather_rig_data ();
-  void enumerate_rigs ();
-  void normalize_rig_selections (bool restore = false);
+  static void populate_rig_selector (QComboBox&, TransceiverFactory::Transceivers const&, QString const& saved_rig);
+  void normalize_rig_selections (bool restore = false, QList<QSerialPortInfo> const * ports = nullptr);
   void set_rig_invariants ();
   enum class RadioValidationError { none, invalid_ptt_method, invalid_ptt_port, invalid_footswitch_port };
   static bool footswitch_port_clashes (QString const& footswitch_port, QString const& cat_serial_port,
@@ -777,7 +785,9 @@ private:
   void update_footswitch_controls ();
   RadioValidationError validate_radio_settings ();
   bool validate ();
-  void fill_port_combo_box (QComboBox *);
+  QList<QSerialPortInfo> available_serial_ports () const;
+  static void fill_port_combo_box (QComboBox *, QList<QSerialPortInfo> const& ports);
+  void set_serial_cat_port (QList<QSerialPortInfo> const&);
 
   void delete_frequencies ();
   void load_frequencies ();
@@ -813,7 +823,7 @@ private:
   Q_SLOT void on_cbEQSL_toggled (bool checked);
   Q_SLOT void on_force_DTR_combo_box_currentIndexChanged (int);
   Q_SLOT void on_force_RTS_combo_box_currentIndexChanged (int);
-  Q_SLOT void on_rig_combo_box_currentIndexChanged (int);
+  void apply_rig_power_restrictions ();
   Q_SLOT void on_refresh_push_button_clicked ();
   Q_SLOT void on_tci_audio_check_box_clicked(bool checked);
   Q_SLOT void on_TCI_spin_box_valueChanged(double a);
@@ -945,6 +955,7 @@ private:
   PerformanceTrace::Phase construction_trace_;
   Configuration * const self_;  // back pointer to public interface
 
+  SerialPortEnumerator const enumerate_ports_;
   QThread * transceiver_thread_;
   TransceiverFactory transceiver_factory_;
   QList<QMetaObject::Connection> rig_connections_;
@@ -1048,7 +1059,8 @@ private:
   int voice_;
 
   TransceiverFactory::ParameterPack rig_params_;
-  TransceiverFactory::ParameterPack saved_rig_params_;
+  TransceiverFactory::ParameterPack presented_rig_params_;
+  TransceiverFactory::ParameterPack opened_rig_params_;
   TransceiverFactory::Capabilities::PortType last_port_type_;
   bool rig_is_dummy_;
   RigFrequency::Ranges rig_tuning_ranges_;
@@ -1278,8 +1290,9 @@ private:
 
 // delegate to implementation class
 Configuration::Configuration (QNetworkAccessManager * network_manager, QDir const& temp_directory,
-                              QSettings * settings, LogBook * logbook, QWidget * parent)
-  : m_ {this, network_manager, temp_directory, settings, logbook, parent}
+                              QSettings * settings, LogBook * logbook, QWidget * parent,
+                              SerialPortEnumerator enumerate_ports)
+  : m_ {this, network_manager, temp_directory, settings, logbook, parent, enumerate_ports}
 {
 }
 
@@ -1372,11 +1385,12 @@ QString Configuration::footswitch_port () const {return m_->footswitch_port_;}
 int Configuration::footswitch_pin () const {return m_->footswitch_pin_;}
 bool Configuration::footswitch_port_clash () const
 {
+  auto const& params = m_->operating_rig_params ();
   auto const serial_CAT = TransceiverFactory::Capabilities::serial
-    == m_->transceiver_factory_.CAT_port_type (m_->rig_params_.rig_name);
+    == m_->transceiver_factory_.CAT_port_type (params.rig_name);
   return impl::footswitch_port_clashes (m_->footswitch_port_,
-                                        serial_CAT ? m_->rig_params_.serial_port : QString {},
-                                        m_->rig_params_.ptt_type, m_->rig_params_.ptt_port);
+                                        serial_CAT ? params.serial_port : QString {},
+                                        params.ptt_type, params.ptt_port);
 }
 bool Configuration::TX_messages () const {return m_->TX_messages_;}
 bool Configuration::enable_VHF_features () const {return m_->enable_VHF_features_;}
@@ -1611,7 +1625,7 @@ bool Configuration::prepare_radio_mode ()
 
 bool Configuration::radio_mode_ready () const
 {
-  return m_->configured_mode () == Transceiver::UNK || m_->rig_is_dummy_
+  return m_->configured_mode () == Transceiver::UNK || m_->operating_rig_is_dummy ()
     || m_->radio_mode_policy_.ready ();
 }
 
@@ -1632,6 +1646,11 @@ void Configuration::transceiver_ptt (bool on)
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
   if (!m_->can_control_rig ("transceiver_ptt")) return;
   m_->transceiver_ptt (on);
+}
+
+bool Configuration::transceiver_audio_commanded () const
+{
+  return m_->cached_rig_state_.audio ();
 }
 
 void Configuration::transceiver_audio (bool on)
@@ -2384,10 +2403,11 @@ bool Configuration::impl::move_settings_focus (QList<QWidget *> const& path, int
 
 Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network_manager
                            , QDir const& temp_directory, QSettings * settings, LogBook * logbook
-                           , QWidget * parent)
+                           , QWidget * parent, SerialPortEnumerator enumerate_ports)
   : QDialog {parent}
   , construction_trace_ {"configuration.construct"}
   , self_ {self}
+  , enumerate_ports_ {enumerate_ports ? enumerate_ports : &QSerialPortInfo::availablePorts}
   , transceiver_thread_ {nullptr}
   , ui_ {new Ui::configuration_dialog}
   , network_manager_ {network_manager}
@@ -3120,17 +3140,18 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   //
   // setup PTT port combo box drop down content
   //
-  {
+  auto const startup_ports = [this] {
     PerformanceTrace::Phase serial_ports {"configuration.serial_ports"};
-    fill_port_combo_box (ui_->PTT_port_combo_box);
-  }
+    return available_serial_ports ();
+  } ();
+  fill_port_combo_box (ui_->PTT_port_combo_box, startup_ports);
   ui_->PTT_port_combo_box->addItem ("CAT");
   ui_->PTT_port_combo_box->setItemData (ui_->PTT_port_combo_box->count () - 1, "Delegate to proxy CAT service", Qt::ToolTipRole);
 
   //
   // setup footswitch port and input pin combo boxes
   //
-  fill_port_combo_box (ui_->footswitch_port_combo_box);
+  fill_port_combo_box (ui_->footswitch_port_combo_box, startup_ports);
   ui_->footswitch_pin_combo_box->addItems ({"CTS", "DSR", "DCD", "RI"});
   connect (ui_->footswitch_enable_check_box, &QCheckBox::toggled,
            this, &Configuration::impl::update_footswitch_controls);
@@ -3330,11 +3351,16 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   {
     PerformanceTrace::Phase rig_models {"configuration.rig_models"};
-    enumerate_rigs ();
+    populate_rig_selector (*ui_->rig_combo_box, transceiver_factory_.supported_transceivers (), rig_params_.rig_name);
   }
+  apply_rig_power_restrictions ();
+  connect (ui_->rig_combo_box, QOverload<int>::of (&QComboBox::currentIndexChanged), this, [this] {
+    set_rig_invariants ();
+    apply_rig_power_restrictions ();
+  });
   {
     PerformanceTrace::Phase models {"configuration.models_initialize"};
-    initialize_models ();
+    initialize_models (&startup_ports);
   }
   restart_tci_device_ = false;
 
@@ -3378,9 +3404,12 @@ Configuration::impl::~impl ()
   }
 }
 
-void Configuration::impl::initialize_models ()
+void Configuration::impl::initialize_models (QList<QSerialPortInfo> const * ports)
 {
   QScopedValueRollback<bool> initializing_models {initializing_models_, true};
+
+  next_font_ = font_;
+  next_decoded_text_font_ = decoded_text_font_;
 
   ui_->language_combo_box->setCurrentIndex (ui_->language_combo_box->findData (ui_language_preference_));
   next_audio_input_device_ = audio_input_device_;
@@ -3625,9 +3654,10 @@ void Configuration::impl::initialize_models ()
 
   check_visibility ();
 
-  normalize_rig_selections (true);
+  normalize_rig_selections (true, ports);
   initializing_models_ = false;
   set_rig_invariants ();
+  presented_rig_params_ = gather_rig_data ();
 }
 
 void Configuration::impl::done (int r)
@@ -4366,30 +4396,36 @@ void Configuration::impl::write_settings ()
   settings_->sync ();
 }
 
-void Configuration::impl::normalize_rig_selections (bool restore)
+void Configuration::impl::set_serial_cat_port (QList<QSerialPortInfo> const& ports)
+{
+  fill_port_combo_box (ui_->CAT_port_combo_box, ports);
+  ui_->CAT_port_combo_box->addItem ("USB");
+  ui_->CAT_port_combo_box->setItemData (ui_->CAT_port_combo_box->count () - 1, "Custom USB device", Qt::ToolTipRole);
+  ui_->CAT_port_combo_box->setCurrentText (rig_params_.serial_port);
+  if (ui_->CAT_port_combo_box->currentText ().isEmpty () && ui_->CAT_port_combo_box->count ())
+    {
+      ui_->CAT_port_combo_box->setCurrentText (ui_->CAT_port_combo_box->itemText (0));
+    }
+  ui_->CAT_port_label->setText (tr ("Serial Port:"));
+  ui_->CAT_port_combo_box->setToolTip (tr ("Serial port used for CAT control"));
+  ui_->CAT_port_combo_box->setEnabled (true);
+}
+
+void Configuration::impl::normalize_rig_selections (bool restore, QList<QSerialPortInfo> const * ports)
 {
   QSignalBlocker cat_signals {ui_->CAT_port_combo_box};
   QSignalBlocker ptt_signals {ui_->PTT_port_combo_box};
   auto const rig = ui_->rig_combo_box->currentText ();
-  auto const port_type = transceiver_factory_.CAT_port_type (rig);
-  if (TransceiverFactory::basic_transceiver_name_ != rig
-      && (restore || port_type != last_port_type_))
+  // Settings OK reads the serial CAT field even when CAT control is disabled.
+  auto const port_type = rig == TransceiverFactory::basic_transceiver_name_
+    ? TransceiverFactory::Capabilities::serial : transceiver_factory_.CAT_port_type (rig);
+  if (restore || port_type != last_port_type_)
     {
       last_port_type_ = port_type;
       switch (port_type)
         {
         case TransceiverFactory::Capabilities::serial:
-          fill_port_combo_box (ui_->CAT_port_combo_box);
-          ui_->CAT_port_combo_box->addItem ("USB");
-          ui_->CAT_port_combo_box->setItemData (ui_->CAT_port_combo_box->count () - 1, "Custom USB device", Qt::ToolTipRole);
-          ui_->CAT_port_combo_box->setCurrentText (rig_params_.serial_port);
-          if (ui_->CAT_port_combo_box->currentText ().isEmpty () && ui_->CAT_port_combo_box->count ())
-            {
-              ui_->CAT_port_combo_box->setCurrentText (ui_->CAT_port_combo_box->itemText (0));
-            }
-          ui_->CAT_port_label->setText (tr ("Serial Port:"));
-          ui_->CAT_port_combo_box->setToolTip (tr ("Serial port used for CAT control"));
-          ui_->CAT_port_combo_box->setEnabled (true);
+          set_serial_cat_port (ports ? *ports : available_serial_ports ());
           break;
 
         case TransceiverFactory::Capabilities::tci:
@@ -4755,15 +4791,13 @@ int Configuration::impl::exec ()
   next_macros_.setStringList (macros_.stringList ());
 
   have_rig_ = rig_active_;	// record that we started with a rig open
-  saved_rig_params_ = rig_params_; // used to detect changes that
-                                   // require the Transceiver to be
-                                   // re-opened
   rig_changed_ = false;
 
   // pick up USB serial adapters plugged in since the dialog was last shown
-  fill_port_combo_box (ui_->footswitch_port_combo_box);
+  auto const ports = available_serial_ports ();
+  fill_port_combo_box (ui_->footswitch_port_combo_box, ports);
 
-  initialize_models ();
+  initialize_models (&ports);
 
   return QDialog::exec();
 }
@@ -4831,22 +4865,17 @@ void Configuration::impl::accept ()
       return;			// not accepting
     }
 
-  // extract all rig related configuration parameters into temporary
-  // structure for checking if the rig needs re-opening without
-  // actually updating our live state
-  auto temp_rig_params = gather_rig_data ();
-
-  // open_rig() uses values from models so we use it to validate the
-  // Transceiver settings before agreeing to accept the configuration
-  if (temp_rig_params != rig_params_
-      && tx_inhibit_blocks_rig_restart (temp_rig_params, false))
+  auto const temp_rig_params = gather_rig_data ();
+  // Port and polling controls can display defaults absent from the saved profile.
+  if (temp_rig_params != (rig_active_ ? opened_rig_params_ : presented_rig_params_))
     {
-      warn_tx_inhibit_restart_blocked ();
-      return;
-    }
-  if (temp_rig_params != rig_params_ && !open_rig ())
-    {
-      return;			// not accepting
+      if (tx_inhibit_blocks_rig_restart (temp_rig_params, false))
+        {
+          warn_tx_inhibit_restart_blocked ();
+          return;
+        }
+      // Keep Settings open if the changed rig parameters cannot be applied.
+      if (!open_rig ()) return;
     }
 
   QDialog::accept();            // do this before accessing custom
@@ -5785,7 +5814,7 @@ void Configuration::impl::on_LotW_CSV_fetch_push_button_clicked (bool /*checked*
 
 void Configuration::impl::on_decoded_text_font_push_button_clicked ()
 {
-  next_decoded_text_font_ = QFontDialog::getFont (0, decoded_text_font_ , this
+  next_decoded_text_font_ = QFontDialog::getFont (0, next_decoded_text_font_, this
                                                   , tr ("WSJT-X Decoded Text Font Chooser")
                                                   , QFontDialog::MonospacedFonts
                                                   );
@@ -5937,9 +5966,8 @@ void Configuration::impl::on_CAT_serial_baud_combo_box_currentIndexChanged (int 
   set_rig_invariants ();
 }
 
-void Configuration::impl::on_rig_combo_box_currentIndexChanged (int /* index */)
+void Configuration::impl::apply_rig_power_restrictions ()
 {
-  set_rig_invariants ();
   if(ui_->rig_combo_box->currentText().startsWith("OmniRig") || ui_->rig_combo_box->currentText().startsWith("DX Lab") ||
      ui_->rig_combo_box->currentText().startsWith("Ham Radio") || ui_->rig_combo_box->currentText().startsWith("Kenwood TS-480") ||
      ui_->rig_combo_box->currentText().startsWith("Kenwood TS-850") ||
@@ -7556,10 +7584,10 @@ bool Configuration::impl::open_rig (bool force)
           connect (p, &Transceiver::finished, p, &Transceiver::deleteLater, Qt::QueuedConnection);
 
           ui_->test_CAT_push_button->setStyleSheet ({});
+          opened_rig_params_ = rig_data;
           rig_active_ = true;
           LOG_TRACE ("emitting startup_transceiver");
           Q_EMIT start_transceiver (++transceiver_command_number_); // start rig on its thread
-          if(is_tci_) rig_params_ = gather_rig_data ();
           result = true;
         }
       catch (std::exception const& e)
@@ -7567,7 +7595,6 @@ bool Configuration::impl::open_rig (bool force)
           handle_transceiver_failure (e.what ());
         }
 
-      saved_rig_params_ = rig_data;
       rig_changed_ = true;
     }
   else
@@ -7580,7 +7607,7 @@ bool Configuration::impl::open_rig (bool force)
 bool Configuration::impl::rig_restart_required (
   TransceiverFactory::ParameterPack const& rig_data, bool force) const
 {
-  return force || !rig_active_ || rig_data != saved_rig_params_;
+  return force || !rig_active_ || rig_data != opened_rig_params_;
 }
 
 bool Configuration::impl::tx_inhibit_blocks_rig_restart (
@@ -7646,7 +7673,7 @@ bool Configuration::impl::prepare_radio_mode ()
   auto const desired = configured_mode ();
   radio_mode_policy_.configure (desired);
   notify_mode_control (previous);
-  if (desired == Transceiver::UNK || rig_is_dummy_) return true;
+  if (desired == Transceiver::UNK || operating_rig_is_dummy ()) return true;
   if (radio_mode_policy_.state () == RadioModePolicy::State::Preparing) return true;
   if (radio_mode_policy_.ready () && radio_mode_policy_.has_prepared ()
       && cached_rig_state_.mode () == desired) return true;
@@ -8357,40 +8384,44 @@ void Configuration::impl::find_tab (QWidget * target)
   target->setFocus ();
 }
 
-// load all the supported rig names into the selection combo box
-void Configuration::impl::enumerate_rigs ()
+void Configuration::impl::populate_rig_selector (QComboBox& combo, TransceiverFactory::Transceivers const& rigs,
+                                                 QString const& saved_rig)
 {
-  ui_->rig_combo_box->clear ();
+  QSignalBlocker blocker {&combo};
+  combo.clear ();
 
-  auto rigs = transceiver_factory_.supported_transceivers ();
-
-  for (auto r = rigs.cbegin (); r != rigs.cend (); ++r)
+  struct RigItem
+  {
+    QString name;
+    QString sort_key;
+    unsigned model;
+  };
+  std::vector<RigItem> items;
+  items.reserve (rigs.size ());
+  auto const none = rigs.constFind (TransceiverFactory::basic_transceiver_name_);
+  for (auto rig = rigs.cbegin (); rig != rigs.cend (); ++rig)
     {
-      if ("None" == r.key ())
-        {
-          // put None first
-          ui_->rig_combo_box->insertItem (0, r.key (), r.value ().model_number_);
-        }
-      else
-        {
-          int i;
-          for(i=1;i<ui_->rig_combo_box->count() && (r.key().toLower() > ui_->rig_combo_box->itemText(i).toLower());++i);
-          if (i < ui_->rig_combo_box->count())  ui_->rig_combo_box->insertItem (i, r.key (), r.value ().model_number_);
-          else ui_->rig_combo_box->addItem (r.key (), r.value ().model_number_);
-        }
+      if (rig != none)
+        items.push_back ({rig.key (), rig.key ().toLower (), rig.value ().model_number_});
     }
 
-  ui_->rig_combo_box->setCurrentText (rig_params_.rig_name);
+  std::sort (items.begin (), items.end (), [] (RigItem const& a, RigItem const& b) {
+      return a.sort_key == b.sort_key ? a.name > b.name : a.sort_key < b.sort_key;
+    });
+  if (none != rigs.cend ())
+    combo.addItem (none.key (), none.value ().model_number_);
+  for (auto const& item : items)
+    combo.addItem (item.name, item.model);
+
+  if (!rigs.isEmpty ())
+    combo.setCurrentText (rigs.contains (saved_rig) ? saved_rig : rigs.firstKey ());
 }
 
-void Configuration::impl::fill_port_combo_box(QComboBox* cb)
+QList<QSerialPortInfo> Configuration::impl::available_serial_ports () const
 {
-    auto current_text = cb->currentText();
-    cb->clear();
-
     // Retrieve available ports and filter out ones with "NULL"
     QList<QSerialPortInfo> ports;
-    foreach (const QSerialPortInfo &p, QSerialPortInfo::availablePorts())
+    foreach (const QSerialPortInfo &p, enumerate_ports_ ())
     {
         if (!p.portName().contains("NULL")) // virtual serial port pairs
         {
@@ -8402,7 +8433,13 @@ void Configuration::impl::fill_port_combo_box(QComboBox* cb)
         return serial_port_name_less(a.portName(), b.portName());
     });
 
-    // Add sorted ports to the combo box
+    return ports;
+}
+
+void Configuration::impl::fill_port_combo_box (QComboBox * cb, QList<QSerialPortInfo> const& ports)
+{
+    auto current_text = cb->currentText();
+    cb->clear();
     for (const auto& p : ports)
     {
         // Remove possibly confusing Windows device path (OK because it gets added back by Hamlib)

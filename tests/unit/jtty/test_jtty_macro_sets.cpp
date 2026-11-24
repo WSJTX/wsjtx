@@ -60,6 +60,98 @@ private slots:
     QVERIFY (over.pttOff);
   }
 
+  void chatHasCqGridAndLeavesTheRestForTheOperator ()
+  {
+    auto const chat = Jtty::defaultMacroSet (QStringLiteral ("Chat"));
+    QCOMPARE (chat.macros[0].text, QStringLiteral ("%[CQ CQ CQ DE %M %M K%]"));
+    QCOMPARE (chat.macros[4].label, QStringLiteral ("CQ grid"));
+    auto const cq = Jtty::parseMacroControl (chat.macros[4].text);
+    QCOMPARE (cq.text, QStringLiteral ("CQ %M %G"));
+    QVERIFY (cq.pttOn);
+    QVERIFY (cq.pttOff);
+    // F6 and the keys after it are blank: a default set does not spend a key
+    // on a test string; the operator puts their own text there.
+    for (int key = 6; key <= Jtty::macroKeyCount; ++key) {
+      QVERIFY (chat.macros[key - 1].text.isEmpty ());
+    }
+    // Run and S&P have no CQ-with-grid macro to find.
+    for (QString const& name : {QStringLiteral ("Run"), QStringLiteral ("S&P")}) {
+      auto const set = Jtty::defaultMacroSet (name);
+      for (int key = 9; key <= Jtty::macroKeyCount; ++key) {
+        QVERIFY (set.macros[key - 1].text.isEmpty ());
+      }
+    }
+  }
+
+  void selectingASetByButtonName ()
+  {
+    // What the style buttons do: each names its set, and the library follows.
+    Jtty::MacroLibrary library;
+    QVERIFY (library.selectByName (QStringLiteral ("Chat")));
+    QCOMPARE (library.current ().name, QStringLiteral ("Chat"));
+    QVERIFY (library.selectByName (QStringLiteral ("S&P")));
+    QCOMPARE (library.currentIndex (), 1);
+    QVERIFY (library.selectByName (QStringLiteral ("Run")));
+    QCOMPARE (library.currentIndex (), 0);
+    QVERIFY (!library.selectByName (QStringLiteral ("No such set")));
+    QCOMPARE (library.currentIndex (), 0);
+  }
+
+  void myCallPrefixIsAddedOnlyWhenTheCallIsMissing ()
+  {
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("HELLO JOE"), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("DL3WDG: HELLO JOE"));
+    // Any case, any form that names the station.
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("hello joe de dl3wdg"), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("hello joe de dl3wdg"));
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("K1JT DE <DL3WDG> K"), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("K1JT DE <DL3WDG> K"));
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("TNX DL3WDG."), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("TNX DL3WDG."));
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("DL3WDG: HELLO"), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("DL3WDG: HELLO"));
+    // Portable forms count as the station, on either side.
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("HELLO DL3WDG/P"), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("HELLO DL3WDG/P"));
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("HELLO DL3WDG"), QStringLiteral ("DL3WDG/P")),
+              QStringLiteral ("HELLO DL3WDG"));
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("HELLO EA8/DL3WDG"), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("HELLO EA8/DL3WDG"));
+    // A longer call that merely contains it is another station.
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("HELLO DL3WDGX"), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("DL3WDG: HELLO DL3WDGX"));
+    // The prefix carries the call as set, in capitals; spacing is tidied.
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("  HI "), QStringLiteral (" dl3wdg/p ")),
+              QStringLiteral ("DL3WDG/P: HI"));
+    // Nothing to do without a call or without text.
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("HELLO"), QString {}), QStringLiteral ("HELLO"));
+    QCOMPARE (Jtty::withMyCallPrefix (QStringLiteral ("  "), QStringLiteral ("DL3WDG")),
+              QStringLiteral ("  "));
+    QVERIFY (!Jtty::textHasCall (QStringLiteral ("DL3WDG"), QString {}));
+  }
+
+  void everyOverGetsThePrefixOnce ()
+  {
+    // overPrefixDue (enabled, chat, committed, nothingPending, prefixedThisOver,
+    //                streaming, textNamesMyCall)
+    // The first text of a streaming over gets it ...
+    QVERIFY (Jtty::overPrefixDue (true, true, 0, true, false, true, false));
+    // ... but not a later slice of the same over.
+    QVERIFY (!Jtty::overPrefixDue (true, true, 0, true, true, true, false));
+    // A send made while PTT is not armed (Enter, Send) is an over of its own,
+    // even when an earlier F9 over left its flag set.
+    QVERIFY (Jtty::overPrefixDue (true, true, 0, true, true, false, false));
+    // Every Enter send in turn, with the box cleared between them.
+    QVERIFY (Jtty::overPrefixDue (true, true, 0, true, false, false, false));
+    QVERIFY (Jtty::overPrefixDue (true, true, 0, true, false, false, false));
+    // The other conditions still hold.
+    QVERIFY (!Jtty::overPrefixDue (false, true, 0, true, false, false, false)); // box off
+    QVERIFY (!Jtty::overPrefixDue (true, false, 0, true, false, false, false)); // Run / S&P
+    QVERIFY (!Jtty::overPrefixDue (true, true, 12, true, false, false, false)); // text already sent
+    QVERIFY (!Jtty::overPrefixDue (true, true, 0, false, false, false, false)); // text pending
+    QVERIFY (!Jtty::overPrefixDue (true, true, 0, true, false, false, true));   // names my call
+  }
+
   void enterRolesOfTheBuiltInSets ()
   {
     QCOMPARE (Jtty::defaultMacroSet (QStringLiteral ("Run")).enterRole, Jtty::EnterRole::Run);

@@ -49,6 +49,11 @@ struct wsprd_context {
     wspr_decoder *decoder;
 };
 
+int wsprd_context_threads_ran(struct wsprd_context const *ctx)
+{
+    return ctx ? wspr_decoder_threads_ran(ctx->decoder) : 0;
+}
+
 _Static_assert((int)WSPRD_DECODE_MAX_RESULTS == (int)WSPR_DECODER_MAX_RESULTS,
                "wspr_decoder_run's result count");
 
@@ -67,6 +72,7 @@ void wsprd_decode_options_init(struct wsprd_decode_options *o)
     o->fmax=110;
     o->bias=0.45;
     o->dialfreq_error=0.0;
+    o->threads=0;
 }
 
 struct wsprd_context *wsprd_context_new(wsprd_plan_guard plan_guard)
@@ -152,6 +158,7 @@ static void decoder_options(struct wsprd_decode_options const *o,
     tuning->verbose=o->verbose;
     tuning->bias=o->bias;
     tuning->calibration_error_hz=o->dialfreq_error;
+    tuning->threads=o->threads;
 }
 
 static void first_pass(const float *i, const float *q, void *user)

@@ -1,22 +1,6 @@
-! Phase 5 parse-unit regression driver ("unit parse->pack assert").
-! Exercises parse_control_frame for the 12 Phase 5
-! decoder-tuning keys + the tricky cases: real(8) keys (dt_tolerance_seconds /
-! eme_delay_seconds), the tx_mode enum (string JT9/JT65 -> 9/65 and raw int),
-! bool true/false (robust_mode / nagain_flag / clear_average), wrong-type
-! detection (real/int/bool), the "mode" vs "tx_mode" + "min_width" vs "min_sync"
-! substring non-collision, and value-vs-key aliasing (a string value equal to a
-! Phase-5 key token must NOT be mistaken for that key).
-! Compiled + run by test/run-phase5-parse-unit.sh against lib/streaming_control.f90.
-!
-! SCOPE: this guards the JSON -> configure_fields PARSE (the module-public entry
-! point). The configure_fields -> params APPLY routing now lives in the module-
-! public streaming_apply::apply_configure_fields (extracted from the
-! former nested-internal apply_configure_) and is asserted by
-! test/run-apply-routing-unit.sh. For Phase 5, 10 of 12 fields are observably
-! inert on the FT8/JT9 fixtures; npts_c0_array has a decode-effect gate in
-! run-schema-v1-fixtures.sh (Gate 12, on JT9 alone, which decodes without npts8
-! in the engine, so the gate fails), and nagain_flag, a decode-again request,
-! gets a refusal gate (Gate 11).
+! Exercise parsing of the Phase 5 decoder-tuning keys, including wrong
+! types, absent keys, and values that happen to match key names.
+! Apply routing is covered by test/run-apply-routing-unit.sh.
 program p5_parse_test
   use streaming_control, only: parse_control_frame, configure_fields,        &
        control_type_error, CTRL_CONFIGURE
@@ -55,17 +39,17 @@ contains
     end if
   end subroutine ok
 
-  ! Frame A: all 12 keys, bools true, tx_mode as the "JT65" enum string.
+  ! Frame A: all nine keys, bools true.
   subroutine frame_A()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: b =                                       &
       '{"t":"configure","dt_tolerance_seconds":0.1,"eme_delay_seconds":1.5,' //   &
-      '"kin_samples":64800,"nzhsym_per_period":50,"npts_c0_array":74736,' //      &
-      '"min_width":1,"min_sync":2,"n_2pass":1,"robust_mode":true,' //             &
-      '"nagain_flag":true,"tx_mode":"JT65","clear_average":true}'
-    write(*,'(a)') 'Frame A: all 12 keys present, bools true, tx_mode="JT65"'
+      '"kin_samples":64800,"nzhsym_per_period":50,' //      &
+      '"min_width":1,"min_sync":2,"n_2pass":1,' //             &
+      '"nagain_flag":true,"clear_average":true}'
+    write(*,'(a)') 'Frame A: all nine keys present, bools true'
     call parse_control_frame(b, action, cfg, terr)
     call ok('action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
     call ok('terr not present',          .not. terr%present)
@@ -78,58 +62,48 @@ contains
          abs(cfg%eme_delay_seconds - 1.5d0) .lt. 1.d-9)
     call ok('kin_samples == 64800',        cfg%kin_samples_set .and. cfg%kin_samples .eq. 64800)
     call ok('nzhsym_per_period == 50',     cfg%nzhsym_per_period_set .and. cfg%nzhsym_per_period .eq. 50)
-    call ok('npts_c0_array == 74736',      cfg%npts_c0_array_set .and. cfg%npts_c0_array .eq. 74736)
     call ok('min_width == 1',              cfg%min_width_set .and. cfg%min_width .eq. 1)
     call ok('min_sync == 2',               cfg%min_sync_set  .and. cfg%min_sync  .eq. 2)
     call ok('n_2pass == 1',                cfg%n_2pass_set   .and. cfg%n_2pass   .eq. 1)
-    call ok('robust_mode == true',         cfg%robust_mode_set   .and. cfg%robust_mode)
     call ok('nagain_flag == true',         cfg%nagain_flag_set   .and. cfg%nagain_flag)
-    call ok('tx_mode == 65 (JT65)',        cfg%tx_mode_set   .and. cfg%tx_mode .eq. 65)
     call ok('clear_average == true',       cfg%clear_average_set .and. cfg%clear_average)
   end subroutine frame_A
 
-  ! Frame B: bools false (distinguish "set to false" from "absent");
-  ! tx_mode as a raw int (9); a negative real.
+  ! Frame B: explicitly false booleans and a negative real.
   subroutine frame_B()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: b =                                       &
-      '{"t":"configure","robust_mode":false,"nagain_flag":false,' //              &
-      '"clear_average":false,"tx_mode":9,"dt_tolerance_seconds":-0.5}'
-    write(*,'(a)') 'Frame B: bools false, tx_mode=9 (int), negative real'
+      '{"t":"configure","nagain_flag":false,' //              &
+      '"clear_average":false,"dt_tolerance_seconds":-0.5}'
+    write(*,'(a)') 'Frame B: bools false, negative real'
     call parse_control_frame(b, action, cfg, terr)
     call ok('terr not present',                  .not. terr%present)
-    call ok('robust_mode set, value false',      cfg%robust_mode_set   .and. (.not. cfg%robust_mode))
     call ok('nagain_flag set, value false',      cfg%nagain_flag_set   .and. (.not. cfg%nagain_flag))
     call ok('clear_average set, value false',    cfg%clear_average_set .and. (.not. cfg%clear_average))
-    call ok('tx_mode == 9 (int)',                cfg%tx_mode_set .and. cfg%tx_mode .eq. 9)
     call ok('dt_tolerance_seconds == -0.5',      cfg%dt_tolerance_seconds_set .and. &
          abs(cfg%dt_tolerance_seconds + 0.5d0) .lt. 1.d-9)
   end subroutine frame_B
 
-  ! Frame C: substring non-collision. "mode" is a substring of "tx_mode" and
-  ! "min_width"/"min_sync" share the "min_" prefix — the structural key locator
-  ! (closing quote in the token + anchor) must keep them distinct, both orderings.
+  ! Frame C: min_width and min_sync are distinct in both orders.
   subroutine frame_C()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: b1 =                                      &
-      '{"t":"configure","mode":"FT8","tx_mode":"JT9","min_width":3,"min_sync":4}'
+      '{"t":"configure","mode":"FT8","min_width":3,"min_sync":4}'
     character(len=*), parameter :: b2 =                                      &
-      '{"t":"configure","tx_mode":"JT9","mode":"FT8","min_sync":4,"min_width":3}'
-    write(*,'(a)') 'Frame C: mode vs tx_mode + min_width vs min_sync non-collision'
+      '{"t":"configure","mode":"FT8","min_sync":4,"min_width":3}'
+    write(*,'(a)') 'Frame C: min_width and min_sync in both orders'
     call parse_control_frame(b1, action, cfg, terr)
     call ok('order1: terr not present',  .not. terr%present)
     call ok('order1: mode == 8 (FT8)',   cfg%mode_set    .and. cfg%mode    .eq. 8)
-    call ok('order1: tx_mode == 9 (JT9)',cfg%tx_mode_set .and. cfg%tx_mode .eq. 9)
     call ok('order1: min_width == 3',    cfg%min_width_set .and. cfg%min_width .eq. 3)
     call ok('order1: min_sync == 4',     cfg%min_sync_set  .and. cfg%min_sync  .eq. 4)
     call parse_control_frame(b2, action, cfg, terr)
     call ok('order2: terr not present',  .not. terr%present)
     call ok('order2: mode == 8 (FT8)',   cfg%mode_set    .and. cfg%mode    .eq. 8)
-    call ok('order2: tx_mode == 9 (JT9)',cfg%tx_mode_set .and. cfg%tx_mode .eq. 9)
     call ok('order2: min_width == 3',    cfg%min_width_set .and. cfg%min_width .eq. 3)
     call ok('order2: min_sync == 4',     cfg%min_sync_set  .and. cfg%min_sync  .eq. 4)
   end subroutine frame_C
@@ -153,11 +127,11 @@ contains
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
-    character(len=*), parameter :: b = '{"t":"configure","npts_c0_array":"big"}'
-    write(*,'(a)') 'Frame E: npts_c0_array:"big" (string) -> type error'
+    character(len=*), parameter :: b = '{"t":"configure","min_width":"big"}'
+    write(*,'(a)') 'Frame E: min_width:"big" (string) -> type error'
     call parse_control_frame(b, action, cfg, terr)
     call ok('terr present',           terr%present)
-    call ok('key == npts_c0_array',   trim(terr%key) .eq. 'npts_c0_array')
+    call ok('key == min_width',   trim(terr%key) .eq. 'min_width')
     call ok('expected == int',        trim(terr%expected) .eq. 'int')
     call ok('got == string',          trim(terr%got) .eq. 'string')
   end subroutine frame_E
@@ -167,25 +141,16 @@ contains
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
-    character(len=*), parameter :: b = '{"t":"configure","robust_mode":5}'
-    write(*,'(a)') 'Frame F: robust_mode:5 (number) -> type error'
+    character(len=*), parameter :: b = '{"t":"configure","clear_average":5}'
+    write(*,'(a)') 'Frame F: clear_average:5 (number) -> type error'
     call parse_control_frame(b, action, cfg, terr)
     call ok('terr present',       terr%present)
-    call ok('key == robust_mode', trim(terr%key) .eq. 'robust_mode')
+    call ok('key == clear_average', trim(terr%key) .eq. 'clear_average')
     call ok('expected == bool',   trim(terr%expected) .eq. 'bool')
     call ok('got == number',      trim(terr%got) .eq. 'number')
   end subroutine frame_F
 
-  ! Frame G: value-vs-key aliasing — the mycall VALUE is the literal "n_2pass"
-  ! token, with no real n_2pass key. The anchored locator must NOT mistake the
-  ! value for the key: n_2pass stays unset (benign extraction miss) and NO false
-  ! type error is raised. (Documents the benign aliasing
-  ! behavior for an int key whose token appears as a string value.) NOTE: the
-  ! primary anchoring-REGRESSION teeth live in Frame C — a value's closing quote
-  ! is always followed by a structural char ('}'/','), so a hypothetical raw-
-  ! index regression would classify this value as 'absent' and also not decline;
-  ! Frame C (mode-inside-tx_mode, order2) is what actually fails on a raw-index
-  ! regression. This frame documents the benign no-false-decline contract.
+  ! Frame G: a value matching a key name does not set that key.
   subroutine frame_G()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
@@ -211,36 +176,26 @@ contains
     call ok('eme_delay_seconds unset',       .not. cfg%eme_delay_seconds_set)
     call ok('kin_samples unset',             .not. cfg%kin_samples_set)
     call ok('nzhsym_per_period unset',       .not. cfg%nzhsym_per_period_set)
-    call ok('npts_c0_array unset',           .not. cfg%npts_c0_array_set)
     call ok('min_width unset',               .not. cfg%min_width_set)
     call ok('min_sync unset',                .not. cfg%min_sync_set)
     call ok('n_2pass unset',                 .not. cfg%n_2pass_set)
-    call ok('robust_mode unset',             .not. cfg%robust_mode_set)
     call ok('nagain_flag unset',             .not. cfg%nagain_flag_set)
-    call ok('tx_mode unset',                 .not. cfg%tx_mode_set)
     call ok('clear_average unset',           .not. cfg%clear_average_set)
   end subroutine frame_H
 
-  ! Frame I: npts_c0_array feeds JT9 npts8. Values outside the downsam9
-  ! FFT input domain are ignored rather than routed to the decoder.
+  ! Retired keys are ignored, even when their values would have failed type checks.
   subroutine frame_I()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
-    character(len=*), parameter :: b1 = '{"t":"configure","npts_c0_array":-1}'
-    character(len=*), parameter :: b2 = '{"t":"configure","npts_c0_array":0}'
-    character(len=*), parameter :: b3 = '{"t":"configure","npts_c0_array":81649}'
-    character(len=*), parameter :: b4 = '{"t":"configure","npts_c0_array":81648}'
-    write(*,'(a)') 'Frame I: npts_c0_array domain guard'
-    call parse_control_frame(b1, action, cfg, terr)
-    call ok('negative npts_c0_array ignored', .not. terr%present .and. .not. cfg%npts_c0_array_set)
-    call parse_control_frame(b2, action, cfg, terr)
-    call ok('zero npts_c0_array ignored',     .not. terr%present .and. .not. cfg%npts_c0_array_set)
-    call parse_control_frame(b3, action, cfg, terr)
-    call ok('oversize npts_c0_array ignored', .not. terr%present .and. .not. cfg%npts_c0_array_set)
-    call parse_control_frame(b4, action, cfg, terr)
-    call ok('max npts_c0_array accepted',     .not. terr%present .and. cfg%npts_c0_array_set .and. &
-         cfg%npts_c0_array .eq. 81648)
+    character(len=*), parameter :: b =                                      &
+      '{"t":"configure","jt65_jt9_split_hz":"wide","npts_c0_array":"big",' // &
+      '"robust_mode":5,"tx_mode":true,"min_sync":3}'
+    write(*,'(a)') 'Frame I: retired keys are ignored'
+    call parse_control_frame(b, action, cfg, terr)
+    call ok('action == CTRL_CONFIGURE', action .eq. CTRL_CONFIGURE)
+    call ok('terr not present', .not. terr%present)
+    call ok('min_sync == 3', cfg%min_sync_set .and. cfg%min_sync .eq. 3)
   end subroutine frame_I
 
 end program p5_parse_test

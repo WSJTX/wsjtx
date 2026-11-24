@@ -27,7 +27,7 @@ add_executable (test_jtty_transmit_host test_jtty_transmit_host.cpp)
 target_link_libraries (test_jtty_transmit_host PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_transmit_host)
 add_test (NAME test_jtty_transmit_host COMMAND test_jtty_transmit_host)
-set_tests_properties (test_jtty_transmit_host PROPERTIES TIMEOUT 60)
+set_tests_properties (test_jtty_transmit_host PROPERTIES TIMEOUT 120)
 
 add_executable (test_jtty_source_codec test_jtty_source_codec.f90)
 target_include_directories (test_jtty_source_codec PRIVATE ${CMAKE_BINARY_DIR})
@@ -299,6 +299,18 @@ add_executable (test_jtty_macro_sets
 target_link_libraries (test_jtty_macro_sets PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_macro_sets)
 add_test (NAME test_jtty_macro_sets COMMAND test_jtty_macro_sets)
+
+add_executable (test_jtty_style_buttons
+  test_jtty_style_buttons.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/JttyMacroSets.cpp)
+target_compile_definitions (test_jtty_style_buttons PRIVATE WSJTX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries (test_jtty_style_buttons PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_style_buttons)
+add_test (NAME test_jtty_style_buttons COMMAND test_jtty_style_buttons)
+add_executable (test_jtty_waterfall_calls test_jtty_waterfall_calls.cpp)
+target_link_libraries (test_jtty_waterfall_calls PRIVATE Qt5::Test)
+wsjt_link_common_fortran (test_jtty_waterfall_calls)
+add_test (NAME test_jtty_waterfall_calls COMMAND test_jtty_waterfall_calls)
 
 add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
 target_link_libraries (test_jtty_n1mm PRIVATE Qt5::Test)

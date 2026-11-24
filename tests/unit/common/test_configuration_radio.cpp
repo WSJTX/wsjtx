@@ -3,6 +3,9 @@
 #include <QTemporaryDir>
 #include <QSemaphore>
 #include <atomic>
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/trivial.hpp>
 #include "OperatingFrequency.hpp"
 #include "TciSimServer.hpp"
 #include "TciSimScript.hpp"
@@ -194,7 +197,7 @@ class TestConfigurationRadio final : public QObject
   Configuration::impl& dialog () { return *configuration_->m_; }
   Ui::configuration_dialog& ui () { return *dialog ().ui_; }
 
-  bool openFrequencySession ()
+  bool openFrequencySession (bool testCat = false)
   {
     auto& session = *session_;
     ui ().rig_combo_box->setCurrentText ("TCI Client RX1");
@@ -203,15 +206,20 @@ class TestConfigurationRadio final : public QObject
     ui ().split_rig_radio_button->setChecked (true);
     ui ().tci_audio_check_box->setChecked (false);
     ui ().CAT_poll_interval_spin_box->setValue (0);
-    dialog ().rig_params_ = dialog ().gather_rig_data ();
-    dialog ().rig_is_dummy_ = false;
-    if (!dialog ().open_rig ()) return false;
+    if (testCat)
+      ui ().test_CAT_push_button->click ();
+    else
+      {
+        dialog ().rig_params_ = dialog ().gather_rig_data ();
+        dialog ().rig_is_dummy_ = false;
+        if (!dialog ().open_rig ()) return false;
+      }
     session.frequency.setConnectionGeneration (configuration_->frequency_generation ());
     return session.server.wait_for ([&] { return session.previous.online || !session.failures.isEmpty (); }, 7000)
       && session.previous.online && session.failures.isEmpty ();
   }
 
-  bool openPttTestWithLatchedYield ()
+  bool openPttTestWithLatchedYield (bool testCat = false)
   {
     dialog ().data_mode_ = Configuration::data_mode_data;
     ui ().mode_data_radio_button->setChecked (true);
@@ -223,7 +231,7 @@ class TestConfigurationRadio final : public QObject
     dialog ().radio_mode_policy_.prepare (dialog ().transceiver_command_number_);
     dialog ().handle_mode_status ({Transceiver::CW, Transceiver::ModeStatusKind::Observed},
       dialog ().transceiver_command_number_);
-    if (!s.server.listen () || !openFrequencySession ()) return false;
+    if (!s.server.listen () || !openFrequencySession (testCat)) return false;
     dialog ().have_rig_ = true;
     dialog ().rig_changed_ = false;
     return configuration_->radio_mode_yielded () && !configuration_->radio_mode_ready ()
@@ -236,7 +244,7 @@ class TestConfigurationRadio final : public QObject
     d.data_mode_ = Configuration::data_mode_data;
     ui ().mode_data_radio_button->setChecked (true);
     d.show ();
-    d.rig_params_ = d.saved_rig_params_ = d.gather_rig_data ();
+    d.rig_params_ = d.opened_rig_params_ = d.gather_rig_data ();
     d.rig_active_ = d.have_rig_ = true;
     d.rig_changed_ = d.rig_is_dummy_ = false;
     Transceiver::TransceiverState observed;
@@ -322,7 +330,12 @@ private slots:
     app.wrongThread.store (false);
     settings_.reset (new QSettings {directory_.filePath ("settings.ini"), QSettings::IniFormat});
     settings_->clear ();
-    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    auto ports = [] {
+      static auto const snapshot = QSerialPortInfo::availablePorts ();
+      return snapshot;
+    };
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (),
+                                             nullptr, nullptr, ports});
     auto& d = dialog ();
     auto& rigs = const_cast<TransceiverFactory::Transceivers&> (d.transceiver_factory_.supported_transceivers ());
     using Caps = TransceiverFactory::Capabilities;
@@ -335,8 +348,10 @@ private slots:
     QVERIFY (!network_rig_.isEmpty ());
     // OmniRig's Windows COM transport is unavailable here; use its registered capabilities.
     if (!rigs.contains ("OmniRig Rig 1"))
-      rigs.insert ("OmniRig Rig 1", Caps {99904, Caps::none, true, false, true, true});
-    d.enumerate_rigs ();
+      {
+        rigs.insert ("OmniRig Rig 1", Caps {99904, Caps::none, true, false, true, true});
+        ui ().rig_combo_box->addItem ("OmniRig Rig 1", 99904);
+      }
     d.rig_params_.rig_name = serial_rig_;
     d.rig_params_.serial_port = "/dev/test-cat";
     d.rig_params_.network_port = "localhost:4532";
@@ -367,6 +382,150 @@ private slots:
     configuration_.reset ();
     session_.reset ();
     settings_.reset ();
+  }
+
+  void acceptingUnrelatedSettingsPreservesRigConnection_data ()
+  {
+    QTest::addColumn<bool> ("online");
+    QTest::newRow ("offline") << false;
+    QTest::newRow ("online") << true;
+  }
+
+  void acceptingUnrelatedSettingsPreservesRigConnection ()
+  {
+    QFETCH (bool, online);
+    auto& d = dialog ();
+    d.rig_params_.rig_name = TransceiverFactory::basic_transceiver_name_;
+    d.rig_params_.ptt_type = TransceiverFactory::PTT_method_VOX;
+    d.rig_params_.poll_interval = 0;
+    d.initialize_models ();
+    QCOMPARE (d.gather_rig_data ().poll_interval, 1);
+    if (online)
+      {
+        QVERIFY (configuration_->transceiver_online ());
+        QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+      }
+    auto const generation = configuration_->frequency_generation ();
+    QTimer::singleShot (0, &d, [&] {
+      ui ().best_sp_new_dxcc_check_box->setChecked (!configuration_->best_sp_new_dxcc ());
+      d.accept ();
+    });
+    auto const previous = configuration_->best_sp_new_dxcc ();
+    QCOMPARE (configuration_->exec (), int (QDialog::Accepted));
+    QCOMPARE (configuration_->best_sp_new_dxcc (), !previous);
+    QCOMPARE (configuration_->is_transceiver_online (), online);
+    QCOMPARE (configuration_->frequency_generation (), generation);
+
+    // The main window requests an online rig after Settings OK.
+    QVERIFY (configuration_->transceiver_online ());
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+    if (online) QCOMPARE (configuration_->frequency_generation (), generation);
+    else QVERIFY (configuration_->frequency_generation () != generation);
+  }
+
+  void acceptingDefaultPortsKeepsSerialRigOffline ()
+  {
+    auto& d = dialog ();
+    d.rig_params_.poll_interval = 1;
+    d.rig_params_.serial_port.clear ();
+    d.rig_params_.ptt_port.clear ();
+    ui ().PTT_port_combo_box->insertItem (0, "/dev/test-default-ptt");
+    d.initialize_models ();
+    auto expected = d.rig_params_;
+    expected.serial_port = ui ().CAT_port_combo_box->itemText (0);
+    expected.ptt_port = "/dev/test-default-ptt";
+    QVERIFY (!expected.serial_port.isEmpty ());
+    QVERIFY (d.gather_rig_data () == expected);
+    QVERIFY (!d.rig_active_);
+    auto const generation = configuration_->frequency_generation ();
+    d.accept ();
+    QCOMPARE (d.result (), int (QDialog::Accepted));
+    QCOMPARE (configuration_->frequency_generation (), generation);
+    QVERIFY (!d.rig_active_);
+  }
+
+  void testCatReopensUnchangedConnection ()
+  {
+    auto& d = dialog ();
+    auto& rigs = const_cast<TransceiverFactory::Transceivers&> (d.transceiver_factory_.supported_transceivers ());
+    auto const dummy = rigs.value (TransceiverFactory::basic_transceiver_name_);
+    auto const name = QStringLiteral ("Test CAT dummy");
+    rigs.insert (name, dummy);
+    ui ().rig_combo_box->addItem (name, dummy.model_number_);
+    ui ().rig_combo_box->setCurrentText (name);
+    ui ().PTT_VOX_radio_button->setChecked (true);
+    QVERIFY (configuration_->transceiver_online ());
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+    auto const generation = configuration_->frequency_generation ();
+    ui ().test_CAT_push_button->click ();
+    QVERIFY (configuration_->frequency_generation () != generation);
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+  }
+
+  void testCatRestoresOriginalConnection_data ()
+  {
+    QTest::addColumn<bool> ("cancel");
+    QTest::newRow ("cancel while testing alternate") << true;
+    QTest::newRow ("select original and accept") << false;
+  }
+
+  void testCatRestoresOriginalConnection ()
+  {
+    QFETCH (bool, cancel);
+    session_.reset (new FrequencySession {*configuration_});
+    auto& original = session_->server;
+    QVERIFY (original.listen ());
+    QVERIFY (openFrequencySession ());
+    auto const originalPort = ui ().CAT_port_combo_box->currentText ();
+    TciSimServer alternate;
+    QVERIFY (alternate.listen ());
+    connect (&alternate, &TciSimServer::client_arrived, &alternate, [&] (int) {
+      for (auto const& message : TciSimScript::greeting_messages (TciSimGreeting::Thetis))
+        alternate.send_text (message);
+    });
+    auto& d = dialog ();
+    QVERIFY (configuration_->split_mode ());
+    bool alternateSplit = true;
+    bool tested = false;
+    QTimer::singleShot (0, &d, [&] {
+      ui ().split_none_radio_button->setChecked (true);
+      ui ().CAT_port_combo_box->setEditText (QString {"127.0.0.1:%1"}.arg (alternate.port ()));
+      ui ().test_CAT_push_button->click ();
+      tested = alternate.wait_for ([&] {
+        return alternate.client_connected () && original.client_disconnected () && d.cached_rig_state_.online ();
+      }, 8000);
+      alternateSplit = configuration_->split_mode ();
+      if (cancel || !tested) d.reject ();
+      else
+        {
+          ui ().split_rig_radio_button->setChecked (true);
+          ui ().CAT_port_combo_box->setEditText (originalPort);
+          d.accept ();
+        }
+    });
+    auto const result = configuration_->exec ();
+    QVERIFY (tested);
+    QVERIFY (!alternateSplit);
+    QCOMPARE (result, int (cancel ? QDialog::Rejected : QDialog::Accepted));
+    QCOMPARE (ui ().CAT_port_combo_box->currentText (), originalPort);
+    QVERIFY (configuration_->split_mode ());
+    QVERIFY (original.wait_for ([&] {
+      return original.connection_count () == 2 && original.client_connected ()
+        && alternate.client_disconnected () && d.cached_rig_state_.online ();
+    }, 8000));
+  }
+
+  void acceptingChangedRigOpensSelectedRig ()
+  {
+    auto& d = dialog ();
+    QVERIFY (!configuration_->is_transceiver_online ());
+    ui ().rig_combo_box->setCurrentText (TransceiverFactory::basic_transceiver_name_);
+    ui ().PTT_VOX_radio_button->setChecked (true);
+    d.accept ();
+    QCOMPARE (d.result (), int (QDialog::Accepted));
+    QTRY_VERIFY_WITH_TIMEOUT (d.cached_rig_state_.online (), 8000);
+    QVERIFY (configuration_->is_dummy_rig ());
+    QCOMPARE (settings_->value ("Configuration/Rig").toString (), QString {"None"});
   }
 
   void baudRatePresetsRemainCanonicalAcrossTranslations ()
@@ -770,9 +929,25 @@ private slots:
     QVERIFY (!s.wrongThread);
   }
 
+  void testPttPreparesModeBeforeKeying_data ()
+  {
+    QTest::addColumn<bool> ("testCat");
+    QTest::newRow ("configured rig") << false;
+    QTest::newRow ("Test CAT with None saved") << true;
+  }
+
   void testPttPreparesModeBeforeKeying ()
   {
-    QVERIFY (openPttTestWithLatchedYield ());
+    QFETCH (bool, testCat);
+    if (testCat)
+      {
+        ui ().rig_combo_box->setCurrentText (TransceiverFactory::basic_transceiver_name_);
+        ui ().PTT_VOX_radio_button->setChecked (true);
+        dialog ().accept ();
+        QCOMPARE (dialog ().result (), int (QDialog::Accepted));
+      }
+    QVERIFY (openPttTestWithLatchedYield (testCat));
+    if (testCat) QCOMPARE (configuration_->rig_name (), QString {"None"});
     auto& s = *session_;
     auto const dial = s.appliedRx;
     auto const writes = s.modeWrites ();
@@ -1148,6 +1323,72 @@ private slots:
     QCOMPARE (u.CAT_port_combo_box->currentText (), u.PTT_port_combo_box->currentText ());
     QVERIFY (!u.PTT_RTS_radio_button->isEnabled ());
     QVERIFY (!u.force_RTS_combo_box->isEnabled ());
+  }
+
+  void rebuildingRigListPreservesEntriesWithoutApplyingRigChanges ()
+  {
+    auto& d = dialog ();
+    auto rigs = d.transceiver_factory_.supported_transceivers ();
+    using Caps = TransceiverFactory::Capabilities;
+    rigs.insert ("Test Rig", Caps {99001, Caps::serial});
+    rigs.insert ("test rig", Caps {99002, Caps::network});
+    QComboBox combo;
+    QSignalSpy changes {&combo, QOverload<int>::of (&QComboBox::currentIndexChanged)};
+    d.populate_rig_selector (combo, rigs, "test rig");
+    QCOMPARE (changes.count (), 0);
+    QCOMPARE (combo.count (), rigs.size ());
+    QCOMPARE (combo.itemText (0), QString {"None"});
+    QCOMPARE (combo.currentText (), QString {"test rig"});
+    auto index = combo.currentIndex ();
+    QCOMPARE (combo.itemData (index).toUInt (), 99002u);
+    QCOMPARE (combo.itemText (index + 1), QString {"Test Rig"});
+    QCOMPARE (combo.itemData (index + 1).toUInt (), 99001u);
+
+    d.populate_rig_selector (combo, rigs, "Missing test rig");
+    QCOMPARE (combo.currentText (), rigs.firstKey ());
+    QCOMPARE (changes.count (), 0);
+  }
+
+  void startupWithoutRigRetainsConfiguredSerialPort ()
+  {
+    configuration_.reset ();
+    settings_->setValue ("Configuration/Rig", "None");
+    settings_->setValue ("Configuration/CATSerialPort", "/dev/saved-cat");
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    QCOMPARE (ui ().rig_combo_box->currentText (), QString {"None"});
+    QCOMPARE (dialog ().gather_rig_data ().serial_port, QString {"/dev/saved-cat"});
+    ui ().rig_combo_box->setCurrentText (serial_rig_);
+    QCOMPARE (ui ().CAT_port_combo_box->currentText (), QString {"/dev/saved-cat"});
+  }
+
+  void noneAfterNetworkRigKeepsSerialPortOnAccept ()
+  {
+    auto& u = ui ();
+    u.rig_combo_box->setCurrentText (network_rig_);
+    QCOMPARE (u.CAT_port_combo_box->currentText (), QString {"localhost:4532"});
+    u.rig_combo_box->setCurrentText ("None");
+    u.PTT_VOX_radio_button->setChecked (true);
+    dialog ().accept ();
+    QCOMPARE (dialog ().result (), int (QDialog::Accepted));
+    QCOMPARE (settings_->value ("Configuration/CATSerialPort").toString (), QString {"/dev/test-cat"});
+    u.rig_combo_box->setCurrentText (serial_rig_);
+    QCOMPARE (u.CAT_port_combo_box->currentText (), QString {"/dev/test-cat"});
+  }
+
+  void serialRigSharesDiscoveryDuringStartupAndOpen ()
+  {
+    configuration_.reset ();
+    settings_->setValue ("Configuration/Rig", serial_rig_);
+    static int scans;
+    scans = 0;
+    auto ports = [] { ++scans; return QList<QSerialPortInfo> {}; };
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (),
+                                             nullptr, nullptr, ports});
+    QCOMPARE (scans, 1);
+    scans = 0;
+    QTimer::singleShot (0, &dialog (), [&] { dialog ().done (QDialog::Rejected); });
+    configuration_->exec ();
+    QCOMPARE (scans, 1);
   }
 
   void noneRetainsSerialPortSelection ()
@@ -2118,6 +2359,8 @@ private slots:
 
 int main (int argc, char ** argv)
 {
+  if (!qEnvironmentVariableIsSet ("WSJTX_TEST_RIG_TRACE"))
+    boost::log::core::get ()->set_filter (boost::log::trivial::severity >= boost::log::trivial::warning);
   RadioTestApplication application {argc, argv};
   // The platform is loaded; loopback CAT and synthetic audio need no device plugins.
   QCoreApplication::setLibraryPaths ({});

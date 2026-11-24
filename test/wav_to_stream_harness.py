@@ -65,7 +65,6 @@ def configure_json(
     my_call_standard: bool | None = None,
     his_call_standard: bool | None = None,
     tx_audio_offset_hz: int | None = None,
-    jt65_jt9_split_hz: int | None = None,
     max_drift_hz: int | None = None,
     bad_phase4: bool = False,
     # Phase 5: decoder-tuning basic fields. None => omit (no-op).
@@ -73,13 +72,10 @@ def configure_json(
     eme_delay_seconds: float | None = None,
     kin_samples: int | None = None,
     nzhsym_per_period: int | None = None,
-    npts_c0_array: int | None = None,
     min_width: int | None = None,
     min_sync: int | None = None,
     n_2pass: int | None = None,
-    robust_mode: bool | None = None,
     nagain_flag: bool | None = None,
-    tx_mode: str | None = None,
     clear_average: bool | None = None,
     bad_phase5: bool = False,
     # Phase 6: FT8/FT4 specifics cluster. None => omit (no-op).
@@ -178,8 +174,6 @@ def configure_json(
         payload["his_call_standard"] = his_call_standard
     if tx_audio_offset_hz is not None:
         payload["tx_audio_offset_hz"] = tx_audio_offset_hz
-    if jt65_jt9_split_hz is not None:
-        payload["jt65_jt9_split_hz"] = jt65_jt9_split_hz
     if max_drift_hz is not None:
         payload["max_drift_hz"] = max_drift_hz
     if bad_phase4:
@@ -197,20 +191,14 @@ def configure_json(
         payload["kin_samples"] = kin_samples
     if nzhsym_per_period is not None:
         payload["nzhsym_per_period"] = nzhsym_per_period
-    if npts_c0_array is not None:
-        payload["npts_c0_array"] = npts_c0_array
     if min_width is not None:
         payload["min_width"] = min_width
     if min_sync is not None:
         payload["min_sync"] = min_sync
     if n_2pass is not None:
         payload["n_2pass"] = n_2pass
-    if robust_mode is not None:
-        payload["robust_mode"] = robust_mode
     if nagain_flag is not None:
         payload["nagain_flag"] = nagain_flag
-    if tx_mode is not None:
-        payload["tx_mode"] = tx_mode
     if clear_average is not None:
         payload["clear_average"] = clear_average
     if bad_phase5:
@@ -541,8 +529,6 @@ def main() -> int:
                    default=None,
                    help="Phase 4: tx_audio_offset_hz (-> nftx; decouples tx "
                         "from rxfreq, which sets both nfqso+nftx).")
-    p.add_argument("--jt65-jt9-split-hz", dest="jt65_jt9_split_hz", type=int,
-                   default=None, help="Phase 4: jt65_jt9_split_hz (-> nfsplit).")
     p.add_argument("--max-drift-hz", dest="max_drift_hz", type=int, default=None,
                    help="Phase 4: max_drift_hz (-> max_drift, Q65 drift search).")
     p.add_argument("--bad-phase4", action="store_true",
@@ -562,20 +548,14 @@ def main() -> int:
     p.add_argument("--nzhsym-per-period", dest="nzhsym_per_period", type=int,
                    default=None,
                    help="Phase 5: nzhsym per period (-> nzhsym; recomputed per period).")
-    p.add_argument("--npts-c0-array", dest="npts_c0_array", type=int, default=None,
-                   help="Phase 5: npts for the c0() array (-> npts8; JT9 decode).")
     p.add_argument("--min-width", dest="min_width", type=int, default=None,
                    help="Phase 5: min width (-> minw).")
     p.add_argument("--min-sync", dest="min_sync", type=int, default=None,
                    help="Phase 5: min sync (-> minsync).")
     p.add_argument("--n-2pass", dest="n_2pass", type=int, default=None,
                    help="Phase 5: 2-pass count (-> n2pass).")
-    p.add_argument("--robust-mode", dest="robust_mode", action="store_true",
-                   default=None, help="Phase 5: robust mode flag (-> nrobust).")
     p.add_argument("--nagain-flag", dest="nagain_flag", action="store_true",
                    default=None, help="Phase 5: decode-again flag (-> nagain).")
-    p.add_argument("--tx-mode", dest="tx_mode", default=None,
-                   help="Phase 5: tx mode enum JT9/JT65 or int 9/65 (-> ntxmode).")
     p.add_argument("--clear-average", dest="clear_average", action="store_true",
                    default=None, help="Phase 5: clear-average flag (-> nclearave).")
     p.add_argument("--bad-phase5", action="store_true",
@@ -839,7 +819,6 @@ def main() -> int:
             my_call_standard=args.my_call_standard,
             his_call_standard=args.his_call_standard,
             tx_audio_offset_hz=args.tx_audio_offset_hz,
-            jt65_jt9_split_hz=args.jt65_jt9_split_hz,
             max_drift_hz=args.max_drift_hz,
             bad_phase4=args.bad_phase4,
         )
@@ -849,13 +828,10 @@ def main() -> int:
             eme_delay_seconds=args.eme_delay_seconds,
             kin_samples=args.kin_samples,
             nzhsym_per_period=args.nzhsym_per_period,
-            npts_c0_array=args.npts_c0_array,
             min_width=args.min_width,
             min_sync=args.min_sync,
             n_2pass=args.n_2pass,
-            robust_mode=args.robust_mode,
             nagain_flag=args.nagain_flag,
-            tx_mode=args.tx_mode,
             clear_average=args.clear_average,
             bad_phase5=args.bad_phase5,
         )

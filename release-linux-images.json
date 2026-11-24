@@ -1,30 +1,30 @@
 {
   "schema": 2,
-  "generation": "validated-build-20261109-42679434784-1",
+  "generation": "validated-build-20261122-44984771119-1",
   "images": {
     "x86_64": {
-      "reference": "ghcr.io/wsjtx/wsjtx/linux-noble@sha256:3502e73aac261c7d9d123757c98f35c45e85e3b6748b81c2d3c7dfcc982f0bb5",
-      "recipe_sha256": "a96a347b0a4d3b234fe1a463f28e63fca4ab264c55afc4f6a29a39aba70e5127"
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-jammy@sha256:8d95a0a8eed68446696ad6c7071eabe1a511accbed059feca132720177d5dea0",
+      "recipe_sha256": "1c1989bf726a89cbff3d6d6fec803af7cae37c4dceec0bb02350b10af6d2f673"
     },
     "aarch64": {
-      "reference": "ghcr.io/wsjtx/wsjtx/linux-arm64-bookworm@sha256:5b2ddb05115d3dc9030999d4071232adaacacf2bf360f61d70819bb295613380",
-      "recipe_sha256": "a83e0bddb2c6b9820b3cec1311afe49a9bd142fa9010504864f427f829249f3c"
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-arm64-bookworm@sha256:a41cd1e602404c7718ec5018bb8f51ac373aca5731af12069d9ac06dcbfbd6b5",
+      "recipe_sha256": "417bac645c24d0cad2064afd6919f4df3a1ef08233308f13c6d5f69aa6bf1781"
     },
     "armhf_cross": {
-      "reference": "ghcr.io/wsjtx/wsjtx/linux-armhf-cross-bookworm@sha256:5e82bf8ad79e61a4c77877e8e57396e3c92186c62d8a7522a1802dce4440ea85",
-      "recipe_sha256": "785c6d5639534ae4eb35123d878e05bbb32bee2b5edd0139b1a0a7b6051753f8"
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-armhf-cross-bookworm@sha256:8bad14eea5515cb8fd73a90b851aaa1ae59e9e8051db8704a9a707710718559c",
+      "recipe_sha256": "19263b0c857e93b19b959794d8f32eca5651a9f04fa8cf0c5e464976f4206bec"
     },
     "armhf_runtime": {
-      "reference": "ghcr.io/wsjtx/wsjtx/linux-armv7-bookworm@sha256:175ae28be103e823d3c5acd3647e682345388611bd1a45b15290fc4fe01470c1",
-      "recipe_sha256": "553c4cf4e791891c2389f67641407245e593d3528b041091d8a45594add62c2f"
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-armv7-bookworm@sha256:9137798b4dd76ff0857a986c2daed5b8dcc8feef45d03f5e93a82267fd0223c7",
+      "recipe_sha256": "6d53760f5714d541cbfdade9a9b9144264e2e0273f0d92aad4a9c5b99de8cbe4"
     },
     "armhf_trixie_cross": {
-      "reference": "ghcr.io/wsjtx/wsjtx/linux-armhf-cross-trixie@sha256:2e9492a8088944eb31fef5fa7ce46e84049219f9eb97be7f0911de7d84e11d32",
-      "recipe_sha256": "51824bc94c4a3d60b833941b3a95e361297779983ccc707767d4374a60baec89"
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-armhf-cross-trixie@sha256:76661ead7830fc3e797b08376b88c5aa80899410d3dfffbeb47c62f0cdf6f8ae",
+      "recipe_sha256": "7d7ef2b12ba8a8965ac480d16341242e671e63e86c8dd0240800ebd733474199"
     },
     "armhf_trixie_runtime": {
-      "reference": "ghcr.io/wsjtx/wsjtx/linux-armv7-trixie@sha256:82617d9a3b1966b8bb52d8c854a67852287c27060bb72062b0da6a123b94d39a",
-      "recipe_sha256": "553c4cf4e791891c2389f67641407245e593d3528b041091d8a45594add62c2f"
+      "reference": "ghcr.io/wsjtx/wsjtx/linux-armv7-trixie@sha256:5129f8c796104c63339aab0189825701f055b2aa7eff494726cd58d992c04ad0",
+      "recipe_sha256": "6d53760f5714d541cbfdade9a9b9144264e2e0273f0d92aad4a9c5b99de8cbe4"
     }
   }
 }

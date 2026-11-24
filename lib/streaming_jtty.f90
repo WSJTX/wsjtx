@@ -80,9 +80,10 @@
 ! request's I is echoed on each of its reply lines; a jtty_update's id is the
 ! codec's message id, so lines are routed by t. Exactly one of text, sent
 ! as typed text (placeholders expanded, a newline ends a message,
-! "final":false leaves the last one open), and template, sent as a function
+! "final":false leaves the last one open), template, sent as a function
 ! key (natively if it is one of the forms below, else expanded as text that
-! ends its message); each at most 32767 UTF-16 units, and 1048576 expanded.
+! ends its message), each at most 32767 UTF-16 units, and 1048576
+! expanded, and n1mm, N1MM Logger+'s text (below), at most 65536 characters.
 ! The stream's 262,144-byte control frame limit applies to the whole request,
 ! so long fields together can exceed it (control_frame_too_large). Any key
 ! not named here, a misspelt or mis-cased one included, is refused
@@ -90,7 +91,11 @@
 ! as are freq and rate on a pack.
 ! "profile": "none" (default), "field_day" or "rtty". "his_call" and
 ! "exchange" (default ""): at most 64 units, none below U+0020, none from
-! U+007F to U+009F and no '%'. "serial" and "report": never defaulted. The
+! U+007F to U+009F and no '%'. "serial" and "report": never defaulted.
+! "open": {"columns":N,"separator":B}, the receiver's message the request
+! continues, as the reply to the request before it returned it: N a JSON
+! integer from 0 to 59 and B true or false; omitted, or N 0 with B false,
+! the request starts a message. It is the one object a request may hold. The
 ! station's call and grid are the whole mycall and mygrid of the last
 ! accepted configure that set them, less any ASCII white space at either end
 ! (as the GUI trims its call), and usable when at most 64 characters of
@@ -119,6 +124,19 @@
 ! and the control phrases
 !   AGN?, CALL?, AGN CALL, NR?, AGN NR, EXCH?, STATE?, SECTION?, ZONE?, GRID?,
 !   RPRT?, QSL TU, TU, QRZ?, QSO B4, WAIT, NIL?, OK?.
+! n1mm is a TXTEXT that N1MM Logger+ sends over the MMTTY interface, each of
+! its bytes one character (U+0000 to U+00FF, at most 65536), as the GUI
+! reads it; the codec compiles it as the GUI does (widgets/MMTTYIF.cpp,
+! widgets/JttyN1mm.hpp, JttyTransmitHost.cpp's compileN1mm): upper-cased,
+! it is a tag when its first character that is not white space (QChar's
+! isSpace) starts [[JTTY:, sent as a native template is, and refused
+! encoding_failed with key n1mm, the GUI's reason in detail (cut at a
+! character to 256 bytes), when it does not compile; any other text is sent as text is, with
+! no placeholder expanded. It reads profile (its exchanges), open, and final
+! (as typed text); his_call, exchange, serial and report are checked but
+! not used, nor are the station's call and grid. Where the GUI sends each
+! line of such text as one message, and a tag's atoms whatever the width,
+! the codec keeps both within 80 columns, as it does for text and templates.
 ! Requests are answered in order, at their place in the input, so a reply
 ! also shows that every earlier frame was read. A reply waits for no decode
 ! (lib/streaming_encode.f90 states the waits that remain and the lines it can
@@ -130,29 +148,61 @@
 !   segment   {"v":1,"t":"segment","id":I,"seg":K,"text":S,"canonical":S,
 !              "final":B,"substituted":B,"frames":[{"text":S},...],
 !              "seconds":X}
-!   packed    {"v":1,"t":"packed","id":I,"segments":M,"substituted":B}
+!   packed    {"v":1,"t":"packed","id":I,"segments":M,"substituted":B,
+!              "open":{"columns":N,"separator":B}}
 !   rejected  {"v":1,"t":"rejected","id":I,"reason":R,"key":K,"detail":S}
 ! One segment line per segment, K from 0: text is the characters it carries
 ! (trimmed, case kept, replacements shown), canonical what its frames carry,
 ! final whether its last frame ends the message, frames each frame as the
 ! receiver renders it (a five-character text frame keeps its trailing spaces
-! unless it ends the message), X its seconds on air. A line's later segments
-! continue its message, of which a receiver keeps the first 80 characters
-! (text, above). substituted, a boolean for each segment and for the whole
+! unless it ends the message), X its seconds on air.
+! A receiver keeps the first 80 characters of a message and drops the rest
+! (text, above), so no message the codec sends passes them
+! (lib/streaming_jtty_width.f90 counts them as the receiver does), when a
+! request's segments go on air back to back, as render's audio is. A line
+! is cut into segments of at most 80 characters at word boundaries, never
+! between 599 and the token after it where the two fit one segment, and its
+! last segment ends the message unless the line is the text's last and final
+! is false. A segment that would take the message past 80, or does not
+! encode, is cut shorter at a word boundary and ends the message, and the
+! line goes on in a new one; where no word fits, the message ends at the
+! segment before (one this request sent) or the word is cut where it fits.
+! A segment whose last frame is five characters of text ending a word ends
+! the message when the line goes on, since the encoder drops the space
+! after it and the next word would run on. A request that would leave its
+! message open with fewer than 21 columns left ends it instead: the next
+! request may follow a pause of one or two frame periods, which a receiver
+! shows as five columns in place of the one a structured frame owes, and
+! its first frame may render fourteen. A request that continues a message
+! counts that pause. A template sent natively ends its message, and goes as
+! its text instead when its atoms would take the message past 80. open on
+! packed and rendered is the receiver's message after the request: N 0 and
+! B false when the last segment ends it, else the columns its text fills
+! and whether its last frame owes one more before the next (a structured
+! frame does); a client that sends requests back to back passes it on as
+! the next request's open, and after a rejected request, which sends
+! nothing, passes on the one before. A request cannot end a message an
+! earlier one left open without sending a character: a text that starts
+! with a newline continues it, and a blank one is refused empty; a
+! receiver ends it about 8 s after its last frame. Where an open request's
+! last frame is five characters of text, a space that ends it or starts the
+! next request is lost (the encoder drops blanks at both ends of a
+! segment), and the next request's first word runs on.
+! substituted, a boolean for each segment and for the whole
 ! text, says whether a character was replaced: one JTTY lacks becomes '#' for
 ! each UTF-16 unit ("##" beyond the BMP), each byte that is not UTF-8 '#',
 ! and NUL and '~' a space. A rejected request has no segment line. Each R,
 ! and the key its line carries:
-!   bad_request      the request key at fault; none when the request is
-!                    not a flat object
-!   too_long         text or template: it, or its expansion, is too long;
+!   bad_request      the request key at fault; none when the request holds
+!                    an object other than open, or an array
+!   too_long         text, template or n1mm: it, or its expansion, is too long;
 !                    none for a render's audio (below)
 !   not_configured   mycall or mygrid: it uses the station's call or grid,
 !                    and no configure has set a usable one
 !   missing          serial or report: it uses one and does not give it
 !   empty            none
 !   invalid_runtime  none: a native form its context cannot fill
-!   encoding_failed  none
+!   encoding_failed  none; n1mm when its tag does not compile
 ! A request without such an id among its own keys (not a nested object's)
 ! gets error invalid_request_id. An encode that cannot proceed (no memory)
 ! ends the program with an error line, a fatal error (above), and with it
@@ -166,7 +216,8 @@
 ! (RFC 4648), in lines of 16384 samples but the last,
 !   pcm       {"v":1,"t":"pcm","id":I,"seg":K,"seq":Q,"data":S}
 ! Q counting each segment's pcm lines from 0, and that the last line is
-!   rendered  {"v":1,"t":"rendered","id":I,"segments":M,"substituted":B}
+!   rendered  {"v":1,"t":"rendered","id":I,"segments":M,"substituted":B,
+!              "open":{"columns":N,"separator":B}}
 ! instead of packed. A render of more than 600 s of audio is rejected
 ! too_long, with no key. A JTTY receiver decodes nothing whose lowest tone is
 ! above about 2950 Hz (above), though F may be up to 5000 Hz. A render holds
@@ -261,18 +312,24 @@ module streaming_jtty
 
   interface
      ! lib/jtty/JttyTransmitHost.hpp
-     function jtty_tx_encode(is_template, text, text_length, his_call,        &
+     function jtty_tx_encode(kind, text, text_length, his_call,               &
           his_call_length, exchange, exchange_length, my_call, my_call_length, &
           grid, grid_length, serial, serial_given, report, report_given,      &
-          profile, is_final) result(handle) bind(C, name='jtty_tx_encode')
+          profile, is_final, open_columns, open_separator) result(handle)    &
+          bind(C, name='jtty_tx_encode')
        import :: c_int32_t, c_char
-       integer(c_int32_t), value :: is_template, text_length, his_call_length, &
+       integer(c_int32_t), value :: kind, text_length, his_call_length,        &
             exchange_length, my_call_length, grid_length, serial, serial_given,  &
-            report, report_given, profile, is_final
+            report, report_given, profile, is_final, open_columns, open_separator
        character(kind=c_char), intent(in) :: text(*), his_call(*), exchange(*), &
             my_call(*), grid(*)
        integer(c_int32_t) :: handle
      end function jtty_tx_encode
+     subroutine jtty_tx_open(handle, columns, separator) bind(C, name='jtty_tx_open')
+       import :: c_int32_t
+       integer(c_int32_t), value :: handle
+       integer(c_int32_t), intent(out) :: columns, separator
+     end subroutine jtty_tx_open
      function jtty_tx_status(handle, segments, substituted) result(status)    &
           bind(C, name='jtty_tx_status')
        import :: c_int32_t
@@ -719,7 +776,7 @@ contains
     type(encode_request) :: req
     integer(c_int32_t) :: handle, status, segments, substituted, nsym,        &
          nframes, text_length, canonical_length, is_final, seg_substituted,   &
-         key_length, detail_length, rendered
+         key_length, detail_length, rendered, open_columns, open_separator
     integer(c_int32_t) :: tones(MAX_FRAMES * TX_FRAME_SYMBOLS)
     character(kind=c_char) :: frames(MAX_FRAMES * TX_FRAME_BITS), text(TX_TEXT), &
          canonical(TX_TEXT), key(32), detail(256)
@@ -744,7 +801,9 @@ contains
        return
     end if
 
-    handle = jtty_tx_encode(merge(1_c_int32_t, 0_c_int32_t, req%is_template), &
+    ! text 0, template 1, n1mm 2
+    handle = jtty_tx_encode(merge(2_c_int32_t, merge(1_c_int32_t, 0_c_int32_t,  &
+         req%is_template), req%is_n1mm),                                      &
          req%text, len(req%text, c_int32_t), req%his_call,                    &
          len(req%his_call, c_int32_t), req%exchange, len(req%exchange, c_int32_t), &
          station_call_, station_length_(station_call_, station_call_set_,      &
@@ -752,7 +811,8 @@ contains
          station_grid_set_, station_grid_long_), int(req%serial, c_int32_t),  &
          merge(1_c_int32_t, 0_c_int32_t, req%serial_given), int(req%report, c_int32_t), &
          merge(1_c_int32_t, 0_c_int32_t, req%report_given),                   &
-         int(req%profile, c_int32_t), merge(1_c_int32_t, 0_c_int32_t, req%final))
+         int(req%profile, c_int32_t), merge(1_c_int32_t, 0_c_int32_t, req%final), &
+         int(req%open_columns, c_int32_t), merge(1_c_int32_t, 0_c_int32_t, req%open_separator))
     if (handle .eq. 0) call fatal_('no JTTY transmit context is available')
     status = jtty_tx_status(handle, segments, substituted)
     if (status .ne. TX_ENCODED) then
@@ -814,10 +874,13 @@ contains
        if (rendered .ne. samples) call fatal_('a transmit segment did not render')
        call encode_emit_pcm(id, seg, tx_samples_(1:rendered))
     end do
+    call jtty_tx_open(handle, open_columns, open_separator)
     call jtty_tx_destroy(handle)
     call emit_line_('{"v":1,"t":"' // trim(merge('rendered', 'packed  ', render)) // &
          '","id":' // id // ',"segments":' // itoa_(int(segments, int64)) //  &
-         ',"substituted":' // json_bool_(substituted .ne. 0) // '}')
+         ',"substituted":' // json_bool_(substituted .ne. 0) //               &
+         ',"open":{"columns":' // itoa_(int(open_columns, int64)) //          &
+         ',"separator":' // json_bool_(open_separator .ne. 0) // '}}')
   end subroutine jtty_encode
 
   ! A station value's length for jtty_tx_encode.

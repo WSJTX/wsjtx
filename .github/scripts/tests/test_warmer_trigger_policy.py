@@ -177,14 +177,14 @@ class WarmerTriggerPolicyTests(unittest.TestCase):
 
     def test_derivation_finds_each_kind_of_input(self):
         profiles, _ = image_inputs()
-        usage = (ROOT / ".github/scripts/linux-ci-image-fingerprint.sh").read_text()
-        usage = re.search(r"linux-ci-image-fingerprint\.sh ([a-z0-9|-]+)", usage).group(1)
-        self.assertEqual(sorted(profiles), sorted(usage.split("|")))
+        classifier = (ROOT / ".github/scripts/is-linux-ci-image-input.sh").read_text()
+        classified = re.findall(r'is_linux_ci_image_input ([a-z0-9-]+) "\$path"', classifier)
+        self.assertCountEqual(profiles, classified)
         for path in (
             ".github/images/linux-ci/Dockerfile.noble",            # image fingerprint
             ".github/scripts/build-hamlib-armhf-cross.sh",          # image fingerprint (armhf)
             ".github/scripts/build-hamlib-windows.sh",              # hashFiles
-            ".github/scripts/install-xpack-gfortran-macos.sh",      # step output in the pFUnit key
+            ".github/scripts/build-qt-linux.sh",                    # Jammy image fingerprint
             ".github/scripts/macos-qt-cache-key.sh",                # step output is the Qt key
             ".github/scripts/build-qt-macos.sh",                    # hashed by the Qt key script
             ".github/actions/warm-macos-deps/action.yml",           # holds dependency keys

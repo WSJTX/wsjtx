@@ -1,7 +1,7 @@
   use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_short, c_float, c_char, c_bool
   include 'constants.f90'
 
-  integer(c_int), parameter :: DECODER_IPC_VERSION = 4
+  integer(c_int), parameter :: DECODER_IPC_VERSION = 5
   integer(c_int), parameter :: DECODER_IPC_IDLE = 0
   integer(c_int), parameter :: DECODER_IPC_READY = 1
   integer(c_int), parameter :: DECODER_IPC_DECODING = 2
@@ -27,7 +27,7 @@
      integer(c_int) :: logical_bytes, payload_offset, capabilities
      integer(c_int) :: int_bytes, short_bytes, float_bytes, bool_bytes, char_bytes
      integer(c_int) :: endian_marker, field_count
-     type(decoder_ipc_field_layout) :: fields(96)
+     type(decoder_ipc_field_layout) :: fields(92)
   end type decoder_ipc_layout
 
   type, bind(C) :: params_block
@@ -38,9 +38,7 @@
      integer(c_int) :: nfqso
      integer(c_int) :: nftx
      logical(c_bool) :: newdat
-     integer(c_int) :: npts8
      integer(c_int) :: nfa
-     integer(c_int) :: nfsplit
      integer(c_int) :: nfb
      integer(c_int) :: ntol
      integer(c_int) :: kin
@@ -52,7 +50,6 @@
      logical(c_bool) :: lapcqonly
      logical(c_bool) :: ljt65apon 
      integer(c_int) :: napwid
-     integer(c_int) :: ntxmode
      integer(c_int) :: nmode
      integer(c_int) :: minw
      logical(c_bool) :: nclearave
@@ -64,7 +61,6 @@
      integer(c_int) :: n2pass
      integer(c_int) :: nranera
      integer(c_int) :: naggressive
-     logical(c_bool) :: nrobust
      integer(c_int) :: nexp_decode
      integer(c_int) :: max_drift
      character(kind=c_char) :: datetime(20)

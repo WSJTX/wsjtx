@@ -5,10 +5,9 @@
 #include <QDialog>
 #include <QScopedPointer>
 #include <QDir>
-#include <QHash>
-#include <QVariant>
 #include "WFPalette.hpp"
 #include "JttySpectrum.hpp"
+#include "WaterfallCalls.hpp"
 
 #define MAX_SCREENSIZE 2048
 
@@ -30,10 +29,13 @@ public:
   void   dataSink2(float s[], float df3, int ihsym, int ndiskdata, float pdB);
   void   jttyDataSink (JttySpectrumFrame const& frame);
   void   jttyReceptionEnded ();
+  // Callsign labels on the waterfall (JTTY): fed with every live decode update.
+  void   jttyCallUpdate (qint64 messageId, QString const& text, float frequency,
+                         bool growing, QString const& myCall);
+  void   clearJttyCalls ();
   void   setRxFreq(int n);
   int    rxFreq();
   int    nStartFreq();
-  int    Fmin();
   int    Fmax();
   int    fSpan();
 #if defined (WSJT_ENABLE_LIVE_AUDIO_TEST)
@@ -70,6 +72,9 @@ signals:
   void setXIT2(int n);
   void setFreq3(int rxFreq, int txFreq);
   void jttyDecodeAgainAtSample (quint64 reception, qint64 endSample);
+  // A click on a callsign label: the call, its frequency, and whether the
+  // "Tx on call" box asks for the Tx frequency to follow.
+  void jttyCallClicked (QString const& call, int frequency, bool setTx);
 
 public slots:
   void wideFreezeDecode(int n);
@@ -84,7 +89,6 @@ private slots:
   void on_waterfallAvgSpinBox_valueChanged(int arg1);
   void on_bppSpinBox_valueChanged(int arg1);
   void on_spec2dComboBox_currentIndexChanged(int);
-  void on_fSplitSpinBox_valueChanged(int n);
   void on_fStartSpinBox_valueChanged(int n);
   void on_paletteComboBox_activated(int index);
   void on_timestampComboBox_currentIndexChanged(int n);
@@ -105,13 +109,14 @@ private:
   void readPalette ();
   void replot();
   void drawJttyAverage ();
+  void refreshJttyCalls ();
+  WaterfallCalls::Board m_jttyCalls;
 
   QScopedPointer<Ui::WideGraph> ui;
 
   QSettings * m_settings;
   QDir m_palettes_path;
   WFPalette m_userPalette;
-  QHash<QString, QVariant> m_fMinPerBand;
 
   double m_tr0;
   double m_TRperiod;

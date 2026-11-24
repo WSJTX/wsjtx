@@ -6,7 +6,8 @@
  *
  * Runs on the decode thread, or inline without one, one call at a time: the
  * context and its hash table are this file's, and only that thread touches
- * them. The context's FFTW plans and destroys go through wsjt_fftw_locked
+ * them; the decode's own threads (wspr_threads) only read the table. The
+ * context's FFTW plans and destroys go through wsjt_fftw_locked
  * (lib/fftw_locked.f90), the lock four2a takes, because the frame loop plans
  * spectrum rows while a WSPR decode runs.
  *
@@ -24,6 +25,8 @@
 #include "wsprd/wsprd_decode.h"
 
 int wsjt_fftw_locked(void (*fn)(void *), void *arg);
+/* lib/wsprd/wspr_parallel.f90 */
+int wspr_parallel_cpus(void);
 
 /* One decode, the fields of the codec's WSPR decode event. */
 struct stream_wspr_decode {
@@ -86,12 +89,13 @@ static void exact_text(float value, char *text, size_t capacity)
 }
 
 /* Decodes the period's first k samples (wsprd reads the first 1,368,000, and
- * zeros past k) at the GUI's depth, into out (WSPRD_DECODE_MAX_RESULTS) in
+ * zeros past k) at the GUI's depth on threads threads (wspr_threads: ft8_threads'
+ * rule, lib/wsprd/wspr_parallel.f90), into out (WSPRD_DECODE_MAX_RESULTS) in
  * wsprd's order, ascending frequency. The hash table is loaded from
  * <data_dir>/hashtable.txt before the session's first decode and saved there
  * after every one. Returns the decode count, or -1 on failure, with a
  * message on stderr. */
-int stream_wspr_decode(short const *samples, int k, int ndepth,
+int stream_wspr_decode(short const *samples, int k, int ndepth, int threads,
                        char const *data_dir, int data_dir_len,
                        struct stream_wspr_decode *out)
 {
@@ -117,10 +121,15 @@ int stream_wspr_decode(short const *samples, int k, int ndepth,
     if (k < 0) k = 0;
     if ((size_t)k < take) take = (size_t)k;
     depth_options(ndepth, &options);
+    options.threads = threads;
     /* Dial 0: the client adds its own; the date and time label nothing here. */
     n = wsprd_decode_pcm(context, &options, NULL, samples, take,
                          0.0, "000000", "0000", results);
     if (n < 0) return -1;
+    /* The most threads the decode's loops ran on, and OpenMP's CPU count
+       (0: none). */
+    fprintf(stderr, "wsjt-codec: wspr threads=%d cpus=%d\n",
+            wsprd_context_threads_ran(context), wspr_parallel_cpus());
     for (i = 0; i < n; i++) {
         struct wsprd_decode_result const *r = &results[i];
         struct stream_wspr_decode *d = &out[i];

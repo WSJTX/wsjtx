@@ -7,6 +7,7 @@ if [ "$#" -ne 3 ]; then
 fi
 
 expected_flavor=$1
+requested_profile=${WSJTX_CI_IMAGE_PROFILE:-}
 expected_arch=$2
 expected_hamlib_ref=$3
 manifest=${WSJTX_CI_IMAGE_MANIFEST:-/opt/wsjtx-ci/image.env}
@@ -72,15 +73,27 @@ case "$expected_flavor" in
     boost_prefix=$image_prefix/boost-static
     boost_version=$BOOST_VERSION
     require_equal hamlib_commit "$LINUX_HAMLIB_COMMIT" "${hamlib_commit:-}"
-    require_equal pfunit_version "$LINUX_PFUNIT_VERSION" "${pfunit_version:-}"
-    require_equal pfunit_commit "$LINUX_PFUNIT_COMMIT" "${pfunit_commit:-}"
-    profile=normal-noble
-    if [ "$expected_arch" != x86_64 ]; then
+    profile=${requested_profile:-normal-noble}
+    if [ -z "$requested_profile" ] && [ "$expected_arch" != x86_64 ]; then
       profile=normal-bookworm
     fi
-    pfunit_config="$(find "$image_prefix/pfunit" -name PFUNITConfig.cmake -print -quit)"
-    if [ -z "$pfunit_config" ]; then
-      echo "PFUNITConfig.cmake not found in the Linux CI image" >&2
+    case "$profile:$expected_arch" in
+      normal-noble:x86_64|normal-bookworm:aarch64) ;;
+      normal-jammy:x86_64) expected_compiler=gcc-12 ;;
+      *) echo "Unsupported image profile and architecture: $profile $expected_arch" >&2; exit 2 ;;
+    esac
+    if [ "$profile" = normal-jammy ]; then
+      . "$config_dir/qt5-source-config.sh"
+      require_equal image_profile normal-jammy "${image_profile:-}"
+      require_equal os_id ubuntu "${os_id:-}"
+      require_equal os_version 22.04 "${os_version:-}"
+      require_equal glibc_version 2.35 "${glibc_version:-}"
+      [[ "${cmake_version:-}" == 3.22.* ]] || { echo "Jammy requires CMake 3.22" >&2; exit 1; }
+      require_equal qt_version "$QT5_VERSION" "${qt_version:-}"
+      require_equal qt_source_sha256 "$QT5_SOURCE_SHA256" "${qt_source_sha256:-}"
+      require_sha256 qt_core_sha256 "${qt_core_sha256:-}"
+    elif [ "${image_profile:-}" = normal-jammy ]; then
+      echo "Jammy candidate cannot satisfy $profile" >&2
       exit 1
     fi
     test -f "$image_prefix/hamlib/lib/libhamlib.a"
@@ -88,14 +101,23 @@ case "$expected_flavor" in
       # shellcheck source=.github/scripts/linux-boost-validation.sh
       . "$config_dir/linux-boost-validation.sh"
       validate_linux_boost_archives "$boost_prefix" "$expected_arch" "$boost_version"
-      qt_core_config="$(find /usr -path '*/cmake/Qt5Core/Qt5CoreConfig.cmake' -print -quit)"
-      qt_multimedia_config="$(find /usr -path '*/cmake/Qt5Multimedia/Qt5MultimediaConfig.cmake' -print -quit)"
-      qt_plugin="$(find /usr -path '*/plugins/platforms/*' -type f -print -quit)"
+      qt_search_root=/usr
+      if [ "$profile" = normal-jammy ]; then qt_search_root=$image_prefix/qt; fi
+      qt_core_config="$(find "$qt_search_root" -path '*/cmake/Qt5Core/Qt5CoreConfig.cmake' -print -quit)"
+      qt_multimedia_config="$(find "$qt_search_root" -path '*/cmake/Qt5Multimedia/Qt5MultimediaConfig.cmake' -print -quit)"
+      qt_plugin="$(find "$qt_search_root" -path '*/plugins/platforms/*' -type f -print -quit)"
       test -n "$qt_core_config"
       test -n "$qt_multimedia_config"
       test -n "$qt_plugin"
+      if [ "$profile" = normal-jammy ]; then
+        require_equal qt_version "$QT5_VERSION" "$("$image_prefix/qt/bin/qmake" -query QT_VERSION)"
+        require_equal qt_core_sha256 "$qt_core_sha256" "$(sha256sum "$image_prefix/qt/lib/libQt5Core.so.5" | awk '{print $1}')"
+        . /etc/os-release
+        require_equal os_version 22.04 "$VERSION_ID"
+        require_equal glibc_version 2.35 "$(getconf GNU_LIBC_VERSION | awk '{print $2}')"
+        [[ "$(cmake --version | awk 'NR == 1 {print $3}')" == 3.22.* ]]
+      fi
     fi
-    pfunit_dir="$(dirname "$pfunit_config")"
     hamlib_prefix=$image_prefix/hamlib
     ;;
   tsan)
@@ -157,7 +179,7 @@ if [[ ! "${compiler_version:-}" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
   echo "Linux CI image compiler_version is invalid: ${compiler_version:-missing}" >&2
   exit 1
 fi
-if [ "$profile" = normal-bookworm ]; then
+if [[ "$profile" = normal-bookworm || "$profile" = normal-jammy ]]; then
   require_equal compiler_major 12 "${compiler_version%%.*}"
 fi
 require_key_component compiler_target "${compiler_target:-}"
@@ -251,6 +273,7 @@ EOF
     -S "$smoke_dir"
     -B "$smoke_dir/build"
     -DCMAKE_BUILD_TYPE=Release
+    "-DCMAKE_CXX_COMPILER=${CXX:-g++}"
     "-DWSJTX_HAMLIB_PREFIX=$hamlib_prefix"
   )
   if [ "$expected_flavor" = tsan ]; then
@@ -278,6 +301,9 @@ EOF
       -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       -DBoost_NO_BOOST_CMAKE=OFF
     )
+  fi
+  if [ "$profile" = normal-jammy ]; then
+    cmake_args+=("-DCMAKE_PREFIX_PATH=$image_prefix/qt;$hamlib_prefix")
   fi
   export PKG_CONFIG_PATH="$hamlib_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
   cmake "${cmake_args[@]}"
@@ -308,7 +334,10 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
     printf 'fftw_version=%s\n' "$FFTW_VERSION"
     printf 'fftw_prefix=%s\n' "$image_prefix/fftw"
     if [ "$expected_flavor" = normal ]; then
-      printf 'pfunit_dir=%s\n' "$pfunit_dir"
+      if [ "$profile" = normal-jammy ]; then
+        printf 'qt_prefix=%s\n' "$image_prefix/qt"
+        printf 'glibc_ceiling=2.35\n'
+      fi
       printf 'hamlib_prefix=%s\n' "$hamlib_prefix"
       printf 'boost_prefix=%s\n' "$boost_prefix"
       printf 'boost_version=%s\n' "$boost_version"

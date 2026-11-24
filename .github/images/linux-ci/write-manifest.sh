@@ -18,6 +18,7 @@ compiler_signature_helper=/usr/local/share/wsjtx-ci/linux-ccache-compiler-signat
 case "$flavor" in
   normal)
     compiler=gcc
+    if [ "${WSJTX_CI_IMAGE_PROFILE:-}" = normal-jammy ]; then compiler=gcc-12; fi
     ;;
   tsan)
     # shellcheck source=.github/scripts/tsan-linux-deps-config.sh
@@ -66,11 +67,20 @@ mkdir -p /opt/wsjtx-ci
   printf 'toolchain_id=%s\n' "$toolchain_id"
   printf 'ccache_compatibility_id=%s\n' "$ccache_compatibility_id"
   printf 'compiler_signature_sha256=%s\n' "$compiler_signature_sha256"
+  if [ "${WSJTX_CI_IMAGE_PROFILE:-}" = normal-jammy ]; then
+    . /usr/local/share/wsjtx-ci/qt5-source-config.sh
+    . /etc/os-release
+    printf 'image_profile=%s\n' "$WSJTX_CI_IMAGE_PROFILE"
+    printf 'os_id=%s\nos_version=%s\n' "$ID" "$VERSION_ID"
+    printf 'glibc_version=%s\n' "$(getconf GNU_LIBC_VERSION | awk '{print $2}')"
+    printf 'cmake_version=%s\n' "$(cmake --version | awk 'NR == 1 {print $3}')"
+    printf 'qt_version=%s\n' "$QT5_VERSION"
+    printf 'qt_source_sha256=%s\n' "$QT5_SOURCE_SHA256"
+    printf 'qt_core_sha256=%s\n' "$(sha256sum /opt/wsjtx/qt/lib/libQt5Core.so.5 | awk '{print $1}')"
+  fi
   if [ "$flavor" = normal ]; then
     printf 'hamlib_ref=%s\n' "$LINUX_HAMLIB_REF"
     printf 'hamlib_commit=%s\n' "$LINUX_HAMLIB_COMMIT"
-    printf 'pfunit_version=%s\n' "$LINUX_PFUNIT_VERSION"
-    printf 'pfunit_commit=%s\n' "$LINUX_PFUNIT_COMMIT"
   else
     printf 'hamlib_ref=%s\n' "$TSAN_HAMLIB_REF"
     printf 'hamlib_commit=%s\n' "$TSAN_HAMLIB_COMMIT"

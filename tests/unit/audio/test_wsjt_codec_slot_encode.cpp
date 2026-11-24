@@ -6,6 +6,7 @@
 // contract is lib/streaming_encode.f90.
 
 #include <QByteArray>
+#include <QElapsedTimer>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -17,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <random>
 
 #include "wsjtx_config.h"
@@ -25,6 +27,7 @@
 #include "Modulator/Modulator.hpp"
 #include "TxStartPolicy.hpp"
 #include "widgets/itoneAndicw.h"
+#include "lib/jtty/JttyTransmit.hpp"
 
 int volatile itone[MAX_NUM_SYMBOLS] {};
 float gran () { return 0; }
@@ -60,6 +63,11 @@ extern "C" {
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
   void gen_cw_wave_(char const * msg, int* ifreq, float wave[], fortran_charlen_t);
   void morse_(char* msg, int* icw, int* ncw, fortran_charlen_t);
+  bool stdmsg_(char const * msg, fortran_charlen_t);
+  // As lib/hspec.f90 calls it.
+  void mskrtd_(short const id2[], int* nutc0, float* tsec, int* ntol, int* nrxfreq, int* ndepth,
+               char const * mycall, char const * hiscall, bool* bshmsg, bool* btrain, double pcoeffs[],
+               bool* bswl, char const * datadir, char line[], FCL, FCL, FCL, FCL);
   void foxgen_(bool* bSuperFox, char const * fname, FCL len);
   void sfox_wave_gfsk_();
   void sftx_sub_(char const * otp_key, int* pack_error, FCL len1);
@@ -135,6 +143,25 @@ struct Row
   bool moreCqs {};              // SuperFox: cbMoreCQs
   QStringList heard;            // SuperFox: what a Hound decodes
   int otp {};                   // SuperFox: the verification code
+  // Tx frequency changes while it plays: at each 48 kHz sample, a new
+  // TxFreqSpinBox as a waterfall click sets it (Modulator::setFrequency, and
+  // in FST4 the waveform made again at it, as guiUpdate does on the
+  // m_restart setFreq4 sets in FT8, FT4 and FST4).
+  QVector<QPair<int, int>> retunes;
+  // The retunes are typed into TxFreqSpinBox (WSPRfreqSpinBox in FST4W)
+  // with Allow Tx-frequency corrections while transmitting on: setXIT's
+  // Modulator::setFrequency alone, the waveform left as made; the codec's
+  // ranges carry wavefreq, the first Tx frequency.
+  bool typed {};
+  // The retunes are waterfall clicks with Allow Tx-frequency corrections
+  // while transmitting off: setXIT returns before Modulator::setFrequency,
+  // while in FST4 the click's m_restart still makes the waveform again; the
+  // codec's ranges keep the first freq and send each click's as wavefreq.
+  bool correctionsOff {};
+  // A late start: Modulator::startAt's clock in ms, and the 48 kHz sample
+  // the GUI then starts the message at.
+  qint64 startMs {};
+  qint64 startIc {};
 };
 
 struct Slot
@@ -547,7 +574,7 @@ Transmission gui (Row const& row, bool audio = true)
                     [&] (TxEvidence::TxStartSnapshot snapshot) {
                       if (snapshot.target_known) last = snapshot.committed_end_sample;
                     });
-  TestModulator::startAt (modulator, request, &sink, 0);
+  TestModulator::startAt (modulator, request, &sink, row.startMs);
   // Reads frames from the clock ms; the Modulator returns fewer when it goes
   // idle.
   auto const read = [&] (qint64 frames, qint64 ms) {
@@ -558,14 +585,41 @@ Transmission gui (Row const& row, bool audio = true)
     result.audio += samples;
     return samples.size ();
   };
+  // A retune before the message ends: the Modulator's new frequency, and in
+  // FST4, unless typed, guiUpdate's waveform made again at it in place.
+  for (auto const& retune : row.retunes)
+    {
+      auto const frames = qint64 (retune.first) - result.audio.size () - row.startIc;
+      if (read (frames, 0) != frames) break;
+      if (m_mode == "FST4" && !row.typed)
+        {
+          int hmod=1;
+          if(x2ToneSpacing) hmod=2;
+          if(x4ToneSpacing) hmod=4;
+          int nsps=4*fst4Nsps (m_TRperiod);
+          int nsym=160;
+          float fsample=48000.0;
+          float dfreq=hmod*fsample/nsps;
+          float f0=retune.second - m_XIT + 1.5*dfreq;
+          int nwave=(nsym+2)*nsps;
+          int icmplx=0;
+          gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
+                        &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
+        }
+      if (!row.correctionsOff) modulator.setFrequency (retune.second - m_XIT);
+    }
+  auto const done = qint64 (result.audio.size ()) + row.startIc;
   if (m_tune) {
-    read (qint64 (row.seconds) * TX_SAMPLE_RATE, 0);
+    read (qint64 (row.seconds) * TX_SAMPLE_RATE - done, 0);
   } else if (!request.cw_id.isEmpty ()) {
     unsigned const message = request.fast_mode ? unsigned ((m_TRperiod - 5.0) * 48000.0) + 48
       : unsigned (request.symbols_length * 4.0 * request.frames_per_symbol) + 1;
-    if (read (message, 0) == int (message)) read (30 * TX_SAMPLE_RATE, request.fast_mode ? message / 48 : 0);
+    if (read (message - done, 0) == int (message - done))
+      read (30 * TX_SAMPLE_RATE, request.fast_mode ? message / 48 : 0);
   } else if (last >= 0) {
-    if (read (last + 1, 0) != last + 1) result.audio.clear ();
+    // The committed end counts from the first sample played.
+    auto const frames = last + 1 - qint64 (result.audio.size ());
+    if (read (frames, 0) != frames) result.audio.clear ();
   }
   modulator.stop (true);
   return result;
@@ -697,7 +751,7 @@ double lowestTone (Row const& row)
 // Whether row's text is a single tone, which takes no freq.
 bool single (Row const& row)
 {
-  return (row.mode == "JT4" || row.mode == "JT9" || row.mode == "JT65" || row.mode == "Q65")
+  return (row.mode == "JT4" || row.mode == "JT9" || row.mode == "JT65" || row.mode == "Q65" || row.mode == "MSK144")
     && row.text.trimmed ().startsWith ('@');
 }
 
@@ -756,6 +810,10 @@ QJsonObject render (qint64 id, Row const& row, int rate)
 {
   auto object = request ("render", id, row);
   if (!single (row)) object.insert ("freq", lowestTone (row));
+  // A single tone's CW ID goes at the Tx frequency, but at 1500 Hz in
+  // MSK144 and fast JT9.
+  if (single (row) && !row.cwid.isEmpty () && row.mode != "MSK144" && !row.fast)
+    object.insert ("freq", row.txFreq);
   object.insert ("rate", rate);
   if (row.seconds) object.insert ("seconds", row.seconds);
   if (!row.cwid.isEmpty ()) object.insert ("cwid", true);
@@ -773,6 +831,7 @@ struct Reply
   QJsonObject encoded;
   QVector<qint16> audio;
   QJsonObject terminal;         // packed, rendered or rejected
+  QList<QJsonObject> segments;  // a JTTY pack's segment lines
 };
 
 struct Run
@@ -821,8 +880,8 @@ QStringList encodedKeys (Row const& row, bool rendered)
 
 // Every member an encoded line may carry.
 QStringList const allEncodedKeys {"id", "mode", "msgsent", "t", "tones", "v", "type", "fallback", "submode",
-  "trperiod", "spacing", "copied", "fast", "kind", "freq", "rate", "samples", "seconds", "cwid", "slots", "more_cqs",
-  "otp"};
+  "trperiod", "spacing", "copied", "fast", "kind", "freq", "wavefreq", "rate", "samples", "seconds", "cwid", "slots",
+  "more_cqs", "otp", "from", "total"};
 
 // Parses the output strictly: each reply's lines are consecutive and in the
 // documented order, and only replies carry an id.
@@ -843,6 +902,31 @@ void parse (QByteArray const& output, Run& run)
         }
       auto const object = document.object ();
       auto const type = object.value ("t").toString ();
+      if (type == "heard")
+        {
+          auto keys = object.keys ();
+          std::sort (keys.begin (), keys.end ());
+          if (open >= 0 || keys != QStringList {"id", "structured", "t", "v"} || !object.value ("structured").isBool ())
+            {
+              run.error = "a heard line is not the documented one";
+              return;
+            }
+          run.replies[qint64 (object.value ("id").toDouble ())].terminal = object;
+          continue;
+        }
+      if (type == "segment")
+        {
+          auto& reply = run.replies[qint64 (object.value ("id").toDouble ())];
+          auto const id = qint64 (object.value ("id").toDouble ());
+          if ((open >= 0 && open != id) || !reply.encoded.isEmpty () || !reply.terminal.isEmpty ())
+            {
+              run.error = "a segment line is out of place";
+              return;
+            }
+          reply.segments << object;
+          open = id;
+          continue;
+        }
       if (type != "encoded" && type != "pcm" && type != "packed" && type != "rendered" && type != "rejected")
         {
           if (open >= 0)
@@ -889,8 +973,9 @@ void parse (QByteArray const& output, Run& run)
         }
       else
         {
+          bool const jtty = !reply.segments.isEmpty ();
           if (!reply.terminal.isEmpty () || (open >= 0 && open != id)
-              || (type == "rejected") != reply.encoded.isEmpty ())
+              || (!jtty && (type == "rejected") != reply.encoded.isEmpty ()))
             {
               run.error = "a reply's last line is out of place";
               return;
@@ -906,12 +991,28 @@ void parse (QByteArray const& output, Run& run)
                   return;
                 }
             }
+          else if (jtty)
+            {
+              auto keys = object.keys ();
+              std::sort (keys.begin (), keys.end ());
+              if (type != "packed" || keys != QStringList {"id", "open", "segments", "substituted", "t", "v"})
+                {
+                  run.error = "a JTTY packed line is not the documented one";
+                  return;
+                }
+            }
           else
             {
               auto keys = object.keys ();
               std::sort (keys.begin (), keys.end ());
               auto const rendered = reply.encoded.contains ("samples");
-              if (keys != QStringList {"id", "t", "v"} || type != (rendered ? "rendered" : "packed"))
+              // A range's rendered line carries the state to go on from,
+              // unless the transmission ends with it.
+              auto const goesOn = reply.encoded.contains ("from")
+                && reply.encoded.value ("from").toInt () + reply.encoded.value ("samples").toInt ()
+                     < reply.encoded.value ("total").toInt ();
+              if (keys != (goesOn ? QStringList {"id", "state", "t", "v"} : QStringList {"id", "t", "v"})
+                  || type != (rendered ? "rendered" : "packed"))
                 {
                   run.error = "a packed or rendered line is not the documented one";
                   return;
@@ -1321,6 +1422,82 @@ private:
               qPrintable (reply.terminal.value ("detail").toString ()));
   }
 
+  // row rendered at rate as consecutive ranges, one codec process each,
+  // each continuing from the state the one before gave: counts at rate,
+  // then the rest; a range that starts at a retune's sample takes its
+  // frequency, with typed retunes each range keeps the waveform's (wavefreq,
+  // which encoded echoes), and with the corrections off each keeps the first
+  // freq and takes the retune's as wavefreq. False after a failed check.
+  bool chained (Row const& row, int rate, QVector<qint64> const& counts, QVector<qint16>& audio)
+  {
+    audio.clear ();
+    QString state;
+    qint64 from = 0;
+    qint64 total = -1;
+    double freq = lowestTone (row);
+    double const made = freq;
+    auto const fail = [&] (QString const& why) {
+      QTest::qFail (qPrintable (QString {"%1 \"%2\" at %3, range from %4: %5"}.arg (row.mode, row.text)
+                                .arg (rate).arg (from).arg (why)), __FILE__, __LINE__);
+      return false;
+    };
+    for (int i = 0; ; ++i)
+      {
+        auto object = render (1, row, rate);
+        for (auto const& retune : row.retunes)
+          if (qint64 (retune.first) == from * (48000 / rate)) freq = retune.second;
+        if (object.contains ("freq") && !single (row)) object.insert ("freq", row.correctionsOff ? made : freq);
+        bool const sendsWave = row.typed || row.correctionsOff;
+        double const wave = row.typed ? made : freq;
+        if (sendsWave) object.insert ("wavefreq", wave);
+        object.insert ("from", from);
+        if (i < counts.size ()) object.insert ("count", counts[i]);
+        if (!state.isEmpty ()) object.insert ("state", state);
+        auto const run = runCodec ((row.cwid.isEmpty () ? QByteArray {} : station (row)) + control (object));
+        if (!run.finished || run.exitCode != 0) return fail ("the codec did not finish");
+        if (!run.error.isEmpty ()) return fail (run.error);
+        auto const reply = run.replies.value (1);
+        if (reply.terminal.value ("t") != "rendered")
+          return fail (QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact));
+        if (reply.encoded.value ("from").toInt (-1) != from) return fail ("encoded's from");
+        if (reply.encoded.contains ("wavefreq") != sendsWave
+            || (sendsWave && reply.encoded.value ("wavefreq").toDouble () != wave))
+          return fail ("encoded's wavefreq");
+        if (total < 0) total = reply.encoded.value ("total").toInt ();
+        if (reply.encoded.value ("total").toInt () != total) return fail ("encoded's total changed");
+        if (i < counts.size () && reply.audio.size () != std::min (counts[i], total - from))
+          return fail ("samples");
+        audio += reply.audio;
+        from += reply.audio.size ();
+        state = reply.terminal.value ("state").toString ();
+        if (state.isEmpty ()) return from == total || fail ("no state before the end");
+        if (from >= total) return fail ("a state at the end");
+      }
+  }
+
+  // Whether audio is the GUI's at rate, to the count, or within one count
+  // where the GUI and the codec synthesize tones.
+  bool sameAsGui (Row const& row, int rate, QVector<qint16> const& audio, QVector<qint16> const& gui48,
+                  QString const& what)
+  {
+    auto const expected = rate == 12000 ? every4th (gui48) : gui48;
+    auto const exact = (row.mode == "FT8" && row.spacing == 1) || row.mode == "FT4" || row.mode == "FST4"
+      || row.mode == "FST4W" || row.mode == "TUNE" || (row.mode == "ECHO" && row.kind != "tone");
+    auto const difference = firstDifference (audio, expected, exact ? 0 : 1);
+    if (difference < 0) return true;
+    QTest::qFail (qPrintable (QString {"%1: sample %2 of %3 (%4) differs from the GUI's (%5 of %6)"}
+                              .arg (what).arg (difference).arg (audio.size ()).arg (audio.value (difference))
+                              .arg (expected.value (difference)).arg (expected.size ())), __FILE__, __LINE__);
+    return false;
+  }
+
+  // The codec's whole render of row at rate, or none.
+  QVector<qint16> whole (Row const& row, int rate)
+  {
+    auto const run = runCodec ((row.cwid.isEmpty () ? QByteArray {} : station (row)) + control (render (1, row, rate)));
+    return run.replies.value (1).audio;
+  }
+
 private slots:
   void ft8 ()
   {
@@ -1522,12 +1699,24 @@ private slots:
              r ("cw", "123456"), r ("cw", "w9xyz")});
   }
 
-  // The @ single tones of JT4, JT9, JT65 and Q65.
+  // The @ single tones of JT4, JT9, JT65, Q65 and MSK144. MSK144's are
+  // test_msk144_single_tone's: first, after a standard message and after a
+  // short one, bare, and with no frequency read. The codec takes them in one
+  // session; the GUI replica starts each row afresh, which changes nothing
+  // for a single tone, whose audio takes its frequency from the first tone
+  // and its length from the period in fast mode (MSK144) or the symbol count
+  // otherwise (Modulator), neither from earlier rows.
   void singleTones ()
   {
     auto fast = with (row ("JT9", "@1500"), 7, 15);
     fast.fast = true;
-    parity ({with (row ("JT65", "@1000"), 0), with (row ("JT4", "@1000"), 0), with (row ("JT4", "@"), 2),
+    auto const msk = [] (QString const& text, int trperiod = 15)
+    {
+      return with (row ("MSK144", text), -1, trperiod);
+    };
+    parity ({msk ("@1000"), msk ("CQ K1ABC FN42"), msk ("@1500", 5), msk ("<K1ABC W9XYZ> R-03"), msk ("@1700", 30),
+             msk ("@"), msk ("@ABCD", 10), msk ("@1000 HELLO"), msk ("@5950"), msk ("CQ K1ABC FN42"),
+             with (row ("JT65", "@1000"), 0), with (row ("JT4", "@1000"), 0), with (row ("JT4", "@"), 2),
              with (row ("JT4", "@1000 HELLO"), 6), with (row ("JT4", "@ 700"), 1), with (row ("JT9", "@1200"), 0),
              with (row ("JT9", "@2500"), 3, 0, 2), fast, with (row ("JT65", "CQ K1ABC FN42"), 0),
              with (row ("JT65", "@1500"), 1), with (row ("JT65", "@ABCD"), 2), with (row ("JT65", "K1ABC W9XYZ -15"), 0),
@@ -1563,6 +1752,8 @@ private slots:
     fastG.fast = true;
     auto fastE = at (with (row ("JT9", "K1ABC W9XYZ RRR"), 4, 30), 700);
     fastE.fast = true;
+    auto fastSingle = with (row ("JT9", "@1500"), 6, 10);
+    fastSingle.fast = true;
     parity ({r (with (row ("JT4", "CQ K1ABC FN42"), 0), "KJ5HST"),
              r (with (row ("JT9", "K1ABC W9XYZ -15"), 0), "K1ABC"),
              r (with (row ("JT65", "CQ K1ABC FN42"), 1), "PJ4/K1ABC"),
@@ -1578,7 +1769,533 @@ private slots:
              r (fastE, "3D2/W9XYZ/P"),
              // Morse's 250 elements, which the GUI's request cuts to 249, and 248.
              r (with (row ("JT9", "CQ K1ABC FN42"), 0), "00000000001"),
-             r (with (row ("MSK144", "CQ K1ABC FN42"), -1, 15), "00000000002")});
+             r (with (row ("MSK144", "CQ K1ABC FN42"), -1, 15), "00000000002"),
+             // Single tones: the GUI's ID interval sends a CW ID after any
+             // transmission, at the Tx frequency, or at 1500 Hz in MSK144
+             // and fast JT9.
+             r (at (with (row ("JT65", "@1000"), 0), 1270), "K1ABC"),
+             r (at (with (row ("JT4", "@800"), 2), 1500), "KJ5HST"),
+             r (at (with (row ("JT9", "@1200"), 0), 700), "K1ABC"),
+             r (at (with (row ("Q65", "@1500"), 0, 30), 2200), "PJ4/K1ABC"),
+             r (with (row ("MSK144", "@1500"), -1, 15), "KJ5HST"),
+             r (fastSingle, "K1ABC")});
+  }
+
+  // Sample-range renders: the ranges, each continuing from the last's
+  // state in a codec process of its own, put together are the whole render
+  // and the GUI's audio, at 12 and 48 kHz, CW IDs included; in WSPR and
+  // Q65 a range also starts at the message's last sample, which the GUI reads
+  // before its CW ID (in Q65 at 15 s its decay leaves it above zero).
+  void ranges ()
+  {
+    auto const cw = [] (Row r, QString const& call) { r.cwid = call; return r; };
+    auto fastE = at (with (row ("JT9", "K1ABC W9XYZ RRR"), 4, 30), 700);
+    fastE.fast = true;
+    auto echo = row ("ECHO", "K1JT");
+    echo.kind = "message";
+    echo.spacing = 10;
+    auto tune = at (with (row ("TUNE", ""), -1), 1234);
+    tune.tuneMode = "FT8";
+    tune.seconds = 7;
+    QList<Row> const rows {
+      cw (row ("WSPR", "K1ABC FN42 37"), "K1ABC"),
+      cw (with (row ("Q65", "K1ABC W9XYZ R-07"), 0, 15), "K1ABC"),
+      cw (with (row ("JT65", "CQ K1ABC FN42"), 1), "PJ4/K1ABC"),
+      cw (with (row ("FST4", "CQ K1ABC FN42"), -1, 60), "K1ABC"),
+      row ("FT8", "CQ K1ABC FN42"),
+      with (row ("FT8", "K1ABC W9XYZ -12"), -1, 0, 2),
+      row ("FT4", "CQ K1ABC FN42"),
+      cw (with (row ("MSK144", "CQ K1ABC FN42"), -1, 15), "KJ5HST"),
+      cw (fastE, "K1ABC"),
+      with (row ("Q65", "CQ K1ABC FN42"), 2, 60),
+      with (row ("JT4", "CQ K1ABC FN42"), 3),
+      echo,
+      tune,
+      with (row ("FST4W", "K1ABC FN42 37"), -1, 120),
+    };
+    for (auto const& r : rows)
+      {
+        auto const gui48 = gui (r).audio;
+        QVERIFY2 (!gui48.isEmpty (), qPrintable (r.mode + ": the GUI committed no audio"));
+        for (int rate : {12000, 48000})
+          {
+            auto const what = QString {"%1 \"%2\" at %3"}.arg (r.mode, r.text).arg (rate);
+            auto const total = rate == 12000 ? (gui48.size () + 3) / 4 : gui48.size ();
+            QVector<qint64> counts {total / 3 + 1, total / 4 + 3};
+            if (r.mode == "WSPR") counts = {162 * 4 * 8192 / (48000 / rate), 1};
+            if (r.mode == "Q65" && r.trperiod == 15) counts = {85 * 4 * 1800 / (48000 / rate), 1};
+            QVector<qint16> audio;
+            if (!chained (r, rate, counts, audio)) return;
+            auto const all = whole (r, rate);
+            QVERIFY2 (firstDifference (audio, all) < 0, qPrintable (what + ": the ranges are not the whole render"));
+            if (!sameAsGui (r, rate, audio, gui48, what)) return;
+          }
+      }
+  }
+
+  // An FST4 transmission at 1800 s, which a whole render refuses, rendered
+  // as ranges of at most 600 s is the GUI's audio; a 10 s range at its end,
+  // continuing from the state, takes no more than 3 times as long as one at
+  // its start (ten of each in a codec process, the best of 3 runs).
+  void fst4Long ()
+  {
+    auto const r = with (row ("FST4", "CQ K1ABC FN42"), -1, 1800);
+    auto const gui48 = gui (r).audio;
+    QCOMPARE (gui48.size (), 160 * 4 * 134400 + 1);
+    qint64 const ten = 10 * 48000;
+    QVector<qint64> const counts {ten, 590 * 48000, 590 * 48000, 592 * 48000};
+    QString state;
+    QString lastState;
+    qint64 from = 0;
+    qint64 lastFrom = 0;
+    for (int i = 0; ; ++i)
+      {
+        auto object = render (1, r, 48000);
+        object.insert ("from", from);
+        if (i < counts.size ()) object.insert ("count", counts[i]);
+        if (!state.isEmpty ()) object.insert ("state", state);
+        auto const run = runCodec (control (object));
+        QVERIFY2 (run.finished && run.exitCode == 0 && run.error.isEmpty (), qPrintable (run.error));
+        auto const reply = run.replies.value (1);
+        QVERIFY2 (reply.terminal.value ("t") == "rendered",
+                  QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact).constData ());
+        auto const difference = firstDifference (reply.audio, gui48.mid (int (from), reply.audio.size ()));
+        QVERIFY2 (difference < 0, qPrintable (QString {"range from %1: sample %2 differs"}.arg (from).arg (difference)));
+        lastFrom = from;
+        lastState = state;
+        from += reply.audio.size ();
+        state = reply.terminal.value ("state").toString ();
+        if (state.isEmpty ()) break;
+      }
+    QCOMPARE (from, qint64 (gui48.size ()));
+    QCOMPARE (from - lastFrom, ten + 1);
+    // Ten renders of the range in one codec process, so that its start
+    // does not hide a cost; the best of 3.
+    auto const best = [&] (qint64 start, QString const& continuing) {
+      QByteArray input;
+      for (int id = 1; id <= 10; ++id)
+        {
+          auto object = render (id, r, 48000);
+          object.insert ("from", start);
+          object.insert ("count", ten);
+          if (!continuing.isEmpty ()) object.insert ("state", continuing);
+          input += control (object);
+        }
+      qint64 fastest = std::numeric_limits<qint64>::max ();
+      for (int k = 0; k < 3; ++k)
+        {
+          QElapsedTimer timer;
+          timer.start ();
+          auto const run = runCodec (input);
+          auto const elapsed = timer.nsecsElapsed ();
+          for (int id = 1; id <= 10; ++id)
+            if (run.replies.value (id).audio.size () != ten) return qint64 (-1);
+          fastest = std::min (fastest, elapsed);
+        }
+      return fastest;
+    };
+    auto const first = best (0, {});
+    auto const last = best (lastFrom, lastState);
+    QVERIFY (first > 0 && last > 0);
+    qInfo ("FST4-1800 10 s range: first %.1f ms, last %.1f ms", first / 1e6, last / 1e6);
+    QVERIFY2 (last <= 3 * first, qPrintable (QString {"the last range took %1 ms, the first %2 ms"}
+                                               .arg (last / 1e6).arg (first / 1e6)));
+  }
+
+  // Two Tx frequency changes while it plays, at the same samples in the GUI
+  // (Modulator::setFrequency, and FST4's waveform made again) and as the
+  // frequency of the range that starts there: tone modes keep their phase,
+  // FST4 sends the new waveform from there, a CW ID goes at the new
+  // frequency. Typed into the box in FST4 and FST4W, they leave the
+  // waveform as made while the Modulator runs at the new frequency under it,
+  // which sets the CW ID's phase: ranges with wavefreq send the same.
+  // Clicked in FST4 with the corrections off, the waveform is made again at
+  // the new frequency but the Modulator, its CW ID's frequency and phase
+  // stay: ranges with the first freq and wavefreq the click's send the same.
+  void retunes ()
+  {
+    auto const r = [] (Row row, QString const& call = {})
+    {
+      row.cwid = call;
+      return row;
+    };
+    auto const typed = [] (Row row)
+    {
+      row.typed = true;
+      return row;
+    };
+    auto const off = [] (Row row)
+    {
+      row.correctionsOff = true;
+      return row;
+    };
+    auto tune = at (with (row ("TUNE", ""), -1), 1500);
+    tune.tuneMode = "FT8";
+    tune.seconds = 6;
+    QList<Row> rows {
+      r (with (row ("JT65", "CQ K1ABC FN42"), 0), "K1ABC"),
+      r (with (row ("FST4", "CQ K1ABC FN42"), -1, 60, 2), "KJ5HST"),
+      with (row ("WSPR", "K1ABC FN42 37"), -1, 0, 2),
+      with (row ("Q65", "K1ABC W9XYZ R-07"), 1, 30),
+      tune,
+      typed (r (with (row ("FST4", "CQ K1ABC FN42"), -1, 60, 2), "KJ5HST")),
+      typed (r (with (row ("FST4W", "K1ABC FN42 37"), -1, 120), "K1ABC")),
+      off (r (with (row ("FST4", "CQ K1ABC FN42"), -1, 60, 2), "KJ5HST")),
+    };
+    // wavefreq on a whole render: the waveform made there, which without a
+    // CW ID is all of it.
+    {
+      auto const fst4 = with (row ("FST4", "K1ABC W9XYZ -12"), -1, 15);
+      auto object = render (1, fst4, 12000);
+      object.insert ("wavefreq", fst4.txFreq + 300);
+      auto const run = runCodec (control (object));
+      QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+      QCOMPARE (run.replies.value (1).encoded.value ("wavefreq").toDouble (), double (fst4.txFreq + 300));
+      auto const moved = whole (at (fst4, fst4.txFreq + 300), 12000);
+      QVERIFY (!moved.isEmpty ());
+      QVERIFY (firstDifference (run.replies.value (1).audio, moved) < 0);
+    }
+    // FST4W: the GUI leaves its waveform at the old frequency (setFreq4 sets
+    // no m_restart there); the codec sends, after the change, the waveform
+    // made at the new one, as it does in FST4.
+    {
+      auto fst4w = with (row ("FST4W", "K1ABC FN42 37"), -1, 120);
+      auto const before = whole (fst4w, 12000);
+      auto moved = at (fst4w, fst4w.txFreq + 100);
+      auto const after = whole (moved, 12000);
+      QVERIFY (!before.isEmpty () && after.size () == before.size ());
+      int const s1 = before.size () / 3;
+      fst4w.retunes = {{4 * s1, moved.txFreq}};
+      QVector<qint16> audio;
+      if (!chained (fst4w, 12000, {s1}, audio)) return;
+      QVERIFY (firstDifference (audio.mid (0, s1), before.mid (0, s1)) < 0);
+      QVERIFY (firstDifference (audio.mid (s1), after.mid (s1)) < 0);
+    }
+    for (auto& row : rows)
+      {
+        auto const plain = gui (row).audio;
+        QVERIFY (!plain.isEmpty ());
+        int const s1 = plain.size () * 3 / 10 / 4 * 4;
+        int const s2 = plain.size () * 6 / 10 / 4 * 4;
+        row.retunes = {{s1, row.txFreq + 37}, {s2, row.txFreq - 211}};
+        auto const gui48 = gui (row).audio;
+        QCOMPARE (gui48.size (), plain.size ());
+        QVERIFY2 (firstDifference (gui48, plain) >= s1,
+                  qPrintable (row.mode + ": the GUI's retune changed nothing, or something before it"));
+        // Typed, the GUI's message is as made; its CW ID is not.
+        if (row.typed)
+          QVERIFY2 (firstDifference (gui48, plain) > 160 * 4 * fst4Nsps (row.trperiod),
+                    qPrintable (row.mode + ": the GUI's typed retune changed the message"));
+        // Clicked with the corrections off, the GUI's CW ID is as unclicked.
+        if (row.correctionsOff)
+          {
+            int const cw = 160 * 4 * fst4Nsps (row.trperiod) + 1;
+            QVERIFY2 (firstDifference (gui48.mid (cw), plain.mid (cw)) < 0,
+                      qPrintable (row.mode + ": the GUI's click with the corrections off moved the CW ID"));
+          }
+        for (int rate : {12000, 48000})
+          {
+            int const step = 48000 / rate;
+            QVector<qint16> audio;
+            if (!chained (row, rate, {s1 / step, (s2 - s1) / step}, audio)) return;
+            if (!sameAsGui (row, rate, audio, gui48, QString {"%1 retuned at %2"}.arg (row.mode).arg (rate))) return;
+          }
+      }
+  }
+
+  // A range without a state is the GUI's late start: the Modulator from
+  // that sample with its phase at zero.
+  void lateStart ()
+  {
+    auto const late = [] (Row row, qint64 delayMs, qint64 afterMs)
+    {
+      row.startMs = delayMs + afterMs;
+      row.startIc = afterMs * 48;
+      return row;
+    };
+    QList<Row> const rows {
+      late (with (row ("JT65", "CQ K1ABC FN42"), 0), 1000, 20000),
+      late (with (row ("FST4", "CQ K1ABC FN42"), -1, 60), 1000, 31000),
+      late (row ("WSPR", "K1ABC FN42 37"), 1000, 77000),
+      late (row ("FT8", "CQ K1ABC FN42"), 500, 4000),
+      // From the message's last sample (85 x 4 x 1800), where the GUI goes
+      // to the CW ID.
+      [&] { auto q = late (with (row ("Q65", "K1ABC W9XYZ R-07"), 0, 15), 500, 12750); q.cwid = "K1ABC"; return q; } (),
+    };
+    for (auto const& row : rows)
+      {
+        auto gui48 = gui (row).audio;
+        QVERIFY (!gui48.isEmpty ());
+        for (int rate : {48000, 12000})
+          {
+            auto object = render (1, row, rate);
+            object.insert ("from", row.startIc / (48000 / rate));
+            auto const run = runCodec ((row.cwid.isEmpty () ? QByteArray {} : station (row)) + control (object));
+            QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+            auto const reply = run.replies.value (1);
+            QVERIFY2 (reply.terminal.value ("t") == "rendered",
+                      QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact).constData ());
+            QVERIFY (!reply.terminal.contains ("state"));
+            // The GUI's buffer goes on with silence after the message.
+            if (rate == 48000 && gui48.size () > reply.audio.size ())
+              {
+                QVERIFY (std::all_of (gui48.begin () + reply.audio.size (), gui48.end (), [] (qint16 v) { return v == 0; }));
+                gui48.resize (reply.audio.size ());
+              }
+            if (!sameAsGui (row, rate, reply.audio, gui48, QString {"%1 late at %2"}.arg (row.mode).arg (rate))) return;
+          }
+      }
+  }
+
+  // A state works only for the transmission and the sample it came from;
+  // text and freq may change.
+  void rangeStates ()
+  {
+    auto const jt65 = [] (qint64 id, qint64 from, QString const& state = {}, QString const& text = "CQ K1ABC FN42",
+                          QString const& submode = "A", int rate = 12000)
+    {
+      QJsonObject object {{"t", "render"}, {"id", id}, {"mode", "JT65"}, {"submode", submode}, {"text", text},
+                          {"freq", 1500}, {"rate", rate}, {"from", from}, {"count", 1000}};
+      if (!state.isEmpty ()) object.insert ("state", state);
+      return control (object);
+    };
+    auto const first = runCodec (jt65 (1, 0));
+    QVERIFY2 (first.error.isEmpty (), qPrintable (first.error));
+    auto const state = first.replies.value (1).terminal.value ("state").toString ();
+    QVERIFY (!state.isEmpty ());
+    auto const run = runCodec (jt65 (2, 1000, state) + jt65 (3, 1001, state) + jt65 (4, 1000, state, "CQ K1ABC FN42", "B")
+                               + jt65 (5, 1000, state, "CQ K1ABC FN42", "A", 48000) + jt65 (6, 1000, state + ".0")
+                               + jt65 (7, 1000, state, "K1ABC W9XYZ -15"));
+    QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+    QCOMPARE (run.replies.value (2).terminal.value ("t").toString (), QString {"rendered"});
+    QCOMPARE (run.replies.value (7).terminal.value ("t").toString (), QString {"rendered"});
+    // The same length of CW ID, another call.
+    auto const withCw = [] (qint64 id, QString const& state = {}) {
+      QJsonObject object {{"t", "render"}, {"id", id}, {"mode", "JT65"}, {"submode", "A"}, {"text", "CQ K1ABC FN42"},
+                          {"freq", 1500}, {"rate", 12000}, {"from", state.isEmpty () ? 0 : 1000}, {"count", 1000},
+                          {"cwid", true}};
+      if (!state.isEmpty ()) object.insert ("state", state);
+      return control (object);
+    };
+    auto const configure = [] (QString const& call) { return control ({{"t", "configure"}, {"mycall", call}}); };
+    auto const cwFirst = runCodec (configure ("K1ABC") + withCw (1));
+    auto const cwState = cwFirst.replies.value (1).terminal.value ("state").toString ();
+    QVERIFY (!cwState.isEmpty ());
+    auto const cwRun = runCodec (configure ("K1ACB") + withCw (2, cwState) + configure ("K1ABC") + withCw (3, cwState));
+    QVERIFY2 (cwRun.error.isEmpty (), qPrintable (cwRun.error));
+    QVERIFY (cwRun.replies.value (2).terminal.value ("key") == "state"
+             && cwRun.replies.value (2).terminal.value ("detail").toString ().startsWith ("it is another transmission"));
+    QCOMPARE (cwRun.replies.value (3).terminal.value ("t").toString (), QString {"rendered"});
+    struct Refused { qint64 id; char const * detail; };
+    for (auto const& r : {Refused {3, "it continues at another sample"}, Refused {4, "it is another transmission"},
+                          Refused {5, "it is another transmission"}, Refused {6, "it is not a state"}})
+      {
+        auto const terminal = run.replies.value (r.id).terminal;
+        QVERIFY2 (terminal.value ("reason") == "bad_request" && terminal.value ("key") == "state"
+                  && terminal.value ("detail").toString ().startsWith (r.detail),
+                  qPrintable (QString::number (r.id) + ": " + QJsonDocument {terminal}.toJson (QJsonDocument::Compact)));
+      }
+  }
+
+  // WSJT-X's FST4, FST4W, Q65 and MSK144 encoders use tables that take the
+  // calls of every decode it receives (DecodedText calls stdmsg); a heard
+  // request gives the codec's the same, so after the same decodes its
+  // encodes are the GUI's, refusals included: a hashed call whose 22-, 12-
+  // or 10-bit hash a decoded call already holds. Without them the codec
+  // encodes those. FT8's and FT4's tables take no decode, in either.
+  void heard ()
+  {
+    QStringList const decodes {"KS8NJD AA2LF R-10", "AA2LF CE5HK -01", "CQ W1AW FN31", "W9XYZ W1AW -12",
+                               "CQ <...> FN42", "TNX BOB 73 GL"};
+    QList<Row> const rows {
+      with (row ("FST4", "<KH6IUT> W6BGK -09"), -1, 60),          // KH6IUT's 22-bit hash is AA2LF's
+      with (row ("Q65", "<KA1MN> PJ4/K1ABC RRR"), 0, 30),         // KA1MN's 12-bit hash is W1AW's
+      with (row ("MSK144", "K1ABC RR73; W9XYZ <KA8PE> -08"), -1, 15), // KA8PE's 10-bit hash is W1AW's
+      with (row ("FST4", "<W1AW> W6BGK -09"), -1, 60),
+      with (row ("MSK144", "CQ K1ABC FN42"), -1, 15),
+      row ("FT8", "<KH6IUT> W6BGK -09"),
+    };
+    QByteArray heardInput;
+    QVector<bool> standard;
+    for (int i = 0; i < decodes.size (); ++i)
+      {
+        auto text = decodes[i].toLatin1 ();
+        text += QByteArray (37 - text.size (), ' ');
+        standard << stdmsg_ (text.constData (), 37);
+        heardInput += control ({{"t", "heard"}, {"id", 100 + i}, {"text", decodes[i]}});
+      }
+    QVector<Transmission> expected;
+    for (auto const& r : rows) expected << gui (r, false);
+    QVERIFY (expected[0].refused && expected[1].refused && expected[2].refused);
+    QVERIFY (!expected[3].refused && !expected[4].refused && !expected[5].refused);
+    QByteArray packs;
+    for (int i = 0; i < rows.size (); ++i) packs += control (request ("pack", i, rows[i]));
+    auto const run = runCodec (heardInput + packs);
+    QVERIFY2 (run.finished && run.exitCode == 0, run.standardError.constData ());
+    QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+    for (int i = 0; i < decodes.size (); ++i)
+      {
+        auto const terminal = run.replies.value (100 + i).terminal;
+        QCOMPARE (terminal.value ("t").toString (), QString {"heard"});
+        // WSJT-X's stdmsg calls an unresolved hash standard but records nothing.
+        auto const structured = decodes[i].contains ("<...>") ? false : standard[i];
+        QVERIFY2 (terminal.value ("structured").toBool () == structured, qPrintable (decodes[i]));
+      }
+    for (int i = 0; i < rows.size (); ++i)
+      {
+        auto const reply = run.replies.value (i);
+        auto const what = rows[i].mode + " " + rows[i].text;
+        if (expected[i].refused)
+          {
+            QVERIFY2 (reply.terminal.value ("reason") == "bad_request" && reply.terminal.value ("key") == "text"
+                      && reply.terminal.value ("detail").toString ().contains ("or heard"),
+                      qPrintable (what + ": " + QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact)));
+            continue;
+          }
+        QVERIFY2 (!reply.encoded.isEmpty (), qPrintable (what));
+        QCOMPARE (reply.encoded.value ("msgsent").toString (), expected[i].msgsent);
+        QCOMPARE (tones (reply.encoded), expected[i].tones);
+      }
+    // Each alone: KA1MN's 12-bit hash, and so its 10-bit one, is KA8PE's.
+    for (int i = 0; i < 3; ++i)
+      {
+        auto const unheard = runCodec (control (request ("pack", i, rows[i])));
+        QVERIFY2 (unheard.error.isEmpty (), qPrintable (unheard.error));
+        QVERIFY2 (unheard.replies.value (i).terminal.value ("t") == "packed", qPrintable (rows[i].text));
+      }
+  }
+
+  // WSJT-X runs its MSK144 decoder and JTTY in its own process, on the
+  // tables its FST4, Q65 and MSK144 encoders use: the decoder shows the hash
+  // of a call sent, heard or sent in JTTY as that call, or as another call
+  // with that hash; the calls it decodes go into them; and once it has run,
+  // the station's own call is no longer recorded in their 10- and 12-bit
+  // tables. One sequence of receptions, encodes, a JTTY send and a heard
+  // decode, through WSJT-X's routines and through one codec session, gives
+  // the same decodes, encodes and refusals. The decodes are not given back
+  // as heard, so that what the decoder itself records is what the encodes
+  // meet.
+  void msk144Tables ()
+  {
+    enum Kind {Receive, Pack, Heard, Jtty};
+    struct Step
+    {
+      Kind kind;
+      Row row;
+      QString decoded;          // Receive: WSJT-X's decode
+      bool swl {};              // Receive: Sh and SWL checked
+    };
+    auto const msk144 = [] (QString const& text) { return with (row ("MSK144", text), -1, 15); };
+    QList<Step> const steps {
+      {Receive, msk144 ("W9XYZ <PJ4/K1ABC> R-12"), "W9XYZ <...> R-12"},
+      {Pack, msk144 ("<PJ4/K1ABC> W9XYZ -10"), {}},
+      {Receive, msk144 ("W9XYZ <PJ4/K1ABC> R-12"), "W9XYZ <PJ4/K1ABC> R-12"}, // the call sent
+      {Pack, msk144 ("K2RQE W9XYZ -10"), {}},
+      {Receive, msk144 ("<K2QQ> PJ4/K1ABC RRR"), "<K2RQE> PJ4/K1ABC RRR"},  // K2QQ's 12-bit hash is K2RQE's
+      {Heard, row ({}, "AA2LF CE5HK -01"), {}},
+      {Receive, msk144 ("W9XYZ <AA2LF> -05"), "W9XYZ <AA2LF> -05"},         // the call heard
+      {Jtty, row ({}, "CQ CQ DE K9AN K9AN"), {}},
+      {Receive, msk144 ("W9XYZ <K9AN> -05"), "W9XYZ <K9AN> -05"},           // the call sent in JTTY
+      {Receive, msk144 ("W9XYZ W1AW -07"), "W9XYZ W1AW -07"},
+      {Pack, with (row ("FST4", "<KA1MN> PJ4/K1ABC RRR"), -1, 60), {}},     // KA1MN's 12-bit hash is W1AW's
+      {Pack, msk144 ("K1ABC RR73; N0XX <KA8PE> -08"), {}},                 // KA8PE's 10-bit hash is W1AW's
+      {Pack, msk144 ("K1ABC RR73; N0XX <K0AEG> -08"), {}},                 // K0AEG's 10-bit hash is W9XYZ's
+      {Receive, msk144 ("<K2RQE W9XYZ> RRR"), "<K2RQE W9XYZ> RRR", true},   // SWL: K2RQE only sent
+    };
+    QByteArray const mycall {"W9XYZ       "};
+    QByteArray const hiscall {"PJ4/K1ABC   "};
+    QByteArray const directory = dataDirectory ().path ().toLocal8Bit ();
+    QByteArray input = control ({{"t", "configure"}, {"mode", "MSK144"}, {"trperiod", 15}, {"mycall", "W9XYZ"},
+                                 {"his_call", "PJ4/K1ABC"}, {"ntol", 100}, {"rxfreq", 1500}, {"depth", 3}});
+    QStringList expectedDecodes;
+    QMap<int, Transmission> expected;
+    int nutc = 120000;
+    for (int i = 0; i < steps.size (); ++i)
+      {
+        auto const& step = steps[i];
+        if (step.kind == Heard)
+          {
+            auto text = step.row.text.toLatin1 ();
+            text += QByteArray (37 - text.size (), ' ');
+            stdmsg_ (text.constData (), 37);
+            input += control ({{"t", "heard"}, {"id", i}, {"text", step.row.text}});
+            continue;
+          }
+        if (step.kind == Pack)
+          {
+            expected[i] = gui (step.row, false);
+            input += control (request ("pack", i, step.row));
+            continue;
+          }
+        if (step.kind == Jtty)
+          {
+            // MainWindow::execute_jtty_tx
+            auto const text = step.row.text.toStdU16String ();
+            QVERIFY (::Jtty::Encoder::encodeTransmitText (text, ::Jtty::NativeExchangeProfile::None, true).status
+                     == ::Jtty::TransmitTextStatus::Encoded);
+            input += control ({{"t", "pack"}, {"id", i}, {"text", step.row.text}});
+            continue;
+          }
+        // A 15 s period of the message rendered at 12 kHz, in noise, decoded
+        // as lib/hspec.f90 calls mskrtd: at each 3,584-sample block end from
+        // 7,168, unless half of the window is silent.
+        auto const rendered = runCodec (control (render (1, step.row, 12000)));
+        QVERIFY2 (!rendered.replies.value (1).audio.isEmpty (), qPrintable (step.row.text));
+        auto const& audio = rendered.replies.value (1).audio;
+        QVector<qint16> period (15 * 12000);
+        std::mt19937 noise (i);
+        for (int n = 0; n < period.size (); ++n)
+          period[n] = qint16 ((n < audio.size () ? audio[n] / 8 : 0) + int (noise () % 1001) - 500);
+        QStringList decoded;
+        for (int k = 7168; k <= period.size (); k += 3584)
+          {
+            float tt1 {}, tt2 {};
+            for (int n = k - 7168; n < k - 3584; ++n) tt1 += std::abs (period[n]);
+            for (int n = k - 3584; n < k; ++n) tt2 += std::abs (period[n]);
+            if (tt1 == 0.f || tt2 == 0.f) continue;
+            float tsec = (k - 7168) / 12000.f;
+            int ntol = 100, rxfreq = 1500, depth = 3;
+            bool shmsg {step.swl}, train {}, swl {step.swl};
+            double coefficients[5] {};
+            char line[80] {};
+            mskrtd_ (period.constData () + k - 7168, &nutc, &tsec, &ntol, &rxfreq, &depth, mycall.constData (),
+                     hiscall.constData (), &shmsg, &train, coefficients, &swl, directory.constData (), line, 12, 12,
+                     directory.size (), 80);
+            if (line[0]) decoded << QString::fromLatin1 (line + 24, 37).trimmed ();
+          }
+        QCOMPARE (decoded, QStringList {step.decoded});
+        expectedDecodes += decoded;
+        QJsonObject label {{"t", "configure"}, {"nutc", nutc}};
+        if (step.swl) label.insert ("short_messages", true), label.insert ("swl", true);
+        input += control (label) + audioFrames (period);
+        nutc += 15;
+        if (nutc % 100 == 60) nutc += 40;
+      }
+    QVERIFY (expected[10].refused && expected[11].refused && !expected[12].refused);
+    auto const run = runCodec (input);
+    QVERIFY2 (run.finished && run.exitCode == 0, run.standardError.constData ());
+    QVERIFY2 (run.error.isEmpty (), qPrintable (run.error));
+    QStringList decodes;
+    for (auto const& event : run.events)
+      if (event.value ("t") == "decode") decodes << event.value ("message").toString ();
+    QCOMPARE (decodes, expectedDecodes);
+    for (auto i = expected.cbegin (); i != expected.cend (); ++i)
+      {
+        auto const reply = run.replies.value (i.key ());
+        auto const what = steps[i.key ()].row.mode + " " + steps[i.key ()].row.text;
+        if (i->refused)
+          {
+            QVERIFY2 (reply.terminal.value ("reason") == "bad_request" && reply.terminal.value ("key") == "text",
+                      qPrintable (what + ": " + QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact)));
+            continue;
+          }
+        QVERIFY2 (!reply.encoded.isEmpty (),
+                  qPrintable (what + ": " + QJsonDocument {reply.terminal}.toJson (QJsonDocument::Compact)));
+        QCOMPARE (reply.encoded.value ("msgsent").toString (), i->msgsent);
+        QCOMPARE (tones (reply.encoded), i->tones);
+      }
+    QCOMPARE (run.replies.value (5).terminal.value ("t").toString (), QString {"heard"});
+    QCOMPARE (run.replies.value (7).terminal.value ("t").toString (), QString {"packed"});
   }
 
   // The CW ID's call comes from the last configure that named one, and is
@@ -1960,7 +2677,9 @@ private slots:
          "bad_request", "text");
     add ("JT65 single tone null value", R"({"t":"pack","id":1,"mode":"JT65","submode":"A","text":"@2*"})",
          "bad_request", "text");
-    add ("MSK144 single tone", R"({"t":"pack","id":1,"mode":"MSK144","trperiod":15,"text":"@1000"})",
+    add ("MSK144 single tone 50", R"({"t":"pack","id":1,"mode":"MSK144","trperiod":15,"text":"@50"})",
+         "bad_request", "text");
+    add ("MSK144 single tone slash", R"({"t":"pack","id":1,"mode":"MSK144","trperiod":15,"text":"@/"})",
          "bad_request", "text");
     for (auto text : {"K1ABC FN42", "K1ABC FN42 99", "K1ABC FN42 38", "HELLO WORLD", "K1ABC  FN42 37",
                       "<K1ABC FN42AB 37", "PJ4X/K1ABC 37", "K1ABC/QRP 37", "K1ABC FN42 037", "K1ABC FN42 3A", "PJ4/K1ABC X7",
@@ -2055,14 +2774,64 @@ private slots:
          "bad_request", "freq");
     add ("Q65 single tone copied", R"({"t":"pack","id":1,"mode":"Q65","submode":"A","trperiod":30,"text":"@1000","copied":true})",
          "bad_request", "copied");
-    add ("JT9 single tone cwid", R"({"t":"render","id":1,"mode":"JT9","submode":"A","text":"@1000","rate":12000,"cwid":true})",
-         "bad_request", "cwid");
+    add ("JT9 single tone cwid, no freq", R"({"t":"render","id":1,"mode":"JT9","submode":"A","text":"@1000","rate":12000,"cwid":true})",
+         "bad_request", "freq");
+    add ("MSK144 single tone freq", R"({"t":"render","id":1,"mode":"MSK144","trperiod":15,"text":"@1000","freq":1000,"rate":12000})",
+         "bad_request", "freq");
+    add ("MSK144 single tone cwid freq", R"({"t":"render","id":1,"mode":"MSK144","trperiod":15,"text":"@1000","freq":1500,"rate":12000,"cwid":true})",
+         "bad_request", "freq");
+    add ("fast JT9 single tone cwid freq", R"({"t":"render","id":1,"mode":"JT9","submode":"E","fast":true,"trperiod":15,"text":"@1000","freq":1500,"rate":12000,"cwid":true})",
+         "bad_request", "freq");
+    add ("JT65 single tone cwid freq 100", R"({"t":"render","id":1,"mode":"JT65","submode":"A","text":"@1000","freq":100,"rate":12000,"cwid":true})",
+         "bad_request", "freq");
+    add ("MSK144 single tone 6000, 12 kHz", R"({"t":"render","id":1,"mode":"MSK144","trperiod":15,"text":"@6000","rate":12000})",
+         "bad_request", "text");
     add ("Q65 single tone 6000, 12 kHz", R"({"t":"render","id":1,"mode":"Q65","submode":"A","trperiod":30,"text":"@6000","rate":12000})",
          "bad_request", "text");
     add ("TUNE text", R"({"t":"pack","id":1,"mode":"TUNE","text":"TUNE"})", "bad_request", "text");
     add ("TUNE no seconds", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000})", "bad_request", "seconds");
     add ("TUNE 0 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":0})", "bad_request", "seconds");
-    add ("TUNE 601 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":601})", "bad_request", "seconds");
+    add ("TUNE 601 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":601})", "too_long", "",
+         "the audio is longer than 600 s");
+    add ("TUNE 27998 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":27998})", "bad_request", "seconds");
+    add ("pack from", R"({"t":"pack","id":1,"mode":"FT8","text":"CQ K1ABC FN42","from":0})", "bad_request", "from",
+         "from is a render key");
+    add ("pack state", R"({"t":"pack","id":1,"mode":"FT8","text":"CQ K1ABC FN42","state":"1"})", "bad_request", "state",
+         "state is a render key");
+    add ("pack wavefreq", R"({"t":"pack","id":1,"mode":"FST4","trperiod":15,"text":"CQ K1ABC FN42","wavefreq":1500})",
+         "bad_request", "wavefreq", "wavefreq is a render key");
+    add ("FT8 wavefreq", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"wavefreq":1500})",
+         "bad_request", "wavefreq", "wavefreq applies to FST4 and FST4W");
+    add ("FOX wavefreq", R"({"t":"render","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"freq":900,"rate":12000,"wavefreq":900})",
+         "bad_request", "wavefreq", "wavefreq applies to FST4 and FST4W");
+    add ("FST4 wavefreq 199", R"({"t":"render","id":1,"mode":"FST4","trperiod":15,"text":"CQ K1ABC FN42","freq":1500,"rate":12000,"wavefreq":199})",
+         "bad_request", "wavefreq", "wavefreq must be a JSON number from 200 to 5000");
+    add ("FST4W wavefreq 5000.5", R"({"t":"render","id":1,"mode":"FST4W","trperiod":120,"text":"K1ABC FN42 37","freq":1500,"rate":12000,"wavefreq":5000.5})",
+         "bad_request", "wavefreq", "wavefreq must be a JSON number from 200 to 5000");
+    add ("FST4W wavefreq string", R"({"t":"render","id":1,"mode":"FST4W","trperiod":120,"text":"K1ABC FN42 37","freq":1500,"rate":12000,"wavefreq":"1500"})",
+         "bad_request", "wavefreq", "wavefreq must be a JSON number from 200 to 5000");
+    add ("from -1", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"from":-1})",
+         "bad_request", "from");
+    add ("from 1.5", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"from":1.5})",
+         "bad_request", "from");
+    add ("from past the end", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"from":151681})",
+         "bad_request", "from", "from is past the last sample, 151680");
+    add ("count 0", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"count":0})",
+         "bad_request", "count");
+    add ("count over 600 s", R"({"t":"render","id":1,"mode":"TUNE","seconds":700,"freq":1500,"rate":12000,"count":7200001})",
+         "bad_request", "count");
+    add ("range of 601 s", R"({"t":"render","id":1,"mode":"TUNE","seconds":700,"freq":1500,"rate":12000,"from":0})",
+         "too_long", "", "the range is longer than 600 s of audio");
+    add ("state number", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"from":4,"state":4})",
+         "bad_request", "state");
+    add ("state empty", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"from":4,"state":""})",
+         "bad_request", "state");
+    add ("state unreadable", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"from":4,"state":"1.8.x"})",
+         "bad_request", "state", "it is not a state");
+    add ("FOX from", R"({"t":"render","id":1,"mode":"FOX","slots":["CQ K1ABC FN42"],"freq":900,"rate":12000,"from":0})",
+         "bad_request", "from", "from, count and state apply to the slot modes and TUNE");
+    add ("SUPERFOX count", R"({"t":"render","id":1,"mode":"SUPERFOX","slots":["CQ K1ABC FN42"],"freq":750,"rate":12000,"count":5})",
+         "bad_request", "count", "from, count and state apply to the slot modes and TUNE");
     add ("TUNE 1.5 s", R"({"t":"render","id":1,"mode":"TUNE","freq":1500,"rate":12000,"seconds":1.5})", "bad_request", "seconds");
     add ("TUNE pack seconds", R"({"t":"pack","id":1,"mode":"TUNE","seconds":5})", "bad_request", "seconds");
     add ("FT8 seconds", R"({"t":"render","id":1,"mode":"FT8","text":"CQ K1ABC FN42","freq":1500,"rate":12000,"seconds":5})",

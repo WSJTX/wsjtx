@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Phase 8 parse-unit regression (streaming-schema unit parse->pack assert).
+# Run by hand, not by ctest or CI: test/run-phase8-parse-unit.sh, from any directory (it finds the source from its own path); it needs gfortran, or the compiler $FC names.
 # Compiles lib/streaming_control.f90 and the driver
 # test/phase8_parse_test.f90 into an ISOLATED module dir and runs it. Guards the
 # PARSE side of the 5 Phase 8 string & scaled / derived keys
@@ -57,6 +58,6 @@ echo ""
 # shadow the fresh compile.
 # -J/-I alone do NOT remove cwd from the search order; the cd does.
 cd "$WORK"
-"$FC" -c "$SRC" -J"$WORK" -o "$WORK/streaming_control.o"
+source "$REPO_ROOT/test/compile-streaming-control.sh"
 "$FC" "$DRV" "$WORK/streaming_control.o" -I"$WORK" -o "$WORK/p8drv"
 "$WORK/p8drv"

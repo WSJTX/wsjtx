@@ -63,13 +63,13 @@ Each tarball's `README.txt` gives, for its release and platform, the system the 
 
 - Read standard output and standard error as they come, each on its own: a full pipe stops the codec ([What every client does](examples/README.md#what-every-client-does)). Once `spectrum`, `ref_spectrum` or `prepared_audio` has been on, standard output's lines queue instead: the codec stops only once 16 MiB of lines other than live rows wait, and on live audio at most 20 rows wait, the oldest discarded (`rows_dropped`).
 - To end a session, send `halt` or close standard input; the codec drains the period in flight and exits.
-- The codec's standard output ends when it exits. Bound the wait for its exit status from there, and stop a codec that has not exited: the examples allow 10 s. A watchdog that reads the lines stops when they end, so the exit needs a deadline of its own.
+- The codec's standard output ends when it exits. Bound the wait for its exit status from there, and stop a codec that has not exited: the examples allow 10 s. A watchdog that reads the lines stops when they end, so the exit needs a deadline of its own. Once the codec has exited, bound the wait for its pipes and for your writes to it too: a process started under it, such as one a wrapper script leaves running, can hold them open; wsjt-codec itself starts none. The examples let go of them 2 s after the exit, and take standard output as ended there, after the lines read by then.
 - Treat a broken pipe as the codec having exited: stop writing, read its remaining lines and take its exit status. On Linux and macOS, a C or C++ client ignores `SIGPIPE`, or the failed write ends the client. In Node.js, attach an `'error'` listener to the child's stdin, or the failed write ends the client.
 - [Exit status](interface.md#exit-status) gives the codec's statuses. The end of standard output before `ready` is a failed start, whatever the status.
 
 ## Directories
 
-- Give each running codec its own `-a`, `-t` and working directory. Keep `-a` across runs: the codec reads its FFTW wisdom from there at the start and saves it there, and MSK144's training, the reference spectrum, `refspec.dat`, and WSPR's hash table, `hashtable.txt`, which resolves type 3 calls from session to session, go there too. The decoders' temporary files go to `-t`; JT4 can write `fort.77` to its working directory, and a file named `rx_messages.txt` there is a test hook ([Directories and files](interface.md#directories-and-files)).
+- Give each running codec its own `-a` and working directory (and `-t`, which the stream leaves unused). Keep `-a` across runs: the codec reads its FFTW wisdom from there at the start and saves it there, and keeps there what the decoders carry from session to session: the reference spectrum (`refspec.dat`), Q65's caller history (`tsil.3q`), FST4W's calls (`fst4w_calls.txt`) and WSPR's hash table (`hashtable.txt`), which resolves type 3 calls. MSK144's training writes its `.pcoeff` files there too; the codec does not read them back, so send their coefficients in `phase_eq`. On the stream the codec writes none of WSJT-X's result files (`decoded.txt` and the side files): its lines carry them, and the files are yours. A file named `rx_messages.txt` in the working directory is a test hook ([Directories and files](interface.md#directories-and-files)).
 - The codec only reads `-r`, so codecs can share it. The codec tarball carries `ALLCALL7.TXT`, which the multithreaded FT8 decoder reads from `-r`: point `-r` at the tarball's directory, or copy the file to yours.
 - `CALL3.TXT`, which JT4 and JT65 read from `-a`, is the client's to supply. The source has one at its top level.
 
@@ -78,12 +78,13 @@ Each tarball's `README.txt` gives, for its release and platform, the system the 
 - Each codec process holds its own buffers; [Memory](interface.md#memory) lists them, with measured peaks.
 - Set `OMP_STACKSIZE=10M` in the codec's environment ([Environment](interface.md#environment)).
 - A codec reads its standard input on one thread, runs the session on another and decodes on a third. Once a configure has turned `spectrum`, `ref_spectrum` or `prepared_audio` on, another thread writes its standard output for the rest of the session. Some decoders add OpenMP threads, each with the stack `OMP_STACKSIZE` gives it. Large FFTs use `-m` threads, 1 by default.
-- The multithreaded FT8 decoder (`multithreaded_ft8`) runs `ft8_threads` threads: 0 chooses from the CPU count, at most 12; 1 to 12 runs up to that many, at most the CPU count. A configure takes 0 to 24, and 13 to 24 run one thread. Each codec chooses on its own, so with several codecs on one host set `ft8_threads` for each.
+- The multithreaded FT8 decoder (`multithreaded_ft8`) runs `ft8_threads` threads: 0 chooses from the CPU count, at most 12; 1 to 12 runs up to that many, at most the CPU count. In FT8 a configure takes 0 to 12. Each codec chooses on its own, so with several codecs on one host set `ft8_threads` for each.
+- WSPR's decoder runs `wspr_threads` threads by the same rule; set it for each codec too. `-2` with files ([WSPR files](interface.md#wspr-files)) has no key: `OMP_THREAD_LIMIT` in its environment caps its threads.
 
 ## The clock
 
-- From a file (`live_audio` false) the codec does not read the clock.
-- On live audio, FT8's early passes stop by the host's clock, as WSJT-X's do: the pass at half-symbol 41 at 13.4 s into the 15 s period, and the subtraction step of the pass at half-symbol 47 at 14.3 s. Keep the host's clock accurate, for example with NTP, and start and label each period on its UTC boundary ([Live audio and files](interface.md#live-audio-and-files)).
+- From a file (`live_audio` false) no pass stops or is skipped by the clock. The host's clock still dates what the codec keeps in `-a`: Q65's caller history (`tsil.3q`, in the activities that keep it) drops callers older than 24 h by it, and MSK144 training names its `.pcoeff` files by it.
+- On live audio, the single-threaded FT8 decoder's early passes stop by the host's clock, as WSJT-X's do: the pass at half-symbol 41 at 13.4 s into the 15 s period, and the subtraction step of the pass at half-symbol 47 at 14.3 s. Keep the host's clock accurate, for example with NTP, and start and label each period on its UTC boundary ([Live audio and files](interface.md#live-audio-and-files)).
 
 ## Changes and issues
 

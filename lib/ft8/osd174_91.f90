@@ -87,6 +87,7 @@ subroutine osd174_91_fast(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
    real absrx(N),absr(N),d1,dd,tt,ss
    integer*1 hd(N),c0b(N),ceb(N),apr(91),m96(96)
    integer mask
+   logical systematic
 
    !$omp atomic read seq_cst
    mask=nbuilt
@@ -117,7 +118,8 @@ subroutine osd174_91_fast(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
 ! "row ii = row ii + row id for every row ii (not id) that has a 1 in the pivot
 ! column" becomes, for each column c with a 1 in row id, column c = column c +
 ! (pivot column without bit id).
-   do id=1,k
+   systematic=.true.
+   pivot_rows: do id=1,k
       iw=(id-1)/64+1
       ib=mod(id-1,64)
       do icol=id,k+20   ! the pivot search limit of osd174_91_slow
@@ -137,10 +139,11 @@ subroutine osd174_91_fast(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
                cols(1,c)=ieor(cols(1,c),iand(mk,s(1)))
                cols(2,c)=ieor(cols(2,c),iand(mk,s(2)))
             enddo
-            exit
+            cycle pivot_rows
          endif
       enddo
-   enddo
+      systematic=.false.
+   enddo pivot_rows
 
 ! Received values in the new column order.
    do i=1,N
@@ -265,16 +268,20 @@ contains
             if(btest(cols(jw,cc),jb)) ceb(cc)=ieor(ceb(cc),1_1)
          enddo
       endif
-      ss=0.
-      do jj=k+1,N
-         if(ceb(jj).ne.hd(jj)) ss=ss+absr(jj)
-      enddo
-      if(ib2.eq.0) then
-         dd=d1+ss
+      if(.not.systematic) then
+         dd=sum(absr,mask=ceb.ne.hd)
       else
-         tt=0.
-         if(ceb(ib2).ne.hd(ib2)) tt=absr(ib2)
-         dd=d1+tt+ss
+         ss=0.
+         do jj=k+1,N
+            if(ceb(jj).ne.hd(jj)) ss=ss+absr(jj)
+         enddo
+         if(ib2.eq.0) then
+            dd=d1+ss
+         else
+            tt=0.
+            if(ceb(ib2).ne.hd(ib2)) tt=absr(ib2)
+            dd=d1+tt+ss
+         endif
       endif
       if(dd.lt.dmin) then
          dmin=dd
@@ -308,7 +315,7 @@ subroutine osd174_91_slow(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
    integer indx(N)
    real llr(N),rx(N),absrx(N)
 
-   logical first,reset
+   logical first,reset,systematic
    data first/.true./
    save first
 
@@ -365,11 +372,10 @@ subroutine osd174_91_slow(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
 
 ! Do gaussian elimination to create a generator matrix with the most reliable
 ! received bits in positions 1:k in order of decreasing reliability (more or less).
-   do id=1,k ! diagonal element indices
+   systematic=.true.
+   pivot_rows: do id=1,k ! diagonal element indices
       do icol=id,k+20  ! The 20 is ad hoc - beware
-         iflag=0
          if( genmrb(id,icol) .eq. 1 ) then
-            iflag=1
             if( icol .ne. id ) then ! reorder column
                temp(1:k)=genmrb(1:k,id)
                genmrb(1:k,id)=genmrb(1:k,icol)
@@ -383,10 +389,11 @@ subroutine osd174_91_slow(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
                   genmrb(ii,1:N)=ieor(genmrb(ii,1:N),genmrb(id,1:N))
                endif
             enddo
-            exit
+            cycle pivot_rows
          endif
       enddo
-   enddo
+      systematic=.false.
+   enddo pivot_rows
 
    g2=transpose(genmrb)
 
@@ -488,7 +495,9 @@ subroutine osd174_91_slow(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
             if(nd1kpt .le. ntheta) then
                call mrbencode91(me,ce,g2,N,k)
                nxor=ieor(ce,hdec)
-               if(n1.eq.iflag) then
+               if(.not.systematic) then
+                  dd=sum(nxor*absrx)
+               elseif(n1.eq.iflag) then
                   dd=d1+sum(e2sub*absrx(k+1:N))
                else
                   dd=d1+ieor(ce(n1),hdec(n1))*absrx(n1)+sum(e2*absrx(k+1:N))

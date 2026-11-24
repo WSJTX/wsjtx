@@ -140,7 +140,8 @@ void CPlotter::paintEvent(QPaintEvent *)                                // paint
   m_paintEventBusy=true;
   QPainter painter(this);
   painter.drawPixmap(0,0,m_ScalePixmap);
-  painter.drawPixmap(0,30,m_WaterfallPixmap,0,0,m_scale.width(),m_h1);
+  painter.drawPixmap(0,waterfallTop(),m_WaterfallPixmap,0,0,m_scale.width(),m_h1);
+  if (hasCallStrip ()) drawCallStrip (painter);
   painter.drawPixmap(0,m_h1,m_2DPixmap);
   int x = XfromFreq(m_rxFreq);
   if (m_bars) {
@@ -470,6 +471,110 @@ void CPlotter::drawJttyLabels (QPainter& painter, bool newestOnly)
     QRect const rect {5, row, m_scale.width () - 10, painter.fontMetrics ().height ()};
     painter.drawText (rect, (m_timestamp == 2 ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignTop, label);
   }
+}
+
+int CPlotter::waterfallTop () const
+{
+  return 30;
+}
+
+int CPlotter::callStripTop () const
+{
+  return std::max (30, m_h1 - callStripHeight);     // m_h1: where the spectrum starts
+}
+
+void CPlotter::setCallLabels (QVector<WaterfallCalls::Label> const& labels)
+{
+  if (labels.size () == m_callLabels.size ()) {
+    bool same = true;
+    for (int i = 0; i < labels.size () && same; ++i) {
+      same = labels[i].call == m_callLabels[i].call && labels[i].freq == m_callLabels[i].freq
+        && labels[i].kind == m_callLabels[i].kind;
+    }
+    if (same) return;
+  }
+  m_callLabels = labels;
+  if (hasCallStrip ()) update ();
+}
+
+// The one font of the call labels: layout (and so the click boxes) and drawing
+// both use it, so the boxes always match the drawn text.
+QFont CPlotter::callLabelFont ()
+{
+  QFont font ("Arial");
+  font.setPointSize (10);       // two rows in a 32 px strip
+  font.setBold (true);
+  return font;
+}
+
+QVector<CPlotter::PlacedCall> CPlotter::layoutCallLabels () const
+{
+  if (!hasCallStrip ()) return {};              // labels are a JTTY thing
+  QFontMetrics const fm {callLabelFont ()};
+  int const width = m_scale.width ();
+  int const rowHeight = callStripHeight / 2;
+  auto const placed = WaterfallCalls::place (
+      m_callLabels,
+      [this] (double f) {return double (m_scale.xFromFreqHz (float (f)));},
+      [&fm] (QString const& call) {return double (fm.horizontalAdvance (call));},
+      width);
+  QVector<PlacedCall> out;
+  for (auto const& p : placed) {
+    auto const& label = m_callLabels[p.index];
+    int const w = fm.horizontalAdvance (label.call);
+    int const x = int (p.xCentre) - w / 2;
+    out.append ({label, QRect (x, callStripTop () + p.row * rowHeight, w, rowHeight)});
+  }
+  return out;
+}
+
+QStringList CPlotter::shownCallLabels () const
+{
+  QStringList calls;
+  for (auto const& p : layoutCallLabels ()) calls << p.label.call;
+  return calls;
+}
+
+QRect CPlotter::callLabelBox (QRect const& textRect)
+{
+  return textRect.adjusted (-3, 0, 3, 0);       // the text plus a little room, under the 4 px gap
+}
+
+bool CPlotter::isOnCallLabel (QPoint const& pos) const
+{
+  if (!hasCallStrip ()) return false;
+  for (auto const& p : layoutCallLabels ()) {
+    if (callLabelBox (p.rect).contains (pos)) return true;
+  }
+  return false;
+}
+
+QRect CPlotter::callLabelRect (QString const& call) const
+{
+  for (auto const& p : layoutCallLabels ()) {
+    if (p.label.call == call) return p.rect;
+  }
+  return {};
+}
+
+void CPlotter::drawCallStrip (QPainter& painter)
+{
+  painter.save ();
+  painter.setFont (callLabelFont ());
+  for (auto const& p : layoutCallLabels ()) {
+    QColor colour {0xe0, 0xe0, 0xe0};
+    switch (p.label.kind) {
+    case WaterfallCalls::Kind::Me: colour = QColor (0xff, 0x70, 0x70); break;
+    case WaterfallCalls::Kind::Own: colour = QColor (0xff, 0xe0, 0x60); break;
+    case WaterfallCalls::Kind::Cq: colour = QColor (0x5e, 0xe0, 0x5e); break;
+    case WaterfallCalls::Kind::Other: break;
+    }
+    // Only the label has a dark background; the waterfall shows between labels.
+    painter.fillRect (callLabelBox (p.rect), QColor (0x18, 0x18, 0x18, 0xe0));
+    painter.setPen (colour);
+    painter.drawText (p.rect, Qt::AlignCenter, p.label.call);
+  }
+  painter.restore ();
 }
 
 void CPlotter::DrawOverlay()                   //DrawOverlay()
@@ -988,6 +1093,19 @@ void CPlotter::mouseReleaseEvent (QMouseEvent * event)
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
     if(!shift and m_mode=="FST4W") return;
     int newFreq = int(FreqfromX(x)+0.5);
+    // A click on a call label = that signal. Keep this block above the read
+    // of m_txFreq below: jttyCallClicked's slot in MainWindow sets the Tx
+    // frequency (Tx on call) before oldTxFreq is read, and that is the only
+    // reason setFreq1 (newFreq, oldTxFreq) does not put the old Tx frequency back.
+    if (hasCallStrip ()) {
+      for (auto const& p : layoutCallLabels ()) {
+        if (callLabelBox (p.rect).contains (event->pos ())) {
+          newFreq = int (p.label.freq + 0.5f);
+          if (!shift) emit jttyCallClicked (p.label.call, newFreq);
+          break;
+        }
+      }
+    }
     int oldTxFreq = m_txFreq;
     int oldRxFreq = m_rxFreq;
     if (ctrl and m_mode!="FST4W") {
@@ -1014,8 +1132,9 @@ void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
     bool leftbutton = (event->button() & Qt::LeftButton);
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
   if (leftbutton and m_mode=="JTTY" and !ctrl) {
-    int const row = event->y() - 30;
-    if (row >= 0 && row < m_jttyRows.size ()) {
+    int const row = event->y() - waterfallTop();
+    bool const onLabel = isOnCallLabel (event->pos ());       // a label covers that row
+    if (!onLabel && row >= 0 && row < m_jttyRows.size ()) {
       auto const& audio = m_jttyRows[row].audio;
       if (audio.hasAudio ()) emit jttyDecodeAgainAtSample (audio.reception, audio.endSample);
     }
@@ -1060,7 +1179,9 @@ void CPlotter::setTxFreq(int n)                                 //setTxFreq
 
 void CPlotter::setMode(QString mode)                            //setMode
 {
+  bool const strip = hasCallStrip ();
   m_mode=mode;
+  if (strip != hasCallStrip ()) update ();      // the waterfall moves up or down
 }
 
 void CPlotter::setSubMode(int n)                                //setSubMode

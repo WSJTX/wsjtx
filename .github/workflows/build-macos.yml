@@ -532,54 +532,12 @@ jobs:
           path: hamlib-prefix
           key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
 
-      - name: Restore pFUnit cache
-        id: pfunit-cache
-        if: ${{ !inputs.cold_build }}
-        uses: actions/cache/restore@v6
-        with:
-          path: pfunit-prefix
-          key: pfunit-macos-${{ inputs.arch }}-${{ env.RUNNER }}-v4.14.0-${{ steps.fc.outputs.cache_key }}-min${{ env.DEPLOYMENT_TARGET }}-epoch3-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
-
-      - name: Build pFUnit
-        id: pfunit-build
-        if: steps.pfunit-cache.outputs.cache-hit != 'true'
-        env:
-          # pFUnit configure uses try_run probes; expose only the controlled
-          # compiler runtime for those probes, not for the final test binaries.
-          DYLD_LIBRARY_PATH: ${{ steps.fc.outputs.runtime_lib_dir }}
-        run: |
-          .github/scripts/build-pfunit-macos.sh \
-            v4.14.0 \
-            "${{ steps.fc.outputs.path }}" \
-            "${{ env.DEPLOYMENT_TARGET }}" \
-            "${GITHUB_WORKSPACE}/pfunit-prefix"
-
-      - name: Locate pFUnit config
-        id: pfunit
-        run: |
-          CONFIG=$(find "${GITHUB_WORKSPACE}/pfunit-prefix" -name PFUNITConfig.cmake -print -quit)
-          if [ -z "$CONFIG" ]; then
-            echo "ERROR: PFUNITConfig.cmake not found under pfunit-prefix"
-            find "${GITHUB_WORKSPACE}/pfunit-prefix" -maxdepth 3 -type d
-            exit 1
-          fi
-          PFUNIT_DIR="$(dirname "$CONFIG")"
-          echo "Found PFUNITConfig.cmake at: $CONFIG"
-          echo "dir=${PFUNIT_DIR}" >> "$GITHUB_OUTPUT"
-
-      - name: Save pFUnit cache
-        if: ${{ !inputs.cold_build && steps.pfunit-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          path: pfunit-prefix
-          key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
-
       - name: Configure build and tests
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/qt-prefix/lib/pkgconfig:${{ github.workspace }}/boost-static-prefix/lib/pkgconfig:${{ github.workspace }}/fftw-prefix/lib/pkgconfig:${{ github.workspace }}/libusb-prefix/lib/pkgconfig:${{ github.workspace }}/portaudio-prefix/lib/pkgconfig:${{ github.workspace }}/hamlib-prefix/lib/pkgconfig:${{ github.workspace }}/pfunit-prefix/lib/pkgconfig
+          PKG_CONFIG_PATH: ${{ github.workspace }}/qt-prefix/lib/pkgconfig:${{ github.workspace }}/boost-static-prefix/lib/pkgconfig:${{ github.workspace }}/fftw-prefix/lib/pkgconfig:${{ github.workspace }}/libusb-prefix/lib/pkgconfig:${{ github.workspace }}/portaudio-prefix/lib/pkgconfig:${{ github.workspace }}/hamlib-prefix/lib/pkgconfig
         run: |
           cmake -S . -B wsjtx-build \
-            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/qt-prefix;${GITHUB_WORKSPACE}/boost-static-prefix;${GITHUB_WORKSPACE}/fftw-prefix;${GITHUB_WORKSPACE}/libusb-prefix;${GITHUB_WORKSPACE}/portaudio-prefix;${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/qt-prefix;${GITHUB_WORKSPACE}/boost-static-prefix;${GITHUB_WORKSPACE}/fftw-prefix;${GITHUB_WORKSPACE}/libusb-prefix;${GITHUB_WORKSPACE}/portaudio-prefix;${GITHUB_WORKSPACE}/hamlib-prefix" \
             -DBoost_USE_STATIC_LIBS=ON \
             -DBOOST_ROOT="${GITHUB_WORKSPACE}/boost-static-prefix" \
             -DBoost_NO_SYSTEM_PATHS=ON \
@@ -596,7 +554,6 @@ jobs:
             -DWSJT_FFTW_VERSION="${FFTW_VERSION}" \
             -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
-            -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
             -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
             -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
             -DWSJT_PRERELEASE_NUMBER="${WSJT_PRERELEASE_NUMBER}" \
@@ -1114,7 +1071,7 @@ jobs:
           CACHE_STEPS: ${{ toJSON(steps) }}
           COLD_BUILD: ${{ inputs.cold_build }}
           RECACHE: ${{ inputs.recache }}
-        run: python3 .github/scripts/summarize-native-caches.py --compiler qt libusb portaudio fftw boost hamlib pfunit >> "$GITHUB_STEP_SUMMARY"
+        run: python3 .github/scripts/summarize-native-caches.py --compiler qt libusb portaudio fftw boost hamlib >> "$GITHUB_STEP_SUMMARY"
 
   sign_distribution:
     if: inputs.signing_mode == 'distribution'

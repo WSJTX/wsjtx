@@ -136,7 +136,7 @@ contains
        endif
        first=next
     enddo
-    msg=result
+    msg=result(:len(msg))
     ok=.true.
   end subroutine normalize_serials
 

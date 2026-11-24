@@ -3,9 +3,12 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QDialog>
+#include <QFontDialog>
 #include <QLineEdit>
 #include <QNetworkAccessManager>
+#include <QPushButton>
 #include <QSettings>
+#include <QSerialPortInfo>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -34,13 +37,23 @@ class TestConfigurationPreferences final : public QObject
 
   void loadConfiguration ()
   {
-    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (), nullptr});
+    auto serial_ports = [] {
+      static auto const snapshot = QSerialPortInfo::availablePorts ();
+      return snapshot;
+    };
+    configuration_.reset (new Configuration {&network_, QDir {directory_.path ()}, settings_.get (),
+                                             nullptr, nullptr, serial_ports});
     dialog_ = nullptr;
     for (auto widget : QApplication::topLevelWidgets ())
       if (widget->objectName () == "configuration_dialog") dialog_ = qobject_cast<QDialog *> (widget);
     QVERIFY (dialog_);
     language_ = dialog_->findChild<QComboBox *> ("language_combo_box");
     QVERIFY (language_);
+    ensureAudioChoices ();
+  }
+
+  void ensureAudioChoices ()
+  {
     for (auto name : {"sound_input_combo_box", "sound_input_channel_combo_box",
                       "sound_output_combo_box", "sound_output_channel_combo_box"})
       {
@@ -50,9 +63,37 @@ class TestConfigurationPreferences final : public QObject
       }
   }
 
+  // Return the displayed size, accepting a new size or cancelling the chooser.
+  int visitFontChooser (char const * buttonName, int newSize = 0)
+  {
+    auto button = dialog_->findChild<QPushButton *> (buttonName);
+    if (!button) return -1;
+    int initialSize = -1;
+    QObject lifetime;
+    QTimer::singleShot (0, &lifetime, [&] {
+        auto modal = qobject_cast<QDialog *> (QApplication::activeModalWidget ());
+        if (auto chooser = qobject_cast<QFontDialog *> (modal))
+          {
+            auto font = chooser->currentFont ();
+            initialSize = font.pointSize ();
+            if (newSize > 0)
+              {
+                font.setPointSize (newSize);
+                chooser->setCurrentFont (font);
+                chooser->accept ();
+                return;
+              }
+          }
+        if (modal) modal->reject ();
+      });
+    button->click ();
+    return initialSize;
+  }
+
 private Q_SLOTS:
   void initTestCase ()
   {
+    QApplication::setAttribute (Qt::AA_DontUseNativeDialogs);
     register_types ();
     QStandardPaths::setTestModeEnabled (true);
     QCoreApplication::setApplicationName ("test_configuration_preferences");
@@ -63,7 +104,6 @@ private Q_SLOTS:
   {
     settings_.reset (new QSettings {directory_.filePath ("settings.ini"), QSettings::IniFormat});
     settings_->clear ();
-    loadConfiguration ();
   }
 
   void cleanup ()
@@ -72,8 +112,53 @@ private Q_SLOTS:
     settings_.reset ();
   }
 
+  void cancellingDecodedFontChooserKeepsPendingChoice ()
+  {
+    loadConfiguration ();
+    auto const original = configuration_->decoded_text_font ();
+    auto const textFont = configuration_->text_font ();
+    int const size = original.pointSize () + 4;
+    QSignalSpy changes {configuration_.get (), &Configuration::decoded_text_font_changed};
+    QVERIFY (visitFontChooser ("decoded_text_font_push_button", size) > 0);
+    QCOMPARE (visitFontChooser ("decoded_text_font_push_button"), size);
+    QCOMPARE (configuration_->decoded_text_font (), original);
+    QCOMPARE (changes.count (), 0);
+    dialog_->accept ();
+    QCOMPARE (configuration_->decoded_text_font ().pointSize (), size);
+    QCOMPARE (changes.count (), 1);
+    QCOMPARE (configuration_->text_font (), textFont);
+    QCOMPARE (settings_->value ("Configuration/DecodedTextFont").toString (),
+              configuration_->decoded_text_font ().toString ());
+  }
+
+  void cancellingSettingsDiscardsBothFontChoices ()
+  {
+    loadConfiguration ();
+    dialog_->accept ();
+    auto const textFont = configuration_->text_font ();
+    auto const decodedFont = configuration_->decoded_text_font ();
+    QSignalSpy textChanges {configuration_.get (), &Configuration::text_font_changed};
+    QSignalSpy decodedChanges {configuration_.get (), &Configuration::decoded_text_font_changed};
+    QVERIFY (visitFontChooser ("font_push_button", textFont.pointSize () + 4) > 0);
+    QVERIFY (visitFontChooser ("decoded_text_font_push_button", decodedFont.pointSize () + 4) > 0);
+    dialog_->reject ();
+
+    QTimer::singleShot (0, dialog_, [this] {
+        ensureAudioChoices ();
+        dialog_->accept ();
+      });
+    QCOMPARE (configuration_->exec (), int (QDialog::Accepted));
+    QCOMPARE (configuration_->text_font (), textFont);
+    QCOMPARE (configuration_->decoded_text_font (), decodedFont);
+    QCOMPARE (textChanges.count (), 0);
+    QCOMPARE (decodedChanges.count (), 0);
+    QCOMPARE (settings_->value ("Configuration/Font").toString (), textFont.toString ());
+    QCOMPARE (settings_->value ("Configuration/DecodedTextFont").toString (), decodedFont.toString ());
+  }
+
   void preferenceInitialization ()
   {
+    loadConfiguration ();
     QCOMPARE (language_->currentData ().toString (), QString {});
     configuration_->set_ui_language_preference ("en");
     QCOMPARE (language_->currentData ().toString (), QString {"en"});
@@ -83,6 +168,7 @@ private Q_SLOTS:
 
   void bestSpDefaultsAndAcceptCancel ()
   {
+    loadConfiguration ();
     QVERIFY (configuration_->best_sp_new_dxcc ());
     QVERIFY (configuration_->best_sp_new_call_on_band ());
     auto dxcc = dialog_->findChild<QCheckBox *> ("best_sp_new_dxcc_check_box");
@@ -105,8 +191,6 @@ private Q_SLOTS:
 
   void bestSpPartialProfileWithoutHighlightingUsesNewDefaults ()
   {
-    configuration_.reset ();
-    settings_->clear ();
     settings_->setValue ("Configuration/MyCall", QStringLiteral ("K1ABC"));
     QVERIFY (!settings_->contains ("Configuration/DecodeHighlighting"));
     loadConfiguration ();
@@ -129,8 +213,6 @@ private Q_SLOTS:
   {
     QFETCH (bool, dxcc);
     QFETCH (bool, call);
-    configuration_.reset ();
-    settings_->clear ();
     auto highlights = DecodeHighlightingModel::default_items ();
     for (auto& item : highlights)
       {
@@ -166,7 +248,6 @@ private Q_SLOTS:
         return QByteArray {context} == "IARURegions" ? QStringLiteral ("Duplicate label") : QString {};
       }
     } translator;
-    configuration_.reset ();
     QCoreApplication::installTranslator (&translator);
     loadConfiguration ();
     auto combo = dialog_->findChild<QComboBox *> ("region_combo_box");
@@ -187,6 +268,7 @@ private Q_SLOTS:
 
   void cancelDiscardsPendingPreference ()
   {
+    loadConfiguration ();
     configuration_->set_ui_language_preference ("en");
     QSignalSpy changes {configuration_.get (), &Configuration::ui_language_preference_changed};
     language_->setCurrentIndex (0);
@@ -197,6 +279,7 @@ private Q_SLOTS:
 
   void acceptanceEmitsOnlyChangedPreference ()
   {
+    loadConfiguration ();
     QSignalSpy changes {configuration_.get (), &Configuration::ui_language_preference_changed};
     language_->setCurrentIndex (language_->findData (QString {"en"}));
     dialog_->accept ();
@@ -211,6 +294,7 @@ private Q_SLOTS:
 
   void failedValidationDoesNotCommitPreference ()
   {
+    loadConfiguration ();
     configuration_->set_ui_language_preference ("en");
     QSignalSpy changes {configuration_.get (), &Configuration::ui_language_preference_changed};
     language_->setCurrentIndex (0);

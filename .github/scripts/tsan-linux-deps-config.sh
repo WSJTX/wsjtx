@@ -15,9 +15,11 @@ TSAN_FC=gfortran-${TSAN_GCC_SUFFIX}
 TSAN_SANITIZER_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g1 -O1"
 TSAN_LINK_FLAGS="-fsanitize=thread"
 
-TSAN_QT_VERSION=5.15.18
-TSAN_QT_SOURCE_SHA256=cea1fbabf02455f3f0e8eaa839f5d6f45cdb56b62c8a83af5c1d00ac05f912ea
-TSAN_QT_SOURCE_URL="https://download.qt.io/archive/qt/5.15/${TSAN_QT_VERSION}/single/qt-everywhere-opensource-src-${TSAN_QT_VERSION}.tar.xz"
+# shellcheck source=.github/scripts/qt5-source-config.sh
+. "$(dirname "${BASH_SOURCE[0]}")/qt5-source-config.sh"
+TSAN_QT_VERSION=$QT5_VERSION
+TSAN_QT_SOURCE_SHA256=$QT5_SOURCE_SHA256
+TSAN_QT_SOURCE_URL=$QT5_SOURCE_URL
 
 TSAN_HAMLIB_REF=4.7.2
 TSAN_HAMLIB_COMMIT=40f63488fe0bd751b147f48d62fd217bf53713a0
@@ -106,6 +108,7 @@ tsan_dependency_recipe_hash() {
 
   local recipe_files=(
     "${tsan_config_dir}/tsan-linux-deps-config.sh" \
+    "${tsan_config_dir}/qt5-source-config.sh" \
     "${tsan_config_dir}/${build_script}" \
     "${tsan_config_dir}/verify-tsan-deps-linux.sh"
   )

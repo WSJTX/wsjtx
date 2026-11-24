@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QKeyEvent>
 #include <QTranslator>
+#include <QTimer>
 #include <math.h>
 #include "ui_widegraph.h"
 #include "commons.h"
@@ -66,6 +67,15 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
 
   connect (ui->widePlot, &CPlotter::jttyDecodeAgainAtSample,
            this, &WideGraph::jttyDecodeAgainAtSample);
+  connect (ui->widePlot, &CPlotter::jttyCallClicked, this, [this] (QString const& call, int frequency) {
+      emit jttyCallClicked (call, frequency, ui->cbCallTx->isChecked ());
+    });
+
+  // labels expire on their own, whether or not anything new is decoded
+  auto * callTimer = new QTimer {this};
+  callTimer->setInterval (1000);
+  connect (callTimer, &QTimer::timeout, this, &WideGraph::refreshJttyCalls);
+  callTimer->start ();
 
   {
     //Restore user's settings
@@ -88,6 +98,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->widePlot->setBars(m_bars);
     m_freq=m_settings->value("Freq",true).toBool();
     ui->cbFreq->setChecked(m_freq);
+    ui->cbCallTx->setChecked (m_settings->value ("CallClickSetsTx", false).toBool ());
     ui->widePlot->showFreq(m_freq);
     int n = m_settings->value("BinsPerPixel",5).toInt();
     m_bFlatten=m_settings->value("Flatten",true).toBool();
@@ -122,7 +133,6 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->fStartSpinBox->setValue(ui->widePlot->startFreq());
     m_waterfallPalette=m_settings->value("WaterfallPalette","Default").toString();
     m_userPalette = WFPalette {m_settings->value("UserPalette").value<WFPalette::Colours> ()};
-    m_fMinPerBand = m_settings->value ("FminPerBand").toHash ();
     ui->controls_widget->setVisible(!m_settings->value("HideControls",false).toBool());
     ui->cbControls->setChecked(!m_settings->value("HideControls",false).toBool());
   }
@@ -187,7 +197,7 @@ void WideGraph::saveSettings()                                           //saveS
   m_settings->setValue ("Timestamp",m_timestamp);
   m_settings->setValue ("Bars", m_bars);
   m_settings->setValue ("Freq", m_freq);
-  m_settings->setValue ("FminPerBand", m_fMinPerBand);
+  m_settings->setValue ("CallClickSetsTx", ui->cbCallTx->isChecked ());
 }
 
 void WideGraph::drawRed(int ia, int ib)
@@ -354,11 +364,6 @@ void WideGraph::wideFreezeDecode(int n)                              //wideFreez
   emit freezeDecode2(n);
 }
 
-int WideGraph::Fmin()                                              //Fmin
-{
-  return "60m" == m_rxBand ? 0 : m_fMinPerBand.value (m_rxBand, 2500).toUInt ();
-}
-
 int WideGraph::Fmax()                                              //Fmax
 {
   return std::min(5000,ui->widePlot->Fmax());
@@ -393,12 +398,37 @@ void WideGraph::setTxFreq(int n)                                   //setTxFreq
   ui->widePlot->setTxFreq(n);
 }
 
+void WideGraph::jttyCallUpdate (qint64 messageId, QString const& text, float frequency,
+                                bool growing, QString const& myCall)
+{
+  if (m_mode != "JTTY") return;
+  if (m_jttyCalls.update (messageId, text, frequency, growing, myCall,
+                          QDateTime::currentMSecsSinceEpoch ())) {
+    refreshJttyCalls ();
+  }
+}
+
+void WideGraph::clearJttyCalls ()
+{
+  m_jttyCalls.clear ();
+  ui->widePlot->setCallLabels ({});
+}
+
+void WideGraph::refreshJttyCalls ()
+{
+  ui->widePlot->setCallLabels (m_mode == "JTTY"
+                               ? m_jttyCalls.labels (QDateTime::currentMSecsSinceEpoch ())
+                               : QVector<WaterfallCalls::Label> {});
+}
+
 void WideGraph::setMode(QString mode)                              //setMode
 {
-  if (m_mode == "JTTY" && mode != m_mode) jttyReceptionEnded ();
+  if (m_mode == "JTTY" && mode != m_mode) {
+    jttyReceptionEnded ();
+    clearJttyCalls ();
+  }
   m_mode=mode;
-  ui->fSplitSpinBox->setVisible(m_mode.startsWith("FST4"));
-  ui->fSplitSpinBox->setEnabled(m_mode.startsWith("FST4"));
+  ui->cbCallTx->setVisible(m_mode == "JTTY");    // only used by the JTTY call labels
   ui->labTime->setVisible(!m_mode.startsWith("FST4"));
   ui->timestampComboBox->setVisible(!m_mode.startsWith("FST4"));
   ui->widePlot->setMode(mode);
@@ -448,11 +478,6 @@ void WideGraph::on_spec2dComboBox_currentIndexChanged(int index)
   replot();
 }
 
-void WideGraph::on_fSplitSpinBox_valueChanged(int n)              //fSplit
-{
-  if (m_rxBand != "60m") m_fMinPerBand[m_rxBand] = n;
-}
-
 void WideGraph::setFreq2(int rxFreq, int txFreq)                  //setFreq2
 {
   emit setFreq3(rxFreq,txFreq);
@@ -465,17 +490,8 @@ void WideGraph::setDialFreq(double d)                             //setDialFreq
 
 void WideGraph::setRxBand (QString const& band)
 {
+  if (band != m_rxBand) clearJttyCalls ();       // labels of the old band are not valid
   m_rxBand = band;
-  if ("60m" == m_rxBand)
-    {
-      ui->fSplitSpinBox->setEnabled (false);
-      ui->fSplitSpinBox->setValue (0);
-    }
-  else
-    {
-      ui->fSplitSpinBox->setValue (m_fMinPerBand.value (band, 2500).toUInt ());
-      ui->fSplitSpinBox->setEnabled (m_mode.startsWith("FST4"));
-    }
   ui->widePlot->setRxBand(band);
 }
 

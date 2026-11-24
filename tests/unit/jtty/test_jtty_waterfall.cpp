@@ -15,6 +15,7 @@ class TestablePlotter final : public CPlotter
 {
 public:
   using CPlotter::mouseDoubleClickEvent;
+  using CPlotter::mouseReleaseEvent;
 
   TestablePlotter ()
   {
@@ -51,7 +52,7 @@ public:
 
   void clickRow (int row)
   {
-    QMouseEvent event {QEvent::MouseButtonDblClick, QPointF (100, 30 + row),
+    QMouseEvent event {QEvent::MouseButtonDblClick, QPointF (100, waterfallTop () + row),
                        Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
     mouseDoubleClickEvent (&event);
   }
@@ -97,6 +98,115 @@ private slots:
     plotter.clickRow (0);
     QCOMPARE (selected.size (), 2);
     QCOMPARE (selected[1][0].toULongLong (), quint64 (5));
+  }
+
+  static WaterfallCalls::Label label (QString const& call, float freq,
+                                      WaterfallCalls::Kind kind = WaterfallCalls::Kind::Cq)
+  {
+    WaterfallCalls::Label l;
+    l.call = call;
+    l.freq = freq;
+    l.width = WaterfallCalls::jttySignalWidth;
+    l.kind = kind;
+    return l;
+  }
+
+  void callStripSitsOnTheDividerAboveTheSpectrum ()
+  {
+    TestablePlotter plotter;
+    plotter.resize (1500, 400);
+    plotter.SetPercent2DScreen (30);               // WSJT-X's default: spectrum = 30 %
+    QCoreApplication::processEvents ();
+    QCOMPARE (plotter.waterfallTop (), 30);        // the strip does not move the waterfall
+    int const spectrumTop = 400 - 400 * 30 / 100;
+    QCOMPARE (plotter.callStripTop () + CPlotter::callStripHeight, spectrumTop);
+    plotter.SetPercent2DScreen (0);                // no spectrum: just above the controls
+    QCoreApplication::processEvents ();
+    QVERIFY (plotter.callStripTop () + CPlotter::callStripHeight >= 400 - 2);
+    QVERIFY (plotter.callStripTop () + CPlotter::callStripHeight <= 400);
+  }
+
+  void aDoubleClickOnALabelDoesNotDecodeTheRowUnderIt ()
+  {
+    TestablePlotter plotter;
+    plotter.setMode ("JTTY");
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("K1ABC", 500)});
+    QSignalSpy again (&plotter, &CPlotter::jttyDecodeAgainAtSample);
+    auto const rect = plotter.callLabelRect ("K1ABC");
+    QVERIFY (plotter.isOnCallLabel (rect.center ()));
+    QMouseEvent twice {QEvent::MouseButtonDblClick, QPointF (rect.center ()),
+                       Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
+    plotter.mouseDoubleClickEvent (&twice);
+    QCOMPARE (again.size (), 0);
+  }
+
+  void theStripBetweenLabelsIsNotACoveredArea ()
+  {
+    TestablePlotter plotter;
+    plotter.setMode ("JTTY");
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("K1ABC", 500)});
+    auto const rect = plotter.callLabelRect ("K1ABC");
+    // same height as the label, but well to the side of it: the waterfall is
+    // visible there and a double click works as anywhere else on it
+    QPoint const beside {rect.right () + 60, rect.center ().y ()};
+    QVERIFY (!plotter.isOnCallLabel (beside));
+    plotter.setCallLabels ({});
+    QVERIFY (!plotter.isOnCallLabel (rect.center ()));   // no label: no covered area
+  }
+
+  void labelsAreShownInTheStripAndClickSelectsTheirSignal ()
+  {
+    TestablePlotter plotter;
+    plotter.setMode ("JTTY");
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("DL3WDG", 200), label ("K1ABC", 500),
+                            label ("K2DEF", 800)});
+    // Which labels fit depends on the font's metrics (they differ between
+    // platforms), so only what is placed is checked here; the placement rules
+    // are tested with fixed widths in test_jtty_waterfall_calls.
+    auto const shown = plotter.shownCallLabels ();
+    QVERIFY (!shown.isEmpty ());
+    for (auto const& call : shown) {
+      auto const rect = plotter.callLabelRect (call);
+      QVERIFY (rect.top () >= plotter.callStripTop ());
+      QVERIFY (rect.bottom () < plotter.callStripTop () + CPlotter::callStripHeight);
+    }
+    QHash<QString, int> const freqOf {{"DL3WDG", 200}, {"K1ABC", 500}, {"K2DEF", 800}};
+    auto const call = shown.first ();
+    QVERIFY (freqOf.contains (call));
+    QSignalSpy freq (&plotter, &CPlotter::setFreq1);
+    QSignalSpy clicked (&plotter, &CPlotter::jttyCallClicked);
+    auto const rect = plotter.callLabelRect (call);
+    QMouseEvent click {QEvent::MouseButtonRelease, QPointF (rect.center ()),
+                       Qt::LeftButton, Qt::LeftButton, Qt::NoModifier};
+    plotter.mouseReleaseEvent (&click);
+    QCOMPARE (freq.size (), 1);
+    QCOMPARE (freq[0][0].toInt (), freqOf[call]); // that signal's frequency, not the pixel
+    QCOMPARE (clicked.size (), 1);                 // the call goes with it, for DX Call
+    QCOMPARE (clicked[0][0].toString (), call);
+    QCOMPARE (clicked[0][1].toInt (), freqOf[call]);
+    plotter.setCallLabels ({});
+    QVERIFY (plotter.shownCallLabels ().isEmpty ());
+  }
+
+  void noStripLabelsOutsideJtty ()
+  {
+    TestablePlotter plotter;
+    plotter.resize (1500, 400);
+    QCoreApplication::processEvents ();
+    plotter.setCallLabels ({label ("DL3WDG", 1000)});
+    QCOMPARE (plotter.shownCallLabels ().size (), 1);
+    plotter.setMode ("FT8");
+    // in any other mode nothing is shown and nothing is a label to click
+    QVERIFY (plotter.shownCallLabels ().isEmpty ());
+    QVERIFY (!plotter.isOnCallLabel (plotter.callLabelRect ("DL3WDG").center ()));
+    plotter.setMode ("JTTY");                       // and they are back in JTTY
+    QCOMPARE (plotter.shownCallLabels ().size (), 1);
   }
 };
 

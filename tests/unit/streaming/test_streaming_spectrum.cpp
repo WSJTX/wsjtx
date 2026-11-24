@@ -206,12 +206,6 @@ Mode modeOf (QString const& name)
     return {inSamples ("JT65/JT65B/000000_0004.wav"), {{"mode", "JT65"}, {"trperiod", 60}, {"submode", 1},
                                                         {"rxfreq", 1700}, {"nutc", 4}, {"depth", 3}},
             60 * SampleRate, "JT65", 60, false, 174};
-  // The GUI has no JT65+JT9 and the codec no stop for it: its rows from a
-  // file run to the period's last block, as live.
-  if ("jt65jt9" == name)
-    return {inSamples ("JT9/130418_1742.wav"), {{"mode", "JT65+JT9"}, {"trperiod", 60}, {"nutc", 1742},
-                                                 {"jt65_jt9_split_hz", 1000}, {"tx_mode", "JT9"}, {"depth", 3}},
-            60 * SampleRate, "JT65+JT9", 60, false, 60 * SampleRate / HsymSamples};
   if ("fst4-60" == name)
     return {inSamples ("FST4+FST4W/210115_0058.wav"), with (fst4, {{"nfa", 1000}, {"nfb", 1400}}), 60 * SampleRate,
             "FST4", 60, false, 187};
@@ -1571,7 +1565,7 @@ private:
   QString modelDir (QString const& name) const {return modelDirectory_.path () + '/' + name;}
 
 private slots:
-  // Every period-mode row, JT65+JT9's among them, live through every block of
+  // Every period-mode row, live through every block of
   // the period and from a file up to the stop, equals the GUI's symspec_ row
   // for the same audio byte for byte on a fresh session, and there are as many
   // as the GUI's dataSink calls. No spectrum_average line comes.
@@ -1593,7 +1587,6 @@ private slots:
     QTest::newRow ("jt4 file") << QString {"jt4"} << false << 1 << 0 << false;
     QTest::newRow ("jt9 file") << QString {"jt9"} << false << 1 << 0 << false;
     QTest::newRow ("jt65 file") << QString {"jt65"} << false << 1 << 0 << false;
-    QTest::newRow ("jt65jt9 file") << QString {"jt65jt9"} << false << 1 << 0 << false;
     QTest::newRow ("q65 file") << QString {"q65"} << false << 1 << 0 << true;
     QTest::newRow ("fst4 file") << QString {"fst4"} << false << 1 << 0 << false;
     QTest::newRow ("fst4w file") << QString {"fst4w"} << false << 1 << 0 << false;
@@ -1641,23 +1634,23 @@ private slots:
     QCOMPARE (count (codec->lines, outType ("spectrum_average")), 0);
   }
 
-  // With a jt9_wisdom.dat that holds plans a JT65+JT9 session measured, the
+  // With a jt9_wisdom.dat that holds plans a JT9 session measured, the
   // rows stay within 1e-6 of the GUI's, relative to each value.
   void rowsFromAPopulatedWisdom ()
   {
-    auto const jt65jt9 = modeOf ("jt65jt9");
-    auto const mixed = period (wavPcm (jt65jt9.wav), jt65jt9.samples);
+    auto const jt9 = modeOf ("jt9");
+    auto const jt9Pcm = period (wavPcm (jt9.wav), jt9.samples);
     auto const ft8 = modeOf ("ft8");
     auto const pcm = period (wavPcm (ft8.wav), ft8.samples);
-    QVERIFY2 (!mixed.isEmpty () && !pcm.isEmpty (), "no recording");
+    QVERIFY2 (!jt9Pcm.isEmpty () && !pcm.isEmpty (), "no recording");
     QTemporaryDir directory;
     QVERIFY (directory.isValid ());
     Options shared;
     shared.directory = directory.path ();
-    auto const populate = runInput (sessionHeader () + configure (jt65jt9.settings) + audio (mixed) + halt (), shared);
+    auto const populate = runInput (sessionHeader () + configure (jt9.settings) + audio (jt9Pcm) + halt (), shared);
     QVERIFY2 (populate->clean (), qPrintable (populate->report ()));
     auto const wisdom = readFile (directory.path () + "/jt9_wisdom.dat");
-    QVERIFY2 (!wisdom.isEmpty (), "the JT65+JT9 session saved no wisdom");
+    QVERIFY2 (!wisdom.isEmpty (), "the JT9 session saved no wisdom");
     qInfo ().noquote () << QString {"jt9_wisdom.dat: %1 bytes, %2 lines"}.arg (wisdom.size ()).arg (wisdom.count ('\n'));
     auto const codec = runInput (sessionHeader () + configure (with (with (ft8.settings, {{"depth", 1}}),
                                                                       spectrumKeys (false)))
@@ -2095,47 +2088,47 @@ private slots:
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
   }
 
-  // JT65+JT9 entered from a period mode that drew one row, with
+  // JT9 entered from a period mode that drew one row, with
   // low_sidelobes on: its rows are a period mode's, one per block from its
   // first, windowed, those of the model's period alone, where the GUI's
   // symspec_ would carry the one-row period on (its k did not go down).
-  void jt65jt9RowsAfterAPeriodModeRow ()
+  void jt9RowsAfterAPeriodModeRow ()
   {
     auto const ft8 = modeOf ("ft8");
-    auto const mixed = modeOf ("jt65jt9");
+    auto const jt9 = modeOf ("jt9");
     auto const ft8Pcm = period (wavPcm (ft8.wav), ft8.samples);
-    auto const pcm = period (wavPcm (mixed.wav), mixed.samples);
+    auto const pcm = period (wavPcm (jt9.wav), jt9.samples);
     QVERIFY2 (!ft8Pcm.isEmpty () && !pcm.isEmpty (), "no recording");
     auto const live = QJsonObject {{"live_audio", true}};
     auto const codec = runInput (sessionHeader () + configure (with (with (ft8.settings, {{"depth", 1}}),
                                                                      with (live, spectrumKeys (true))))
                                  + audio (samples (ft8Pcm, 0, HsymSamples))
-                                 + configure (with (mixed.settings, live)) + audio (pcm) + halt ());
+                                 + configure (with (jt9.settings, live)) + audio (pcm) + halt ());
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const first = runModel (modelDir ("jt65jt9 after one block"), ft8Pcm.left (2 * HsymSamples),
+    auto const first = runModel (modelDir ("jt9 after one block"), ft8Pcm.left (2 * HsymSamples),
                                  modelSettings (true) << QString {"period live 0 %1"}.arg (HsymSamples));
-    auto const second = runModel (modelDir ("jt65jt9 alone"), pcm,
-                                  modelSettings (true) << QString {"period live 0 %1"}.arg (mixed.samples));
+    auto const second = runModel (modelDir ("jt9 alone"), pcm,
+                                  modelSettings (true) << QString {"period live 0 %1"}.arg (jt9.samples));
     QVERIFY2 (first.ok && second.ok, qPrintable (first.failure + second.failure));
     QCOMPARE (first.rows.size (), 1);
-    QCOMPARE (countKind (second.rows, "spectrum"), liveRows (mixed.samples));
+    QCOMPARE (countKind (second.rows, "spectrum"), liveRows (jt9.samples));
     auto const difference = compareKeptRows (codec->lines, first.rows + second.rows, true);
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
   }
 
-  // The reverse: a JT65+JT9 period with rows, then an FT8 period in the same
+  // The reverse: a JT9 period with rows, then an FT8 period in the same
   // fresh -a. Each period's rows are the model's, FT8's bit for bit the GUI's
-  // although JT65+JT9's decoder planned its own symspec_ before them.
-  void periodRowsAfterAJt65jt9Period ()
+  // although JT9's decoder planned its own symspec_ before them.
+  void periodRowsAfterAJt9Period ()
   {
     auto const ft8 = modeOf ("ft8");
-    auto const mixed = modeOf ("jt65jt9");
+    auto const jt9 = modeOf ("jt9");
     auto const ft8Pcm = period (wavPcm (ft8.wav), ft8.samples);
-    auto const pcm = period (wavPcm (mixed.wav), mixed.samples);
+    auto const pcm = period (wavPcm (jt9.wav), jt9.samples);
     QVERIFY2 (!ft8Pcm.isEmpty () && !pcm.isEmpty (), "no recording");
-    auto const codec = runInput (sessionHeader () + configure (with (mixed.settings, {{"live_audio", true},
+    auto const codec = runInput (sessionHeader () + configure (with (jt9.settings, {{"live_audio", true},
                                                                                       {"spectrum", true}}))
                                  + audio (pcm)
                                  + configure (with (ft8.settings, {{"live_audio", true}, {"depth", 1}}))
@@ -2143,13 +2136,13 @@ private slots:
     QVERIFY2 (codec->clean (), qPrintable (codec->report ()));
     auto const rows = rowsOf (codec->lines);
     QVERIFY2 (rows.problem.isEmpty (), qPrintable (rows.problem));
-    auto const model = runModel (modelDir ("after a JT65+JT9 period"), pcm + ft8Pcm, modelSettings (true)
-                                 << QString {"period live 0 %1"}.arg (mixed.samples)
-                                 << QString {"period live %1 %2"}.arg (mixed.samples).arg (ft8.samples));
+    auto const model = runModel (modelDir ("after a JT9 period"), pcm + ft8Pcm, modelSettings (true)
+                                 << QString {"period live 0 %1"}.arg (jt9.samples)
+                                 << QString {"period live %1 %2"}.arg (jt9.samples).arg (ft8.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
     auto const periods = byPeriod (model.rows);
     QCOMPARE (periods.size (), 2);
-    QCOMPARE (countKind (periods.at (0), "spectrum"), liveRows (mixed.samples));
+    QCOMPARE (countKind (periods.at (0), "spectrum"), liveRows (jt9.samples));
     QCOMPARE (countKind (periods.at (1), "spectrum"), liveRows (ft8.samples));
     auto const difference = compareKeptRows (codec->lines, model.rows, true);
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
@@ -2584,10 +2577,9 @@ private slots:
   // prepared_audio carries the audio after the receive chain, live: with
   // ref_spectrum "apply" the GUI's equalized audio for each block, otherwise
   // the audio as sent. A period mode's lines run a block each from the
-  // period's first sample, past the stop, through its last whole block
-  // (JT65+JT9, which has no stop, through its last sample), each period's
-  // from k 0 again; JTTY's from the session's first sample to its last,
-  // without a gap, a block each while equalizing and a frame each otherwise.
+  // period's first sample, past the stop, through its last whole block,
+  // starting again at k 0 each period. JTTY's run from the session's first
+  // sample to its last, a block each while equalizing and a frame each otherwise.
   // With ref_spectrum off this key is the only one on; with rows on too,
   // each block's line comes before its row.
   void preparedAudioMatchesTheGui_data ()
@@ -2601,7 +2593,6 @@ private slots:
     QTest::newRow ("ft8 measure") << QString {"ft8"} << QString {"measure"} << false;
     QTest::newRow ("msk144 apply") << QString {"msk144"} << QString {"apply"} << true;
     QTest::newRow ("msk144 off") << QString {"msk144"} << QString {"off"} << false;
-    QTest::newRow ("jt65jt9 off") << QString {"jt65jt9"} << QString {"off"} << false;
     QTest::newRow ("jtty apply") << QString {"jtty"} << QString {"apply"} << true;
     QTest::newRow ("jtty off") << QString {"jtty"} << QString {"off"} << false;
     QTest::newRow ("wspr apply") << QString {"wspr"} << QString {"apply"} << true;
@@ -2705,10 +2696,9 @@ private slots:
     problem = preparedPeriods (lines, got, &ks);
     QVERIFY2 (problem.isEmpty (), qPrintable (problem));
     QCOMPARE (got.size (), periods);
-    auto const end = "jt65jt9" == kind ? periodSamples : periodSamples / block * block;
+    auto const end = periodSamples / block * block;
     QList<qint64> wantKs;
     for (int k = block; k <= end; k += block) wantKs << k;
-    if (end % block) wantKs << end;
     for (int p = 0; p < periods; ++p)
       {
         QCOMPARE (ks.at (p), wantKs);
@@ -2923,10 +2913,9 @@ private slots:
     QCOMPARE (count (codec->lines, outType ("prepared_audio")), 0);
   }
 
-  // Every mode's decodes, JT65+JT9's, MSK144's and JTTY's among them, are the
-  // same with the rows and low_sidelobes on as with the rows off and
-  // low_sidelobes off; JT9's and JT65+JT9's have low_sidelobes on in both,
-  // since it windows the spectra they decode. From a file FT8's early passes
+  // Decodes are the same with the rows and low_sidelobes on as with the
+  // rows and low_sidelobes off. JT9 keeps low_sidelobes on in both runs
+  // because it windows the decoder's spectra. From a file FT8's early passes
   // run without the clock.
   // The same holds with only prepared_audio on, against all the keys at
   // their defaults ("prepared_audio" rows; JTTY's live there): a live
@@ -2947,7 +2936,7 @@ private slots:
     for (auto const& each : {Each {"ft8 file", "ft8", false, 2}, Each {"ft8-mtd file", "ft8-mtd", false, 2},
                              Each {"ft4 live", "ft4", true, 2}, Each {"jt4 file", "jt4", false, 1},
                              Each {"jt9 file", "jt9", false, 1}, Each {"jt65 file", "jt65", false, 1},
-                             Each {"jt65jt9 file", "jt65jt9", false, 1}, Each {"q65 live", "q65", true, 1},
+                             Each {"q65 live", "q65", true, 1},
                              Each {"fst4 file", "fst4", false, 1}, Each {"fst4w file", "fst4w", false, 1},
                              Each {"msk144 live", "msk144", true, 1}, Each {"jtty", "jtty", true, 1},
                              Each {"wspr live", "wspr", true, 1}})
@@ -3003,7 +2992,7 @@ private slots:
     shared.directory = directory.path ();
     auto const on = runInput (input (keys), shared);
     QVERIFY2 (on->clean (), qPrintable (on->report ()));
-    bool const windowed = "jt9" == mode || "jt65jt9" == mode;
+    bool const windowed = "jt9" == mode;
     auto const off = runInput (input (prepared ? QJsonObject {} : QJsonObject {{"low_sidelobes", windowed}}),
                                shared);
     QVERIFY2 (off->clean (), qPrintable (off->report ()));
@@ -3028,29 +3017,9 @@ private slots:
     if ("jtty" == mode) QCOMPARE (known (on->lines), known (off->lines));
   }
 
-  // low_sidelobes windows the symbol spectra JT65+JT9's JT9 decoder reads,
-  // as WSJT-X's Low sidelobes windowed symspec_'s, so it moves those decodes:
-  // on this recording one decode's DT and SNR, from the same messages.
-  void lowSidelobesReachesTheJt65Jt9Decoder ()
-  {
-    auto const m = modeOf ("jt65jt9");
-    auto const pcm = period (wavPcm (m.wav), m.samples);
-    QVERIFY2 (!pcm.isEmpty (), "no recording");
-    auto const input = [&] (bool lowSidelobes) {
-      return sessionHeader () + configure (with (m.settings, {{"low_sidelobes", lowSidelobes}})) + audio (pcm) + halt ();
-    };
-    auto const off = runInput (input (false));
-    QVERIFY2 (off->clean (), qPrintable (off->report ()));
-    auto const on = runInput (input (true));
-    QVERIFY2 (on->clean (), qPrintable (on->report ()));
-    QVERIFY2 (!messageSet (off->lines).isEmpty (), qPrintable (off->report ()));
-    QCOMPARE (messageSet (on->lines), messageSet (off->lines));
-    QVERIFY2 (decodeLines (on->lines, m.sorted) != decodeLines (off->lines, m.sorted),
-              "low_sidelobes did not reach JT65+JT9's JT9 decoder");
-  }
-
   // low_sidelobes windows the spectra JT9 alone decodes from, and starts on
-  // as in WSJT-X. The depth a client sends does not set the window, and a
+  // as in WSJT-X. A depth a client sends with the window's bit is declined,
+  // as no depth WSJT-X's holds has it, so the window stays as it was; a
   // configure that sends only depth keeps it. Weak recordings with the
   // receive frequency off the signal, where the window changes the decode
   // line (its SNR) on some of them.
@@ -3073,8 +3042,10 @@ private slots:
         QVERIFY2 (on->clean (), qPrintable (on->report ()));
         auto const start = run ({});
         QVERIFY2 (start->clean (), qPrintable (start->report ()));
-        auto const bit = run ({{"low_sidelobes", false}, {"depth", 1 | 256}});
+        auto const bit = runInput (sessionHeader () + configure (with (settings, {{"low_sidelobes", false}}))
+                                   + configure ({{"depth", 1 | 256}}) + audio (pcm) + halt ());
         QVERIFY2 (bit->clean (), qPrintable (bit->report ()));
+        QCOMPARE (count (bit->lines, outHas (R"("code":"configure_range_error","key":"depth")")), 1);
         auto const depthOnly = runInput (sessionHeader () + configure (with (settings, {{"low_sidelobes", true}}))
                                          + configure ({{"depth", 1}}) + audio (pcm) + halt ());
         QVERIFY2 (depthOnly->clean (), qPrintable (depthOnly->report ()));

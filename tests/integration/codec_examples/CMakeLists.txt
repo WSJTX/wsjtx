@@ -22,7 +22,7 @@ function (wsjt_add_codec_example_test language)
       -- ${ARGN}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties (test_codec_example_${language} PROPERTIES
-    LABELS "codec-examples;integration" TIMEOUT 300)
+    LABELS "codec-examples;integration" TIMEOUT 900)
   if (WSJT_ENABLE_STREAM_TIMING_TESTS)
     set_tests_properties (test_codec_example_${language} PROPERTIES RUN_SERIAL TRUE)
   endif ()

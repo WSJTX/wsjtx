@@ -65,7 +65,6 @@ extern QString txLog;
 extern QString ignoreList;
 extern QString ALLCALL7;
 extern QString m_hisCall0;
-extern QString earlyDecodes;
 
 
 void MainWindow::on_monitorButton_clicked (bool checked)

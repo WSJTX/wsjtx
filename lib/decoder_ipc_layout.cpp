@@ -53,9 +53,7 @@ extern "C" void decoder_ipc_expected_layout (decoder_ipc_layout_t * layout)
   FIELD (payload.params.nfqso);
   FIELD (payload.params.nftx);
   FIELD (payload.params.newdat);
-  FIELD (payload.params.npts8);
   FIELD (payload.params.nfa);
-  FIELD (payload.params.nfSplit);
   FIELD (payload.params.nfb);
   FIELD (payload.params.ntol);
   FIELD (payload.params.kin);
@@ -67,7 +65,6 @@ extern "C" void decoder_ipc_expected_layout (decoder_ipc_layout_t * layout)
   FIELD (payload.params.lapcqonly);
   FIELD (payload.params.ljt65apon);
   FIELD (payload.params.napwid);
-  FIELD (payload.params.ntxmode);
   FIELD (payload.params.nmode);
   FIELD (payload.params.minw);
   FIELD (payload.params.nclearave);
@@ -79,7 +76,6 @@ extern "C" void decoder_ipc_expected_layout (decoder_ipc_layout_t * layout)
   FIELD (payload.params.n2pass);
   FIELD (payload.params.nranera);
   FIELD (payload.params.naggressive);
-  FIELD (payload.params.nrobust);
   FIELD (payload.params.nexp_decode);
   FIELD (payload.params.max_drift);
   FIELD (payload.params.datetime);

@@ -14,7 +14,7 @@ private slots:
         ctx.blacklisted = true;
         ctx.blacklistKeywords = QStringList() << "K1ABC";
 
-        auto result = MessageFilterRules::evaluateMSK144Text("060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+        auto result = MessageFilterRules::evaluateMSK144Text("CQ K1ABC FN20", "K1ABC", ctx).result;
         QVERIFY(result.filtered);
         QVERIFY(result.shouldReturn);
     }
@@ -26,11 +26,11 @@ private slots:
         ctx.whitelisted = true;
         ctx.whitelistKeywords = QStringList() << "K1ABC";
 
-        auto result1 = MessageFilterRules::evaluateMSK144Text("060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+        auto result1 = MessageFilterRules::evaluateMSK144Text("CQ K1ABC FN20", "K1ABC", ctx).result;
         QVERIFY(!result1.filtered);
         QVERIFY(!result1.shouldReturn);
 
-        auto result2 = MessageFilterRules::evaluateMSK144Text("060522 -10  0.3  815 # CQ W1AW FN20", ctx).result;
+        auto result2 = MessageFilterRules::evaluateMSK144Text("CQ W1AW FN20", "W1AW", ctx).result;
         QVERIFY(result2.filtered);
         QVERIFY(result2.shouldReturn);
     }
@@ -43,7 +43,7 @@ private slots:
         ctx.blacklisted = true;
         ctx.blacklistKeywords = QStringList() << "K1ABC";
 
-        auto result = MessageFilterRules::evaluateMSK144Text("060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+        auto result = MessageFilterRules::evaluateMSK144Text("CQ K1ABC FN20", "K1ABC", ctx).result;
         QVERIFY(!result.filtered);
         QVERIFY(!result.shouldReturn);
     }
@@ -55,7 +55,7 @@ private slots:
         ctx.blacklisted = true;
         ctx.blacklistKeywords = QStringList() << "K1ABC";
 
-        auto result = MessageFilterRules::evaluateMSK144Text("060522 -10  0.3  815 # CQ DX K1ABC FN20", ctx).result;
+        auto result = MessageFilterRules::evaluateMSK144Text("CQ DX K1ABC FN20", "K1ABC", ctx).result;
         QVERIFY(result.filtered);
         QVERIFY(result.shouldReturn);
     }
@@ -69,7 +69,7 @@ private slots:
         ctx.passKeywords = QStringList() << "K1ABC";
         ctx.blacklistKeywords = QStringList() << "K1ABC";
 
-        auto result = MessageFilterRules::evaluateMSK144Text("060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+        auto result = MessageFilterRules::evaluateMSK144Text("CQ K1ABC FN20", "K1ABC", ctx).result;
         QVERIFY(!result.filtered);
         QVERIFY(!result.shouldReturn);
     }
@@ -85,12 +85,12 @@ private slots:
         ctx.respondPolicy = AutoRespondPolicy::MaxDistance;
 
         auto result = MessageFilterRules::evaluateMSK144Text(
-          "060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+          "CQ K1ABC FN20", "K1ABC", ctx).result;
         QVERIFY(result.resetPoints);
 
         ctx.respondPolicy = AutoRespondPolicy::First;
         result = MessageFilterRules::evaluateMSK144Text(
-          "060522 -10  0.3  815 # CQ K1ABC FN20", ctx).result;
+          "CQ K1ABC FN20", "K1ABC", ctx).result;
         QVERIFY(!result.resetPoints);
     }
 };

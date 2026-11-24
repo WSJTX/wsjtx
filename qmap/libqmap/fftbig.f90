@@ -29,7 +29,7 @@ subroutine fftbig(dd,nmax)
      
 ! Plan the big FFT just once
      call timer('FFTplan ',0)
-     plan1=fftwf_plan_dft_1d(nfft1,ca,ca,+1,nflags)
+     plan1=wsjt_fftwf_plan_dft_1d_inplace(nfft1,c_loc(ca(1)),+1,nflags)
      call timer('FFTplan ',1)
      df=real(nrate_active,8)/nfft1
      first=.false.

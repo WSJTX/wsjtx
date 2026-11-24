@@ -1,6 +1,7 @@
 module decoder_engine
   use, intrinsic :: iso_c_binding
   use decoder_engine_types
+  use decoded_message, only: parse_received_message
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use packjt77, only: pack77_state,initialize_pack77_state,reset_pack77_state
   use ft8_engine_kernel, only: ft8_kernel_state,params_block,run_ft8_kernel,reset_ft8_kernel,release_ft8_input
@@ -20,7 +21,7 @@ module decoder_engine
   use jt65_decode, only: jt65_options,jt65_average_entry
   use jt65_host_support, only: load_jt65_calls,write_jt65_averages,emit_jt65_averages
   use decode_completion_module, only: decode_completion_result,set_decode_completion,write_decode_progress
-  use prog_args, only: temp_dir
+  use prog_args, only: temp_dir, result_files
   use timer_module, only: timer
   use streaming_emit, only: streaming_emit_enabled, streaming_emit_decode, &
        streaming_emit_decode_rejected
@@ -455,6 +456,10 @@ contains
     context%superfox_sink=>collect_superfox
     context%sink_user=handle
     context%render_legacy=render
+    ! The worker's result files, which the codec's stream does not write
+    ! (prog_args' result_files); the decoder's state files (tsil.3q,
+    ! fst4w_calls.txt, the WSPR hash table) are not result files and stay.
+    context%write_files=render.and.result_files
     if(request%mode==engine_mode_wspr) then
        if(.not.c_associated(session%wspr)) status=wspr_create(session%wspr)
        if(status==ok.and..not.session%wspr_prepared) then
@@ -521,7 +526,7 @@ contains
     context%nfqso=options%receive_frequency_hz
     context%ncontest=options%contest
     context%ios13=-1
-    if(context%render_legacy) call open_legacy_output(phase,context%ios13)
+    if(context%write_files) call open_legacy_output(phase,context%ios13)
     session%ft4%context=context
     session%ft4%decoded=0
     mycall=transfer(options%mycall,mycall)
@@ -551,7 +556,7 @@ contains
     context%ios13=-1
     session%jt9%decoded=0
     if(sqrt(sum(real(session%audio(:sample_count))**2)/real(sample_count))<0.5) go to 100
-    if(context%render_legacy) call open_legacy_output(phase,context%ios13)
+    if(context%write_files) call open_legacy_output(phase,context%ios13)
     session%jt9%context=context
     call timer('decjt9  ',0)
     call session%jt9%decode_pcm(jt9_decoded,session%audio,sample_count,options%receive_frequency_hz, &
@@ -697,11 +702,11 @@ contains
     context%submode=options%submode
     context%ios13=-1
     context%ios14=-1
-    if(context%render_legacy) then
+    if(context%write_files) then
        call open_legacy_output(phase,context%ios13)
        open(14,file=trim(temp_dir)//'/avemsg.txt',status='unknown',iostat=context%ios14)
-       call prepare_jt4_host(session%jt4)
     endif
+    if(context%render_legacy) call prepare_jt4_host(session%jt4)
     session%jt4%context=context
     session%jt4%decoded=0
     kernel_options%utc=options%utc
@@ -717,7 +722,7 @@ contains
     kernel_options%hiscall=transfer(options%hiscall,kernel_options%hiscall)
     kernel_options%hisgrid=transfer(options%hisgrid,kernel_options%hisgrid)
     call timer('decjt4  ',0)
-    if(context%render_legacy) then
+    if(context%write_files) then
        call session%jt4%decode_pcm(kernel_options,session%audio(:sample_count),sample_rate,jt4_decoded, &
             kernel_status,write_jt4_diagnostic)
     else
@@ -853,7 +858,7 @@ contains
     context%bVHF=options%vhf/=0
     context%ios13=-1
     context%ios14=-1
-    if(context%render_legacy) then
+    if(context%write_files) then
        call open_legacy_output(phase,context%ios13)
        open(14,file=trim(temp_dir)//'/avemsg.txt',status='unknown',iostat=context%ios14)
     endif
@@ -1020,7 +1025,7 @@ contains
     context%mode=mode
     context%nfqso=options%receive_frequency_hz
     context%ios13=-1
-    if(context%render_legacy) call open_legacy_output(phase,context%ios13)
+    if(context%write_files) call open_legacy_output(phase,context%ios13)
     session%fst4%context=context
     session%fst4%decoded=0
     session%fst4%knowledge=>session%knowledge
@@ -1214,11 +1219,11 @@ contains
     context%submode=options%submode
     context%utc_is_hhmmss=.true.
     context%ios13=-1
-    if(context%render_legacy) call open_legacy_output(phase,context%ios13)
+    if(context%write_files) call open_legacy_output(phase,context%ios13)
     session%q65%context=context
     session%q65%decoded=0
     nullify(session%q65%diagnostic)
-    if(context%render_legacy) session%q65%diagnostic=>write_q65_diagnostic
+    if(context%write_files) session%q65%diagnostic=>write_q65_diagnostic
     kernel_options%utc=options%utc
     kernel_options%period=options%period_seconds
     kernel_options%submode=options%submode
@@ -1245,7 +1250,7 @@ contains
     call session%q65%decode_pcm(q65_decoded,session%audio,sample_count,kernel_options, &
          session%input_id,kernel_status)
     call timer('dec_q65 ',1)
-    if(context%render_legacy) call write_q65_curves(session%q65,kernel_options)
+    if(context%render_legacy) call write_q65_curves(session%q65,kernel_options,context%write_files)
     if(context%ios13==0) close(13)
     nullify(session%q65%diagnostic)
     call session%q65%get_curves(even_count,odd_count,df,dt,empty_current,empty_average,count)
@@ -1275,8 +1280,8 @@ contains
        call c_f_pointer(entries,records,[count])
        do i=1,count
           call=transfer(records(i)%call,call)
-          if(len_trim(call)>6) return
-          callers(i)%call=call
+          if(len_trim(call)>len(callers(i)%call)) return
+          callers(i)%call=call(:len(callers(i)%call))
           callers(i)%grid=transfer(records(i)%grid,callers(i)%grid)
           callers(i)%nsec=records(i)%last_seen
           callers(i)%nfreq=records(i)%frequency_hz
@@ -1370,11 +1375,19 @@ contains
     type(engine_observation), intent(in) :: observation
     type(engine_observation) :: record
     procedure(observation_callback), pointer :: callback
+    character(len=37) :: payload
+    integer :: i
     if(.not.valid_handle(user)) return
     record=observation
     record%input_id=session%request%input_id
     record%analysis_id=session%request%analysis_id
     record%attempt_no=session%request%attempt_no
+    payload=''
+    do i=1,37
+       if(record%message(i)==c_null_char) exit
+       payload(i:i)=record%message(i)
+    enddo
+    call parse_received_message(record%mode,trim(payload),record%parsed_message)
     session%emitted=session%emitted+1
     if(session%retained<evidence_capacity) then
        session%retained=session%retained+1
@@ -1706,10 +1719,7 @@ contains
     endif
   end subroutine params_to_request
 
-  ! The engine option a decode with these params would be refused for, with
-  ! its range, or a blank field. JT65+JT9 decodes outside the engine
-  ! (decoder.f90); its JT65 decoder, which runs when the transmit mode is JT9,
-  ! is held to the engine's JT65 checks. Other modes are not the engine's.
+  ! Return the first invalid engine option, or a blank field.
   function engine_params_problem(params,check_utc) result(problem)
     type(params_block), intent(in) :: params
     logical, intent(in) :: check_utc
@@ -1717,9 +1727,6 @@ contains
     type(attempt_request) :: request
     problem=option_problem()
     select case(params%nmode)
-    case(65+9)
-       if(params%ntxmode/=9) return
-       request%mode=engine_mode_jt65
     case(engine_mode_ft8,engine_mode_ft4,engine_mode_jt4,engine_mode_jt9,engine_mode_jt65, &
          engine_mode_q65,engine_mode_fst4,engine_mode_fst4w)
        request%mode=params%nmode

@@ -61,7 +61,7 @@ The release pipeline requires this repository configuration. Each row links to i
 
 | Area | Requirement | Details |
 |------|-------------|---------|
-| Private branches | Rulesets on `develop` and `release/*` forbid force-push and deletion, so GitHub reports them as protected; `develop`'s also takes changes only through approved pull requests. Prepare Release Dependencies runs only from protected `develop` and requires the selected source branch to be protected. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection), [Prepared Linux release images](#prepared-linux-release-images) |
+| Private branches | Rulesets on `develop` and `release/*` forbid force-push and deletion, so GitHub reports them as protected; `develop`'s also takes changes only through pull requests. Prepare Release Dependencies runs only from protected `develop` and requires the selected source branch to be protected. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection), [Prepared Linux release images](#prepared-linux-release-images) |
 | Public refs | `v*` tags: no update or deletion, and only the source-promotion identity creates them. `master` and `release/*`: no force-push or deletion, and no other rule. | [Branch, Tag, and Environment Protection](#branch-tag-and-environment-protection) |
 | Private environments | `candidate-tagging` and `source-promotion` admit only `release/*`; `beta-automation` admits only `develop`. None has required reviewers, which would stall the [beta scheduler](#10-scheduled-beta-releases). | [Navigate to Secrets Settings](#navigate-to-secrets-settings) |
 | Secrets | `CROSS_REPO_TOKEN` only in `source-promotion`, with no repository-level copy. No `SIGNPATH_API_TOKEN` in `wsjtx-internal`. On `WSJTX/wsjtx`: `SIGNPATH_API_TOKEN` only in `windows-release-signing`; Apple credentials, when distribution signing is enabled, only in `apple-release-signing`. | [Verification: Credential Boundaries](#verification-credential-boundaries) |
@@ -70,7 +70,7 @@ The release pipeline requires this repository configuration. Each row links to i
 | Release-bot App | Installed on `wsjtx-internal` with Contents, Workflows, and Actions write. `beta-automation` holds variable `RELEASE_BOT_APP_ID` (the App's numeric ID or client ID) and secret `RELEASE_BOT_PRIVATE_KEY`. | [5.6 Release-bot GitHub App](#56-release-bot-github-app) |
 | Beta switch | Repository variable `BETA_AUTOMATION` on `WSJTX/wsjtx-internal` equals `enabled` while betas run. Never set on `WSJTX/wsjtx`. | [Pause and freeze](#pause-and-freeze) |
 | Issues | Issues enabled on `WSJTX/wsjtx-internal` for the beta alert issue | [Failure alerts](#failure-alerts) |
-| Prepared image packages | `ghcr.io/wsjtx/wsjtx/linux-noble`, `ghcr.io/wsjtx/wsjtx/linux-arm64-bookworm`, `ghcr.io/wsjtx/wsjtx/linux-armhf-cross-bookworm`, and `ghcr.io/wsjtx/wsjtx/linux-armv7-bookworm` are public, and `wsjtx-internal` has write access to them. | [Prepared Linux release images](#prepared-linux-release-images) |
+| Prepared image packages | `ghcr.io/wsjtx/wsjtx/linux-jammy`, `ghcr.io/wsjtx/wsjtx/linux-arm64-bookworm`, `ghcr.io/wsjtx/wsjtx/linux-armhf-cross-bookworm`, and `ghcr.io/wsjtx/wsjtx/linux-armv7-bookworm` are public, and `wsjtx-internal` has write access to them. | [Prepared Linux release images](#prepared-linux-release-images) |
 | Linux image selection | Each `release/X.Y` has a committed `release-linux-images.json` before its first candidate. | [Prepared Linux release images](#prepared-linux-release-images) |
 
 ---
@@ -85,7 +85,7 @@ Understanding the architecture will help you debug issues during deployment.
 
 `release-state.txt` names the channel: `DEVEL`, `BETA`, `RC`, or `GA`. A release line `release/X.Y` has three phases:
 
-1. **Beta phase.** Each Tuesday the beta scheduler cuts a beta from the newest green `develop` and carries it through candidate creation, promotion, and publication with no human step. It skips a week in which `develop` has no green commit that the line lacks. See [Scheduled Beta Releases](#10-scheduled-beta-releases).
+1. **Beta phase.** Each Tuesday the beta scheduler cuts a beta from the newest `develop` commit that passed push CI and Nightly Tests, and carries it through candidate creation, promotion, and publication with no human step. It skips a week in which `develop` has no such commit that the line lacks. After a failed beta, a successful Nightly Tests run on Wednesday or Thursday can cut the next one. See [Scheduled Beta Releases](#10-scheduled-beta-releases).
 2. **Freeze.** A reviewed commit that sets `RC 1` ends the beta phase ([Pause and freeze](#pause-and-freeze)).
 3. **RC and GA.** A release manager promotes each candidate, and a member of the `release-approvers` team approves publication, as [Phase 7](#9-phase-7-test-the-release-pipeline) describes.
 
@@ -104,13 +104,7 @@ Every promotion, beta included, creates or fast-forwards public `release/X.Y`, s
 │                                    full-ci or a manual run selects broader
 │                                    platform coverage.
 │
-├── nightly-runtime-tests.yml    ← Nightly Tests: cron 06:17 UTC +
-│                                    workflow_dispatch. Builds develop twice: the
-│                                    Linux x86_64 runtime tests and the whole
-│                                    Windows x86_64 suite; a scheduled run skips
-│                                    when develop has not moved since a passing
-│                                    nightly, and a failed one opens or updates
-│                                    an issue.
+├── nightly-runtime-tests.yml    ← Nightly Tests: cron 06:17 UTC + workflow_dispatch.
 │
 ├── build-macos.yml              ← Reusable workflow (workflow_call).
 │                                    macOS build (arm64 or x86_64); Developer ID
@@ -158,8 +152,7 @@ Every promotion, beta included, creates or fast-forwards public `release/X.Y`, s
 │                                    WSJTX/wsjtx. Rebuilds from public source, verifies
 │                                    the bundle, and publishes the GitHub Release.
 │
-├── beta-cut.yml                 ← Scheduled Beta Cut: weekly cron + workflow_dispatch.
-│                                    Applies one state-machine step.
+├── beta-cut.yml                 ← Scheduled Beta Cut: Tuesday cron + dispatch + restart.
 │
 └── beta-continue.yml            ← Scheduled Beta Continue: workflow_run.
                                      Carries each App-started beta run onward.
@@ -180,14 +173,15 @@ Applying `full-ci` starts one full run, and later pushes to the pull request get
 
 **Each night on private `develop`:**
 ```
-Nightly Tests, 06:17 UTC
-  └─→ skips when develop has not moved since the newest scheduled run, and that run passed
+Nightly Tests, 06:17 UTC, or a dispatch
+  └─→ a scheduled run skips when the newest run that passed or failed, scheduled or dispatched, passed at the same commit
        ├─→ builds Linux x86_64 and runs only the runtime tests
        ├─→ builds Windows x86_64 and runs its whole suite
-       └─→ a failed scheduled run opens or updates the issue "Nightly tests failed on develop"
+       ├─→ a failed scheduled run opens or updates the issue "Nightly tests failed on develop"
+       └─→ a successful run starts beta-cut.yml, which restarts a failed beta on Wednesday or Thursday
 ```
 
-A green `develop` push does not cover the runtime tests, so the newest green `develop` that a beta cut takes may fail them. The cut's push CI on `release/X.Y` runs them before the candidate, and the nightly reports a break on `develop` within a day; a night after a failed nightly retests the same commit ([Test Failure Policy](DEVELOPMENT_WORKFLOW.md#test-failure-policy)).
+A `develop` push run covers neither the runtime tests nor Windows, so a beta cut takes only a `develop` commit that also passed Nightly Tests ([state machine](#state-machine)). A night after a failed run, scheduled or dispatched, retests the same commit, and a night after a passing dispatch at an unmoved tip skips ([Test Failure Policy](DEVELOPMENT_WORKFLOW.md#test-failure-policy)). Do not cancel a re-run of a failed nightly: GitHub reports only a run's latest attempt, so the cancelled re-run hides the failure, and the next scheduled night can skip on an older pass at that commit and let it into a beta.
 
 **For an RC or GA release:**
 ```
@@ -202,7 +196,7 @@ release/X.Y metadata commit
 
 **For a scheduled beta:**
 ```
-beta-cut.yml merges the newest green develop into release/X.Y as BETA N
+beta-cut.yml merges the newest develop commit that passed push CI and Nightly Tests into release/X.Y as BETA N
   └─→ ci.yml push run on release/X.Y
        └─→ beta-continue.yml dispatches Prepare Release Candidate: build/vX.Y.Z-betaN
             └─→ release.yml builds the private candidate on every target
@@ -219,7 +213,17 @@ beta-cut.yml dispatches Prepare Release Candidate at the tip, with no merge
        └─→ continues as above
 ```
 
-Source promotion makes the candidate source public. The public workflow builds and verifies the bundle. An RC or GA then waits for final publication approval in `public-release`; a beta publishes through `beta-release` without one. The [state machine](#state-machine) decides which path a cut takes. See [Public branch history and GA line policy](#public-branch-history-and-ga-line-policy) for branch and tag behavior.
+**After a failed beta:**
+```
+Nightly Tests succeeds on develop on a Wednesday or Thursday (UTC)
+  ├─→ BETA N's public build failed less than a day earlier: beta-cut.yml alerts and leaves BETA N
+  └─→ beta-cut.yml restarts the line from a newer tested develop commit
+       ├─→ BETA N spent at its candidate or public build: merges it as BETA N+1
+       └─→ the cut's push CI on release/X.Y failed before the build tag: merges it again as BETA N
+            └─→ continues as for a scheduled beta
+```
+
+Source promotion makes the candidate source public. The public workflow builds and verifies the bundle. An RC or GA then waits for final publication approval in `public-release`; a beta publishes through `beta-release` without one. The [state machine](#state-machine) decides which path a cut takes; [Restart after a failure](#restart-after-a-failure) gives when a restart acts. See [Public branch history and GA line policy](#public-branch-history-and-ga-line-policy) for branch and tag behavior.
 
 ### Build Strategy
 
@@ -379,7 +383,7 @@ The release-related files have distinct responsibilities:
 | `release.yml` | Build private validation artifacts only; never publish or copy source |
 | `promote-release.yml` | Validate the candidate run and atomically create its immutable tag and create or fast-forward its public release branch; advance public `master` only for newest-line GA |
 | `public-release.yml` | Rebuild from public source, enforce the tagged signing policy, verify the bundle, publish (RC and GA after approval; betas through `beta-release`), and preserve Latest on older-line GA |
-| `beta-cut.yml` | Weekly cron or a dispatch: apply one step of the [state machine](#state-machine) to the line in `BETA` state |
+| `beta-cut.yml` | The Tuesday cron or a dispatch: apply one step of the [state machine](#state-machine) to the line in `BETA` state. After each successful Nightly Tests run on `develop`: restart a failed beta, on Wednesday or Thursday only ([Restart after a failure](#restart-after-a-failure)) |
 | `beta-continue.yml` | After each App-started beta or preparation run: dispatch the next stage, or alert on a failure ([Continuation](#continuation)) |
 
 `release-state.txt` is the version source of truth. Keep `revision=$Format:%H$` literal in Git; Git expands it in exported archives. The workflows reject a tag whose version, channel, or prerelease number does not match the tracked state.
@@ -950,31 +954,31 @@ Rerun jobs against the immutable tag for transient signing, notarization, or ser
 
 ## 10. Scheduled Beta Releases
 
-Betas are unattended weekly prereleases of `develop`, published from the single `release/X.Y` in `BETA` state. The beta scheduler is two workflows. `beta-cut.yml` (Scheduled Beta Cut) applies the [state machine](#state-machine); each of its runs is a cut. `beta-continue.yml` (Scheduled Beta Continue) is the continuation, which chains the runs that follow. A beta's GitHub Release body is the one [What the Release Produces](#what-the-release-produces) describes. The channel model is in [Release channels](#release-channels).
+Betas are unattended weekly prereleases of `develop`, published from the single `release/X.Y` in `BETA` state. The beta scheduler is two workflows. `beta-cut.yml` (Scheduled Beta Cut) applies the [state machine](#state-machine); each of its runs is a cut, except the run that follows a successful Nightly Tests run, which is a [restart](#restart-after-a-failure). `beta-continue.yml` (Scheduled Beta Continue) is the continuation, which chains the runs that follow. A beta's GitHub Release body is the one [What the Release Produces](#what-the-release-produces) describes. The channel model is in [Release channels](#release-channels).
 
-> **Unattended publication.** No person reviews a beta before it is public. Each beta carries the newest green `develop`, including its workflow changes, which the release-bot App merges onto the release line.
+> **Unattended publication.** No person reviews a beta before it is public. Each beta carries the newest `develop` commit that passed push CI and Nightly Tests, including its workflow changes, which the release-bot App merges onto the release line.
 
 After each beta publishes ([Schedule](#schedule)), a release manager emails the mailing list with its GitHub Release link, a short summary of what is ready for testing and feedback, and how to open its unsigned packages ([Beta signing](#beta-signing)).
 
 ### Schedule
 
-`beta-cut.yml` runs every Tuesday at 20:00 UTC (cron `0 20 * * 2`), which is 16:00 US Eastern daylight time or 15:00 Eastern standard time. The Tuesday cut leaves Monday for fixes to land on `develop`. CI, the candidate, and the public builds then take about two to three hours, so a beta publishes on Tuesday evening, US Eastern time.
+`beta-cut.yml` runs every Tuesday at 20:00 UTC (cron `0 20 * * 2`), which is 16:00 US Eastern daylight time or 15:00 Eastern standard time. The Tuesday cut leaves Monday for fixes to land on `develop`, and Tuesday's 06:17 UTC nightly tests them. A commit merged later on Tuesday reaches that day's beta only if someone dispatches Nightly Tests after it lands and that run passes before the cut. CI, the candidate, and the public builds then take 4.9 to 6.3 hours from cut to publication, so a beta publishes on Tuesday evening, US Eastern time. After a failed beta, a restart can cut the next one on Wednesday or Thursday ([Restart after a failure](#restart-after-a-failure)).
 
-GitHub starts scheduled runs late under load, often by 10 to 20 minutes at the start of an hour, and can drop a run. A dropped run means no cut and no alert that week; dispatch Scheduled Beta Cut to cut the beta.
+GitHub starts scheduled runs late under load, often by 10 to 20 minutes at the start of an hour, and can drop a run. A dropped run means no cut and no alert that week; dispatch Scheduled Beta Cut to cut the beta. A dropped nightly means no restart that day.
 
 ### Workflows
 
-`beta-cut.yml` runs on its cron and on `workflow_dispatch`, which takes no inputs. Dispatch it on `develop`, the only branch the `beta-automation` environment admits (`gh workflow run beta-cut.yml --repo WSJTX/wsjtx-internal --ref develop`). `beta-continue.yml` runs on `workflow_run` when a CI, Prepare Release Candidate, Prepare Release Dependencies, or Promote Release Source run completes on `develop` or a release branch. Both workflows need the settings in [Required Repository Configuration](#required-repository-configuration).
+`beta-cut.yml` runs on its cron, on `workflow_dispatch`, which takes no inputs, and on `workflow_run` when a Nightly Tests run completes on `develop`; that run is the [restart](#restart-after-a-failure), and its gate passes it only after a successful nightly on Wednesday or Thursday UTC. Dispatch it on `develop`, the only branch the `beta-automation` environment admits (`gh workflow run beta-cut.yml --repo WSJTX/wsjtx-internal --ref develop`). `beta-continue.yml` runs on `workflow_run` when a CI, Prepare Release Candidate, Prepare Release Dependencies, or Promote Release Source run completes on `develop` or a release branch. Both workflows need the settings in [Required Repository Configuration](#required-repository-configuration).
 
 Each workflow has a `gate` job, which checks the [pause switch](#pause-and-freeze), and one acting job in the private `beta-automation` environment. The acting job mints a release-bot App token from the `RELEASE_BOT_APP_ID` variable and the `RELEASE_BOT_PRIVATE_KEY` secret in `beta-automation`.
 
-The two acting jobs share the concurrency group `beta-scheduler` without cancellation, so only one acts at a time. GitHub keeps at most one waiting job per group, and a newer arrival replaces it. The next cut resumes a continuation lost that way, or reports it when a promotion was never dispatched; a cut lost that way does nothing that week, as with a dropped schedule.
+The two acting jobs share the concurrency group `beta-scheduler` without cancellation, so only one acts at a time. GitHub keeps at most one waiting job per group, and a newer arrival replaces it; a restart is a third kind of arrival. The next cut resumes a continuation lost that way, or reports it when a promotion was never dispatched; a cut lost that way does nothing that week, as with a dropped schedule. A restart alerts on a lost continuation: the tip's push CI, in a run the App started, succeeded more than 15 minutes ago and the tip has no candidate run, or a candidate run the App started succeeded more than 15 minutes ago and has no promotion run. A restart that itself replaced a waiting continuation may run too soon to report it; the next restart reports it, and the next cut resumes it or, for a promotion, reports it.
 
 ### State machine
 
 Each cut re-derives its state from refs, run history, the public release, image package tags, and workflow artifacts, and applies one step. A cut acts by pushing a merge commit or dispatching a workflow, skips with a note in the job summary, or stops and [alerts](#failure-alerts). Two rules apply throughout:
 
-- **Newest green `develop`.** The newest `develop` commit whose push CI succeeded; the cut does not wait for a `develop` push CI run in progress. Push CI on `develop` and on `release/X.Y` builds Linux x86_64 only; the candidate builds every target.
+- **Newest tested `develop`.** The newest `develop` commit whose push CI succeeded and whose newest counted Nightly Tests run on `develop`, scheduled or dispatched, succeeded. A counted run is one that completed with success or failure; a re-run counts by its latest attempt, from when that attempt started, and a commit whose newest nightly is a re-run in progress, cancelled or skipped does not qualify. The cut goes down the nightly-passed commits from the newest, in the order their nightlies were created, passes over each whose push CI was cancelled, failed, is still running, or never ran, and names it in the job summary; it does not wait for a push CI or nightly run in progress. Push CI on `develop` and on `release/X.Y` builds Linux x86_64 only, Nightly Tests adds the runtime tests and Windows, and the candidate builds every target.
 - **Runs in progress.** A CI, candidate, promotion, or preparation run that the cut depends on may still be in progress. If the App started it, the cut skips, because the continuation resumes when it finishes. If a person started it, the cut stops and asks for Scheduled Beta Cut to be dispatched after that run finishes. A public build in progress is always a skip.
 
 The steps:
@@ -982,21 +986,37 @@ The steps:
 1. The cut finds the single `release/X.Y` in `BETA` state. With none, as between a freeze and the next line's start, it skips. It stops and alerts when two or more lines are in `BETA` state, or when a line's `BETA` state does not validate or names another line's version.
 2. When `build/vX.Y.Z-betaN` for the line's `BETA N` does not exist, N is unspent, because a number is spent only once its build tag exists. After the check in step 4, the cut reads the tip's CI:
    - It passed: the cut dispatches Prepare Release Candidate at the tip with no merge. This is how `beta1` is cut, and how a candidate that failed before pushing its tag is retried.
-   - It did not succeed: the cut merges the newest green `develop` under the same N, through steps 5 and 6. If `develop` has no green commit newer than the tip, the cut stops and alerts.
+   - It did not succeed: the cut merges the newest tested `develop` under the same N, through steps 5 and 6. If `develop` has no tested commit newer than the tip, the cut stops and alerts.
    - It never ran: the cut stops and alerts.
 3. When the build tag exists, the cut checks public `vX.Y.Z-betaN`:
-   - Published: the cut merges the newest green `develop` as N+1, through steps 4 to 6. If that commit is already on `release/X.Y`, the cut skips with no alert, even when newer `develop` commits exist whose push CI failed or is still running. If no `develop` commit has a successful push CI run, it stops and alerts.
+   - Published: the cut merges the newest tested `develop` as N+1, through steps 4 to 6. If that commit is already on `release/X.Y`, the cut skips with no alert, even when newer `develop` commits exist that have not passed push CI and Nightly Tests. If no `develop` commit has passed both, it stops and alerts.
    - Not published, with a CI, candidate, or promotion run at the tag or the public build in progress: the cut skips or stops, as the rules above describe.
-   - The candidate failed after pushing its tag, and no promotion succeeded: N is spent, because build tags never move. The cut merges a newer green `develop` as N+1, or stops and alerts when there is none ([Recovery](#recovery)).
+   - The candidate failed after pushing its tag, and no promotion succeeded: N is spent, because build tags never move. The cut merges a newer tested `develop` as N+1, or stops and alerts when there is none ([Recovery](#recovery)).
    - No candidate run, a successful candidate with no promotion run, or a failed promotion: the cut stops and alerts, naming the stage.
-   - A public build that concluded other than success, cancelled or timed out included: N is spent, because tags never move. The cut merges a newer green `develop` as N+1 and alerts at the publication stage, or stops and alerts there when `develop` has nothing newer ([Recovery](#recovery)).
+   - A public build that concluded other than success, cancelled or timed out included: N is spent, because tags never move. The cut merges a newer tested `develop` as N+1 and alerts at the publication stage, or stops and alerts there when `develop` has nothing newer ([Recovery](#recovery)).
    - A public build that never started, or succeeded without a published release: the cut stops and alerts at the publication stage.
-4. Before it dispatches a candidate at the tip or merges `develop`, the cut checks that fixes landed on `develop` first. It lists the commits on `release/X.Y` that `develop` does not contain. The App's commits, identified by their author, are exempt. So are commits that change only `release-state.txt` or `release-linux-images.json`, such as the line-start commit. Any other commit stops the line and alerts. A cherry-pick or a person's commit on the beta line therefore stops it until that commit is reachable from `develop` ([Recovery](#recovery)). For an urgent fix in the beta phase, land it on `develop` and, once its push CI passes, dispatch Scheduled Beta Cut, which cuts the next beta at once when the current one is published or its public build did not succeed.
+4. Before it dispatches a candidate at the tip or merges `develop`, the cut checks that fixes landed on `develop` first. It lists the commits on `release/X.Y` that `develop` does not contain. The App's commits, identified by their author, are exempt. So are commits that change only `release-state.txt` or `release-linux-images.json`, such as the line-start commit. Any other commit stops the line and alerts. A cherry-pick or a person's commit on the beta line therefore stops it until that commit is reachable from `develop` ([Recovery](#recovery)). For an urgent fix in the beta phase, land it on `develop`; once its push CI passes, dispatch Nightly Tests on `develop`, and once that run passes, dispatch Scheduled Beta Cut, which cuts the next beta at once when the current one is published or its public build did not succeed.
 5. Before a merge, the cut compares the Linux image recipe fingerprints of the chosen `develop` commit with the line's `release-linux-images.json`; its alerts call this selection the lock:
    - They match: the cut keeps the selection unchanged.
    - They differ, or the selection is missing: the cut picks the validated image generation built for those recipes. It reuses a successful Prepare Release Dependencies run for that generation, or dispatches one on `develop` and skips. When that App-started preparation succeeds, the continuation dispatches the cut again, and that cut commits the prepared selection.
    - No generation matches, including while matching images are still being refreshed: the cut stops and alerts. It also stops when the newest preparation failed and none is usable, or when a preparation is needed but the `develop` tip's recipes differ from the chosen commit's.
 6. The cut merges the chosen `develop` commit into the tip with `git merge --no-ff`. It writes `release-state.txt` with the line's own version, `channel=BETA`, the chosen number, and `windows_signing=unsigned`, and writes the kept or prepared selection. Conflicts in those two files are resolved by overwriting them; a conflict in any other file stops and alerts. The merged tree's selection must pass `release-linux-images.py validate --check-remote`, or the cut stops and alerts. The App authors and commits the merge and pushes it to `release/X.Y` as a fast-forward, never with force; a rejected push stops and alerts. That push starts the CI run that the [continuation](#continuation) follows.
+
+### Restart after a failure
+
+`beta-cut.yml` also runs after each successful Nightly Tests run on `develop`, scheduled or dispatched; that run is the restart. It acts only on Wednesday or Thursday UTC, and on other days it stops at the gate. It runs when Nightly Tests finishes: about 06:35 UTC on a night that skips an unmoved tip, about 08:30 UTC on a testing night, when the Windows leg ends after about two hours, and at once after a passing dispatch.
+
+The restart cuts only after a failure, and merges through steps 4 to 6 of the [state machine](#state-machine):
+
+- **A spent number.** When N was spent at its candidate or its public build (step 3), the restart merges the newest tested `develop` as N+1. A public build that failed less than a day earlier is held instead, whatever `develop` or N-1 shows: the restart alerts at stage `publication` and leaves N, so a re-run can still publish it, and treats N as spent once the failure is a day old. It moves on only when N is `beta1` or N-1 was published, so after two spent numbers in a row it stands down until the next cut, on Tuesday or dispatched. Moving on from a number spent at its public build alerts, as it does in a cut.
+- **A failed cut before its tag.** When `build/vX.Y.Z-betaN` does not exist, the restart first checks for fixes (step 4), which stops and alerts whatever the tip's CI shows. Then, when the tip's newest CI run concluded other than success and the App started the tip's push CI, it merges the newest tested `develop` again as N. It never dispatches a candidate.
+- **Anything else is a skip** in the job summary: N is published, even when Tuesday's cut found nothing to cut; a run is in progress; the tip has no CI run yet; a person started the line mid-week, whatever its CI shows; a candidate failed before pushing its tag, or a promotion failed, which the continuation has already reported; or the public build never started, which the next cut reports. While `develop` has no tested commit newer than the line, the restart skips and tries again after the next successful nightly, apart from the alerts listed below.
+
+When the chosen commit's lock needs a preparation (step 5), the restart dispatches Prepare Release Dependencies like a cut, and the cut that the continuation dispatches after it has no weekday limit. A preparation takes 5 to 7.5 minutes, so that cut runs the same day.
+
+The restart alerts only when it holds a public build that failed less than a day earlier, when it moves on from a number spent at its public build, when it stops while acting (a merge conflict, the lock, a rejected push), on fixes on the line (step 4), on the line errors in step 1, on a lost continuation ([Workflows](#workflows)), and on an unexpected failure, at stage `restart`. These alerts repeat after every successful Wednesday or Thursday nightly, dispatches included, while the state persists.
+
+**Re-run a transient failure before the restart.** On Wednesday or Thursday, once `develop` has a tested commit newer than the line, the restart moves on to N+1 from a number whose candidate failed after pushing its tag, or whose public build failed a day or more earlier, when N is `beta1` or N-1 was published, whether or not the failure was transient. To keep N, re-run a failed candidate before the next successful Wednesday or Thursday nightly, which can finish as early as about 06:35 UTC, and a failed public build within a day of its failure ([Recovery](#recovery)). A Tuesday cut's public builds finish early on Wednesday, UTC, so Wednesday's restart reports a failed one and leaves N, and Thursday's can move on. If no restart runs within that day, as when Wednesday's nightly fails, the first restart after it treats N as spent at once, and if it moves on, its alert says not to re-run the public build. A public build that fails later on a Wednesday, after a restart's cut, is still held at Thursday's restart. N then waits for the next cut, on Tuesday or dispatched, unless N is `beta1` or N-1 was published and a nightly that finishes on Thursday after the hold ends passes.
 
 ### Continuation
 
@@ -1019,23 +1039,23 @@ macOS Gatekeeper rejects an unsigned package that a browser downloaded. To insta
 
 ### Failure alerts
 
-Every stop and unexpected failure of a cut or the continuation goes to one tracking issue in `WSJTX/wsjtx-internal`, titled "Scheduled beta alerts". `github-actions[bot]` opens the issue, or comments on the open one, with the stage, the reason, and the run link. Closing the issue makes the next alert open another. Skips appear only in the job summary.
+Every stop and unexpected failure of a cut, a restart, or the continuation goes to one tracking issue in `WSJTX/wsjtx-internal`, titled "Scheduled beta alerts". `github-actions[bot]` opens the issue, or comments on the open one, with the stage, the reason, and the run link. Closing the issue makes the next alert open another. Skips appear only in the job summary.
 
-The continuation alerts at once in the cases [Continuation](#continuation) lists and on the line errors in [state machine](#state-machine) step 1. Every other stop in the state machine, and a number spent at publication, is reported only when a cut runs: on the Tuesday cron, on a dispatch, or after a preparation. A public build that failed or never started is therefore reported only by the next cut, up to a week later. To check sooner, read the public run with `gh run list --repo WSJTX/wsjtx --workflow public-release.yml`. A dispatch of Scheduled Beta Cut does not only report: when N is published, or its public build did not succeed, and `develop` has a newer green commit, it cuts N+1 at once.
+The continuation alerts at once in the cases [Continuation](#continuation) lists and on the line errors in [state machine](#state-machine) step 1. Every other stop in the state machine, and a number spent at publication, is reported when a cut runs: on the Tuesday cron, on a dispatch, or after a preparation. A restart reports the stops it meets (the line errors in step 1, fixes on the line, the lock, a merge conflict or a rejected push), a public build that failed less than a day earlier, a number spent at its public build when it moves on to N+1, a lost continuation, and an unexpected failure ([Restart after a failure](#restart-after-a-failure)). A public build that failed is therefore reported by a restart within a day of the failure, by the restart that moves on, or by the next cut, and one that never started only by the next cut, up to a week later. To check sooner, read the public run with `gh run list --repo WSJTX/wsjtx --workflow public-release.yml`. A dispatch of Scheduled Beta Cut does not only report: when N is published, or its public build did not succeed, and `develop` has a newer tested commit, it cuts N+1 at once.
 
 ### Pause and freeze
 
 `BETA_AUTOMATION` is a repository variable on `WSJTX/wsjtx-internal`; the gate jobs that read it have no environment. Both workflows act only when it is exactly `enabled`. With any other value, or unset, they do nothing and say so in the job summary, with no alert. Set it with `gh variable set BETA_AUTOMATION --repo WSJTX/wsjtx-internal --body enabled` once the release-bot App's credentials are in `beta-automation`. Each acting job mints the App token first, so a missing credential fails the job and alerts. Pause with any other value, for example `--body paused`. Never set it on `WSJTX/wsjtx`: promoted source carries the beta workflows there.
 
-Pausing also stops the continuation, so a beta in progress halts at its current stage. A beta already promoted still publishes, because the public build has no pause switch. Once `BETA_AUTOMATION` is `enabled` again, the next cut resumes from a push CI that passed or from a prepared selection; dispatch Scheduled Beta Cut to resume at once instead of on Tuesday. A candidate that succeeded with no promotion stops the cut, which asks for a dispatch of Promote Release Source; dispatch it on `release/X.Y` with the version, `operation=promote`, and the candidate run ID that the alert names. That promotion downloads the candidate run's artifact, which is kept 30 days.
+Pausing also stops the continuation, so a beta in progress halts at its current stage. A beta already promoted still publishes, because the public build has no pause switch. Once `BETA_AUTOMATION` is `enabled` again, the next cut resumes from a push CI that passed or from a prepared selection; dispatch Scheduled Beta Cut to resume at once instead of on Tuesday. After re-enabling and before that cut, a Wednesday or Thursday restart reports the halted push CI or candidate as a lost continuation. A candidate that succeeded with no promotion stops the cut, which asks for a dispatch of Promote Release Source; dispatch it on `release/X.Y` with the version, `operation=promote`, and the candidate run ID that the alert names. That promotion downloads the candidate run's artifact, which is kept 30 days.
 
 To freeze a line, land a reviewed commit on `release/X.Y` that sets `RC 1` and keeps `windows_signing=unsigned`, as in [Step 1](#step-1-prepare-release-metadata). Its review also covers the line's `release-linux-images.json`, which the scheduler maintained without review. The scheduler acts only on `BETA` state, so it stops. After the freeze, bump `develop` to `X.(Y+1).0` in a one-line PR, and publish `samples/contents_X.(Y+1).json` to `feat-web-pages` as the [sample catalog procedure](DEVELOPMENT_WORKFLOW.md#3-promote-the-exact-source) describes. A beta not yet promoted is abandoned: the continuation finds no `BETA` line and skips, and a promotion that validates after the freeze fails because the tip moved; one already promoted still publishes. The line continues through RC and GA as in [Phase 7](#9-phase-7-test-the-release-pipeline).
 
-A patch release on an existing line never uses `BETA` state. It uses `RC N` metadata commits and cherry-picked fixes, because a `BETA` state would make the scheduler merge the newest green `develop` into the line.
+A patch release on an existing line never uses `BETA` state. It uses `RC N` metadata commits and cherry-picked fixes, because a `BETA` state would make the scheduler merge the newest tested `develop` into the line.
 
 ### Starting a release line
 
-Cut `release/X.Y` from a green `develop`. Then land the line-start commit, which changes only `release-state.txt` and `release-linux-images.json`. The state is `BETA 1` for the line's version (`channel=BETA`, `prerelease=1`, `windows_signing=unsigned`), and the selection is the one prepared as [Prepared Linux release images](#prepared-linux-release-images) describes. For that preparation, choose a `validated-build-YYYYMMDD-RUN-ATTEMPT` generation that all four `ghcr.io/wsjtx/wsjtx-internal/<package>` images carry, from a Refresh Build Caches or Publish Linux CI Images run on `develop` built for the line's recipes. List a package's tags with a token that has the `read:packages` scope:
+Cut `release/X.Y` from a `develop` commit that passed push CI and Nightly Tests. Then land the line-start commit, which changes only `release-state.txt` and `release-linux-images.json`. The state is `BETA 1` for the line's version (`channel=BETA`, `prerelease=1`, `windows_signing=unsigned`), and the selection is the one prepared as [Prepared Linux release images](#prepared-linux-release-images) describes. For that preparation, choose a `validated-build-YYYYMMDD-RUN-ATTEMPT` generation that all four `ghcr.io/wsjtx/wsjtx-internal/<package>` images carry, from a Refresh Build Caches or Publish Linux CI Images run on `develop` built for the line's recipes. List a package's tags with a token that has the `read:packages` scope:
 
 ```bash
 # Tags of one internal image package, here linux-noble:
@@ -1050,18 +1070,18 @@ The next cut finds `build/vX.Y.Z-beta1` missing and cuts `beta1` at the tip ([st
 
 Most stop messages name the action to take. Re-running a failed run that the App started resumes the chain through the continuation. For a CI, candidate, or promotion run the `release/X.Y` tip must be unmoved: the continuation ignores runs at an older commit, and candidate and promotion runs also check the tip. For other stops, fix the cause, then dispatch Scheduled Beta Cut on `develop`. Never move or recreate a tag; see [Step 6](#step-6-recover-safely).
 
-When a candidate fails after pushing its tag, or a public build fails, land the fix on `develop` before the next cut, and confirm it first by dispatching the failing target's build on the fix branch, for example `gh workflow run build-selected-artifacts.yml --ref <branch> -f targets=macos-x64` ([commands for each target](DEVELOPMENT_WORKFLOW.md#12-quick-reference)). A newer green `develop` commit without the fix spends N+1 too.
+When a candidate fails after pushing its tag, or a public build fails, land the fix on `develop` before the restart or the next cut takes a newer commit, and confirm it first by dispatching the failing target's build on the fix branch, for example `gh workflow run build-selected-artifacts.yml --ref <branch> -f targets=macos-x64` ([commands for each target](DEVELOPMENT_WORKFLOW.md#12-quick-reference)). A newer tested `develop` commit without the fix spends N+1 too; the restart then stands down until the next cut, on Tuesday or dispatched.
 
 A fixes stop ([state machine](#state-machine) step 4) clears only when the listed commits are reachable from `develop`. Landing the same fix on `develop` or reverting the commit on the line does not clear it, and the rulesets forbid removing the commit. To clear it, merge the `release/X.Y` tip (`origin/release/X.Y`) into `develop` with the [history-bridge](#public-branch-history-and-ga-line-policy) steps: keep `develop`'s `release-state.txt`, drop `release-linux-images.json`, run the bridge's tree check, and land the reviewed PR as a merge commit. A squash or rebase merge leaves the commit unreachable from `develop`, and the stop stays. When the next cut merges `develop`, it rewrites both files on the line.
 
-For a failed public build, re-run the failed jobs of Build and Publish Public Release in `WSJTX/wsjtx` before the next cut, which otherwise spends N:
+For a failed public build, re-run the failed jobs of Build and Publish Public Release in `WSJTX/wsjtx` before the next cut, which otherwise spends N, and within a day of the failure, after which a restart spends N too:
 
 ```bash
 # Re-run only the failed jobs of the public build:
 gh run rerun <RUN_ID> --failed --repo WSJTX/wsjtx
 ```
 
-A successful re-run publishes the beta, and the next cut moves on to N+1 when `develop` has a newer green commit. Once the release exists, re-run only the failed jobs: the publish job refuses any asset whose bytes differ from the published one. Nothing starts a new public build for an existing tag, because the public build runs only on a tag push and tags never move. A failure in the tagged source therefore needs the next number: the cut that finds the public build failed merges a newer green `develop` as N+1. A public build that never started stops the line at publication every week, until `vX.Y.Z-betaN` has a published GitHub Release or the line's state moves past `BETA N`. Once the line has moved to N+1, do not re-run N's public build: it would publish N after the line has moved on. GitHub allows a re-run only within 30 days of a run's first attempt.
+A successful re-run publishes the beta, and the next cut moves on to N+1 when `develop` has a newer tested commit. Once the release exists, re-run only the failed jobs: the publish job refuses any asset whose bytes differ from the published one. Nothing starts a new public build for an existing tag, because the public build runs only on a tag push and tags never move. A failure in the tagged source therefore needs the next number: the cut, or the restart a day after the failure, that finds the public build failed merges a newer tested `develop` as N+1. A public build that never started stops the line at publication every week, until `vX.Y.Z-betaN` has a published GitHub Release or the line's state moves past `BETA N`. Once the line has moved to N+1, do not re-run N's public build: it would publish N after the line has moved on. GitHub allows a re-run only within 30 days of a run's first attempt.
 
 ### Actions minutes
 
@@ -1144,7 +1164,7 @@ When modifying workflow files, keep in mind:
 
 ### Branch, Tag, and Environment Protection
 
-Protect `develop` with a ruleset that forbids force-push and deletion and takes changes only through pull requests, each approved by someone other than its last pusher, with approvals dismissed when a push changes the diff; no workflow pushes to `develop`. Protect `release/*` with rulesets that forbid force-push and deletion. Do not add a pull-request requirement there: the release-bot App has no bypass, and its merge pushes would fail. Run the two helper workflows from the current `release/X.Y` tip. Promote Release Source rejects any workflow ref or SHA other than that tip. Prepare Release Candidate rejects any other SHA, and the `candidate-tagging` environment's `release/*` policy rejects other refs.
+Protect `develop` with a ruleset that forbids force-push and deletion and takes changes only through pull requests, with no required approval; no workflow pushes to `develop`. Protect `release/*` with rulesets that forbid force-push and deletion. Do not add a pull-request requirement there: the release-bot App has no bypass, and its merge pushes would fail. Run the two helper workflows from the current `release/X.Y` tip. Promote Release Source rejects any workflow ref or SHA other than that tip. Prepare Release Candidate rejects any other SHA, and the `candidate-tagging` environment's `release/*` policy rejects other refs.
 
 On WSJTX/wsjtx, protect `v*` tags from updates and deletion, and limit creation to the source-promotion identity. Protect `master` and `release/*` from force-pushes and deletion only; promotion pushes them directly, so a pull-request or status-check requirement would block it.
 
@@ -1275,7 +1295,7 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal --env source-promotio
 | `.github/workflows/release-tag-helper.yml` | Validate/create immutable internal candidates | None |
 | `.github/workflows/promote-release.yml` | Validate/promote exact source to the public repo | None |
 | `.github/workflows/public-release.yml` | Public policy-checked build, bundle verification, and GitHub Release | None |
-| `.github/workflows/beta-cut.yml` | Scheduled Beta Cut: weekly or dispatched cut of the next beta on the line in `BETA` state | None |
+| `.github/workflows/beta-cut.yml` | Scheduled Beta Cut: Tuesday or dispatched cut of the next beta on the line in `BETA` state, and the restart after a failed beta | None |
 | `.github/workflows/beta-continue.yml` | Scheduled Beta Continue: carry each App-started beta run to its next stage | None |
 | `.github/workflows/sign-windows-release.yml` | Public SignPath build/sign/verification | SignPath project and policy identifiers |
 | `.github/workflows/build-macos.yml` | macOS build (parameterized arm64/x86_64) | None |
@@ -1285,7 +1305,7 @@ gh secret set CROSS_REPO_TOKEN --repo WSJTX/wsjtx-internal --env source-promotio
 | `entitlements.plist` | macOS app entitlements | None (if not already in repo) |
 | `release-state.txt` | Tracked version, channel, prerelease number, optional Windows signing mode, and archival revision | Set before each RC or GA candidate; the line-start commit and the scheduler set beta states |
 | `.github/scripts/release-policy.py` | Release identity, asset, archive, signing-report, manifest, and public ref promotion policy | None |
-| `.github/scripts/beta-scheduler.py` | Beta scheduler state machine, dispatches, and failure alerts | None |
+| `.github/scripts/beta-scheduler.py` | Beta scheduler state machine, restart, dispatches, and failure alerts | None |
 | `.github/scripts/release-linux-images.py` | Linux image selection preparation, validation, and provenance | None |
 | `.github/scripts/generate-quick-downloads.py` | Quick Downloads list in the GitHub Release body | None |
 | `.github/scripts/generate-change-list.py` | Change list in the GitHub Release body | None |

@@ -28,14 +28,20 @@ linux_ci_image_inputs() {
       printf '%s\n' \
         "${common[@]}" \
         .github/images/linux-ci/Dockerfile.noble \
-        .github/scripts/build-pfunit-linux.sh \
+        .github/scripts/build-hamlib-linux.sh
+      ;;
+    normal-jammy)
+      printf '%s\n' \
+        "${common[@]}" \
+        .github/images/linux-ci/Dockerfile.jammy \
+        .github/scripts/qt5-source-config.sh \
+        .github/scripts/build-qt-linux.sh \
         .github/scripts/build-hamlib-linux.sh
       ;;
     normal-bookworm)
       printf '%s\n' \
         "${common[@]}" \
         .github/images/linux-ci/Dockerfile.bookworm \
-        .github/scripts/build-pfunit-linux.sh \
         .github/scripts/build-hamlib-linux.sh
       ;;
     armhf-cross-bookworm|armhf-cross-trixie)
@@ -90,6 +96,7 @@ linux_ci_image_inputs() {
         "${common[@]}" \
         .github/images/linux-ci/Dockerfile.noble \
         .github/scripts/tsan-linux-deps-config.sh \
+        .github/scripts/qt5-source-config.sh \
         .github/scripts/build-qt-tsan-linux.sh \
         .github/scripts/build-boost-tsan-linux.sh \
         .github/scripts/build-hamlib-tsan-linux.sh \

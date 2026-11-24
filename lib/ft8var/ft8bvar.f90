@@ -5,13 +5,14 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
      nmycsignal,npass,i3bit,lft8s,lmycallstd,lhiscallstd,levenint,loddint,lft8sd, &
      i3,n3,nft8rxfsens,ncount,msgsrcvd,lrepliedother,lhashmsg,lqsothread,         &
      lft8lowth,lhighsens,tmpcqsig,tmpmycsig,tmpqsosig,lnohiscall,               &
-     lnomycall,lnohisgrid,qual,iaptype2,progress_generation,knowledge,evidence)
+     lnomycall,lnohisgrid,qual,iaptype2,progress_generation,knowledge,evidence,osd_ws)
 
   use packjt77, only : pack77_state,unpack77_configured_for_state,unpack77_options
   use ft8_codec_context, only: get_ft8_codec_state
   use ft8var_codec_context, only: ft8sd1var,ft8sdvar,ft8svar,ft8mfcqvar,tonesdvar, &
        ft8var_tones_from_77bits
   use ft8var_work_types
+  use osd174_91var_mod, only: osd174_91var,osd_pair_workspace
   use decoder_engine_types, only: ft8_signal_evidence,engine_payload_decoded
   use ft8_mtd_residual, only : mtd_commit_subtraction,mtd_mark_spectrum_current, &
        mtd_refresh_candidate
@@ -77,6 +78,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
   type(pack77_state), target, optional, intent(inout) :: knowledge
   type(pack77_state), pointer :: codec
   type(ft8_signal_evidence), optional, intent(out) :: evidence
+  type(osd_pair_workspace), intent(inout) :: osd_ws
   character(len=37) :: decoded_payload_message
   logical :: has_decoded_payload,history_found
 
@@ -2166,7 +2168,7 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
 !print *,omp_get_nested(),OMP_get_num_threads()
 
               call osd174_91var(llrz,apmask,ndeep,message77,cw,nharderrors,dmin, &
-                   nthr,progress_generation)
+                   nthr,progress_generation,osd_ws)
            endif
            
            nbadcrc=1
@@ -2963,7 +2965,8 @@ subroutine ft8bvar(residual,spectrum,newdat1,nQSOProgress,nfqso,nftx,napwid, &
         syncp=0.
         syncm=0.
         k=1
-        allocate(csig0(1+(NZ-1)/NDOWN))
+        ! Round the sample extent up to a whole decimation stride.
+        allocate(csig0((NZ+modulo(-NZ,NDOWN))/NDOWN))
         call gen_ft8wavevar_samples(itone,NN,NSPS,2.0,12000.0,0.0,NZ, &
              NDOWN,size(csig0),cwave=csig0)
         do i=0,78

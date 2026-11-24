@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +69,41 @@ class LinuxArtifactValidationTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.touch()
         return temporary, root
+
+    @unittest.skipUnless(
+        sys.platform.startswith("linux") and all(shutil.which(tool) for tool in ("cc", "cmake", "readelf")),
+        "Native RPATH staging requires Linux compiler and CMake tools",
+    )
+    def test_native_package_rpath_cleanup_preserves_files_outside_staging(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stage = root / "stage"
+            (stage / "usr/bin").mkdir(parents=True)
+            external = root / "external"
+            external.mkdir()
+            source = root / "fixture.c"
+            source.write_text("int main(void) { return 0; }\n")
+            executable = external / "fixture"
+            subprocess.run(
+                ["cc", str(source), "-Wl,-rpath,/opt/wsjtx/qt/lib", "-o", str(executable)],
+                check=True, capture_output=True,
+            )
+            original = executable.read_bytes()
+            staged = stage / "usr/bin/fixture"
+            shutil.copy2(executable, staged)
+            (stage / "external-directory").symlink_to(external, target_is_directory=True)
+            (stage / "external-file").symlink_to(executable)
+            subprocess.run(
+                ["cmake", f"-DCPACK_TEMPORARY_DIRECTORY={stage}", "-P",
+                 str(REPO_ROOT / "CMake/CPackRemoveNativeRpaths.cmake")],
+                check=True, capture_output=True, text=True,
+            )
+            dynamic = subprocess.check_output(["readelf", "-dW", str(staged)], text=True)
+            self.assertNotIn("(RPATH)", dynamic)
+            self.assertNotIn("(RUNPATH)", dynamic)
+            self.assertEqual(executable.read_bytes(), original)
+            self.assertTrue((stage / "external-directory").is_symlink())
+            self.assertTrue((stage / "external-file").is_symlink())
 
     def test_package_manifest_accepts_expected_payload(self):
         manifest = "\n".join(
@@ -249,6 +285,47 @@ class LinuxArtifactValidationTests(unittest.TestCase):
                     **environment,
                 )
                 self.assertNotEqual(result.returncode, 0)
+
+    def test_portable_bundle_checks_required_glibc_versions_in_libraries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            library = Path(directory) / "libdependency.so.1"
+            library.touch()
+            command = r'''
+file() { echo 'ELF 64-bit LSB shared object, x86-64'; }
+readelf() { if [ "$1" = -VW ]; then printf '%s\n' "$VERSIONS"; fi; }
+dpkg() { python3 -c 'import sys; sys.exit(not (tuple(map(int, sys.argv[1].split("."))) > tuple(map(int, sys.argv[2].split(".")))))' "$2" "$4"; }
+validate_linux_static_boost_tree "$TREE"
+'''
+            for version, success in (("2.34", True), ("2.35", True),
+                                     ("2.36", False), ("PRIVATE", False)):
+                with self.subTest(version=version):
+                    result = self.run_helper(
+                        command, TREE=directory, LINUX_GLIBC_CEILING="2.35",
+                        VERSIONS=(
+                            "Version definition section '.gnu.version_d':\n Name: GLIBC_9.99\n"
+                            "Version needs section '.gnu.version_r':\n"
+                            f" Name: GLIBC_{version}\n"
+                        ),
+                    )
+                    self.assertEqual(result.returncode == 0, success, result.stderr)
+                    if not success:
+                        self.assertIn(str(library), result.stderr)
+
+    def test_glibc_validation_fails_when_dpkg_cannot_compare(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "awk").symlink_to(shutil.which("awk"))
+            for setup, diagnostic in (
+                ("", "without dpkg"),
+                ("dpkg() { return 2; }", "dpkg exited 2"),
+            ):
+                with self.subTest(diagnostic=diagnostic):
+                    result = self.run_helper(
+                        f'{setup}\nPATH="$TOOL_PATH" validate_linux_glibc_versions fixture "$VERSIONS" 2.35',
+                        TOOL_PATH=directory,
+                        VERSIONS="Version needs section '.gnu.version_r':\n Name: GLIBC_2.34",
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(diagnostic, result.stderr)
 
     def test_armhf_bundle_checks_required_glibc_versions_in_libraries(self):
         with tempfile.TemporaryDirectory() as directory:

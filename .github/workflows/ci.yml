@@ -300,8 +300,8 @@ jobs:
 
   # Each develop save adds a new SHA-keyed Linux ccache entry; this deletes the
   # older entries of each configuration and keeps the newest. It is the only
-  # job with `actions: write`, and it never fails the run: the beta cut takes
-  # the newest successful develop push run.
+  # job with `actions: write`, and it never fails the run: a beta cut takes
+  # only a develop commit whose push run succeeded.
   prune-linux-ccache:
     name: Prune superseded Linux ccache entries
     needs: [prepare, linux, linux-arm, linux-armhf]

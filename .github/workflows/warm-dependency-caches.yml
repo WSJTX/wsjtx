@@ -26,10 +26,11 @@ on:
       - "tests/dependencies/test_fftw_runtime.c"
       - ".github/scripts/install-fftw-windows.sh"
       - ".github/scripts/run-apt-get.sh"
-      - ".github/scripts/build-pfunit-linux.sh"
       - ".github/scripts/build-hamlib-linux.sh"
       - ".github/scripts/tsan-linux-deps-config.sh"
       - ".github/scripts/build-qt-tsan-linux.sh"
+      - ".github/scripts/build-qt-linux.sh"
+      - ".github/scripts/qt5-source-config.sh"
       - ".github/scripts/build-boost-tsan-linux.sh"
       - ".github/scripts/build-boost-linux.sh"
       - ".github/scripts/linux-boost-config.sh"
@@ -53,7 +54,6 @@ on:
       - ".github/scripts/tests/test_hamlib_precise_time.c"
       - ".github/scripts/build-*-macos.sh"
       - ".github/scripts/build-*-windows.sh"
-      - ".github/scripts/install-*-macos*.sh"
       - ".github/scripts/macos-qt-cache-key.sh"
   schedule:
     - cron: "23 10 * * 1"
@@ -237,10 +237,10 @@ jobs:
                   .github/scripts/boost-log-queue.patch)
                     enable_cache_all
                     ;;
-                  .github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/scripts/install-fftw-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/patches/hamlib-windows-precise-time.patch|.github/scripts/tests/test_hamlib_funcube_patch.py|.github/scripts/tests/test_hamlib_precise_time.c)
+                  .github/actions/build-windows-deps/*|.github/scripts/build-boost-windows.sh|.github/scripts/build-hamlib-windows.sh|.github/scripts/install-fftw-windows.sh|.github/patches/hamlib-funcube-windows-hid.patch|.github/patches/hamlib-windows-precise-time.patch|.github/scripts/tests/test_hamlib_funcube_patch.py|.github/scripts/tests/test_hamlib_precise_time.c)
                     windows=true
                     ;;
-                  .github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh)
+                  .github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/macos-qt-cache-key.sh)
                     macos_arm64=true
                     macos_x86_64=true
                     ;;
@@ -373,6 +373,7 @@ jobs:
             --owner WSJTX
             --max-age-days 60
             --keep 3
+            --package wsjtx-internal/linux-jammy
             --package wsjtx-internal/linux-noble
             --package wsjtx-internal/linux-arm64-bookworm
             --package wsjtx-internal/linux-armhf-cross-bookworm

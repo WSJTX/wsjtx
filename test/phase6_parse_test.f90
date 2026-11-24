@@ -119,7 +119,7 @@ contains
   end subroutine frame_B
 
   ! Frame C: "mode" substring non-collision. "mode" is a substring of hint_mode /
-  ! hound_mode / superfox_mode / tx_mode / submode — the structural key locator
+  ! hound_mode / superfox_mode — the structural key locator
   ! (closing quote in the quoted token + anchor) must keep them distinct. Both
   ! orderings. A raw-index regression would mis-classify these.
   subroutine frame_C()
@@ -127,23 +127,21 @@ contains
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: b1 =                                      &
-      '{"t":"configure","mode":"FT8","tx_mode":"JT9","superfox_mode":true,' //    &
+      '{"t":"configure","mode":"FT8","superfox_mode":true,' //    &
       '"hound_mode":false,"hint_mode":true}'
     character(len=*), parameter :: b2 =                                      &
       '{"t":"configure","hint_mode":true,"hound_mode":false,' //                  &
-      '"superfox_mode":true,"tx_mode":"JT9","mode":"FT8"}'
-    write(*,'(a)') 'Frame C: mode vs tx_mode/superfox_mode/hound_mode/hint_mode'
+      '"superfox_mode":true,"mode":"FT8"}'
+    write(*,'(a)') 'Frame C: mode vs superfox_mode/hound_mode/hint_mode'
     call parse_control_frame(b1, action, cfg, terr)
     call ok('order1: terr not present',     .not. terr%present)
     call ok('order1: mode == 8 (FT8)',      cfg%mode_set    .and. cfg%mode    .eq. 8)
-    call ok('order1: tx_mode == 9 (JT9)',   cfg%tx_mode_set .and. cfg%tx_mode .eq. 9)
     call ok('order1: superfox_mode true',   cfg%superfox_mode_set .and. cfg%superfox_mode)
     call ok('order1: hound_mode false',     cfg%hound_mode_set    .and. (.not. cfg%hound_mode))
     call ok('order1: hint_mode true',       cfg%hint_mode_set     .and. cfg%hint_mode)
     call parse_control_frame(b2, action, cfg, terr)
     call ok('order2: terr not present',     .not. terr%present)
     call ok('order2: mode == 8 (FT8)',      cfg%mode_set    .and. cfg%mode    .eq. 8)
-    call ok('order2: tx_mode == 9 (JT9)',   cfg%tx_mode_set .and. cfg%tx_mode .eq. 9)
     call ok('order2: superfox_mode true',   cfg%superfox_mode_set .and. cfg%superfox_mode)
     call ok('order2: hound_mode false',     cfg%hound_mode_set    .and. (.not. cfg%hound_mode))
     call ok('order2: hint_mode true',       cfg%hint_mode_set     .and. cfg%hint_mode)
@@ -164,7 +162,7 @@ contains
   end subroutine frame_D
 
   ! Frame E: bool key carrying a number -> configure_type_error (mirrors the
-  ! Gate 14 fixture, ft8_ap_on:5).
+  ! Gate 13 fixture, ft8_ap_on:5).
   subroutine frame_E()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr

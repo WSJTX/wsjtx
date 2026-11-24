@@ -1,14 +1,17 @@
 ! Phase 9 parse-unit regression driver. Phase 9 unpacks two bit-packed legacy ints
 ! into 9 wire keys; parse_control_frame folds them BACK into the derived members
-! cfg%ndepth_packed / cfg%nexp_decode_packed (the post-pass pack_phase9_), so this
+! cfg%ndepth_packed / cfg%nexp_decode_packed (the post-pass
+! pack_ndepth_nexp_decode_), so this
 ! driver is the authoritative guard for the PACKING (each key -> its bit), the
 ! contest_type -> ncontest table (incl. the SpecOp 5/8/9 -> 1 collapse), the two
 ! atomic-decline errors (legacy depth co-present with any unpacked ndepth key; a
-! depth_level vs q65_maxiters_level inconsistency), the bit-width MASKING of
-! depth_level/q65_maxiters_level, and the noise_blanker -3 offset + [0,255] clamp.
+! depth_level vs q65_maxiters_level inconsistency), the decline of a
+! depth_level/q65_maxiters_level outside 1 to 3 (flagged out of range and left
+! unpacked, not read by its low bits), and the noise_blanker -3 offset + [0,255]
+! clamp.
 !
 ! WHY a Fortran unit driver (not only fixtures through jt9): only depth_level is
-! decode-observable on FT8/JT9 (Gate 24); the other 8 keys are inert (Q65/JT65/
+! decode-observable on FT8/JT9 (Gate 23); the other 8 keys are inert (Q65/JT65/
 ! FST4/JT4 or contest-branch only), and the bit-PACKING of even
 ! depth_level is invisible to a decode-count gate (ndepth=3 and ndepth=3|16 both
 ! decode 21 on FT8). This driver + run-apply-routing-unit.sh (the packed-int APPLY
@@ -136,22 +139,30 @@ contains
   end subroutine frame_C
 
   ! Frame D: depth_level vs q65_maxiters_level consistency (bits 0-1
-  ! overlap). (a) consistent pair (depth_level=6 low2=2, q65_maxiters=2) -> OK,
-  ! ndepth bits0-2 = 6. (b) inconsistent pair -> configure_type_error.
+  ! overlap). (a) consistent pair (depth_level=2, q65_maxiters=2) -> OK,
+  ! ndepth bits0-2 = 2. (b) inconsistent pair -> configure_type_error. (c) a
+  ! pair consistent in the low two bits but with depth_level 6, which no
+  ! setting of WSJT-X's gives -> out of range, not packed.
   subroutine frame_D()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: ba =                                      &
-      '{"t":"configure","depth_level":6,"q65_maxiters_level":2}'
+      '{"t":"configure","depth_level":2,"q65_maxiters_level":2}'
     character(len=*), parameter :: bb =                                      &
-      '{"t":"configure","depth_level":6,"q65_maxiters_level":1}'
+      '{"t":"configure","depth_level":2,"q65_maxiters_level":1}'
+    character(len=*), parameter :: bc =                                      &
+      '{"t":"configure","depth_level":6,"q65_maxiters_level":2}'
     write(*,'(a)') 'Frame D: depth_level/q65_maxiters_level consistency (bits 0-1 overlap)'
     call parse_control_frame(ba, action, cfg, terr)
-    call ok('(a) consistent (6 low2 == 2): no error',  .not. terr%present)
-    call ok('(a) ndepth_packed == 6',                  cfg%ndepth_packed .eq. 6)
+    call ok('(a) consistent (2 == 2): no error',  .not. terr%present)
+    call ok('(a) ndepth_packed == 2',             cfg%ndepth_packed_set .and. cfg%ndepth_packed .eq. 2)
+    call parse_control_frame(bc, action, cfg, terr)
+    call ok('(c) 6 with 2: no type error',        .not. terr%present)
+    call ok('(c) depth_level out of range',       cfg%depth_level_out_of_range)
+    call ok('(c) ndepth NOT packed',              .not. cfg%ndepth_packed_set)
     call parse_control_frame(bb, action, cfg, terr)
-    call ok('(b) inconsistent (6 low2=2 != 1): terr present', terr%present)
+    call ok('(b) inconsistent (2 != 1): terr present', terr%present)
     call ok('(b) key == q65_maxiters_level',  trim(terr%key) .eq. 'q65_maxiters_level')
     call ok('(b) expected == same depth_level', trim(terr%expected) .eq. 'same depth_level')
     call ok('(b) got == conflict',            trim(terr%got) .eq. 'conflict')
@@ -175,23 +186,45 @@ contains
     call ok('ndepth NOT packed (declined)', .not. cfg%ndepth_packed_set)
   end subroutine frame_E
 
-  ! Frame F: bit-width MASKING. An out-of-range depth_level=99 (0x63) must mask to
-  ! its 3 bits (99 & 7 = 3) so it cannot corrupt sibling bits (4/5/7). Likewise a
-  ! lone q65_maxiters_level=99 masks to 2 bits (99 & 3 = 3). No crash.
+  ! Frame F: a level no setting of WSJT-X's gives (its Fast, Normal and Deep
+  ! give 1 to 3) is flagged out of range for the stream to decline, and the
+  ! depth is left unpacked, not read by its low bits: depth_level 99 (99 & 7 =
+  ! 3), 9 (9 & 7 = 1), 0 and 4; q65_maxiters_level 99 (99 & 3 = 3) and 0.
   subroutine frame_F()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
-    character(len=*), parameter :: ba = '{"t":"configure","depth_level":99}'
     character(len=*), parameter :: bb = '{"t":"configure","q65_maxiters_level":99}'
-    write(*,'(a)') 'Frame F: out-of-range depth_level/q65_maxiters masked to bit width'
-    call parse_control_frame(ba, action, cfg, terr)
-    call ok('(a) depth_level=99 -> ndepth = 3 (99 & 7)', cfg%ndepth_packed .eq. 3)
-    call ok('(a) no sibling bits set',  iand(cfg%ndepth_packed, 240) .eq. 0)
-    call ok('(a) no type error',        .not. terr%present)
+    character(len=*), parameter :: bd = '{"t":"configure","q65_maxiters_level":0}'
+    write(*,'(a)') 'Frame F: a depth_level/q65_maxiters_level outside 1 to 3 is declined'
+    call level('99', 99)
+    call level('9', 9)
+    call level('0', 0)
+    call level('4', 4)
     call parse_control_frame(bb, action, cfg, terr)
-    call ok('(b) q65_maxiters=99 -> ndepth = 3 (99 & 3)', cfg%ndepth_packed .eq. 3)
+    call ok('(b) q65_maxiters=99: out of range',  cfg%q65_maxiters_level_out_of_range .and. &
+         .not. cfg%depth_level_out_of_range)
+    call ok('(b) q65_maxiters=99: NOT packed',    .not. cfg%ndepth_packed_set .and. .not. terr%present)
+    call parse_control_frame(bd, action, cfg, terr)
+    call ok('(b) q65_maxiters=0: out of range',   cfg%q65_maxiters_level_out_of_range)
+    call ok('(b) q65_maxiters=0: NOT packed',     .not. cfg%ndepth_packed_set .and. .not. terr%present)
   end subroutine frame_F
+
+  ! Frame F's depth_level rows: depth_level text with use_averaging, flagged
+  ! out of range as value and left unpacked.
+  subroutine level(text, value)
+    character(len=*), intent(in) :: text
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    call parse_control_frame('{"t":"configure","depth_level":' // text // ',"use_averaging":true}', &
+         action, cfg, terr)
+    call ok('(a) depth_level=' // text // ': out of range', cfg%depth_level_out_of_range .and. &
+         cfg%depth_level_set .and. cfg%depth_level .eq. value)
+    call ok('(a) depth_level=' // text // ': NOT packed, no type error', &
+         .not. cfg%ndepth_packed_set .and. .not. terr%present)
+  end subroutine level
 
   ! Frame G: q65_maxiters_level alone (no depth_level) -> derive depth_level's
   ! bits 0-1 from it (receiver-side derivation). q65_maxiters=3 -> ndepth=3.
@@ -259,18 +292,20 @@ contains
     call ok('use_averaging number: expected bool', trim(terr%expected) .eq. 'bool')
   end subroutine frame_I
 
-  ! Frame J: unknown contest_type string -> value-domain SILENT SKIP (left unset,
-  ! NO type error — mirrors the unknown-mode-name skip). nexp not packed.
+  ! Frame J: unknown contest_type string -> left unset, NO type error, and
+  ! flagged out of range, which the stream declines (configure_range_error).
+  ! nexp not packed.
   subroutine frame_J()
     type(configure_fields)   :: cfg
     type(control_type_error) :: terr
     integer :: action
     character(len=*), parameter :: b =                                       &
       '{"t":"configure","contest_type":"sweepstakes","mode":"FT8"}'
-    write(*,'(a)') 'Frame J: unknown contest_type -> silent skip (no false decline)'
+    write(*,'(a)') 'Frame J: unknown contest_type -> out of range (no type error)'
     call parse_control_frame(b, action, cfg, terr)
     call ok('terr not present',         .not. terr%present)
     call ok('contest_type stays UNSET', .not. cfg%contest_type_set)
+    call ok('contest_type out of range', cfg%contest_type_out_of_range)
     call ok('nexp NOT packed',          .not. cfg%nexp_decode_packed_set)
     call ok('mode still parsed (FT8)',  cfg%mode_set .and. cfg%mode .eq. 8)
   end subroutine frame_J

@@ -431,7 +431,10 @@ endif ()
 
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
-target_link_libraries (wsjt_cxx Boost::log_setup ${LIBM_LIBRARIES})
+target_include_directories (wsjt_cxx PRIVATE ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (wsjt_cxx
+  PUBLIC Boost::log_setup ${LIBM_LIBRARIES}
+  PRIVATE ${FFTW3F_LIBRARY})
 if (UNIX)
   include (CheckCXXSymbolExists)
   check_cxx_symbol_exists (shm_open "sys/mman.h" WSJT_SHM_OPEN_IN_LIBC)
@@ -441,7 +444,7 @@ if (UNIX)
     if (NOT WSJT_SHM_OPEN_IN_LIBRT)
       message (FATAL_ERROR "POSIX shared memory requires shm_open in libc or librt")
     endif ()
-    target_link_libraries (wsjt_cxx rt)
+    target_link_libraries (wsjt_cxx PUBLIC rt)
   endif ()
 endif ()
 
@@ -566,6 +569,9 @@ add_executable(wsprd
   $<TARGET_OBJECTS:wsjt_wspr>
   lib/indexx.f90
   lib/wsprd/osdwspr.f90
+  # Without OpenMP flags: wsprd decodes on one thread (wsjt-codec takes the
+  # OpenMP build of the same file from wsjt_fort_omp).
+  lib/wsprd/wspr_parallel.f90
 )
 
 if(WIN32)
@@ -1214,7 +1220,8 @@ wsjt_enable_qt_automoc (wsjtx)
 target_sources (wsjtx PRIVATE widgets/mainwindow_qso.cpp)
 
 if (WSJT_ENABLE_TESTS)
-  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp WaitFeaturesApplicationTestController.cpp
+  target_sources (wsjtx PRIVATE widgets/mainwindow_qso_test.cpp widgets/mainwindow_fox_hound_test.cpp
+    WaitFeaturesApplicationTestController.cpp
     OperatingBandApplicationTestController.cpp)
   target_compile_definitions (wsjtx PRIVATE WSJT_ENABLE_LIVE_AUDIO_TEST=1)
   add_test (NAME test_wsjtx_best_sp
@@ -1276,6 +1283,8 @@ set_target_properties (wsjtx PROPERTIES
   )
 
 target_include_directories (wsjtx PRIVATE ${FFTW3_INCLUDE_DIRS})
+# Static Qt consumers must precede the selected Fortran archive.
+target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 # On macOS the app links the non-OpenMP variant while jt9 carries the GNU
 # OpenMP runtime separately; this keeps Apple Clang libomp out of the bundle.
 if ((NOT WSJT_BUILD_FORTRAN_OPENMP) OR APPLE)
@@ -1287,7 +1296,6 @@ else ()
       LINK_FLAGS " -Wl,--stack,0x1000000,--heap,0x20000000")
   endif ()
 endif ()
-target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 if (WSJT_ENABLE_TSAN)
   target_compile_definitions (wsjtx PRIVATE WSJT_TSAN_TEST_PROFILE)
@@ -1368,6 +1376,12 @@ if (WSJT_ENABLE_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSS
 endif ()
 
 if (WSJT_ENABLE_TESTS AND WSJT_ENABLE_GUI_SMOKE_TESTS)
+  add_test (NAME test_wsjtx_fox_hound_exchange
+    COMMAND $<TARGET_FILE:wsjtx> --fox-hound-exchange-test fox --rig-name CTEST-FOX)
+  set_tests_properties (test_wsjtx_fox_hound_exchange PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-test_fox"
+    LABELS "gui;qso;ft8;integration" PROCESSORS 3 TIMEOUT 90)
+
   foreach (profile IN ITEMS automatic prompt disabled automatic-keep prompt-keep disabled-keep
       automatic-keep-call automatic-keep-grid)
     set (qso_test_root "${CMAKE_BINARY_DIR}/Testing/QsoCompletion/${profile}")

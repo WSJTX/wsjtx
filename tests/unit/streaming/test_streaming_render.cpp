@@ -417,20 +417,20 @@ private slots:
     QStringList const jt65Options {"--jt65", "-b", "B", "-f", "1700", "-d"};
     row ("jt65", {"JT65/JT65B/000000_0004.wav"}, jt65Options + QStringList {"3"}, 60, with (jt65, {{"depth", 3}}));
     row ("jt65-seq", jt65Files, jt65Options + QStringList {"3"}, 60, with (jt65, {{"depth", 3}}));
-    row ("jt65-seq-avg", jt65Files, jt65Options + QStringList {"51"}, 60, with (jt65, {{"depth", 51}}));
+    // Without VHF features WSJT-X hides averaging and deep search, and its
+    // decode clears their bits (MainWindow::decode): the decoder runs at 3.
+    row ("jt65-seq-avg", jt65Files, jt65Options + QStringList {"3"}, 60, with (jt65, {{"depth", 51}}));
     // JT65 averages odd and even minutes apart by an HHMM label, whichever form comes in.
-    row ("jt65-seq-avg-utc", jt65Files, jt65Options + QStringList {"51"}, 60, with (jt65, {{"depth", 51}}),
-         false, false, true);
+    row ("jt65-seq-avg-utc", jt65Files, jt65Options + QStringList {"51", "-X", "64"}, 60,
+         with (jt65, {{"depth", 51}, {"vhf_features", true}}), false, false, true);
     row ("jt65-seq-vhf-avg", jt65Files, jt65Options + QStringList {"51", "-X", "64"}, 60,
          with (jt65, {{"depth", 51}, {"vhf_features", true}}));
-    row ("jt65jt9", {"JT65/JT65B/000000_0004.wav"}, jt65Options + QStringList {"3"}, 60,
-         {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"submode", 1}, {"rxfreq", 1700}, {"depth", 3}});
     row ("jt4f", {"JT4/JT4F/OK1KIR_141105_175700.WAV"}, {"--jt4", "-b", "F", "-f", "1200", "-d", "3"}, 60,
          {{"mode", "JT4"}, {"submode", 5}, {"rxfreq", 1200}, {"depth", 3}, {"ntol", 20}});
     row ("jt4a", {"JT4/JT4A/DF2ZC_070926_040700.WAV"}, {"--jt4", "-b", "A", "-d", "3"}, 60,
          {{"mode", "JT4"}, {"submode", 0}, {"depth", 3}, {"ntol", 20}});
-    row ("jt4a-avg", {"JT4/JT4A/DF2ZC_070926_040700.WAV"}, {"--jt4", "-b", "A", "-d", "51"}, 60,
-         {{"mode", "JT4"}, {"submode", 0}, {"depth", 51}, {"ntol", 20}});
+    row ("jt4a-avg", {"JT4/JT4A/DF2ZC_070926_040700.WAV"}, {"--jt4", "-b", "A", "-d", "51", "-X", "64"}, 60,
+         {{"mode", "JT4"}, {"submode", 0}, {"depth", 51}, {"ntol", 20}, {"vhf_features", true}});
     QJsonObject const q65_30 {{"mode", "Q65"}, {"trperiod", 30}, {"rxfreq", 1000}};
     QStringList const q65_30Options {"--q65", "-p", "30", "-f", "1000", "-d"};
     auto const q65Seq30 = range (q65 + "30A_Ionoscatter_6m/201203_02%1.wav", {"2700", "2800", "2900"});
@@ -441,8 +441,8 @@ private slots:
     QJsonObject const k9anKeys {{"mycall", "K1JT"}, {"his_call", "K9AN"}, {"qso_progress_state", 2}};
     row ("q65-30a-seq", q65Seq30, q65_30Options + QStringList {"3"} + k9an, 30,
          with (with (q65_30, {{"depth", 3}}), k9anKeys));
-    row ("q65-30a-seq-avg", q65Seq30, q65_30Options + QStringList {"19"} + k9an, 30,
-         with (with (q65_30, {{"depth", 19}}), k9anKeys));
+    row ("q65-30a-seq-avg", q65Seq30, q65_30Options + QStringList {"19", "-X", "64"} + k9an, 30,
+         with (with (q65_30, {{"depth", 19}, {"vhf_features", true}}), k9anKeys));
     // jt9 decodes Q65 at 60 s after a 2.5 s EME delay, the GUI with "Decode after EME delay".
     row ("q65-30a-ap", {q65 + "30A_Ionoscatter_6m/201203_024000.wav"},
          q65_30Options + QStringList {"3", "-c", "K1JT", "-x", "K9AN", "-Q", "2"}, 30,
@@ -451,9 +451,9 @@ private slots:
          {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 0}, {"rxfreq", 1000}, {"depth", 3},
           {"decode_after_eme_delay", true}});
     row ("q65-60b-seq-avg", range (q65 + "60B_1296_Troposcatter/210109_%1.wav", {"0007", "0147", "0151"}),
-         {"--q65", "-b", "B", "-p", "60", "-f", "1000", "-d", "19"}, 60,
+         {"--q65", "-b", "B", "-p", "60", "-f", "1000", "-d", "19", "-X", "64"}, 60,
          {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 1}, {"rxfreq", 1000}, {"depth", 19},
-          {"decode_after_eme_delay", true}});
+          {"decode_after_eme_delay", true}, {"vhf_features", true}});
     row ("q65-60d", {q65 + "60D_EME_10GHz/201212_1838.wav"}, {"--q65", "-b", "D", "-p", "60", "-f", "1000", "-d", "3"},
          60, {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 3}, {"rxfreq", 1000}, {"depth", 3},
               {"decode_after_eme_delay", true}});
@@ -462,8 +462,9 @@ private slots:
          {{"mode", "Q65"}, {"trperiod", 120}, {"submode", 3}, {"rxfreq", 1000}, {"depth", 3}});
     // No settings tried decode these two; the row compares the counts only.
     row ("q65-120e-seq-avg-counts", range (q65 + "120E_Ionoscatter_6m/210130_%1.wav", {"1438", "1442"}),
-         {"--q65", "-b", "E", "-p", "120", "-f", "1000", "-d", "19"}, 120,
-         {{"mode", "Q65"}, {"trperiod", 120}, {"submode", 4}, {"rxfreq", 1000}, {"depth", 19}});
+         {"--q65", "-b", "E", "-p", "120", "-f", "1000", "-d", "19", "-X", "64"}, 120,
+         {{"mode", "Q65"}, {"trperiod", 120}, {"submode", 4}, {"rxfreq", 1000}, {"depth", 19},
+          {"vhf_features", true}});
     row ("q65-300a", {q65 + "300A_Optical_Scatter/201210_0505.wav"}, {"--q65", "-p", "300", "-f", "1000", "-d", "3"},
          300, {{"mode", "Q65"}, {"trperiod", 300}, {"rxfreq", 1000}, {"depth", 3}});
     row ("fst4", {"FST4+FST4W/210115_0058.wav"},
@@ -723,7 +724,8 @@ private slots:
     // again: the clear comes with a decode again of the period before, and
     // clearOff in a frame of its own after it.
     auto const session = [&] (int clearAt, int clearOffAt, bool again = false) {
-      QJsonObject const keys {{"mode", "JT65"}, {"submode", 1}, {"rxfreq", 1700}, {"ntol", 20}, {"depth", 19}};
+      QJsonObject const keys {{"mode", "JT65"}, {"submode", 1}, {"rxfreq", 1700}, {"ntol", 20}, {"depth", 19},
+                              {"vhf_features", true}};
       auto input = sessionHeader ();
       for (int n = 1; n <= periods.size (); ++n)
         {
@@ -751,11 +753,13 @@ private slots:
       decodes.removeLast ();
       return decodes;
     };
-    // Period 4 decodes alone and from the average, period 6 likewise.
+    // Period 4 decodes alone and from the average, period 6 likewise; with
+    // VHF features, without which WSJT-X does not average, each period
+    // decodes alone.
     auto const none = session (0, 0);
-    QCOMPARE (none, (QList<int> {0, 0, 2, 2, 1, 2}));
+    QCOMPARE (none, (QList<int> {1, 1, 1, 2, 1, 2}));
     auto const cleared = session (4, 0);
-    QCOMPARE (cleared, (QList<int> {0, 0, 2, 1, 0, 2}));
+    QCOMPARE (cleared, (QList<int> {1, 1, 1, 1, 1, 2}));
     QCOMPARE (session (4, 5), cleared);
     // A decode again takes the clear: the next period is not cleared.
     auto const clearedAgain = session (5, 0, true);
@@ -779,7 +783,7 @@ private slots:
       }
     auto const session = [&] (int clearAt, int clearOffAt) {
       QJsonObject const keys {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 1}, {"rxfreq", 1000}, {"depth", 19},
-                              {"decode_after_eme_delay", true}};
+                              {"decode_after_eme_delay", true}, {"vhf_features", true}};
       auto input = sessionHeader ();
       for (int n = 1; n <= periods.size (); ++n)
         {
@@ -853,6 +857,219 @@ private slots:
           QVERIFY2 (!event.contains ("pass"), blocks.out.constData ());
         }
     QVERIFY2 (decodes > 1, blocks.out.constData ());
+  }
+
+  // The stream sends the decodes WSJT-X shows: its line plan
+  // (DecodeOutputPlan::prepareLine) rejects a suspicious low-SNR decode with
+  // no special activity, and with Reduce false decodes a suspicious FT8
+  // shape, as false decodes. The codec returns rx_messages.txt's lines as its
+  // FT8 decodes, 64 columns as jt9's FT8 line (a 37-column message with the
+  // low-confidence ? in its last, then the AP mark), so the lines below, each
+  // with its rule in a comment, reach the codec's emit path as decodes; the
+  // expected lines are those the GUI's own plan keeps. Each row's contrast,
+  // another activity or the setting off, keeps more of them.
+  void rejectsWhatWsjtxRejects_data ()
+  {
+    QTest::addColumn<QJsonObject> ("rejecting");
+    QTest::addColumn<QJsonObject> ("contrast");
+    QTest::newRow ("suspicious low snr") << QJsonObject {} << QJsonObject {{"contest_type", "na_vhf"}};
+    QTest::newRow ("reduce false decodes") << QJsonObject {{"reduce_false_decodes", true}}
+                                           << QJsonObject {{"reduce_false_decodes", false}};
+  }
+
+  void rejectsWhatWsjtxRejects ()
+  {
+    auto const samples = qEnvironmentVariable ("WSJT_SAMPLES_DIR");
+    if (samples.isEmpty ()) QSKIP ("run with WSJT_SAMPLES_DIR, by test_streaming_render_false_decodes_*");
+    QFETCH (QJsonObject, rejecting);
+    QFETCH (QJsonObject, contrast);
+    QStringList const lines {
+      "133430 -15  0.3 1200 ~  <K1ABC> <W9XYZ> -10",       // two hashed calls below -12
+      "133430 -12  0.3 1210 ~  <K1ABC> <W9XYZ> -11",       // the same at -12: kept
+      "133430 -13  0.3 1220 ~  K1ABC/P W9XYZ/P -12",       // both portable
+      "133430 -13  0.3 1230 ~  K1ABC/R W9XYZ/R -13",       // both rovers
+      "133430 -13  0.3 1240 ~  K1ABC RR73; W9XYZ R -14",   // dual with R
+      "133430 -13  0.3 1250 ~  TU; K1ABC W9XYZ R 579 MA",  // TU; is not dual: kept
+      "133430 -13  0.3 1260 ~  K1A/R W9X 73?",             // ? after a report shape: low confidence, a rover
+      "133430 -13  0.3 1270 ~  K2A W9X 73?",               // low confidence, no rover: kept
+      "133430 -21  2.1 1300 ~  K1ABC W9XYZ -15",           // late, below -20
+      "133430 -16  0.3 1310 ~  K1ABCDEFG W9XYZ -16",       // eight letters and digits, below -15
+      "133430 -19  0.3 1320 ~  K1ABC W9XYZ/R -17",         // a rover, below -18
+      "133430 -15  1.9 1330 ~  K1ABC W9XYZ -18",           // not late: kept
+      "133430 -17  2.0 1340 ~  CQ K2ABC FN42",             // late at 2.0, below -15
+      "133430 -16  0.3 1350 ~  K1ABC 123 456",             // digits 3 and 3, below -15
+      "133430 -18  2.4 1360 ~  <...> W9XYZ -19",           // late, unresolved
+      "133430 -10  2.4 1370 ~  TNX BOB 73 GL                       ? a1",  // late, the ? in column 37 (only there for text) with an AP mark
+      "133430 -10  2.4 1380 ~  TNX BOB 73 GL                       ?",     // late, the ? with no AP mark: kept
+      "133430 -10  2.4 1390 ~  TNX BOB 73 GL                         a1",  // late, an AP mark with no ?: kept
+      "133430  -5  0.1 1400 ~  K1ABC W9XYZ FN42",          // kept
+    };
+    auto const ft8 = readWav (samples + "/FT8/210703_133430.wav");
+    QVERIFY (ft8.rate == 12000);
+    auto const session = [&] (QJsonObject const& keys, QStringList& sent, QStringList& shown) {
+      QTemporaryDir directory;
+      QVERIFY (directory.isValid ());
+      QFile messages {directory.filePath ("rx_messages.txt")};
+      QVERIFY (messages.open (QIODevice::WriteOnly));
+      messages.write ((lines.join ('\n') + '\n').toLatin1 ());
+      messages.close ();
+      QJsonObject settings {{"mode", "FT8"}, {"utc", "13:34:30"}, {"depth", 3}};
+      for (auto it = keys.begin (); it != keys.end (); ++it) settings.insert (it.key (), it.value ());
+      auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+                              {"-a", directory.path (), "-t", directory.path (), "-r",
+                               qEnvironmentVariable ("WSJT_SHARE_DIR")},
+                              sessionHeader () + configure (settings) + audio (ft8.samples), directory.path ());
+      QVERIFY2 (codec.ok, codec.err.constData ());
+      for (auto const& event : eventsOf (codec.out))
+        if (event.value ("t").toString () == "decode") sent << lineOf (decodeOf (event));
+      // The GUI's plan for a file's decodes in the session's settings.
+      DecodeOutputPlan::PreparationContext context;
+      context.mode = "FT8";
+      context.myCall = "K1JT";
+      context.diskData = true;
+      context.specOp = keys.value ("contest_type").toString () == "na_vhf" ? SpecialOperatingActivity::NA_VHF
+                                                                          : SpecialOperatingActivity::NONE;
+      context.reduceFalseDecodes = keys.value ("reduce_false_decodes").toBool ();
+      for (auto const& line : lines)
+        if (DecodeOutputPlan::LineDisposition::Decode
+            == DecodeOutputPlan::prepareLine (line.toLatin1 (), context).disposition)
+          shown << line;
+    };
+    QStringList sent, shown;
+    session (rejecting, sent, shown);
+    if (QTest::currentTestFailed ()) return;
+    QVERIFY2 (shown.size () < lines.size (), qPrintable (shown.join ('\n')));
+    QCOMPARE (sent, shown);
+    QStringList kept, more;
+    session (contrast, kept, more);
+    if (QTest::currentTestFailed ()) return;
+    QVERIFY2 (more.size () > shown.size (), qPrintable (more.join ('\n')));
+    QCOMPARE (kept, more);
+  }
+
+  // WSJT-X's line plan rejects an a7 decode from live audio in a special
+  // activity unless it carries R, RR73 or CQ, and any a7 decode from live
+  // audio for 1.5 periods after a band change or a mode set up
+  // (no_a7_decodes, widgets/mainwindow_band.cpp), but never one from a file,
+  // nor while its Active Stations window shows the decodes' points. The
+  // lines come as in rejectsWhatWsjtxRejects, an aN after a short message
+  // being its AP mark, in two live periods sent at once, so each pass is
+  // timed by its audio: a7_hold at the start, or a configure with mode (a
+  // mode set up), holds period 0's pass, at 11.8 s, and not period 1's, at
+  // 26.8 s; a7_hold after period 0's audio, at 15 s, holds period 1's and
+  // not period 0's; both hold both, the second starting the 1.5 periods
+  // again at 15 s as the GUI restarts m_bandApTimer. In ARRL Digi the points
+  // display stays on once the window has been opened
+  // (MainWindow::readFromStdout's bDisplayPoints): closes sends
+  // active_stations false after the keys. The expected lines are those the
+  // GUI's own plan keeps, period by period.
+  void rejectsA7AsWsjtx_data ()
+  {
+    QTest::addColumn<QJsonObject> ("rejecting");
+    QTest::addColumn<QJsonObject> ("contrast");
+    QTest::addColumn<int> ("holds");   // bit p: an a7_hold comes before period p
+    QTest::addColumn<bool> ("closes");
+    QJsonObject const live {{"live_audio", true}};
+    QJsonObject const activity {{"live_audio", true}, {"contest_type", "na_vhf"}};
+    QJsonObject const arrl {{"live_audio", true}, {"contest_type", "arrl_digi"}};
+    QJsonObject const points {{"live_audio", true}, {"active_stations", true}};
+    QTest::newRow ("hold") << live << points << 1 << false;
+    QTest::newRow ("activity") << activity << QJsonObject {{"live_audio", false}, {"contest_type", "na_vhf"}}
+                               << 1 << false;
+    QTest::newRow ("mode") << QJsonObject {{"live_audio", true}, {"mode", "FT8"}} << live << 0 << false;
+    QTest::newRow ("hold after audio") << live << points << 2 << false;
+    QTest::newRow ("hold restarted") << live << points << 3 << false;
+    QTest::newRow ("arrl digi closed") << arrl << QJsonObject {{"live_audio", true}, {"contest_type", "arrl_digi"},
+                                                               {"active_stations", true}}
+                                       << 0 << true;
+  }
+
+  void rejectsA7AsWsjtx ()
+  {
+    auto const samples = qEnvironmentVariable ("WSJT_SAMPLES_DIR");
+    if (samples.isEmpty ()) QSKIP ("run with WSJT_SAMPLES_DIR, by test_streaming_render_a7_*");
+    QFETCH (QJsonObject, rejecting);
+    QFETCH (QJsonObject, contrast);
+    QFETCH (int, holds);
+    QFETCH (bool, closes);
+    QStringList const lines {
+      "133430 -10  0.3 1200 ~  K1ABC W9XYZ -10 a7",      // a7, no exemption
+      "133430 -10  0.3 1210 ~  K1ABC W9XYZ R-11 a7",     // R-11 is not R
+      "133430 -10  0.3 1220 ~  K1ABC W9XYZ RR73 a7",     // RR73
+      "133430 -10  0.3 1230 ~  CQ W9XYZ EN37 a7",        // CQ
+      "133430 -10  0.3 1240 ~  K1ABC W9XYZ R EN37 a7",   // R
+      "133430 -10  0.3 1250 ~  K1ABC W9XYZ -12",         // no AP mark
+      "133430 -10  0.3 1260 ~  K1ABC W9XYZ -13 a1",      // another AP mark
+    };
+    auto const ft8 = readWav (samples + "/FT8/210703_133430.wav");
+    QVERIFY (ft8.rate == 12000);
+    // Each period's lines sent, and those the GUI shows.
+    auto const session = [&] (QJsonObject const& keys, QList<QStringList>& sent, QList<QStringList>& shown) {
+      QTemporaryDir directory;
+      QVERIFY (directory.isValid ());
+      QFile messages {directory.filePath ("rx_messages.txt")};
+      QVERIFY (messages.open (QIODevice::WriteOnly));
+      messages.write ((lines.join ('\n') + '\n').toLatin1 ());
+      messages.close ();
+      // FT8 at 15 s from the start, with no hold from a mode set up unless
+      // the keys carry mode.
+      QJsonObject settings {{"utc", "13:34:30"}, {"depth", 3}};
+      for (auto it = keys.begin (); it != keys.end (); ++it) settings.insert (it.key (), it.value ());
+      auto input = sessionHeader () + configure (settings);
+      if (closes) input += configure ({{"active_stations", false}});
+      if (holds & 1) input += configure ({{"a7_hold", true}});
+      input += audio (ft8.samples) + configure ({{"utc", "13:34:45"}});
+      if (holds & 2) input += configure ({{"a7_hold", true}});
+      input += audio (ft8.samples);
+      auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE),
+                              {"-a", directory.path (), "-t", directory.path (), "-r",
+                               qEnvironmentVariable ("WSJT_SHARE_DIR")},
+                              input, directory.path ());
+      QVERIFY2 (codec.ok, codec.err.constData ());
+      sent = {{}};
+      for (auto const& event : eventsOf (codec.out))
+        {
+          if (event.value ("t").toString () == "decode") sent.last () << lineOf (decodeOf (event));
+          if (event.value ("t").toString () == "decode_finished") sent << QStringList {};
+        }
+      sent.removeLast ();
+      bool const fromFile = !keys.value ("live_audio").toBool ();
+      DecodeOutputPlan::PreparationContext context;
+      context.mode = "FT8";
+      context.myCall = "K1JT";
+      context.diskData = fromFile;
+      auto const activity = keys.value ("contest_type").toString ();
+      context.specOp = activity == "na_vhf" ? SpecialOperatingActivity::NA_VHF
+        : activity == "arrl_digi" ? SpecialOperatingActivity::ARRL_DIGI : SpecialOperatingActivity::NONE;
+      // The GUI's points display: its Active Stations window made, and in
+      // ARRL Digi or shown (FT8 here).
+      bool const made = keys.value ("active_stations").toBool ();
+      context.displayPoints = made && (SpecialOperatingActivity::ARRL_DIGI == context.specOp || !closes);
+      shown.clear ();
+      for (int period = 0; period < 2; ++period)
+        {
+          context.noA7Decodes = (holds >> period & 1) || (0 == period && keys.contains ("mode"));
+          shown << QStringList {};
+          for (auto const& line : lines)
+            if (DecodeOutputPlan::LineDisposition::Decode
+                == DecodeOutputPlan::prepareLine (line.toLatin1 (), context).disposition)
+              shown.last () << line;
+        }
+    };
+    // The period whose lines the rejecting keys cut.
+    int const cut = holds & 2 ? 1 : 0;
+    QList<QStringList> sent, shown;
+    session (rejecting, sent, shown);
+    if (QTest::currentTestFailed ()) return;
+    QVERIFY2 (shown[cut].size () < lines.size (), qPrintable (shown[cut].join ('\n')));
+    QCOMPARE (sent.size (), shown.size ());
+    for (int period = 0; period < shown.size (); ++period) QCOMPARE (sent[period], shown[period]);
+    QList<QStringList> kept, more;
+    session (contrast, kept, more);
+    if (QTest::currentTestFailed ()) return;
+    QVERIFY2 (more[cut].size () > shown[cut].size (), qPrintable (more[cut].join ('\n')));
+    QCOMPARE (kept.size (), more.size ());
+    for (int period = 0; period < more.size (); ++period) QCOMPARE (kept[period], more[period]);
   }
 };
 

@@ -3,8 +3,7 @@ set -euo pipefail
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/prefix/pfunit/cmake" "$fixture/prefix/hamlib/lib"
-touch "$fixture/prefix/pfunit/cmake/PFUNITConfig.cmake"
+mkdir -p "$fixture/prefix/hamlib/lib"
 touch "$fixture/prefix/hamlib/lib/libhamlib.a"
 
 # shellcheck source=.github/scripts/linux-ci-image-config.sh
@@ -57,8 +56,6 @@ write_manifest() {
     fi
     echo "hamlib_ref=$LINUX_HAMLIB_REF"
     echo "hamlib_commit=$hamlib_commit"
-    echo "pfunit_version=$LINUX_PFUNIT_VERSION"
-    echo "pfunit_commit=$LINUX_PFUNIT_COMMIT"
     echo "recipe_sha256=$recipe_sha"
   } > "$manifest"
 }
@@ -150,6 +147,46 @@ grep -qx 'ccache_compiler_check=mtime' "$output"
   grep -q 'compiler_major mismatch: expected 12, got 13' "$fixture/bookworm-rejection"
 )
 
+(
+  . .github/scripts/qt5-source-config.sh
+  recipe="$(.github/scripts/linux-ci-image-fingerprint.sh normal-jammy)"
+  compiler=gcc-12
+  compiler_version=12.3.0
+  ccache_compatibility_id=gcc12-v2
+  write_jammy_manifest() {
+    write_manifest
+    cat >> "$manifest" <<EOF
+image_profile=normal-jammy
+os_id=ubuntu
+os_version=22.04
+glibc_version=2.35
+cmake_version=3.22.1
+qt_version=$QT5_VERSION
+qt_source_sha256=$QT5_SOURCE_SHA256
+qt_core_sha256=$fftw_sha256
+EOF
+  }
+  write_jammy_manifest
+  WSJTX_CI_IMAGE_PROFILE=normal-jammy run_verify >/dev/null
+  if WSJTX_CI_IMAGE_PROFILE=normal-noble run_verify >/dev/null 2>&1; then
+    echo "Expected the Noble profile to reject a Jammy image" >&2
+    exit 1
+  fi
+  for invalid in qt_version=5.15.3 glibc_version=2.39 cmake_version=3.28.3 compiler_version=13.3.0; do
+    write_jammy_manifest
+    echo "$invalid" >> "$manifest"
+    if WSJTX_CI_IMAGE_PROFILE=normal-jammy run_verify >/dev/null 2>&1; then
+      echo "Expected Jammy verification to reject $invalid" >&2
+      exit 1
+    fi
+  done
+  write_manifest
+  if WSJTX_CI_IMAGE_PROFILE=normal-jammy run_verify >/dev/null 2>&1; then
+    echo "Expected the Jammy profile to reject an image without Jammy provenance" >&2
+    exit 1
+  fi
+)
+
 tsan_config_dir="$fixture/tsan-config"
 mkdir -p "$tsan_config_dir" "$fixture/prefix/tsan/boost-static/lib/cmake/Boost-$BOOST_VERSION"
 cp .github/scripts/verify-linux-ci-image.sh \
@@ -158,6 +195,7 @@ cp .github/scripts/verify-linux-ci-image.sh \
   .github/scripts/fftw-version.sh \
   .github/scripts/boost-version.sh \
   .github/scripts/tsan-linux-deps-config.sh \
+  .github/scripts/qt5-source-config.sh \
   "$tsan_config_dir/"
 cp .github/scripts/linux-ci-image-fingerprint.sh "$tsan_config_dir/"
 cat > "$tsan_config_dir/verify-tsan-deps-linux.sh" <<'EOF'

@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 PUBLIC = "ghcr.io/wsjtx/wsjtx"
 PRIVATE = "ghcr.io/wsjtx/wsjtx-internal"
 IMAGES = {
-    "x86_64": ("linux-noble", "normal-noble", "linux/amd64", "normal", "x86_64"),
+    "x86_64": ("linux-jammy", "normal-jammy", "linux/amd64", "normal", "x86_64"),
     "aarch64": ("linux-arm64-bookworm", "normal-bookworm", "linux/arm64", "normal", "aarch64"),
     "armhf_cross": ("linux-armhf-cross-bookworm", "armhf-cross-bookworm", "linux/amd64", "cross-builder", "armhf"),
     "armhf_runtime": ("linux-armv7-bookworm", "armhf-runtime-bookworm", "linux/arm/v7", "runtime", "armhf"),
@@ -102,6 +102,8 @@ def image_manifest(reference, spec, recipe, generation):
     command = ["docker", "run", "--rm", "--platform", platform, "--network", "none",
                "--mount", f"type=bind,source={root},target=/source,readonly", "--workdir", "/source",
                "-e", f"IMAGE_RECIPE_SHA256={recipe}"]
+    if role == "normal":
+        command += ["-e", f"WSJTX_CI_IMAGE_PROFILE={profile}"]
     if arch == "armhf":
         command += ["-e", f"ARMHF_DISTRO={profile.rsplit('-', 1)[1]}"]
     command.append(reference)

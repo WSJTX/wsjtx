@@ -9,7 +9,8 @@ module fst4_decode
    use packjt77, only: pack77_state,initialize_pack77_state,reset_pack77_state, &
       pack77_for_state,unpack77_for_state
    use, intrinsic :: iso_c_binding
-   use fftw3, only: fftwf_alloc_complex,fftwf_free,fftwf_plan_dft_r2c_1d,fftwf_plan_dft_1d, &
+   use fftw3, only: fftwf_alloc_complex,fftwf_free,fftwf_plan_dft_r2c_1d, &
+      wsjt_fftwf_plan_dft_1d_inplace, &
       fftwf_destroy_plan,fftwf_execute_dft_r2c,fftwf_execute_dft,FFTW_ESTIMATE,FFTW_FORWARD,FFTW_BACKWARD
    private
    public :: fst4_decoder,fst4_options,fst4_decode_callback,fst4_diagnostic_callback,fst4_spectrum_callback
@@ -472,8 +473,7 @@ contains
          if(.not.associated(this%baseband)) allocate(this%baseband(0:nfft2-1))
          !$omp critical(fftw)
          call wsjt_tsan_acquire_fftw()
-         ! in==out requests an intentional in-place FFTW transform.
-         this%baseband_plan=fftwf_plan_dft_1d(nfft2,this%baseband,this%baseband,FFTW_BACKWARD,this%fft_flags)
+         this%baseband_plan=wsjt_fftwf_plan_dft_1d_inplace(nfft2,c_loc(this%baseband(0)),FFTW_BACKWARD,this%fft_flags)
          call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%down_length=nfft2
@@ -1244,8 +1244,7 @@ contains
          !$omp critical(fftw)
          call wsjt_tsan_acquire_fftw()
          if(c_associated(this%dop_plan)) call fftwf_destroy_plan(this%dop_plan)
-         ! in==out requests an intentional in-place FFTW transform.
-         this%dop_plan=fftwf_plan_dft_1d(nfft,this%dopgain,this%dopgain,FFTW_FORWARD,this%fft_flags)
+         this%dop_plan=wsjt_fftwf_plan_dft_1d_inplace(nfft,c_loc(this%dopgain(0)),FFTW_FORWARD,this%fft_flags)
          call wsjt_tsan_release_fftw()
          !$omp end critical(fftw)
          this%dop_length=nfft

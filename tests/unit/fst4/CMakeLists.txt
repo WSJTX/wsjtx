@@ -11,3 +11,7 @@ target_include_directories (test_fst4_osd_depth PRIVATE ${CMAKE_BINARY_DIR})
 wsjt_link_common_fortran (test_fst4_osd_depth)
 
 add_test (NAME test_fst4_osd_depth COMMAND test_fst4_osd_depth)
+
+add_executable (test_fst4_osd_distance test_fst4_osd_distance.f90)
+wsjt_link_common_fortran (test_fst4_osd_distance)
+add_test (NAME test_fst4_osd_distance COMMAND test_fst4_osd_distance)

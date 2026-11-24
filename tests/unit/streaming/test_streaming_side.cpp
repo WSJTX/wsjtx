@@ -360,6 +360,17 @@ QStringList paths (QString const& directory)
   return {"-a", directory, "-t", directory, "-r", qEnvironmentVariable ("WSJT_SHARE_DIR")};
 }
 
+// The result files WSJT-X's decoder writes beside its lines in a directory
+// (lib/prog_args.f90's result_files), which the codec's stream
+// writes none of.
+QStringList resultFilesIn (QString const& directory)
+{
+  QStringList found;
+  for (auto const name : {"decoded.txt", "houndcallers.txt", "avemsg.txt", "red.dat", "q65_decodes.txt", "fort.77"})
+    if (QFile::exists (QDir {directory}.filePath (name))) found << name;
+  return found;
+}
+
 // jt9 on the first count periods, in a fresh directory of its own; dir keeps it.
 Run jt9On (QList<Period> const& periods, int count, QStringList const& options, QTemporaryDir& dir)
 {
@@ -543,21 +554,42 @@ bool foxModel (QList<Period> const& periods, bool multithreaded, QSet<int> const
   return true;
 }
 
+// A label's 30 s unit, the unit the decoder ages Fox callers in
+// (lib/ft8_engine_kernel.f90).
+int unitOf (QString utc)
+{
+  utc.remove (':');
+  return (3600 * utc.mid (0, 2).toInt () + 60 * utc.mid (2, 2).toInt () + utc.mid (4, 2).toInt ()) / 30;
+}
+
+// Whether a list is the file an attempt left unwritten: the list before it
+// again, from units later, every caller of which a rewrite would have aged
+// out (its age, the line's last field, plus units above 4).
+bool keptList (QStringList const& file, QStringList const& previous, int units)
+{
+  if (file.isEmpty () || file != previous || units <= 0) return false;
+  for (auto const& line : file)
+    if (line.right (3).trimmed ().toInt () + units <= 4) return false;
+  return true;
+}
+
 // Each fox_callers line, in order, against the file after the same pass
 // (in any order with the multithreaded decoder, whose threads report in any
 // order). A pass that ages out every caller writes no record and leaves the
-// last pass's lines in the file, while its line has none
-// (doc/codec/interface.md, "Side outputs and labels"): counted in stale.
-bool compareFoxPasses (QList<QJsonObject> const& events, QList<ModelPass> const& passes, bool anyOrder, int& stale,
+// last pass's lines in the file, which the GUI shows and the line carries
+// (doc/codec/interface.md, "Side outputs and labels"): counted in kept
+// (keptList).
+bool compareFoxPasses (QList<QJsonObject> const& events, QList<ModelPass> const& passes, bool anyOrder, int& kept,
                        QString& failure)
 {
-  stale = 0;
+  kept = 0;
   if (events.size () != passes.size ())
     {
       failure = QString {"%1 fox_callers lines, %2 passes in the model"}.arg (events.size ()).arg (passes.size ());
       return false;
     }
   QStringList previous;
+  QString previousUtc;
   for (int i = 0; i < events.size (); ++i)
     {
       auto sent = foxLines (events[i]);
@@ -574,14 +606,15 @@ bool compareFoxPasses (QList<QJsonObject> const& events, QList<ModelPass> const&
           sent.sort ();
           file.sort ();
         }
-      if (sent.isEmpty () && !file.isEmpty () && file == previous) ++stale;
-      else if (sent != file)
+      if (sent != file)
         {
           failure = QString {"pass %1 of %2\nline:\n"}.arg (passes[i].pass).arg (passes[i].utc) + show (sent)
             + "\nhoundcallers.txt:\n" + show (file);
           return false;
         }
+      if (!previousUtc.isEmpty () && keptList (file, previous, unitOf (passes[i].utc) - unitOf (previousUtc))) ++kept;
       previous = file;
+      previousUtc = passes[i].utc;
     }
   return true;
 }
@@ -628,27 +661,33 @@ Settings settingsOf (QString const& row)
 {
   QJsonObject const fox {{"mode", "FT8"}, {"contest_type", "fox"}, {"mycall", "K1ABC"}, {"mygrid", "FN42"},
                          {"ntol", 20}};
+  // WSJT-X's single-threaded Fox decode takes Rx 200, its multithreaded one
+  // the Rx Freq (MainWindow::decode). The codec starts at Rx 1500 and does
+  // likewise; jt9 gets the Rx WSJT-X's decode takes.
   QStringList const foxOptions {"-8", "-X", "6", "-c", "K1ABC", "-G", "FN42"};
-  if (row == "fox") return {"fox_callers", "fox", foxOptions, fox, 15};
+  if (row == "fox") return {"fox_callers", "fox", foxOptions + QStringList {"-f", "200"}, fox, 15};
   if (row == "fox mtd")
-    return {"fox_callers", "fox", foxOptions + QStringList {"-M", "-N", "2", "-D", "3"},
+    return {"fox_callers", "fox", foxOptions + QStringList {"-f", "1500", "-M", "-N", "2", "-D", "3"},
             with (fox, {{"multithreaded_ft8", true}, {"ft8_threads", 2}, {"ft8_decoder_start", 3}}), 15};
   if (row == "jt65 averages")
-    return {"averages", "jt65", {"--jt65", "-b", "B", "-f", "1700", "-d", "51"},
-            {{"mode", "JT65"}, {"submode", 1}, {"rxfreq", 1700}, {"ntol", 20}, {"depth", 51}}, 60};
+    return {"averages", "jt65", {"--jt65", "-b", "B", "-f", "1700", "-d", "51", "-X", "64"},
+            {{"mode", "JT65"}, {"submode", 1}, {"rxfreq", 1700}, {"ntol", 20}, {"depth", 51},
+             {"vhf_features", true}}, 60};
   if (row == "jt4 averages")
-    return {"averages", "jt4", {"--jt4", "-b", "A", "-f", "1000", "-d", "51"},
-            {{"mode", "JT4"}, {"submode", 0}, {"rxfreq", 1000}, {"ntol", 20}, {"depth", 51}}, 60};
+    return {"averages", "jt4", {"--jt4", "-b", "A", "-f", "1000", "-d", "51", "-X", "64"},
+            {{"mode", "JT4"}, {"submode", 0}, {"rxfreq", 1000}, {"ntol", 20}, {"depth", 51},
+             {"vhf_features", true}}, 60};
   if (row == "q65 sync averaged")
-    return {"q65_sync", "q65avg", {"--q65", "-b", "B", "-p", "60", "-f", "1000", "-d", "19"},
+    return {"q65_sync", "q65avg", {"--q65", "-b", "B", "-p", "60", "-f", "1000", "-d", "19", "-X", "64"},
             {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 1}, {"rxfreq", 1000}, {"depth", 19},
-             {"decode_after_eme_delay", true}}, 60};
+             {"decode_after_eme_delay", true}, {"vhf_features", true}}, 60};
   // A narrow window, so that the averaged curve's least value lies outside
   // the bins written: red.dat's first line takes it over all the bins.
   if (row == "q65 sync averaged narrow")
-    return {"q65_sync", "q65avg", {"--q65", "-b", "B", "-p", "60", "-f", "1000", "-d", "19", "-L", "900", "-H", "1100"},
+    return {"q65_sync", "q65avg", {"--q65", "-b", "B", "-p", "60", "-f", "1000", "-d", "19", "-L", "900", "-H", "1100",
+                                   "-X", "64"},
             {{"mode", "Q65"}, {"trperiod", 60}, {"submode", 1}, {"rxfreq", 1000}, {"depth", 19},
-             {"decode_after_eme_delay", true}, {"nfa", 900}, {"nfb", 1100}}, 60};
+             {"decode_after_eme_delay", true}, {"nfa", 900}, {"nfb", 1100}, {"vhf_features", true}}, 60};
   // NA VHF: Q65 contest 1, as jt9's -X 1.
   return {"q65_callers", "q65contest", {"-3", "-p", "30", "-X", "1", "-c", "K1ABC", "-f", "1500", "-d", "3"},
           {{"mode", "Q65"}, {"trperiod", 30}, {"rxfreq", 1500}, {"depth", 3}, {"mycall", "K1ABC"},
@@ -685,6 +724,10 @@ private slots:
     auto const codec = run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths (codecDir.path ()),
                             sessionInput (periods, s.keys, s.seconds), codecDir.path ());
     QVERIFY2 (codec.ok, codec.err.constData ());
+    // (i) On the stream the files are the client's: in its -a, -t and working
+    // directory the codec writes none of the result files jt9 writes below.
+    QVERIFY2 (resultFilesIn (codecDir.path ()).isEmpty (),
+              qPrintable ("the stream wrote " + resultFilesIn (codecDir.path ()).join (", ")));
     auto const events = eventsOf (codec.out);
     auto const split = byPeriod (events);
     QCOMPARE (split.size (), periods.size ());
@@ -694,7 +737,7 @@ private slots:
       QVERIFY2 (ofType (events, type).size () == (s.event == "fox_callers" ? passLines (codec.err) : periods.size ()),
                 qPrintable (QString {"%1 %2 events, %3 passes\n"}.arg (ofType (events, type).size ()).arg (type)
                             .arg (passLines (codec.err)) + codec.out));
-    int stale = 0;
+    int kept = 0;
     QStringList previousFile;
     for (int n = 0; n < periods.size (); ++n)
       {
@@ -710,6 +753,9 @@ private slots:
         QVERIFY (jt9Dir.isValid ());
         auto const jt9 = jt9On (periods, n + 1, s.jt9, jt9Dir);
         QVERIFY2 (jt9.ok, jt9.err.constData ());
+        // The control: jt9's decoder, on the same audio, writes them.
+        QVERIFY2 (resultFilesIn (jt9Dir.path ()).contains ("decoded.txt"),
+                  qPrintable ("jt9 wrote " + resultFilesIn (jt9Dir.path ()).join (", ")));
         for (auto const& type : types)
           {
             auto const ofPeriod = ofType (lines, type);
@@ -733,12 +779,13 @@ private slots:
                     file.sort ();
                     sent.sort ();
                   }
+                QVERIFY2 (sent == file, qPrintable (QString {"period %1\nevent:\n"}.arg (n + 1) + show (sent)
+                                                    + "\nhoundcallers.txt:\n" + show (file)));
                 // An attempt that ages out every caller writes no record and
-                // leaves the last list in the file, while its line has none
+                // leaves the last list in the file, which its line carries too
                 // (doc/codec/interface.md, "Side outputs and labels").
-                if (sent.isEmpty () && !file.isEmpty () && file == previousFile) ++stale;
-                else QVERIFY2 (sent == file, qPrintable (QString {"period %1\nevent:\n"}.arg (n + 1) + show (sent)
-                                                       + "\nhoundcallers.txt:\n" + show (file)));
+                if (n > 0 && keptList (file, previousFile, unitOf (periods[n].utc) - unitOf (periods[n - 1].utc)))
+                  ++kept;
                 previousFile = file;
               }
             else if (type == "averages")
@@ -776,17 +823,17 @@ private slots:
         QList<ModelPass> passes;
         QString failure;
         QVERIFY2 (foxModel (periods, row == "fox mtd", {}, passes, failure), qPrintable (failure));
-        int stalePasses = 0;
-        QVERIFY2 (compareFoxPasses (ofType (events, "fox_callers"), passes, row == "fox mtd", stalePasses, failure),
+        int keptPasses = 0;
+        QVERIFY2 (compareFoxPasses (ofType (events, "fox_callers"), passes, row == "fox mtd", keptPasses, failure),
                   qPrintable (failure));
         // The third period ages out every caller: at its first pass, and
         // with the multithreaded decoder's one pass, at the period's end too.
-        QCOMPARE (stalePasses, 1);
+        QCOMPARE (keptPasses, 1);
       }
     // Each row shows what it is for.
     auto const last = ofType (events, s.event).last ();
-    if (row == "fox mtd") QCOMPARE (stale, 1);
-    else if (s.event == "fox_callers") QCOMPARE (stale, 0);
+    if (row == "fox mtd") QCOMPARE (kept, 1);
+    else if (s.event == "fox_callers") QCOMPARE (kept, 0);
     if (s.event == "fox_callers")
       {
         QStringList calls;
@@ -875,6 +922,34 @@ private slots:
                                                                  + show (gui)));
   }
 
+  // A change of the receive frequency in JT65 clears the averages at the next
+  // decode, as WSJT-X's does (m_jt65ClearAveragesPending): the same events as
+  // clear_average at that place, and not those of no change.
+  void dialChangeClearsJt65Averages ()
+  {
+    auto const s = settingsOf ("jt65 averages");
+    QString reason;
+    auto const periods = periodsOf (s.set, reason);
+    if (periods.isEmpty ()) QSKIP (qPrintable (reason));
+    QVERIFY (periods.size () >= 2);
+    auto const runWith = [&] (QJsonObject const& atLast) {
+      auto copy = periods;
+      for (auto it = atLast.begin (); it != atLast.end (); ++it) copy.last ().keys.insert (it.key (), it.value ());
+      QTemporaryDir dir;
+      return run (QString::fromUtf8 (WSJT_CODEC_EXECUTABLE), paths (dir.path ()),
+                  sessionInput (copy, with (s.keys, {{"dial_frequency", 50276000}}), s.seconds), dir.path ());
+    };
+    auto const changed = runWith ({{"dial_frequency", 50276100}});
+    auto const cleared = runWith ({{"clear_average", true}});
+    auto const kept = runWith ({});
+    for (auto const* each : {&changed, &cleared, &kept}) QVERIFY2 (each->ok, each->err.constData ());
+    for (auto const type : {"decode", "averages", "decode_finished", "error"})
+      QVERIFY2 (ofType (eventsOf (changed.out), type) == ofType (eventsOf (cleared.out), type),
+                qPrintable (QString {type} + "\nchanged:\n" + changed.out + "\ncleared:\n" + cleared.out));
+    QVERIFY2 (ofType (eventsOf (kept.out), "averages") != ofType (eventsOf (cleared.out), "averages"),
+              qPrintable ("the clear changed no averages\n" + kept.out));
+  }
+
   // The GUI's Fox reset (its Reset button and a band change) deletes
   // houndcallers.txt between decodes, and the decoder then starts a new
   // caller list. fox_callers_clear does the same at the configure's place in
@@ -921,10 +996,10 @@ private slots:
     QList<ModelPass> passes;
     QString failure;
     QVERIFY2 (foxModel (periods, false, clear ? QSet<int> {1} : QSet<int> {}, passes, failure), qPrintable (failure));
-    int stale = 0;
-    QVERIFY2 (compareFoxPasses (ofType (eventsOf (codec.out), "fox_callers"), passes, false, stale, failure),
+    int kept = 0;
+    QVERIFY2 (compareFoxPasses (ofType (eventsOf (codec.out), "fox_callers"), passes, false, kept, failure),
               qPrintable (failure));
-    QCOMPARE (stale, 0);
+    QCOMPARE (kept, 0);
     // The clear empties the list the second period adds to; without it the
     // first period's callers stay.
     QCOMPARE (sent[0].size (), 2);
@@ -981,7 +1056,7 @@ private slots:
   {
     QTest::addColumn<QString> ("row");
     for (auto const row : {"jt4 A then F", "q65 A then D", "jt65 B", "jt9 A then fast E then fast H",
-                           "msk144 15 then 30", "jt65jt9 JT65 lines only", "ft8 none"})
+                           "msk144 15 then 30", "ft8 none"})
       QTest::newRow (row) << QString {row};
   }
 
@@ -1046,15 +1121,6 @@ private slots:
                                                        {"ntol", 50}, {"depth", 3}, {"utc", "12:05:00"}}), "", 15}
               << Step {cut (pcm, 30), {{"trperiod", 30}, {"utc", "12:05:30"}}, "", 30};
       }
-    // JT65+JT9's JT65 decoder decodes with the submode (lib/decoder.f90, mode65
-    // in lib/jt65_decode.f90), its JT9 decoder without one: JT65 lines carry
-    // it, JT9 lines do not (checked by mode below).
-    else if (row == "jt65jt9 JT65 lines only")
-      steps << Step {cut (sample ("JT65/JT65B/000000_0004.wav"), 60),
-                     with (settings, {{"mode", "JT65+JT9"}, {"tx_mode", "JT9"}, {"submode", 1}, {"rxfreq", 1700},
-                                      {"depth", 3}, {"utc", "00:04:00"}}), "B", 0, "JT65"}
-            << Step {cut (sample ("JT9/130418_1742.wav"), 60),
-                     {{"jt65_jt9_split_hz", 1000}, {"utc", "17:42:00"}}, "B", 0, "JT9"};
     else
       steps << Step {cut (sample ("FT8/210703_133430.wav"), 15),
                      with (settings, {{"mode", "FT8"}, {"depth", 3}, {"utc", "13:34:30"}}), "", 0};
@@ -1085,8 +1151,7 @@ private slots:
             ++decodes;
             if (event.value ("mode").toString () == steps[n].needs) ++needed;
             auto const line = QJsonDocument {event}.toJson (QJsonDocument::Compact);
-            auto const submode = row.startsWith ("jt65jt9") && event.value ("mode").toString () == "JT9"
-              ? QString {} : steps[n].submode;
+            auto const submode = steps[n].submode;
             if (submode.isEmpty ()) QVERIFY2 (!event.contains ("submode"), line.constData ());
             else QVERIFY2 (event.value ("submode").toString () == submode, line.constData ());
             if (steps[n].period) QVERIFY2 (event.value ("period").toInt () == steps[n].period, line.constData ());

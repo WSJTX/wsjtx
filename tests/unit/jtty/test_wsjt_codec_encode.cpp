@@ -370,11 +370,19 @@ void checkProtocol (Run& run)
               else
                 {
                   bool const rendered = type == "rendered";
-                  if (event.keys () != QStringList {"id", "segments", "substituted", "t", "v"}
+                  auto const open = event.value ("open").toObject ();
+                  int const columns = open.value ("columns").toInt (-1);
+                  if (event.keys () != QStringList {"id", "open", "segments", "substituted", "t", "v"}
                       || !event.value ("substituted").isBool ())
                     problem = type + "'s members are not the documented ones";
                   else if (event.value ("segments").toInt (-1) != reply.segments.size () || reply.segments.isEmpty ())
                     problem = type + " counts other than the segments sent";
+                  else if (open.keys () != QStringList {"columns", "separator"} || !open.value ("separator").isBool ()
+                           || columns < 0 || columns > 59)
+                    problem = type + "'s open is not {\"columns\":N,\"separator\":B} with N from 0 to 59";
+                  else if (reply.segments.last ().value ("final").toBool ()
+                           != (columns == 0 && !open.value ("separator").toBool ()))
+                    problem = type + "'s open does not match its last segment";
                   for (auto const& segment : reply.segments)
                     if (segment.contains ("samples") != rendered) problem = "samples in a pack, or none in a render";
                 }
@@ -477,6 +485,66 @@ Run roundTrip (QByteArray const& requests, qint64 renderId)
       auto const reply = sent.replies.value (renderId);
       done = !reply.terminal.isEmpty ();
       if (done) pcm = allPcm (reply);
+    }
+  process.write (silence (LeadSamples) + audio (pcm) + silence (FrameSamples) + control (R"({"t":"halt"})"));
+  process.closeWriteChannel ();
+  finish (process, run, output);
+  return run;
+}
+
+// configure, then each render of renders in turn, carrying the open message
+// the reply before it returns, then their audio back to back (after "pause"
+// frame periods of silence where a render names one, a key the test strips),
+// sent back as audio with LeadSamples of silence before it and a frame
+// after, then halt.
+Run chainTrip (QJsonArray const& renders)
+{
+  Run run;
+  if (!dataDirectory ().isValid ()) return run;
+  QProcess process;
+  startCodec (process);
+  run.started = process.waitForStarted (5000);
+  if (!run.started) return run;
+  process.write (header () + control (R"({"t":"configure","mode":"JTTY","mycall":"K1ABC"})"));
+  QByteArray output;
+  QByteArray pcm;
+  QJsonObject open;
+  for (auto const& value : renders)
+    {
+      auto object = value.toObject ();
+      auto const pause = object.take ("pause").toInt ();
+      pcm += QByteArray (2 * pause * FrameSamples, '\0');
+      if (!open.isEmpty ()) object.insert ("open", open);
+      auto const id = qint64 (object.value ("id").toDouble ());
+      process.write (request (render (object, 12000, 1500)));
+      for (bool done = false; !done;)
+        {
+          if (!process.waitForReadyRead (ProcessTimeoutMs))
+            {
+              run.timedOut = true;
+              process.kill ();
+              process.waitForFinished (5000);
+              return run;
+            }
+          output += process.readAllStandardOutput ();
+          Run sent;
+          sent.lines = outputLines (output.left (output.lastIndexOf ('\n') + 1));
+          checkProtocol (sent);
+          if (!sent.error.isEmpty () && !sent.error.startsWith ("the output ends inside a reply"))
+            {
+              process.kill ();
+              process.waitForFinished (5000);
+              run.error = sent.error;
+              return run;
+            }
+          auto const reply = sent.replies.value (id);
+          done = !reply.terminal.isEmpty ();
+          if (done)
+            {
+              pcm += allPcm (reply);
+              open = reply.terminal.value ("open").toObject ();
+            }
+        }
     }
   process.write (silence (LeadSamples) + audio (pcm) + silence (FrameSamples) + control (R"({"t":"halt"})"));
   process.closeWriteChannel ();
@@ -678,7 +746,8 @@ private Q_SLOTS:
     QCOMPARE (qint64 (reply.segments[0].value ("samples").toDouble ()), qint64 (tones.size ()) * Nsps * rate / 12000);
     QVERIFY2 (allPcm (reply) == guiAudio (tones, rate, freq), "the PCM differs from the GUI's rendering");
     QCOMPARE (reply.terminal, (QJsonObject {{"v", 1}, {"t", "rendered"}, {"id", 5}, {"segments", 1},
-                                            {"substituted", false}}));
+                                            {"substituted", false},
+                                            {"open", QJsonObject {{"columns", 0}, {"separator", false}}}}));
   }
 
   // 16384 samples a line but the last; base64 padding as each line's byte
@@ -818,8 +887,9 @@ private Q_SLOTS:
       }
   }
 
-  // A line longer than a segment is one message: only its last segment ends it.
-  // A segment that does not encode refuses the request rather than being cut shorter.
+  // A line is cut into segments as it was, and each ends its message where the
+  // next would pass the receiver's 80 columns. A segment that does not encode
+  // (twenty exchanges, more than 16 frames) is cut shorter as a complete message.
   void longTextIsSegmented ()
   {
     QStringList pairs;
@@ -834,16 +904,22 @@ private Q_SLOTS:
     CHECK_RUN (run);
     auto const line = run.replies.value (1);
     QCOMPARE (member (line, "canonical"), longLineCanonicals);
-    QCOMPARE (member (line, "final"), (QStringList {"false", "false", "true"}));
+    QCOMPARE (member (line, "final"), (QStringList {"true", "true", "true"}));
     QCOMPARE (member (line, "substituted"), (QStringList {"false", "false", "true"}));
     QCOMPARE (line.terminal.value ("substituted").toBool (), true);
     QCOMPARE (line.segments[0].value ("text").toString (),
               QString {"Thanks for the QSO, Bob.  Rig here is a home-brew transceiver running 5 watts"});
     QCOMPARE (line.segments[2].value ("text").toString (), QString {"work you again on JTTY soon # 73 and good DX!"});
     QCOMPARE (member (run.replies.value (2), "canonical"), (QStringList {QString (80, 'X'), "XXXXX Y"}));
-    QVERIFY (run.replies.value (3).segments.isEmpty ());
-    QCOMPARE (run.replies.value (3).terminal, rejected (3, "encoding_failed", {}, "the text cannot be encoded"));
-    QCOMPARE (member (run.replies.value (4), "final"), (QStringList {"false", "false", "false"}));
+    QCOMPARE (member (run.replies.value (2), "final"), (QStringList {"true", "true"}));
+    QCOMPARE (member (run.replies.value (3), "canonical"),
+              (QStringList {"599 001 599 002 599 003 599 004 599 005 599 006 599 007 599 008 599 009 599 010",
+                            "599 011 599 012 599 013 599 014 599 015 599 016 599 017 599 018 599 019 599 020"}));
+    QCOMPARE (member (run.replies.value (3), "final"), (QStringList {"true", "true"}));
+    // An open request keeps its last message open, here with 45 of 80 columns.
+    QCOMPARE (member (run.replies.value (4), "final"), (QStringList {"true", "true", "false"}));
+    QCOMPARE (run.replies.value (4).terminal.value ("open").toObject (),
+              (QJsonObject {{"columns", 45}, {"separator", false}}));
     QCOMPARE (member (run.replies.value (5), "final"), QStringList {"false"});
     QCOMPARE (member (run.replies.value (6), "final"), QStringList {"true"});
     // A replacement counts for the request even in a blank run sent as no segment.
@@ -957,6 +1033,69 @@ private Q_SLOTS:
     CHECK_ONE (run, 10, "W9XYZ 599 107");
   }
 
+  // A TXTEXT from N1MM Logger+ goes as WSJT-X sends it: upper-cased, a tag
+  // natively, other text as typed with no placeholder expanded, a tag that
+  // does not compile refused with WSJT-X's reason (test_jtty_transmit_host
+  // checks the compiler against WSJT-X's own).
+  void n1mmTextIsCompiled ()
+  {
+    auto const n1mm = [] (qint64 id, QString const& value, QJsonObject const& members = {}) {
+      return pack (id, "n1mm", value, members);
+    };
+    QJsonObject const openMessage {{"columns", 59}, {"separator", true}};
+    auto const run = runCodec (
+      control (Station)
+      + request (n1mm (1, "[[jtty:call_tu_my]] w9xyz k1abc"))
+      + request (n1mm (2, "test %M"))
+      + request (n1mm (3, "[[JTTY:CALL_MY]] W9XYZ/P K1ABC"))
+      + request (n1mm (4, "[[JTTY:EXCH]] DX", {{"profile", "rtty"}}))
+      + request (with (text (5, "x"), "n1mm", "y"))
+      + request (with (key (6, "%M"), "n1mm", "y"))
+      + request ({{"t", "pack"}, {"id", 7}, {"n1mm", 5}})
+      + request ({{"t", "pack"}, {"id", 8}, {"mode", "FT8"}, {"text", "CQ K1ABC FN42"}, {"n1mm", "x"}})
+      + request (n1mm (9, "hello", {{"final", false}}))
+      + request (n1mm (10, "\t[[JTTY:CQ]] K1ABC"))
+      + request (n1mm (11, "[[JTTY:CALL_TU_CQ]] W9XYZ K1ABC", {{"open", openMessage}}))
+      + request (key (12, "%H TU CQ %M CQ", {{"his_call", "W9XYZ"}, {"open", openMessage}}))
+      + request (n1mm (13, "[[JTTY:CQ]] K1ABC", {{"his_call", "%"}}))
+      + request (n1mm (14, "[[JTTY:" + QString (118, QChar (0xE9)) + "]] K1ABC")));
+    CHECK_RUN (run);
+    CHECK_ONE (run, 1, "W9XYZ TU K1ABC");
+    QCOMPARE (run.replies.value (1).segments[0].value ("text").toString (), QString {"W9XYZ TU K1ABC"});
+    QCOMPARE (run.replies.value (2).terminal.value ("t").toString (), QString {"packed"});
+    QCOMPARE (run.replies.value (2).segments[0].value ("text").toString (), QString {"TEST %M"});
+    QCOMPARE (run.replies.value (3).terminal,
+              rejected (3, "encoding_failed", "n1mm", "invalid callsign in tagged payload"));
+    CHECK_ONE (run, 4, "599 DX");
+    QCOMPARE (run.replies.value (5).terminal,
+              rejected (5, "bad_request", "n1mm", "a request has one of text, template and n1mm"));
+    QCOMPARE (run.replies.value (6).terminal,
+              rejected (6, "bad_request", "n1mm", "a request has one of text, template and n1mm"));
+    QCOMPARE (run.replies.value (7).terminal, rejected (7, "bad_request", "n1mm", "n1mm must be a JSON string"));
+    QCOMPARE (run.replies.value (8).terminal.value ("key").toString (), QString {"n1mm"});
+    QCOMPARE (run.replies.value (8).terminal.value ("detail").toString (), QString {"n1mm is a JTTY key"});
+    // Text sent as typed takes final, a codec request's key that WSJT-X's N1MM path does not have.
+    QCOMPARE (run.replies.value (9).segments[0].value ("final").toBool (), false);
+    QVERIFY (run.replies.value (9).terminal.value ("open").toObject ().value ("columns").toInt () > 0);
+    // Any white space before a tag, as QChar::isSpace has it.
+    CHECK_ONE (run, 10, "CQ K1ABC CQ");
+    // A tag that would pass an open message's 80 columns goes as its text, as a native template does.
+    auto const tagged = run.replies.value (11).segments;
+    auto const keyed = run.replies.value (12).segments;
+    QVERIFY (tagged.size () > 1);
+    QCOMPARE (tagged.size (), keyed.size ());
+    for (int i = 0; i < tagged.size (); ++i) {
+      QCOMPARE (tagged[i].value ("canonical"), keyed[i].value ("canonical"));
+      QCOMPARE (tagged[i].value ("final"), keyed[i].value ("final"));
+    }
+    QCOMPARE (run.replies.value (13).terminal.value ("key").toString (), QString {"his_call"});
+    // An unknown action is named in detail, cut at a character to 256 bytes.
+    auto const detail = run.replies.value (14).terminal.value ("detail").toString ();
+    QCOMPARE (run.replies.value (14).terminal.value ("reason").toString (), QString {"encoding_failed"});
+    QVERIFY (detail.startsWith ("unknown JTTY action: " + QString (10, QChar (0xC9))));
+    QVERIFY (detail.toUtf8 ().size () <= 256 && detail.toUtf8 ().size () >= 255);
+  }
+
   // The station's call and grid come from accepted configures only; the
   // stream's start values (K1ABC) and -c/-G never reach the air.
   void stationIdentityComesFromConfigure ()
@@ -1048,7 +1187,8 @@ private Q_SLOTS:
       + request ({{"t", "pack"}, {"id", 7}, {"text", "HI"}, {"context", QJsonObject {{"his_call", "W9XYZ"}}}})
       // Brackets and an escaped quote inside a string before the id are text.
       + request ({{"t", "pack"}, {"id", 10}, {"text", "HI"}, {"his_call", "W1{X\"["}})
-      // A stray closer does not end the nesting that follows it.
+      // A stray closer and an object after the request's closing } decline
+      // the frame: the id nested there is never the request's.
       + control ("{\"t\":\"pack\",\"text\":\"HI\"}}{\"x\":{\"id\":2}}")
       + control (largest)
       + request (text (9, "HI")));
@@ -1056,7 +1196,7 @@ private Q_SLOTS:
     QList<QJsonObject> const errors {
       InvalidRequestId, InvalidRequestId, InvalidRequestId, InvalidRequestId, InvalidRequestId,
       codedError ("control_frame_too_large", "control frame exceeds the configured buffer capacity"),
-      InvalidRequestId};
+      codedError ("configure_parse_error", "malformed control frame (not one JSON object with a string t)")};
     QCOMPARE (ofType (run.events, "error"), errors);
     for (qint64 id : {3, 6, 7})
       QCOMPARE (run.replies.value (id).terminal, rejected (id, "bad_request", {}, "a request is a flat JSON object"));
@@ -1112,9 +1252,9 @@ private Q_SLOTS:
     QTest::newRow ("text") << text (1, "cq cq de %M k") << QStringList {"CQ CQ DE K1ABC K"} << QString {};
     QTest::newRow ("F2") << key (1, "%H %E", {{"his_call", "W9XYZ"}, {"serial", 107}})
                          << QStringList {"W9XYZ 599 107"} << QString {};
-    // The receiver keeps at most 80 characters of a message, and the 200
-    // characters are one message.
-    QTest::newRow ("200 characters") << text (1, longLine) << QStringList {longLineCanonicals[0]} << QString {};
+    // The receiver keeps at most 80 characters of a message, so the 200
+    // characters go as three messages, each whole.
+    QTest::newRow ("200 characters") << text (1, longLine) << longLineCanonicals << QString {};
     QTest::newRow ("open message") << text (1, "HELLO\nWORLD", {{"final", false}}) << QStringList {"HELLO"}
                                    << QString {"WORLD"};
   }
@@ -1136,6 +1276,72 @@ private Q_SLOTS:
       }
     QCOMPARE (completed, complete);
     if (!seen.isEmpty ()) QVERIFY2 (texts.contains (seen), qPrintable (texts.join ('|')));
+  }
+
+  // Requests rendered back to back, each continuing the message the one
+  // before leaves open, decode with every message whole: as many complete
+  // messages as final segments, together carrying every character the
+  // segments do (filler, which the receiver drops, aside).
+  void messagesArriveWhole_data ()
+  {
+    QTest::addColumn<QJsonArray> ("renders");
+    QString const a (100, 'A');
+    auto rtty = [] (qint64 id, QString const& value) {return text (id, value, {{"profile", "rtty"}});};
+    QJsonObject const open {{"final", false}};
+    QTest::newRow ("david") << QJsonArray {rtty (1, a.left (73) + " 599 05")};
+    QTest::newRow ("break599") << QJsonArray {rtty (1, a.left (76) + " 599 123 HELLO")};
+    QTest::newRow ("lead599two") << QJsonArray {rtty (1, "599 5 " + a.left (64) + " 599 5")};
+    QTest::newRow ("lead599one") << QJsonArray {rtty (1, "599 005 " + a.left (76))};
+    QTest::newRow ("fits79") << QJsonArray {rtty (1, a.left (72) + " 599 005")};
+    QTest::newRow ("field day") << QJsonArray {text (1, a.left (70) + " 599 1A EMA", {{"profile", "field_day"}})};
+    QTest::newRow ("lines") << QJsonArray {text (1, "CQ TEST K1ABC\n" + a.left (66) + " HELLO THERE\nDE K1ABC K")};
+    QTest::newRow ("altj 1 topup") << QJsonArray {text (1, "HELLO JOE", open), text (2, "<<<<< <<<<<", open),
+                                                  text (3, "HOW ARE YOU TODAY", open), text (4, "DE K1JT K")};
+    QTest::newRow ("altj 4 topups") << QJsonArray {text (1, "HELLO JOE", open), text (2, "<<<<< <<<<<", open),
+                                                   text (3, "<<<<< <<<<<", open), text (4, "<<<<< <<<<<", open),
+                                                   text (5, "<<<<< <<<<<", open), text (6, "HOW ARE YOU TODAY", open),
+                                                   text (7, "DE K1JT K")};
+    QTest::newRow ("function key") << QJsonArray {text (1, "HELLO JOE", open),
+                                                  key (2, "%H %E", {{"his_call", "W9XYZ"}, {"serial", 107}}),
+                                                  text (3, "HOW ARE YOU")};
+    QTest::newRow ("90 columns") << QJsonArray {text (1, "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG", open),
+                                                text (2, "AND KEEPS RUNNING ACROSS THE FIELD UNTIL IT")};
+    auto paused = text (2, "AND KEEPS RUNNING ACROSS THE FIELD UNTIL IT");
+    paused.insert ("pause", 1);
+    QTest::newRow ("pause") << QJsonArray {text (1, "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG", open), paused};
+    QTest::newRow ("run on") << QJsonArray {text (1, "ABCDE ABCDE ABCDE ABCDE ABCDE ABCDE ABCDE ABCDE ABCDE ABCDE "
+                                                     "ABCDE ABCDE ABC HELLO WORLD")};
+  }
+
+  void messagesArriveWhole ()
+  {
+    QFETCH (QJsonArray, renders);
+    auto const run = chainTrip (renders);
+    CHECK_RUN (run);
+    int finals = 0;
+    QString sent;
+    for (auto const& value : renders)
+      {
+        auto const reply = run.replies.value (qint64 (value.toObject ().value ("id").toDouble ()));
+        QCOMPARE (reply.terminal.value ("t").toString (), QString {"rendered"});
+        for (auto const& segment : reply.segments)
+          {
+            sent += segment.value ("canonical").toString () + ' ';
+            if (segment.value ("final").toBool ()) ++finals;
+          }
+      }
+    QStringList completed;
+    for (auto const& update : ofType (run.events, "jtty_update"))
+      if (update.value ("state").toString () == "complete") completed << update.value ("text").toString ();
+    // Word for word, filler and a pause's "..." aside.
+    auto words = [] (QString const& text) {
+      QStringList result;
+      for (auto const& word : text.split (' ', Qt::SkipEmptyParts))
+        if (word != "..." && !word.contains (QRegularExpression {"^<+$"})) result << word;
+      return result;
+    };
+    QVERIFY2 (completed.size () == finals, qPrintable (completed.join ('|')));
+    QVERIFY2 (words (completed.join (' ')) == words (sent), qPrintable (completed.join ('|') + " vs " + sent));
   }
 };
 

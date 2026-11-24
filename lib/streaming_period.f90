@@ -66,7 +66,7 @@ contains
   ! The half-symbol at which the GUI decodes a period of jt9 mode `mode`
   ! (MainWindow::fixStop, widgets/mainwindow.cpp), with "Decode after EME
   ! delay" and the multithreaded FT8 decoder start. 0 for MSK144, which the
-  ! GUI decodes as audio arrives instead, and for JT65+JT9, which it lacks.
+  ! GUI decodes as audio arrives.
   ! WSPR (MODE_WSPR, no jt9 number) at 396, 1,368,576 samples: wsprd reads
   ! the first 1,368,000 (lib/streaming_wspr.f90).
   pure integer function gui_hsym_stop(mode, trperiod, eme_delay, multithreaded, decoder_start)
@@ -107,7 +107,7 @@ contains
        if (trperiod .eq. 900.d0) i = 5
        if (trperiod .eq. 1800.d0) i = 6
        gui_hsym_stop = merge(fst4_eme(i), fst4(i), eme_delay)
-    case (74, 144)
+    case (144)
        gui_hsym_stop = 0
     case (MODE_WSPR)
        gui_hsym_stop = 396

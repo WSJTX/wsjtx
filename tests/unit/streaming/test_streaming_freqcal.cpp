@@ -569,6 +569,11 @@ private Q_SLOTS:
                              << "ntol must be from 1 to 1000 Hz in FREQCAL";
     QTest::newRow ("ntol 1001 later") << accepted + "\n" + R"({"ntol":1001})" << "ntol"
                                       << "ntol must be from 1 to 1000 Hz in FREQCAL";
+    // A depth WSJT-X's cannot hold, as in every mode, though FREQCAL reads none.
+    QTest::newRow ("depth 9 later") << accepted + "\n" + R"({"depth":9})" << "depth"
+                                    << "depth must hold a decoding depth from 1 to 3 and no bits but 16, 32, 64 and 128 in FREQCAL";
+    QTest::newRow ("depth 0") << QByteArray {R"({"mode":"FREQCAL","trperiod":15,"depth":0})"} << "depth"
+                              << "depth must hold a decoding depth from 1 to 3 in FREQCAL";
     QTest::newRow ("integer code") << QByteArray {R"({"mode":1006,"trperiod":15})"} << "unknown_mode" << QString {};
     QTest::newRow ("lower case") << QByteArray {R"({"mode":"freqcal","trperiod":5})"} << QString {} << QString {};
     QTest::newRow ("mixed case") << QByteArray {R"({"mode":"FreqCal","trperiod":30})"} << QString {} << QString {};
@@ -612,12 +617,12 @@ private Q_SLOTS:
     QCOMPARE (ofType (codec.events, "freqcal").isEmpty (), !stayed);
   }
 
-  // Entering FREQCAL, rxfreq is 1500 and ntol 50 unless the frame sets them,
-  // as WSJT-X sets Rx Freq to 1500 on choosing FreqCal and keeps JT9's F Tol
-  // (50 unless changed). Like every configure that carries mode or trperiod,
-  // a FreqCal one resets ntol, to 50; one that carries only trperiod keeps
-  // rxfreq. Carriers at 1520.3, 1580.7 and 1680.4 Hz, the last the strongest,
-  // tell the windows apart.
+  // Entering FREQCAL, rxfreq is 1500 unless the frame sets it, as WSJT-X
+  // sets Rx Freq to 1500 on choosing FreqCal; F Tol, without VHF features, is
+  // the one in force, which choosing FreqCal keeps (setupFreqCal through
+  // setupJT9), as does a frame with only trperiod, which keeps rxfreq too.
+  // Carriers at 1520.3, 1580.7 and 1680.4 Hz, the last the strongest, tell
+  // the windows apart.
   void entryDefaults_data ()
   {
     QTest::addColumn<QByteArray> ("frames");   // control JSON lines
@@ -625,17 +630,17 @@ private Q_SLOTS:
     QTest::addColumn<int> ("rxfreq");           // the window the GUI's routine gets
     QTest::addColumn<int> ("ntol");
     QTest::addColumn<double> ("expected");      // the carrier measured there
-    QTest::newRow ("from FT8 with rxfreq 100") << QByteArray {R"({"mode":"FT8","rxfreq":100,"ntol":10})"} + "\n"
+    QTest::newRow ("from FT8 with rxfreq 100") << QByteArray {R"({"mode":"FT8","rxfreq":100,"ntol":30})"} + "\n"
                                                     + R"({"mode":"FREQCAL","trperiod":15})"
-                                                 << 15 << 1500 << 50 << 1520.3;
+                                                 << 15 << 1500 << 30 << 1520.3;
     QTest::newRow ("from fast JT9 with rxfreq 700")
       << QByteArray {R"({"mode":"JT9","fast":true,"submode":"E","trperiod":15,"rxfreq":700,"ntol":100})"} + "\n"
-           + R"({"mode":"FREQCAL","trperiod":10})" << 10 << 1500 << 50 << 1520.3;
+           + R"({"mode":"FREQCAL","trperiod":10})" << 10 << 1500 << 100 << 1580.7;
     QTest::newRow ("trperiod alone keeps rxfreq")
       << QByteArray {R"({"mode":"FREQCAL","trperiod":15,"rxfreq":1600,"ntol":100})"} + "\n" + R"({"trperiod":10})"
-      << 10 << 1600 << 50 << 1580.7;
+      << 10 << 1600 << 100 << 1680.4;
     QTest::newRow ("mode again") << QByteArray {R"({"mode":"FREQCAL","trperiod":15,"rxfreq":1600,"ntol":100})"} + "\n"
-                                      + R"({"mode":"FREQCAL","trperiod":10})" << 10 << 1500 << 50 << 1520.3;
+                                      + R"({"mode":"FREQCAL","trperiod":10})" << 10 << 1500 << 100 << 1580.7;
   }
 
   void entryDefaults ()

@@ -128,6 +128,27 @@ static void test_erasure_bounds(void *rs)
   ntests+=2;
 }
 
+static void test_root_bounds(void)
+{
+  const int codeword[63]={0};
+  int received[63]={0},erasure=0;
+  void *rs=init_rs_int(6,0x43,3,1,52);
+
+  expect(rs!=NULL,"oversized codec initialization");
+  expect(decode_rs_int(rs,received,NULL,0,1)==-1,"oversized root count rejected");
+  expect(!memcmp(received,codeword,sizeof(received)),"oversized codeword unchanged");
+  free_rs_int(rs);
+
+  rs=init_rs_int(6,0x43,3,1,0);
+  expect(rs!=NULL,"zero-root codec initialization");
+  received[0]=1;
+  expect(decode_rs_int(rs,received,NULL,0,1)==0,"zero roots need no correction");
+  expect(decode_rs_int(rs,received,&erasure,1,1)==-1,"zero roots reject erasures");
+  expect(received[0]==1,"zero-root codeword unchanged");
+  free_rs_int(rs);
+  ntests+=3;
+}
+
 static void test_syndrome_reuse(void *rs)
 {
   int data[12],codeword[63],corrupted[63],received[63],positions[51],erasures[51];
@@ -159,6 +180,7 @@ int main(void)
   test_errors(rs);
   test_erasures(rs);
   test_erasure_bounds(rs);
+  test_root_bounds();
   test_syndrome_reuse(rs);
   free_rs_int(rs);
   printf("RS codec tests passed: %d\n",ntests);

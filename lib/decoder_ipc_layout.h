@@ -9,7 +9,7 @@
 #define DECODER_IPC_CAP_PROGRESS 2
 #define DECODER_IPC_CAP_HANDSHAKE 4
 #define DECODER_IPC_CAPABILITIES 7
-#define DECODER_IPC_LAYOUT_FIELDS 96
+#define DECODER_IPC_LAYOUT_FIELDS 92
 
 typedef struct decoder_ipc_field_layout {
   int offset;

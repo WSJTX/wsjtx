@@ -12,11 +12,44 @@ program test_fst4_generator
   call expect_bad_fst4w('K1ABC FN42 03',ntests)
   call expect_bad_fst4w('K1ABC FN42 5!',ntests)
   call expect_fst4_lossy_free_text('ABCDEFGHIJKLMN','ABCDEFGHIJKLM',ntests)
+  call expect_leading_blanks('PJ4/K1ABC 37',1,ntests)
+  call expect_leading_blanks('CQ K1ABC FN42',0,ntests)
 
   write(*,1000) ntests
 1000 format('FST4 generator tests passed: ',i0)
 
 contains
+
+  subroutine expect_leading_blanks(input,mode,ntests)
+    character(len=*), intent(in) :: input
+    integer, intent(in) :: mode
+    integer, intent(inout) :: ntests
+    character(len=37) :: msg,msgsent,reference_sent
+    integer*1 :: msgbits(101),reference_bits(101)
+    integer*4 :: itone(160),reference_tones(160)
+    integer :: iwspr,n,nblanks(4)
+
+    msg=input
+    iwspr=mode
+    call genfst4(msg,0,reference_sent,reference_bits,reference_tones,iwspr)
+    if(reference_sent.ne.input.or.iwspr.ne.mode.or.all(reference_tones.eq.0)) then
+       write(*,*) 'Invalid reference message for mode ',mode,': ',reference_sent
+       error stop 1
+    endif
+
+    nblanks=(/1,2,3,37-len(input)/)
+    do n=1,size(nblanks)
+       msg=repeat(' ',nblanks(n))//input
+       iwspr=mode
+       call genfst4(msg,0,msgsent,msgbits,itone,iwspr)
+       if(msgsent.ne.reference_sent.or.iwspr.ne.mode.or.any(msgbits.ne.reference_bits).or. &
+            any(itone.ne.reference_tones)) then
+          write(*,*) 'Leading blanks changed mode ',mode,' message with ',nblanks(n),' blanks: ',msgsent
+          error stop 1
+       endif
+    enddo
+    ntests=ntests+1
+  end subroutine expect_leading_blanks
 
   subroutine expect_good_fst4w(input,ntests)
     character(len=*), intent(in) :: input

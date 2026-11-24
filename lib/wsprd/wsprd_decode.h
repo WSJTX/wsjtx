@@ -44,7 +44,9 @@ struct wsprd_decode_options {
     int ndepth;              /* -o, -1 = OSD off */
     float fmin, fmax;        /* Hz, -110/110; -w -150/150 */
     float bias;              /* -z, 0.45 */
-    double dialfreq_error;   /* -e, Hz: shifts fmin and fmax once per pass */
+    double dialfreq_error;   /* -e, Hz: indicated dial frequency minus actual frequency */
+    int threads;             /* wsjt-codec's wspr_threads, ft8_threads' rule: 0 (wsprd's)
+                                picks from the CPU count; one without OpenMP */
 };
 
 /* wsprd's struct result, plus f1. */
@@ -88,7 +90,9 @@ typedef int (*wsprd_plan_guard)(void (*fn)(void *), void *arg);
 
 /* Owned by the caller: the decoder's workspace and its hash and locator
    tables, which carry calls from one decode to the next. One decode at a
-   time per process: osdwspr keeps state of its own. */
+   time per process: osdwspr keeps state of its own (fetchit's place in its
+   pattern boxes is each thread's only where the Fortran is built with
+   OpenMP). */
 struct wsprd_context;
 
 void wsprd_decode_options_init(struct wsprd_decode_options *options);
@@ -97,6 +101,8 @@ void wsprd_decode_options_init(struct wsprd_decode_options *options);
    through it; NULL calls FFTW directly. NULL when memory or planning fails. */
 struct wsprd_context *wsprd_context_new(wsprd_plan_guard plan_guard);
 void wsprd_context_free(struct wsprd_context *ctx);
+/* The most threads any loop of the context's last decode ran on. */
+int wsprd_context_threads_ran(struct wsprd_context const *ctx);
 
 void wsprd_hash_clear(struct wsprd_context *ctx);
 /* Adds one hashtable.txt line: 0, or -1 when it is not an entry. */

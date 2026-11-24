@@ -10,6 +10,8 @@ program test_streaming_control
   integer :: nfail = 0
   character(len=12) :: code
   character(len=:), allocatable :: long_text
+  ! JSON's white space besides the space (RFC 8259 section 2).
+  character(len=*), parameter :: TB = achar(9), LF = achar(10), CR = achar(13)
 
   call expect_action('{"t":"discontinuity"}', CTRL_DISCONTINUITY)
   call expect_action('{"t":"halt"}', CTRL_HALT)
@@ -26,7 +28,6 @@ program test_streaming_control
   call expect_mode('{"t":"configure","mode":"FT8"}', .true., 8)
   write(code, '(i0)') MODE_JTTY
   call expect_mode('{"t":"configure","mode":' // trim(code) // '}', .false., 0)
-  call expect_tx_mode_unset('{"t":"configure","tx_mode":"JTTY"}')
   ! WSPR too: by name, case aside, and not by its number.
   call expect_mode('{"t":"configure","mode":"WSPR"}', .true., MODE_WSPR)
   call expect_mode('{"t":"configure","mode":"wspr"}', .true., MODE_WSPR)
@@ -74,12 +75,24 @@ program test_streaming_control
   call expect_call('{"t":"configure","mycall":"\ud83d\u0041"}', '')
   call expect_call('{"t":"configure","mycall":"\ud83d\\de00"}', '')
   call expect_call('{"t":"configure","mycall":"\udfff"}', '')
-  ! Frames that end inside an escape or a string.
-  call expect_call('{"t":"configure","mycall":"A\u12', '')
-  call expect_call('{"t":"configure","mycall":"\ud83d', '')
-  call expect_call('{"t":"configure","mycall":"A\', '')
-  call expect_call('{"t":"configure","mycall":"ABC}', '')
+  ! Frames that end inside an escape or a string never close their object.
+  call expect_action('{"t":"configure","mycall":"A\u12', CTRL_PARSE_ERR)
+  call expect_action('{"t":"configure","mycall":"\ud83d', CTRL_PARSE_ERR)
+  call expect_action('{"t":"configure","mycall":"A\', CTRL_PARSE_ERR)
+  call expect_action('{"t":"configure","mycall":"ABC}', CTRL_PARSE_ERR)
   call expect_call('{"t":"configure","mycall":"' // repeat('K', 200) // '"}', repeat('K', 12))
+
+  ! Any JSON white space may separate tokens: before a key, around its colon
+  ! and after its value, and around the object.
+  call expect_action('{' // LF // '"t":"halt"}', CTRL_HALT)
+  call expect_action('{"t"' // TB // ':' // CR // LF // '"halt"}', CTRL_HALT)
+  call expect_action(LF // '{ "t" :' // TB // '"halt" }' // CR // LF, CTRL_HALT)
+  call expect_call('{"t":"configure",' // LF // '"mycall":"K1ABC",' // TB // '"mygrid"' // CR // LF // &
+       ':' // TB // '"EM18"}', 'K1ABC', 'EM18')
+  call expect_aggressive('{"t":"configure",' // CR // '"aggressive":7' // LF // '}', .true., 7, '')
+  call expect_aggressive('{"t":"configure",' // LF // '"aggressive":"7"}', .false., 0, 'aggressive')
+  call expect_nutc('{"t":"configure",' // TB // '"nutc"' // TB // ':' // LF // '133445' // TB // '}', &
+       .true., 133445, '')
 
   ! MSK144's three options are booleans.
   call expect_msk144('{"t":"configure","short_messages":true,"swl":false,"train":true}', &
@@ -138,7 +151,7 @@ program test_streaming_control
   call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0,]}', 'text')
   call expect_phase_eq('{"t":"configure","phase_eq":[0,,5,0,0]}', 'text')
   call expect_phase_eq('{"t":"configure","phase_eq":[1e999,0 0,0,0]}', 'text')
-  call expect_phase_eq('{"t":"configure","phase_eq":[0,0,5,0,0', 'text')
+  ! (An array that never closes leaves its frame's object unclosed: below.)
 
   ! The GUI's "Decode after EME delay" and its live audio; both are booleans.
   call expect_flags('{"t":"configure","decode_after_eme_delay":true,"live_audio":false}', &
@@ -148,6 +161,35 @@ program test_streaming_control
        .false., .false., 'decode_after_eme_delay')
   call expect_flags('{"t":"configure","live_audio":1}', .false., .false., .false., .false., &
        'live_audio')
+  ! A boolean is exactly true or false, then JSON white space and the , or }
+  ! that ends it; any other word declines the frame, got number. A request's
+  ! booleans are refused likewise.
+  call expect_flags('{"t":"configure","live_audio":true ' // LF // '}', .false., .false., &
+       .true., .true., '')
+  call expect_flags('{"t":"configure","live_audio":false' // TB // ',"rxfreq":1500}', &
+       .false., .false., .true., .false., '')
+  call expect_bool_type('{"t":"configure","live_audio":tru}', 'live_audio')
+  call expect_bool_type('{"t":"configure","live_audio":truex}', 'live_audio')
+  call expect_bool_type('{"t":"configure","active_stations":fals}', 'active_stations')
+  call expect_bool_type('{"t":"configure","a7_hold":t}', 'a7_hold')
+  call expect_bool_type('{"t":"configure","a7_hold":true 1}', 'a7_hold')
+  call expect_bool_type('{"t":"configure","decode_after_eme_delay":falsehood}', &
+       'decode_after_eme_delay')
+  call expect_render_problem('{"t":"render","id":1,"text":"x","rate":12000,"freq":1500,"final":tru}', &
+       'final')
+
+  ! A frame is one JSON object: only JSON white space may come before its {
+  ! or after the } that closes it, which no } or ] inside a string is.
+  call expect_action('{"t":"halt"}x', CTRL_PARSE_ERR)
+  call expect_action('{"t":"halt"} {"t":"flush"}', CTRL_PARSE_ERR)
+  call expect_action('{"t":"configure","rxfreq":1500}}', CTRL_PARSE_ERR)
+  call expect_action('{"t":"pack","id":1,"text":"x"},', CTRL_PARSE_ERR)
+  call expect_action('x{"t":"halt"}', CTRL_PARSE_ERR)
+  call expect_action('{"t":"halt"', CTRL_PARSE_ERR)
+  call expect_action('{"t":"halt"]', CTRL_PARSE_ERR)
+  call expect_action('{"t":"configure","phase_eq":[0,0,5,0,0', CTRL_PARSE_ERR)
+  call expect_action(' ' // TB // LF // '{"t":"halt"}' // CR // LF // ' ', CTRL_HALT)
+  call expect_action('{"t":"configure","mycall":"]}x\"}","rxfreq":1500}', CTRL_CONFIGURE)
 
   ! The GUI's Aggressive setting is an integer; its Q65 pileup decoding is
   ! nexp_decode's bit 7, packed with the contest keys.
@@ -165,6 +207,15 @@ program test_streaming_control
   call expect_nexp('{"t":"configure","q65_pileup":false,"contest_type":"q65_pileup"}', .true., 1, '')
   call expect_nexp('{"t":"configure","contest_type":"na_vhf"}', .true., 1, '')
   call expect_nexp('{"t":"configure","contest_type":"ww_digi"}', .true., 1, '')
+  ! contest_type is one of the ten activities exactly, as written: any other
+  ! string is out of range, and the frame's group is not set.
+  call expect_contest('{"t":"configure","contest_type":"NA_VHF"}', 'range')
+  call expect_contest('{"t":"configure","contest_type":"bogus"}', 'range')
+  call expect_contest('{"t":"configure","contest_type":"none "}', 'range')
+  call expect_contest('{"t":"configure","contest_type":""}', 'range')
+  call expect_contest('{"t":"configure","contest_type":"none' // repeat(' ', 200) // 'x"}', 'range')
+  call expect_contest('{"t":"configure","contest_type":"na_vhf\x"}', 'range')
+  call expect_contest('{"t":"configure","contest_type":"NA_VHF","single_decode":true}', 'range')
 
   ! The receive chain's keys: spectrum, low_sidelobes and ref_spectrum_clear
   ! are booleans, ref_spectrum exactly "off", "measure" or "apply" (-1:
@@ -258,6 +309,73 @@ program test_streaming_control
   call expect_nutc('{"t":"configure","nutc":2147483648}', .false., 0, 'number')
   call expect_nutc('{"t":"configure","nutc":05}', .false., 0, 'number')
   call expect_nutc('{"t":"configure","nutc":"133445"}', .false., 0, 'string')
+  ! Every integer key takes a plain JSON integer: a number with a fraction or
+  ! an exponent is the wrong type, as a string is.
+  call expect_aggressive('{"t":"configure","aggressive":7.0}', .false., 0, 'aggressive')
+  call expect_int_type('{"t":"configure","wspr_threads":25.0}', 'wspr_threads', 'int')
+  call expect_int_type('{"t":"configure","ft8_threads":2.0}', 'ft8_threads', 'int')
+  call expect_int_type('{"t":"configure","depth":3e0}', 'depth', 'int')
+  call expect_int_type('{"t":"configure","depth":1E+0}', 'depth', 'int')
+  call expect_int_type('{"t":"configure","rxfreq":1500.0}', 'rxfreq', 'int')
+  call expect_int_type('{"t":"configure","ntol":1.5e3}', 'ntol', 'int')
+  call expect_int_type('{"t":"configure","nfb":4e-0}', 'nfb', 'int')
+  call expect_int_type('{"t":"configure","mode":8.0}', 'mode', 'string|int')
+  call expect_int_type('{"t":"configure","submode":1.0}', 'submode', 'string|int')
+  call expect_int_type('{"t":"configure","version":1.0}', 'version', 'int')
+  call expect_int_type('{"t":"configure","n_trials":1e3}', 'n_trials', 'int')
+  call expect_int_type('{"t":"configure","depth_level":1.0}', 'depth_level', 'int')
+  call expect_int_type('{"t":"configure","noise_blanker_level":-1.5}', 'noise_blanker_level', 'int')
+  call expect_int_type('{"t":"configure","qso_progress_state":0.0}', 'qso_progress_state', 'int')
+  call expect_int_type('{"t":"configure","echo_spacing":10.0}', 'echo_spacing', 'int')
+  call expect_int_type('{"t":"configure","mycall":"K1ABC",' // LF // '"wspr_threads":2.5' // LF // '}', &
+       'wspr_threads', 'int')
+  ! So is a form that is not a JSON number, and an integer that does not fit
+  ! in 32 bits, as in nutc; an array or an object is named as such.
+  call expect_int_type('{"t":"configure","depth":+3}', 'depth', 'int')
+  call expect_int_type('{"t":"configure","depth":03}', 'depth', 'int')
+  call expect_int_type('{"t":"configure","ntol":2147483648}', 'ntol', 'int')
+  call expect_int_type('{"t":"configure","rxfreq":-2147483649}', 'rxfreq', 'int')
+  call expect_int_type('{"t":"configure","nfb":99999999999}', 'nfb', 'int')
+  call expect_int_type('{"t":"configure","ft8_threads":2*2}', 'ft8_threads', 'int')
+  call expect_int_type('{"t":"configure","wspr_threads":/}', 'wspr_threads', 'int')
+  call expect_int_type('{"t":"configure","version":01}', 'version', 'int')
+  call expect_int_type('{"t":"configure","submode":+1}', 'submode', 'string|int')
+  call expect_int_type('{"t":"configure","ft8_threads":[2]}', 'ft8_threads', 'int', 'array')
+  ! A real key takes a JSON number, with or without a fraction and an
+  ! exponent, and declines any other value, as an integer key does.
+  call expect_trperiod('{"t":"configure","trperiod":15}', 15.d0)
+  call expect_trperiod('{"t":"configure","trperiod":7.5}', 7.5d0)
+  call expect_trperiod('{"t":"configure","trperiod":1.5e1}', 15.d0)
+  call expect_trperiod('{"t":"configure","trperiod":-0.5E+1}', -5.d0)
+  call expect_real_type('{"t":"configure","trperiod":3*15}', 'trperiod')
+  call expect_real_type('{"t":"configure","trperiod":1.5d1}', 'trperiod')
+  call expect_real_type('{"t":"configure","trperiod":+15}', 'trperiod')
+  call expect_real_type('{"t":"configure","trperiod":.15e2}', 'trperiod')
+  call expect_real_type('{"t":"configure","trperiod":15.}', 'trperiod')
+  call expect_real_type('{"t":"configure","trperiod":015}', 'trperiod')
+  call expect_real_type('{"t":"configure","trperiod":/}', 'trperiod')
+  call expect_real_type('{"t":"configure","trperiod":[15]}', 'trperiod', 'array')
+  call expect_real_type('{"t":"configure","dial_frequency":1.4074d7}', 'dial_frequency')
+  call expect_real_type('{"t":"configure","eme_delay_seconds":/}', 'eme_delay_seconds')
+  call expect_real_type('{"t":"configure","doppler":+5}', 'doppler')
+  ! After a number comes only JSON white space and the , or } that ends it.
+  call expect_int_type('{"t":"configure","depth":3 4}', 'depth', 'int')
+  call expect_real_type('{"t":"configure","trperiod":15 4}', 'trperiod')
+  call expect_depth('{"t":"configure","depth":3' // TB // LF // ' ,"rxfreq":1500}', 3)
+  call expect_trperiod('{"t":"configure","trperiod":15 ' // CR // LF // '}', 15.d0)
+  ! A depth level is 1, 2 or 3, WSJT-X's Fast, Normal and Deep: any other is
+  ! left unpacked for the stream to decline, not read by its low bits.
+  call expect_level('{"t":"configure","depth_level":2,"use_averaging":true}', 18)
+  call expect_level('{"t":"configure","q65_maxiters_level":3}', 3)
+  call expect_level('{"t":"configure","depth_level":9}', -1)
+  call expect_level('{"t":"configure","depth_level":11,"use_averaging":true}', -1)
+  call expect_level('{"t":"configure","depth_level":0}', -1)
+  call expect_level('{"t":"configure","depth_level":4}', -1)
+  call expect_level('{"t":"configure","depth_level":-1}', -1)
+  call expect_level('{"t":"configure","q65_maxiters_level":5}', -1)
+  call expect_level('{"t":"configure","q65_maxiters_level":0}', -1)
+  call expect_int_type('{"t":"configure","mode":{"m":8}}', 'mode', 'string|int', 'object')
+  call expect_aggressive('{"t":"configure","aggressive":+7}', .false., 0, 'aggressive')
 
   ! The transmitter keeps the whole call and grid; the decoder's fields keep
   ! their widths.
@@ -307,6 +425,12 @@ program test_streaming_control
   call expect_problem('{"t":"pack","id":1,"text":5}', 'text')
   call expect_problem('{"t":"pack","id":1,"template":true}', 'template')
   call expect_template('{"t":"pack","id":1,"template":"%H %E"}', '%H %E')
+  call expect_problem('{"t":"pack","id":1,"text":"x","n1mm":"y"}', 'n1mm')
+  call expect_problem('{"t":"pack","id":1,"template":"x","n1mm":"y"}', 'n1mm')
+  call expect_problem('{"t":"pack","id":1,"n1mm":true}', 'n1mm')
+  call expect_n1mm('{"t":"pack","id":1,"n1mm":"[[JTTY:CQ]] K1ABC"}', '[[JTTY:CQ]] K1ABC')
+  call expect_problem('{"t":"pack","id":1,"text":"x","template":"y","n1mm":"z"}', 'n1mm')
+  call expect_render('{"t":"render","id":1,"n1mm":"[[JTTY:CQ]] K1ABC","rate":12000,"freq":1500}', 12000, 1500.d0)
   call expect_profile('{"t":"pack","id":1,"text":"x","profile":"none"}', 0)
   call expect_profile('{"t":"pack","id":1,"text":"x","profile":"field_day"}', 1)
   call expect_profile('{"t":"pack","id":1,"text":"x","profile":"rtty"}', 2)
@@ -316,6 +440,18 @@ program test_streaming_control
   call expect_problem('{"t":"pack","id":1,"text":"x","profile":3}', 'profile')
   call expect_problem('{"t":"pack","id":1,"text":"x","final":"yes"}', 'final')
   call expect_final('{"t":"pack","id":1,"text":"x","final":false}', .false.)
+  ! A request's keys after any JSON white space.
+  call expect_final('{"t":"pack","id":1,"text":"x",' // LF // '"final":false}', .false.)
+  call expect_final('{"t":"pack","id":1,"text":"x",' // CR // LF // TB // '"final"' // TB // ':' // &
+       LF // 'false}', .false.)
+  call expect_id('{"t":"pack",' // LF // '"id":7,"text":"x"}', 7)
+  call expect_context('{"t":"pack","id":1,"text":"x",' // LF // '"his_call":"W9XYZ",' // TB //   &
+       '"exchange":"1D EMA",' // CR // LF // '"serial":' // TB // '-131072' // LF // ',"report":-7' // &
+       TB // '}', 'W9XYZ', '1D EMA', -131072, -7)
+  call expect_open('{"t":"pack","id":1,"text":"x",' // LF // '"open":{' // LF // '"columns":42,' // TB // &
+       '"separator":true' // LF // '}}', 42, .true.)
+  call expect_render('{"t":"render","id":1,"text":"x",' // LF // '"rate":12000,' // TB // '"freq":1500.5' // &
+       CR // LF // '}', 12000, 1500.5d0)
   call expect_problem('{"t":"pack","id":1,"text":"x","serial":"107"}', 'serial')
   call expect_problem('{"t":"pack","id":1,"text":"x","serial":10.5}', 'serial')
   call expect_problem('{"t":"pack","id":1,"text":"x","serial":2147483648}', 'serial')
@@ -374,6 +510,25 @@ program test_streaming_control
   call expect_problem('{"t":"pack","id":1,"text":"x","report":-05}', 'report')
   call expect_context('{"t":"pack","id":1,"text":"x","his_call":"W","exchange":"E","serial":0,"report":-0 }', 'W', 'E', 0, 0)
   call expect_problem('{"t":"pack","id":1,"text":"x","context":{"his_call":"W9XYZ"}}', '')
+  ! open, the receiver's message a request continues, is the one object a
+  ! request may hold: columns from 0 to 59 and separator, nothing else.
+  call expect_open('{"t":"pack","id":1,"text":"x","open":{"columns":42,"separator":true}}', 42, .true.)
+  call expect_open('{"t":"pack","id":1,"open":{ "separator" : false , "columns" : 59 },"text":"x"}', 59, .false.)
+  call expect_open('{"t":"pack","id":1,"text":"x","open":{"columns":0,"separator":false}}', 0, .false.)
+  call expect_open('{"t":"pack","id":1,"text":"x"}', 0, .false.)
+  call expect_render('{"t":"render","id":1,"text":"x","open":{"columns":7,"separator":true},"rate":12000,"freq":1500}', &
+       12000, 1500.d0)
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":60,"separator":false}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":-1,"separator":false}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":5}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"separator":true}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":5,"separator":1}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":5.0,"separator":true}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":5,"separator":true,"x":1}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":{"a":1},"separator":true}}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":5}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":[1]}', 'open')
+  call expect_problem('{"t":"pack","id":1,"text":"x","open":{"columns":5,"separator":true},"c":{"a":1}}', '')
   call expect_problem('{"t":"pack","id":1,"text":"x","serial":[1]}', '')
   call expect_problem('{"t":"pack","id":1,"text":"x"}{"t":"pack"}', '')
   call expect_text('{"t":"pack","id":1,"text":"{[x]}"}', '{[x]}')
@@ -598,6 +753,130 @@ contains
     call report(frame, good, '')
   end subroutine expect_aggressive
 
+  ! An integer key's value of the wrong type: a number, not a plain JSON
+  ! integer of 32 bits (or got, the category given), with the expected type
+  ! the key names; the key is not set.
+  subroutine expect_int_type(frame, key, expected, got)
+    character(len=*), intent(in)           :: frame, key, expected
+    character(len=*), intent(in), optional :: got
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    character(len=8) :: category
+
+    category = 'number'
+    if (present(got)) category = got
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. terr%present .and.          &
+         trim(terr%key) .eq. key .and. trim(terr%expected) .eq. expected .and.      &
+         trim(terr%got) .eq. trim(category) .and. .not. (cfg%depth_set .or. cfg%mode_set .or. &
+         cfg%mode_invalid .or. cfg%submode_set .or. cfg%wspr_threads_set .or.        &
+         cfg%ft8_threads_set .or. cfg%rxfreq_set .or. cfg%ntol_set .or. cfg%nfb_set .or. &
+         cfg%version_set .or. cfg%n_trials_set .or.             &
+         cfg%depth_level_set .or. cfg%noise_blanker_level_set .or.                   &
+         cfg%qso_progress_state_set .or. cfg%echo_spacing_set), &
+         'key ' // trim(terr%key) // ' expected ' // trim(terr%expected) // ' got ' // trim(terr%got))
+  end subroutine expect_int_type
+
+  ! A real key's value that is not a JSON number (or got, the category
+  ! given): a type error naming the key, which is not set.
+  subroutine expect_real_type(frame, key, got)
+    character(len=*), intent(in)           :: frame, key
+    character(len=*), intent(in), optional :: got
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    character(len=8) :: category
+
+    category = 'number'
+    if (present(got)) category = got
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. terr%present .and.          &
+         trim(terr%key) .eq. key .and. trim(terr%expected) .eq. 'real' .and.        &
+         trim(terr%got) .eq. trim(category) .and. .not. (cfg%trperiod_set .or.      &
+         cfg%dial_frequency_set .or. cfg%dial_frequency_out_of_range .or.           &
+         cfg%eme_delay_seconds_set .or. cfg%doppler_set),                           &
+         'key ' // trim(terr%key) // ' expected ' // trim(terr%expected) // ' got ' // trim(terr%got))
+  end subroutine expect_real_type
+
+  ! A boolean key's value that is not exactly true or false: a type error
+  ! naming the key, got number, with no flag set.
+  subroutine expect_bool_type(frame, key)
+    character(len=*), intent(in) :: frame, key
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. terr%present .and.          &
+         trim(terr%key) .eq. key .and. trim(terr%expected) .eq. 'bool' .and.        &
+         trim(terr%got) .eq. 'number' .and. .not. (cfg%live_audio_set .or.          &
+         cfg%active_stations_set .or. cfg%a7_hold_set .or. cfg%decode_after_eme_delay_set), &
+         'key ' // trim(terr%key) // ' expected ' // trim(terr%expected) // ' got ' // trim(terr%got))
+  end subroutine expect_bool_type
+
+  ! trperiod taken as value, with no type error.
+  subroutine expect_trperiod(frame, value)
+    character(len=*), intent(in) :: frame
+    real(8),          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.     &
+         cfg%trperiod_set .and. cfg%trperiod .eq. value, 'trperiod')
+  end subroutine expect_trperiod
+
+  ! The depth group packed to packed (-1: left unpacked), with no type error.
+  subroutine expect_level(frame, packed)
+    character(len=*), intent(in) :: frame
+    integer,          intent(in) :: packed
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (packed .lt. 0) then
+       call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.  &
+            .not. cfg%ndepth_packed_set, 'depth group packed')
+    else
+       call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.  &
+            cfg%ndepth_packed_set .and. cfg%ndepth_packed .eq. packed, 'depth group')
+    end if
+  end subroutine expect_level
+
+  ! depth taken as value, with no type error.
+  subroutine expect_depth(frame, value)
+    character(len=*), intent(in) :: frame
+    integer,          intent(in) :: value
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.     &
+         cfg%depth_set .and. cfg%depth .eq. value, 'depth')
+  end subroutine expect_depth
+
+  ! contest_type as parsed: '' a known activity, 'range' out of range, with
+  ! no type error and the activity group unset.
+  subroutine expect_contest(frame, outcome)
+    character(len=*), intent(in) :: frame, outcome
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+
+    call parse_control_frame(frame, action, cfg, terr)
+    if (outcome .eq. 'range') then
+       call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.  &
+            cfg%contest_type_out_of_range .and. .not. cfg%contest_type_set, 'contest_type range')
+    else
+       call report(frame, action .eq. CTRL_CONFIGURE .and. .not. terr%present .and.  &
+            cfg%contest_type_set .and. .not. cfg%contest_type_out_of_range, 'contest_type')
+    end if
+  end subroutine expect_contest
+
   ! The type error a conflict gives.
   subroutine expect_conflict(frame, key, expected)
     character(len=*), intent(in) :: frame, key, expected
@@ -759,20 +1038,7 @@ contains
     end if
   end subroutine expect_phase_eq
 
-  subroutine expect_tx_mode_unset(frame)
-    character(len=*), intent(in) :: frame
-    type(configure_fields)   :: cfg
-    type(control_type_error) :: terr
-    integer :: action
 
-    call parse_control_frame(frame, action, cfg, terr)
-    if (action .eq. CTRL_CONFIGURE .and. .not. terr%present .and. .not. cfg%tx_mode_set) then
-       print '(a,a)', '  PASS  ', frame
-    else
-       print '(a,a,a,i0)', '  FAIL  ', frame, ' -> tx_mode ', cfg%tx_mode
-       nfail = nfail + 1
-    end if
-  end subroutine expect_tx_mode_unset
 
   ! The frame sets mycall to these bytes ('' expects it unset), and mygrid
   ! to grid when one is given; no type error either way.
@@ -899,15 +1165,25 @@ contains
     character(len=*), intent(in) :: frame, template
     type(encode_request) :: req
     call report(frame, accepted(frame, req) .and. req%is_template .and. &
-         req%text .eq. template .and. len(req%text) .eq. len(template), 'template')
+         .not. req%is_n1mm .and. req%text .eq. template .and.               &
+         len(req%text) .eq. len(template), 'template')
   end subroutine expect_template
+
+  subroutine expect_n1mm(frame, text)
+    character(len=*), intent(in) :: frame, text
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. req%is_n1mm .and.          &
+         .not. req%is_template .and. req%text .eq. text .and.               &
+         len(req%text) .eq. len(text), 'n1mm')
+  end subroutine expect_n1mm
 
   ! The text's exact bytes.
   subroutine expect_text(frame, text)
     character(len=*), intent(in) :: frame, text
     type(encode_request) :: req
     call report(frame, accepted(frame, req) .and. .not. req%is_template .and. &
-         len(req%text) .eq. len(text) .and. req%text .eq. text, 'text bytes')
+         .not. req%is_n1mm .and. len(req%text) .eq. len(text) .and.           &
+         req%text .eq. text, 'text bytes')
   end subroutine expect_text
 
   subroutine expect_profile(frame, profile)
@@ -934,6 +1210,15 @@ contains
          req%serial .eq. serial .and. req%report_given .and. req%report .eq. report_value, &
          'context')
   end subroutine expect_context
+
+  subroutine expect_open(frame, columns, separator)
+    character(len=*), intent(in) :: frame
+    integer,          intent(in) :: columns
+    logical,          intent(in) :: separator
+    type(encode_request) :: req
+    call report(frame, accepted(frame, req) .and. req%open_columns .eq. columns .and. &
+         (req%open_separator .eqv. separator), 'open')
+  end subroutine expect_open
 
   subroutine expect_render_problem(frame, key)
     character(len=*), intent(in) :: frame, key

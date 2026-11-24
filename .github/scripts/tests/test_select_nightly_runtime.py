@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,14 +31,17 @@ HEAD = "a" * 40
 OLD = "b" * 40
 
 
-def run(run_id, sha, conclusion, *, day, event="schedule", status="completed"):
+def run(run_id, sha, conclusion, *, day, event="schedule", status="completed", started=None, attempt=1):
+    created = f"2026-11-{day:02d}T06:17:00Z"
     return {
         "id": run_id,
         "head_sha": sha,
         "event": event,
         "status": status,
         "conclusion": conclusion,
-        "created_at": f"2026-11-{day:02d}T06:17:00Z",
+        "created_at": created,
+        "run_started_at": started or created,
+        "run_attempt": attempt,
         "html_url": f"https://github.com/WSJTX/wsjtx-internal/actions/runs/{run_id}",
     }
 
@@ -83,23 +87,50 @@ class SelectorTests(unittest.TestCase):
         self.assertTrue(decision.run)
         self.assertIsNone(decision.previous)
 
-    def test_only_completed_scheduled_successes_and_failures_count(self):
+    def test_completed_successes_and_failures_count_whether_scheduled_or_dispatched(self):
         runs = [
             run(1, OLD, "success", day=10),
-            run(2, HEAD, "cancelled", day=11),
-            run(3, HEAD, "timed_out", day=12),
-            run(4, HEAD, "success", day=13, event="workflow_dispatch"),
+            run(2, HEAD, "success", day=11, event="workflow_dispatch"),
+            run(3, HEAD, "cancelled", day=12),
+            run(4, HEAD, "timed_out", day=13, event="workflow_dispatch"),
             run(5, HEAD, None, day=14, status="in_progress"),
             run(6, HEAD, "skipped", day=15),
+            run(7, OLD, None, day=16, event="workflow_dispatch", status="queued"),
         ]
         decision = MODULE.decide("schedule", HEAD, runs)
+        self.assertFalse(decision.run, "a passing dispatch at an unmoved develop skips the next night")
+        self.assertEqual(decision.previous["id"], 2)
+
+    def test_a_dispatched_failure_after_a_scheduled_pass_retests(self):
+        decision = MODULE.decide("schedule", HEAD, [run(1, HEAD, "success", day=15),
+                                                    run(2, HEAD, "failure", day=16, event="workflow_dispatch")])
         self.assertTrue(decision.run)
-        self.assertEqual(decision.previous["id"], 1)
+        self.assertEqual(decision.previous["id"], 2)
 
     def test_newest_is_chosen_by_creation_time_not_list_order(self):
         older_first = [run(1, HEAD, "success", day=15), run(2, OLD, "success", day=16)]
         self.assertTrue(MODULE.decide("schedule", HEAD, older_first).run)
         self.assertFalse(MODULE.decide("schedule", OLD, list(reversed(older_first))).run)
+
+    def test_a_rerun_of_an_older_commits_run_does_not_retest_an_unmoved_passed_tip(self):
+        # The newest commit is chosen by its runs' creation, which a re-run keeps.
+        for conclusion in ("success", "failure"):
+            with self.subTest(rerun=conclusion):
+                runs = [run(1, OLD, conclusion, day=15, attempt=2, started="2026-11-16T12:00:00Z"),
+                        run(2, HEAD, "success", day=16)]
+                decision = MODULE.decide("schedule", HEAD, runs)
+                self.assertFalse(decision.run)
+                self.assertEqual(decision.previous["id"], 2)
+
+    def test_a_rerun_is_ordered_by_its_latest_attempts_start_not_its_creation(self):
+        # A re-run keeps its run's created_at, so at one commit a re-run of an older run can be the newest result.
+        for rerun, other, tests in (("failure", "success", True), ("success", "failure", False)):
+            with self.subTest(rerun=rerun):
+                runs = [run(1, HEAD, rerun, day=15, attempt=2, started="2026-11-16T12:00:00Z"),
+                        run(2, HEAD, other, day=16, event="workflow_dispatch")]
+                decision = MODULE.decide("schedule", HEAD, runs)
+                self.assertEqual(decision.run, tests)
+                self.assertEqual(decision.previous["id"], 1)
 
     def test_dispatch_always_tests(self):
         for conclusion in ("success", "failure"):
@@ -131,7 +162,7 @@ class MainTests(unittest.TestCase):
             "GITHUB_STEP_SUMMARY": str(self.summary),
         }
         with mock.patch.dict(os.environ, environment, clear=True), \
-                mock.patch.object(MODULE.GitHub, "scheduled_runs", return_value=runs), \
+                mock.patch.object(MODULE.GitHub, "develop_runs", return_value=runs), \
                 mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
             self.assertEqual(MODULE.main(), 0)
         self.log = stdout.getvalue()
@@ -153,7 +184,7 @@ class MainTests(unittest.TestCase):
     def test_a_night_after_a_failure_retests_the_same_commit(self):
         output, summary = self.main("schedule", [run(7, HEAD, "failure", day=16)])
         self.assertEqual(output, "run=true\n")
-        self.assertIn(f"Testing `{HEAD}`: the newest scheduled run failed at this commit, so it is tested again.", summary)
+        self.assertIn(f"Testing `{HEAD}`: the newest run failed at this commit, so it is tested again.", summary)
         self.assertIn("https://github.com/WSJTX/wsjtx-internal/actions/runs/7", summary)
         self.assertNotIn("/compare/", summary)
         self.assertNotIn("::error::", self.log)
@@ -168,22 +199,22 @@ class MainTests(unittest.TestCase):
 
 
 class ClientTests(unittest.TestCase):
-    def test_lists_completed_scheduled_runs_of_this_workflow(self):
+    def test_lists_completed_runs_of_this_workflow_on_develop(self):
         response = mock.MagicMock()
         response.__enter__.return_value = io.BytesIO(json.dumps({"workflow_runs": [{"id": 1}]}).encode())
         with mock.patch("urllib.request.urlopen", return_value=response) as urlopen:
-            runs = MODULE.GitHub("token", "WSJTX/wsjtx-internal").scheduled_runs()
+            runs = MODULE.GitHub("token", "WSJTX/wsjtx-internal").develop_runs()
         self.assertEqual(runs, [{"id": 1}])
         request = urlopen.call_args.args[0]
         url = urllib.parse.urlsplit(request.full_url)
         self.assertEqual(url.path, "/repos/WSJTX/wsjtx-internal/actions/workflows/nightly-runtime-tests.yml/runs")
-        self.assertEqual(urllib.parse.parse_qs(url.query), {"event": ["schedule"], "status": ["completed"], "per_page": ["100"]})
+        self.assertEqual(urllib.parse.parse_qs(url.query), {"branch": ["develop"], "status": ["completed"], "per_page": ["100"]})
         self.assertEqual(request.get_method(), "GET")
 
     def test_api_errors_fail(self):
         error = urllib.error.HTTPError("https://api.github.com", 403, "Forbidden", {}, None)
         with mock.patch("urllib.request.urlopen", side_effect=error), self.assertRaisesRegex(RuntimeError, "HTTP 403"):
-            MODULE.GitHub("token", "WSJTX/wsjtx-internal").scheduled_runs()
+            MODULE.GitHub("token", "WSJTX/wsjtx-internal").develop_runs()
 
 
 class WorkflowTests(unittest.TestCase):
@@ -286,6 +317,21 @@ fi
 """
 
 
+def find_bash() -> str:
+    """The bash a shell would run. Windows searches System32, where WSL installs a bash.exe, before PATH, and a default
+    Git for Windows install puts only git on PATH, so take the bash.exe beside git there."""
+    bash = shutil.which("bash")
+    if os.name == "nt" and (bash is None or pathlib.Path(bash).parent.name.lower() == "system32"):
+        git = shutil.which("git")
+        beside = pathlib.Path(git).resolve().parents[1] / "bin" / "bash.exe" if git else None
+        if beside is not None and beside.is_file():
+            return str(beside)
+    return bash or "bash"
+
+
+BASH = find_bash()
+
+
 class ReportScriptTests(unittest.TestCase):
     TITLE = "Nightly tests failed on develop"
 
@@ -293,19 +339,20 @@ class ReportScriptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             directory = pathlib.Path(directory)
             gh = directory / "gh"
-            gh.write_text(FAKE_GH)
+            gh.write_text(FAKE_GH, newline="\n")
             gh.chmod(0o755)
             script = directory / "report.sh"
-            script.write_text(report_script())
+            script.write_text(report_script(), newline="\n")
             log = directory / "log"
             log.write_text("")
-            env = {"PATH": f"{directory}:/usr/bin:/bin", "GH_LOG": str(log), "FAKE_OPEN_ISSUE": open_issue,
+            env = {"PATH": os.pathsep.join([str(directory), "/usr/bin", "/bin"]), "GH_LOG": str(log),
+                   "FAKE_OPEN_ISSUE": open_issue,
                    "GH_TOKEN": "token", "GH_REPO": "WSJTX/wsjtx-internal", "RUN_URL": "https://example.invalid/runs/7",
                    "SHA": HEAD, "PREPARE": prepare, "RUNTIME": runtime, "WINDOWS": windows}
             if fail:
                 env["FAKE_GH_FAIL"] = "1"
             # GitHub runs a step's script with bash -eo pipefail.
-            result = subprocess.run(["bash", "-eo", "pipefail", str(script)], env=env, capture_output=True, text=True)
+            result = subprocess.run([BASH, "-eo", "pipefail", str(script)], env=env, capture_output=True, text=True)
             calls = [call.split("\0")[:-1] for call in log.read_text().split("\036") if call]
             return result.returncode, calls
 

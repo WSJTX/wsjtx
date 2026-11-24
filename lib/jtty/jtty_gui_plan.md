@@ -275,8 +275,8 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
     `Jtty::parseMacroControl()`, expand, append to the box, toggle PTT;
     `%L` calls `logJttyQso()`),
     `jtty_msg_expand()`,
-    `on_comboBoxJttyStyle_currentIndexChanged()` (select a set),
-    `refreshJttyMacroControls()` (combo items, button labels and tooltips);
+    the `buttonGroupJttyStyle` `buttonClicked` handler in the `MainWindow` constructor (select a set by the button's `macroSet` name),
+    `refreshJttyMacroControls()` (checked style button, button labels and tooltips);
     `on_pbEditJttyMacros_clicked()` in `mainwindow_slots.cpp` runs the
     editor.
 - `widgets/JttyMacroSets.{hpp,cpp}` — `Jtty::MacroLibrary`, default sets,
@@ -292,7 +292,7 @@ Phases 1–3 together on `feat/jtty-new-GUI`; Phase 4 separately afterwards; Pha
   `WSPR_config()` selects the JTTY controls page (`controls_stack_widget`
   index 1).
 - `widgets/mainwindow.ui` — JTTY page `page_4`: `pbF1`–`pbF8`, `pbSF1`–`pbSF8`,
-  `comboBoxJttyStyle`, `pbEditJttyMacros`, `cbJttyEnterSends`, `jttyNextCallEntry`, `sbSerialNumber_2`, `pbSendMessage`,
+  `buttonGroupJttyStyle` (the Run / S&P / Chat buttons), `pbEditJttyMacros`, `cbJttyEnterSends`, `jttyNextCallEntry`, `sbSerialNumber_2`, `pbSendMessage`,
   `labelJttyFrameCount`, `Tx_Message`. Under the decode panes (JTTY only):
   `cbLowerCase` and `jttyQsoFieldsWidget` (`jttyCallEntry`, `jttySentEntry`, `jttyReceivedEntry`).
 - `widgets/JttyMessages.hpp` — filler text (`jttyFillerText`), `parseMacroControl()`, macro

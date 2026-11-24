@@ -154,6 +154,7 @@ void TestDecoderIpcHandshake::rejectsSegment_data ()
   QTest::newRow ("v1") << QString {"v1"} << QByteArray {"unsupported-version"};
   QTest::newRow ("v2") << QString {"v2"} << QByteArray {"unsupported-version"};
   QTest::newRow ("v3") << QString {"v3"} << QByteArray {"unsupported-version"};
+  QTest::newRow ("v4") << QString {"v4"} << QByteArray {"unsupported-version"};
   QTest::newRow ("future-version") << QString {"v%1"}.arg (DECODER_IPC_VERSION + 1)
                                   << QByteArray {"unsupported-version"};
   QTest::newRow ("header-size") << QString {"header"} << QByteArray {"wrong-header-size"};

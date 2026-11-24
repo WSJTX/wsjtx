@@ -319,6 +319,7 @@ void TCITransceiver::onConnected()
 
 void TCITransceiver::onDisconnected()
 {
+  abort_split_wait ();
   inConnected = false;
   receive_discontinuity (JttyReceiveReason::InputError);
   CAT_TRACE ("TCITransceiver entered TCI onDisonnected and inConnected==false\n");
@@ -327,6 +328,7 @@ void TCITransceiver::onDisconnected()
 
 void TCITransceiver::onError(QAbstractSocket::SocketError err)
 {
+  abort_split_wait ();
   receive_discontinuity (JttyReceiveReason::InputError);
   qDebug() << "WebInThread::onError";
   CAT_TRACE ("TCITransceiver entered TCI onError and ErrorNumber is " + QString::number(err) + '\n');
@@ -339,6 +341,8 @@ void TCITransceiver::onError(QAbstractSocket::SocketError err)
 
 int TCITransceiver::do_start ()
 {
+  ++split_session_;
+  abort_split_wait ();
   if (tci_audio_) QThread::currentThread()->setPriority(QThread::HighPriority);
   CAT_TRACE ("TCITransceiver entered TCI do_start and tci_Ready is " + QString::number(tci_Ready) + '\n');
   qDebug () << "qDebug says do_start tci_Ready is: " << tci_Ready;
@@ -398,8 +402,15 @@ int TCITransceiver::do_start ()
   if (!tci_timer5_) {
     tci_timer5_ = new QTimer {this};
     tci_timer5_ -> setSingleShot(true);
-    connect( tci_timer5_, &QTimer::timeout, tci_loop5_, &QEventLoop::quit);
+    connect (tci_timer5_, &QTimer::timeout, this, [this] {
+      split_wait_expired_ = true;
+      tci_loop5_->quit ();
+    });
     connect( this, &TCITransceiver::tci_done5, tci_loop5_, &QEventLoop::quit);
+  }
+  if (!split_correction_throttle_) {
+    split_correction_throttle_ = new QTimer {this};
+    split_correction_throttle_->setSingleShot (true);
   }
   if (!tci_loop6_) {
     tci_loop6_ = new QEventLoop  {this};
@@ -477,8 +488,7 @@ int TCITransceiver::do_start ()
   commander_->open (url_);
   mysleep7(2000);
   busy_split_ = true;
-  const QString cmd = CmdSplitEnable + SmDP + "false" + SmTZ;
-  sendTextMessage(cmd);
+  send_split (false, false);
   busy_split_ = false;
   if (error_.isEmpty()) {
     tci_Ready = true;
@@ -549,6 +559,8 @@ int TCITransceiver::do_start ()
 
 void TCITransceiver::do_stop ()
 {
+  abort_split_wait ();
+  auto const session = split_session_;
   bool const endingContinuous = m_receivePolicy == ReceivePolicy::ContinuousJtty;
   if (m_receivePolicy == ReceivePolicy::ContinuousJtty) audio_ = false;
   receive_discontinuity (JttyReceiveReason::SourceChanged);
@@ -565,13 +577,15 @@ void TCITransceiver::do_stop ()
   }
   if (tci_Ready && inConnected && _power_) {
     requested_other_frequency_ = "";
-    busy_split_ = true;
-    const QString cmd = CmdSplitEnable + SmDP + "false" + SmTZ;
-    sendTextMessage(cmd);
-    mysleep5(500);
-    busy_split_ = false;
     requested_split_ = false;
-    rig_split();
+    for (bool indexed : {false, true}) {
+      auto const lifecycle = split_lifecycle_;
+      auto const report = split_report_serial_;
+      send_split (false, indexed);
+      sendTextMessage (CmdSplitEnable + SmDP + rx_ + SmTZ);
+      wait_for_split (false, report, lifecycle);
+      if (session != split_session_) return;
+    }
     if (!started_rx2_ && rx2_) {
       rx2_enable (false);
     }
@@ -812,12 +826,15 @@ void TCITransceiver::onMessageReceived(const QString &str)
         if(args.at(0)==rx_) {
           if (args.at(1) == "false") split_ = false;
           else if (args.at(1) == "true") split_ = true;
+          else break;
+          ++split_report_serial_;
           if (!tci_Ready) {started_split_ = split_;}
-          else if (busy_split_) tci_done5();
-          else if (requested_split_ != split_ && !tci_timer5_->isActive()) {
-              CAT_TRACE("tci_timer5 started in onMessageReceived-Cmd_SplitEnable");
-            tci_timer5_->start(210);
-            rig_split();
+          else if (busy_split_) {
+            if (requested_split_ == split_) tci_done5();
+          }
+          else if (requested_split_ != split_ && !split_correction_throttle_->isActive()) {
+            split_correction_throttle_->start(210);
+            send_split (requested_split_);
           }
         }
         break;
@@ -1248,17 +1265,72 @@ void TCITransceiver::rx2_enable (bool on)
   busy_rx2_ = false;
 }
 
-void TCITransceiver::rig_split ()
+void TCITransceiver::send_split (bool enabled, bool indexed)
 {
-  printf("%s TCI rig_split:%d->%d busy:%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),split_,requested_split_,busy_split_);
-  if (busy_split_) return;
-  if (tci_timer5_->isActive()) mysleep5(0);
-  busy_split_ = true;
-  const QString cmd = CmdSplitEnable + SmDP + rx_ + SmCM + (requested_split_ ? "true" : "false") + SmTZ;
-  sendTextMessage(cmd);
-  mysleep5(500);
+  if (inConnected) last_sent_split_ = enabled;
+  sendTextMessage (CmdSplitEnable + SmDP + (indexed ? rx_ + SmCM : QString {})
+                   + (enabled ? "true" : "false") + SmTZ);
+}
+
+bool TCITransceiver::split_preparation_required () const
+{
+  // A matching report can precede our own outstanding opposite-state command.
+  return requested_split_ != split_
+    || (last_sent_split_ && *last_sent_split_ != requested_split_);
+}
+
+void TCITransceiver::abort_split_wait ()
+{
+  ++split_lifecycle_;
+  last_sent_split_.reset ();
   busy_split_ = false;
-  if (requested_split_ == split_) update_split (split_);
+  if (split_correction_throttle_) split_correction_throttle_->stop ();
+  if (tci_timer5_) tci_timer5_->stop ();
+  if (tci_loop5_) tci_loop5_->quit ();
+}
+
+TCITransceiver::SplitWait TCITransceiver::wait_for_split (bool desired, quint64 report, quint64 lifecycle)
+{
+  if (lifecycle != split_lifecycle_) return SplitWait::Aborted;
+  if (!inConnected || !tci_Ready || !error_.isEmpty ()) return SplitWait::Aborted;
+  if (split_wait_active_) return SplitWait::Reentered;
+  split_wait_active_ = true;
+  busy_split_ = true;
+  split_wait_expired_ = false;
+  tci_timer5_->start (500);
+  SplitWait result;
+  for (;;) {
+    if (lifecycle != split_lifecycle_) {
+      split_wait_active_ = false;
+      return SplitWait::Aborted;
+    }
+    if (!inConnected || !tci_Ready || !error_.isEmpty ()) {
+      tci_timer5_->stop ();
+      busy_split_ = false;
+      split_wait_active_ = false;
+      return SplitWait::Aborted;
+    }
+    if (split_report_serial_ > report && split_ == desired) {result = SplitWait::Observed; break;}
+    if (split_wait_expired_) {result = SplitWait::Timeout; break;}
+    wait_exec (tci_loop5_);
+  }
+  tci_timer5_->stop ();
+  busy_split_ = false;
+  split_wait_active_ = false;
+  return result;
+}
+
+TCITransceiver::SplitWait TCITransceiver::rig_split ()
+{
+  if (busy_split_ || split_wait_active_) return SplitWait::Reentered;
+  auto const lifecycle = split_lifecycle_;
+  auto const report = split_report_serial_;
+  auto const desired = requested_split_;
+  send_split (desired);
+  sendTextMessage (CmdSplitEnable + SmDP + rx_ + SmTZ);
+  auto const result = wait_for_split (desired, report, lifecycle);
+  if (result == SplitWait::Observed) update_split (split_);
+  return result;
 }
 
 void TCITransceiver::rig_power (bool on)
@@ -1446,8 +1518,11 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
       QElapsedTimer deadline;
       deadline.start ();
       while (string_to_frequency (rx_frequency_) != f && inConnected
-             && error_.isEmpty () && deadline.elapsed () < 2000)
-        mysleep7 (static_cast<int> (2000 - deadline.elapsed ()));
+             && error_.isEmpty ()) {
+        auto const remaining = 2000 - deadline.elapsed ();
+        if (remaining <= 0) break;
+        mysleep7 (static_cast<int> (remaining));
+      }
       band_change2 = string_to_frequency (rx_frequency_) != f;
       if (!band_change2) update_rx_frequency (f, RigFrequency::Basis::Readback);
       else {
@@ -1504,7 +1579,19 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
       } else {
         if (tci_timer2_->isActive()) mysleep2(0);
       }
-      if (requested_split_ != split_) rig_split();
+      if (split_preparation_required ()) {
+        auto const session = split_session_;
+        auto const result = rig_split ();
+        if (result == SplitWait::Aborted) {
+          if (session == split_session_) {
+            if (!error_.isEmpty ()) throw error {error_};
+            if (tci_Ready && !inConnected) throw error {tr ("TCI connection closed")};
+          }
+          return;
+        }
+        if (result == SplitWait::Reentered) {defer_frequency (RigFrequency::Path::Tx); return;}
+        if (result == SplitWait::Timeout) throw error {tr ("TCI failed to enable split")};
+      }
       else update_split (split_);
       if (!split_) throw error {tr ("TCI failed to enable split")};
       if (other_frequency_ != requested_other_frequency_) {
@@ -1515,8 +1602,11 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
         QElapsedTimer deadline;
         deadline.start ();
         while (string_to_frequency (other_frequency_) != tx && inConnected
-               && error_.isEmpty () && deadline.elapsed () < 1000)
-          mysleep2 (static_cast<int> (1000 - deadline.elapsed ()));
+               && error_.isEmpty ()) {
+          auto const remaining = 1000 - deadline.elapsed ();
+          if (remaining <= 0) break;
+          mysleep2 (static_cast<int> (remaining));
+        }
         other_band_change = string_to_frequency (other_frequency_) != tx;
         if (!other_band_change) update_other_frequency (tx, RigFrequency::Basis::Readback);
         else {
@@ -1541,7 +1631,19 @@ void TCITransceiver::do_tx_frequency (Frequency tx, MODE mode, bool no_ignore)
         if (!HPSDR) mysleep2(200);
       }
       if (tci_timer2_->isActive()) mysleep2(0);
-      if (requested_split_ != split_) rig_split();
+      if (split_preparation_required ()) {
+        auto const session = split_session_;
+        auto const result = rig_split ();
+        if (result == SplitWait::Aborted) {
+          if (session == split_session_) {
+            if (!error_.isEmpty ()) throw error {error_};
+            if (tci_Ready && !inConnected) throw error {tr ("TCI connection closed")};
+          }
+          return;
+        }
+        if (result == SplitWait::Reentered) {defer_frequency (RigFrequency::Path::Tx); return;}
+        if (result == SplitWait::Timeout) throw error {tr ("TCI failed to disable split")};
+      }
       else update_split (split_);
       if (split_) throw error {tr ("TCI failed to disable split")};
       update_other_frequency (tx);
@@ -1683,53 +1785,52 @@ auto TCITransceiver::string_to_frequency (QString const& s) const -> Frequency
   return frequency;
 }
 
+void TCITransceiver::wait_exec (QEventLoop * loop)
+{
+  DeferredDeleteHold hold;
+  loop->exec ();
+}
+
 void TCITransceiver::mysleep1 (int ms)
 {
   if (ms) tci_timer1_->start(ms);
-  tci_loop1_->exec();
+  wait_exec (tci_loop1_);
   if (tci_timer1_->isActive() && tci_Ready) tci_timer1_->stop();
 }
 void TCITransceiver::mysleep2 (int ms)
 {
   if (ms) tci_timer2_->start(ms);
-  tci_loop2_->exec();
+  wait_exec (tci_loop2_);
   if (tci_timer2_->isActive()) tci_timer2_->stop();
 }
 void TCITransceiver::mysleep3 (int ms)
 {
   if (ms) tci_timer3_->start(ms);
-  tci_loop3_->exec();
+  wait_exec (tci_loop3_);
   if (tci_timer3_->isActive()) tci_timer3_->stop();
 }
 void TCITransceiver::mysleep4 (int ms)
 {
   if (ms) tci_timer4_->start(ms);
-  tci_loop4_->exec();
+  wait_exec (tci_loop4_);
   if (tci_timer4_->isActive()) tci_timer4_->stop();
-}
-void TCITransceiver::mysleep5 (int ms)
-{
-  if((tci_loop5_ && (tci_loop5_->isRunning())) || (tci_timer5_ && tci_timer5_->isActive())) return;
-  if (ms) tci_timer5_->start(ms);
-  tci_loop5_->exec();
-  if (tci_timer5_->isActive()) tci_timer5_->stop();
 }
 void TCITransceiver::mysleep6 (int ms)
 {
   if (ms) tci_timer6_->start(ms);
-  tci_loop6_->exec();
+  wait_exec (tci_loop6_);
   if (tci_timer6_->isActive()) tci_timer6_->stop();
 }
 void TCITransceiver::mysleep7 (int ms)
 {
     if (ms) tci_timer7_->start(ms);
-    tci_loop7_->exec();
+    wait_exec (tci_loop7_);
     if (tci_timer7_->isActive()) tci_timer7_->stop();
 }
 void TCITransceiver::mysleep8 (int ms)
 {
     if (ms) tci_timer8_->start(ms);
-    tci_loop8_->exec();
+    wait_exec (tci_loop8_);
     if (tci_timer8_->isActive()) tci_timer8_->stop();
 }
 // Modulator part

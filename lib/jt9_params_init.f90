@@ -32,7 +32,6 @@ module jt9_params_init
      character(len=6)  :: mygrid  = '      '
      character(len=6)  :: hisgrid = '      '
      character(len=20) :: datetime = '2026-Apr-25 00:00   '
-     logical :: tx9              = .false.
      logical :: multift8         = .false.
      logical :: hidedupes        = .false.
      logical :: lft8lowth        = .true.
@@ -102,9 +101,7 @@ contains
     params%nfqso           = args%nrxfreq
     params%nftx            = 0
     params%newdat          = .true.
-    params%npts8           = 74736
     params%nfa             = args%flow
-    params%nfsplit         = args%fsplit
     params%nfb             = args%fhigh
     params%ntol            = args%ntol        ! per-mode policy applies below
     params%kin             = 64800            ! mode=240 override below
@@ -118,11 +115,6 @@ contains
     params%lapcqonly       = .false.
     params%ljt65apon       = .true.
     params%napwid          = 75
-    if (args%tx9) then
-       params%ntxmode      = 9
-    else
-       params%ntxmode      = 65
-    end if
     params%nmode           = mode
     if (mode == 9 .and. args%low_sidelobes) params%ndepth = ior(params%ndepth, 256)
     params%minw            = 0
@@ -135,7 +127,6 @@ contains
     params%n2pass          = 2
     params%nranera         = 6
     params%naggressive     = 0
-    params%nrobust         = .false.
     params%nexp_decode     = args%nexp_decode
     params%max_drift       = 0
 

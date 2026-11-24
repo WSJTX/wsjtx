@@ -11,7 +11,8 @@
 # through smoke-launch-windows.sh, which allows 20 s and removes the MinGW
 # runtime from PATH. --ldd (Linux) also requires
 # every library a tarball bundles to resolve to the bundled copy, because a
-# build container has the same libraries installed system-wide.
+# build container has the same libraries installed system-wide. Linux callers
+# setting LINUX_GLIBC_CEILING also enforce that ceiling and static Boost linkage.
 #
 # wsjt-codec then decodes samples/FT8/210703_133430.wav through the Python example client (doc/codec/examples/python/codec_client.py), with its extracted tarball as the client's data directory; the tarball must carry the source's ALLCALL7.TXT, every message in test/fixtures/ft8_210703_133430_mtd.expected.txt must decode, and the period must finish. The client needs Python 3.8 or later as python3; a missing python3, client, sample or list fails the run.
 set -euo pipefail
@@ -39,6 +40,10 @@ FT8_SAMPLE="${SCRIPTS}/../../samples/FT8/210703_133430.wav"
 FT8_EXPECTED="${SCRIPTS}/../../test/fixtures/ft8_210703_133430_mtd.expected.txt"
 ALLCALL7="${SCRIPTS}/../../ALLCALL7.TXT"
 DIR="$(cd "$DIR" && pwd)"
+if [ "$PLATFORM" = linux ] && [ -n "${LINUX_GLIBC_CEILING:-}" ]; then
+  # shellcheck source=.github/scripts/linux-artifact-validation.sh
+  source "$SCRIPTS/linux-artifact-validation.sh"
+fi
 
 fail() { echo "::error::$*" >&2; exit 1; }
 
@@ -171,6 +176,9 @@ while IFS= read -r line || [ -n "$line" ]; do
   tar -xzf "$tarball" -C "${WORK}/${fields[0]}"
   tree="${WORK}/${fields[0]}/${name}"
   [ -d "$tree" ] || fail "${name}.tar.gz does not extract to ${name}/"
+  if [ "$PLATFORM" = linux ] && [ -n "${LINUX_GLIBC_CEILING:-}" ]; then
+    validate_linux_static_boost_tree "$tree"
+  fi
   if [ -n "$LDD" ]; then check_ldd "$tree"; fi
   for program in "${fields[@]:1}"; do
     run_program "$tree" "$program"

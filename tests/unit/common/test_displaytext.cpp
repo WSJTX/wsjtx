@@ -75,6 +75,22 @@ private:
     return display.cursorRect (cursor).center ();
   }
 
+  static bool has_background (DisplayText const& display, QString const& text,
+                              QColor const& expected, int occurrence = 0)
+  {
+    int from {0};
+    QTextCursor cursor;
+    for (int index = 0; index <= occurrence; ++index)
+      {
+        cursor = display.document ()->find (text, from, QTextDocument::FindCaseSensitively);
+        if (cursor.isNull ()) return false;
+        from = cursor.selectionEnd ();
+      }
+    cursor.setPosition (cursor.selectionStart () + 1);
+    auto const brush = cursor.charFormat ().background ();
+    return brush.style () != Qt::NoBrush && brush.color () == expected;
+  }
+
   static void sendMouseEvent (DisplayText& display, QEvent::Type type, QPoint const& position,
                               Qt::MouseButton button, Qt::MouseButtons buttons,
                               Qt::KeyboardModifiers modifiers = Qt::NoModifier)
@@ -291,6 +307,12 @@ private slots:
     QVERIFY (missing.highlights.empty ());
     QVERIFY (missing.sender.isEmpty ());
     QVERIFY (display.displayDecodedText (cq, "W1AAA", "FT4", false, logbook, "20m"));
+    display.clear ();
+    DecodedText collision {"060522 -10  0.3  815 ~ <TA1ABCD> TA1ABC -10"};
+    QVERIFY (display.displayDecodedText (collision, "TA1ABC", "FT8", true, logbook, "20m"));
+    auto const transmitted = DecodeHighlightingModel::resolve_colors (
+      configuration_->decode_highlighting ().items (), {DecodeHighlightingModel::Highlight::Tx}, {}, {});
+    QCOMPARE (display.document ()->firstBlock ().blockFormat ().background ().color (), transmitted.background_);
     QCoreApplication::removeTranslator (&translator);
   }
 
@@ -928,6 +950,81 @@ private slots:
     QVERIFY (!return_button->isVisible ());
     addPeriod (display, "P2", 10);
     QCOMPARE (topVisibleDecode (display), QString {"P2 decode 00"});
+  }
+
+  void highlightCallsignMatchesCompleteTokensIgnoringCase ()
+  {
+    DisplayText display;
+    display.insertText ("K1ABC K9ZZZ <K1ABC> K1ABCX K1ABC/P EA8/K1AbC");
+
+    QColor const bg {Qt::red};
+    display.highlight_callsign ("k1abc", bg, Qt::white, false);
+
+    QVERIFY (has_background (display, "K1ABC", bg, 0));
+    QVERIFY (!has_background (display, "K9ZZZ", bg));
+    QVERIFY (has_background (display, "<", bg));
+    QVERIFY (has_background (display, "K1ABC", bg, 1));
+    QVERIFY (has_background (display, ">", bg));
+    QVERIFY (!has_background (display, "K1ABCX", bg));
+    QVERIFY (!has_background (display, "K1ABC/P", bg));
+    QVERIFY (!has_background (display, "K1AbC", bg));
+
+    display.highlight_callsign ("k1abc/p", bg, Qt::white, false);
+    QVERIFY (has_background (display, "K1ABC/P", bg));
+  }
+
+  void highlightCallsignRestoresPersistentColorAfterLastPeriodOverride ()
+  {
+    DisplayText display;
+    display.insertText ("124445 -10  0.2 1234 ~ CQ K1ABC FN42");
+    display.insertText ("124500 -10  0.2 1234 ~ CQ K1ABC FN42");
+
+    QColor const persistent {Qt::red};
+    QColor const last_period {Qt::blue};
+    display.highlight_callsign ("K1ABC", persistent, Qt::white, false);
+    QVERIFY (has_background (display, "K1ABC", persistent, 1));
+    display.highlight_callsign ("K1ABC", last_period, Qt::white, true);
+    QVERIFY (has_background (display, "K1ABC", persistent, 0));
+    QVERIFY (has_background (display, "K1ABC", last_period, 1));
+
+    display.highlight_callsign ("K1ABC", persistent, Qt::white, false);
+    QVERIFY (has_background (display, "K1ABC", persistent, 0));
+    QVERIFY (has_background (display, "K1ABC", persistent, 1));
+  }
+
+  void highlightCallsignRejectsNonCallsignText ()
+  {
+    DisplayText display;
+    display.insertText ("K1.* K1ABC");
+
+    QColor const bg {Qt::red};
+    display.highlight_callsign ("K1.*", bg, Qt::white, false);
+
+    QVERIFY (!has_background (display, "K1.*", bg));
+    QVERIFY (!has_background (display, "K1ABC", bg));
+  }
+
+  void highlightCallsignCapsActiveEntries ()
+  {
+    DisplayText display;
+    display.insertText ("K0ABC K4999ABC K5000ABC");
+
+    QColor const bg {Qt::red};
+    for (int i = 0; i <= 5000; ++i)
+      {
+        display.highlight_callsign (QString {"K%1ABC"}.arg (i), bg, Qt::white, false);
+      }
+
+    QVERIFY (has_background (display, "K0ABC", bg));
+    QVERIFY (has_background (display, "K4999ABC", bg));
+    QVERIFY (!has_background (display, "K5000ABC", bg));
+
+    QColor const updated {Qt::blue};
+    display.highlight_callsign ("K4999ABC", updated, Qt::white, false);
+    QVERIFY (has_background (display, "K4999ABC", updated));
+    display.highlight_callsign ("K4999ABC", {}, {}, false);
+    display.highlight_callsign ("K5000ABC", bg, Qt::white, false);
+    QVERIFY (has_background (display, "K5000ABC", bg));
   }
 };
 

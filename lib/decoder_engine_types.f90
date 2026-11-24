@@ -1,5 +1,6 @@
 module decoder_engine_types
   use, intrinsic :: iso_c_binding
+  use decoded_message, only: decoder_message_fields
   implicit none
   private
   public :: ft8_signal_evidence, ft4_signal_evidence, superfox_evidence, superfox_observation
@@ -10,7 +11,7 @@ module decoder_engine_types
   public :: engine_abi,engine_mode_ft8,engine_mode_ft4,engine_mode_jt9,engine_mode_jt65,engine_mode_q65
   public :: engine_support_ft8,engine_support_ft4,engine_support_jt9,engine_support_jt65,engine_support_q65
 
-  integer(c_int), parameter :: engine_abi=10,engine_mode_ft8=8,engine_mode_ft4=5,engine_mode_jt9=9,engine_mode_jt65=65
+  integer(c_int), parameter :: engine_abi=11,engine_mode_ft8=8,engine_mode_ft4=5,engine_mode_jt9=9,engine_mode_jt65=65
   integer(c_int), parameter :: engine_support_ft8=1,engine_support_ft4=2,engine_support_jt9=4,engine_support_jt65=8
 
   integer(c_int), parameter :: engine_mode_q65=66,engine_support_q65=16
@@ -85,6 +86,7 @@ module decoder_engine_types
      integer(c_int) :: kind=0,method=0,average_count=0,sync_polarity=0,smoothing=0
      integer(c_int) :: has_width=0,has_drift=0
      real(c_float) :: width_hz=0.0,drift_hz=0.0
+     integer(c_int) :: ooo=0
   end type
 
   type, bind(C) :: q65_result
@@ -112,6 +114,8 @@ module decoder_engine_types
      type(fst4_result) :: fst4
      type(jt4_result) :: jt4
      type(wspr_result) :: wspr
+     integer(c_int) :: low_confidence=0
+     type(decoder_message_fields) :: parsed_message
   end type
 
   abstract interface

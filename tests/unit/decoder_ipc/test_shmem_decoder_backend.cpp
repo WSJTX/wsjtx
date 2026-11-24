@@ -202,8 +202,8 @@ void TestShmemDecoderBackend::handshakeFailures_data ()
   QTest::addColumn<int> ("kind");
   QTest::addColumn<int> ("code");
   QTest::addColumn<QString> ("reason");
-  QTest::newRow ("old version") << QByteArray {"<DecoderReady> version=3"}
-                                << int (FailureKind::HandshakeInvalid) << 3 << QString {};
+  QTest::newRow ("old version") << QByteArray {"<DecoderReady> version=4"}
+                                << int (FailureKind::HandshakeInvalid) << 4 << QString {};
   QTest::newRow ("contract refused") << QByteArray {"<DecoderError> status=layout-mismatch"}
                                      << int (FailureKind::HandshakeRefused) << 0
                                      << QStringLiteral ("layout-mismatch");

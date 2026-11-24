@@ -115,6 +115,7 @@ private:
     transceiver.start (1);
     Transceiver::TransceiverState state;
     state.online (true);
+    state.mode (Transceiver::DIG_U);
     state.frequency (144200000);
     state.tx_frequency (144201000);
     state.ptt (true);
@@ -124,7 +125,10 @@ private:
     QCOMPARE (fake->states.size (), 2);
     QCOMPARE (fake->states.first ().frequency_request (Path::Tx).id, quint64 (2));
     QVERIFY (!fake->states.first ().ptt ());
+    QCOMPARE (fake->states.first ().mode (), Transceiver::UNK);
+    QCOMPARE (fake->states.last ().mode (), Transceiver::DIG_U);
     state.ptt (false);
+    state.mode (Transceiver::USB);
     state.tx_frequency (144202000);
     state.frequency_request ({4, 3, Path::Tx, state.tx_frequency ()});
     transceiver.set (state, 3);
@@ -132,6 +136,8 @@ private:
     auto const unkey = fake->states.at (2);
     auto const final = fake->states.at (3);
     QVERIFY (!unkey.ptt ());
+    QCOMPARE (unkey.mode (), Transceiver::UNK);
+    QCOMPARE (final.mode (), Transceiver::USB);
     QCOMPARE (unkey.frequency_request (Path::Tx).id, quint64 (2));
     QCOMPARE (unkey.tx_frequency (), Radio::Frequency (144201000));
     QCOMPARE (final.frequency_request (Path::Tx).id, quint64 (3));
@@ -208,6 +214,46 @@ private:
     transceiver.tx_inhibit_command (QStringLiteral ("W1AW"), 0, QStringLiteral ("W1AW"));
     QTRY_COMPARE (recorder->operations.mid (recorder->operations.size () - 2),
                   QStringList ({QStringLiteral ("tune:1"), QStringLiteral ("ptt:1")}));
+  }
+
+  Q_SLOT void holdTransitionsPreserveModeUntilAnExplicitRequest ()
+  {
+    auto * fake = new FakeInhibitTransceiver;
+    TxInhibitTransceiver transceiver {nullptr, std::unique_ptr<Transceiver> {fake}};
+    transceiver.start (1);
+    Transceiver::TransceiverState state;
+    state.online (true);
+    state.mode (Transceiver::DIG_U);
+    transceiver.set (state, 2);
+    QCOMPARE (fake->last_state.mode (), Transceiver::DIG_U);
+
+    fake->states.clear ();
+    transceiver.tx_inhibit_command ("controller", 10000, {});
+    for (auto const& command : fake->states) QCOMPARE (command.mode (), Transceiver::UNK);
+    state.mode (Transceiver::USB);
+    transceiver.set (state, 3);
+    QCOMPARE (fake->last_state.mode (), Transceiver::USB);
+    fake->states.clear ();
+    transceiver.tx_inhibit_command ("controller", 0, {});
+    for (auto const& command : fake->states) QCOMPARE (command.mode (), Transceiver::UNK);
+
+    transceiver.tx_inhibit_command ("controller", 10000, {});
+    state.ptt (true);
+    transceiver.set (state, 4);
+    QVERIFY (!fake->last_state.ptt ());
+    QCOMPARE (fake->last_state.mode (), Transceiver::UNK);
+    transceiver.tx_inhibit_command ("controller", 0, {});
+    QVERIFY (fake->last_state.ptt ());
+    QCOMPARE (fake->last_state.mode (), Transceiver::USB);
+
+    fake->states.clear ();
+    transceiver.tx_inhibit_command ("controller", 10000, {});
+    QVERIFY (!fake->states.isEmpty ());
+    for (auto const& command : fake->states)
+      {
+        QVERIFY (!command.ptt ());
+        QCOMPARE (command.mode (), Transceiver::UNK);
+      }
   }
 
   Q_SLOT void holdBeforeFirstRequestDoesNotForwardAnOfflineState ()

@@ -1,21 +1,23 @@
 ! SPDX-License-Identifier: GPL-3.0-or-later
 ! The decoders' side outputs as events, and the edits of the Q65 and Fox
-! caller lists. The decoders still write the side files WSJT-X's GUI reads,
-! as the worker does; each event carries the list the attempt leaves, which
-! is what its file then holds but in one case below, so that a client that
-! shares no directory with the codec gets the same lists:
-!   fox_callers  after each FT8 attempt in Fox mode: the records the attempt
+! caller lists. On the stream the codec writes none of the side files
+! WSJT-X's GUI reads from its worker (lib/prog_args.f90's
+! result_files); each event carries the list the worker's attempt
+! leaves in its file:
+!   fox_callers  after each FT8 attempt in Fox mode: the records the worker
 !                writes to houndcallers.txt (lib/ft8_engine_kernel.f90). An
 !                attempt that ages out every caller writes none and leaves
-!                the file's last lines, which the GUI then shows; its line
-!                has no callers (doc/codec/interface.md states it).
-!   averages     after each JT4 and JT65 attempt: avemsg.txt's entries
-!                (lib/jt4_host_support.f90, lib/jt65_host_support.f90)
-!   q65_sync     where a Q65 attempt writes red.dat: its values
+!                the worker's file its last lines, which the GUI then shows;
+!                its line carries those lines.
+!   averages     after each JT4 and JT65 attempt: the worker's avemsg.txt
+!                entries (lib/jt4_host_support.f90, lib/jt65_host_support.f90)
+!   q65_sync     where the worker's Q65 attempt writes red.dat: its values
 !                (lib/q65_host_support.f90)
 !   q65_callers  where a Q65 contest attempt saves tsil.3q (after a load
 !                that succeeded): the records it leaves, which it saves,
 !                whether or not the save succeeds (lib/q65_host_support.f90)
+! An attempt that a change of the receive frequency made obsolete sends none
+! (lib/streaming_emit.f90), as the GUI shows none of an obsolete decode's.
 ! Each is written on the thread that runs the attempt (the decode thread, or
 ! the frame loop's without one), after the attempt's decode lines and before
 ! its decode_finished, with the attempt's period label as "time" and its
@@ -31,14 +33,18 @@
 ! so an edit lands between two attempts and the next attempt loads it. The
 ! GUI's Fox reset deletes houndcallers.txt, and the FT8 decoder starts a new
 ! caller list when it finds none (lib/ft8_engine_kernel.f90);
-! fox_callers_clear deletes it likewise.
+! fox_callers_clear starts it again likewise, at the next FT8 attempt in Fox
+! mode, without the file. tsil.3q is the Q65 decoder's state, not a result
+! file: the codec keeps reading and saving it.
 module streaming_side
   use, intrinsic :: iso_c_binding, only: c_char, c_int, c_null_char
   use, intrinsic :: iso_fortran_env, only: real32
   use streaming_emit, only: streaming_emit_enabled, streaming_emit_line,    &
+       streaming_emit_pass_obsolete,                                        &
        streaming_emit_pass, streaming_emit_real, streaming_emit_time,        &
        streaming_emit_json_escape, streaming_emit_base64
-  use prog_args, only: data_dir, temp_dir
+  use prog_args, only: data_dir
+  use ft8_decode, only: fox_list_reset
   implicit none
   private
   public :: side_fox_callers, side_averages, side_q65_sync, side_q65_callers
@@ -67,6 +73,7 @@ contains
     integer,          intent(in) :: snrs(:), freqs(:), distances(:), ages(:)
     character(len=:), allocatable :: list
     integer :: i
+    if (streaming_emit_pass_obsolete()) return
     if (.not. streaming_emit_enabled()) return
     list = ''
     do i = 1, count
@@ -91,6 +98,7 @@ contains
     real,             intent(in) :: sync(:), dt(:)
     character(len=:), allocatable :: list
     integer :: i
+    if (streaming_emit_pass_obsolete()) return
     if (.not. streaming_emit_enabled()) return
     list = ''
     do i = 1, count
@@ -112,6 +120,7 @@ contains
     integer, intent(in) :: nutc, first_bin
     real,    intent(in) :: dt, low, high, df
     real,    intent(in) :: averaged(:), current(:)
+    if (streaming_emit_pass_obsolete()) return
     if (.not. streaming_emit_enabled()) return
     call streaming_emit_line('{"v":1,"t":"q65_sync","time":"' // streaming_emit_time(nutc, .true.) // &
          '","dt":' // streaming_emit_real(dt) //                                                      &
@@ -129,6 +138,7 @@ contains
     integer,          intent(in) :: seconds(:), freqs(:)
     character(len=:), allocatable :: list
     integer :: i
+    if (streaming_emit_pass_obsolete()) return
     if (.not. streaming_emit_enabled()) return
     list = ''
     do i = 1, count
@@ -156,14 +166,12 @@ contains
     end do
   end subroutine side_q65_edit
 
-  ! The GUI's Fox reset (FoxReset, widgets/mainwindow.cpp): <-t>/houndcallers.txt
-  ! deleted, so the next FT8 attempt in Fox mode starts a new caller list. A
-  ! file that cannot be deleted stays, as in the GUI.
+  ! The GUI's Fox reset (FoxReset, widgets/mainwindow.cpp) deletes
+  ! houndcallers.txt, so the next FT8 attempt in Fox mode starts a new caller
+  ! list; here the next attempt starts it without the file, which the stream
+  ! never writes (lib/ft8_engine_kernel.f90).
   subroutine side_fox_clear()
-    character(len=:), allocatable :: path
-    integer(c_int) :: status
-    path = trim(temp_dir) // '/houndcallers.txt'
-    status = c_remove(path // c_null_char)
+    fox_list_reset = .true.
   end subroutine side_fox_clear
 
   ! The pass mark a decode line ends with ('': none yet).

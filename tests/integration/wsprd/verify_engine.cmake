@@ -68,13 +68,18 @@ elseif (VARIANT EQUAL 15)
   write_signal ("${sample}" 1615 0)
   check_pair ("${sample}" fast-negative 1 -2.5 "14[.]09721[78]" 0 -qB)
 
-  # The legacy per-pass calibration admits this signal on FAST's second pass.
   # The displayed drift is in WSPR-15 decoder units (eight times physical Hz).
   set (sample "${WORK_DIR}/edge/000000_0000.wav")
   file (MAKE_DIRECTORY "${WORK_DIR}/edge")
   write_signal ("${sample}" 1626.8 0.25)
   check_pair ("${sample}" fast-edge-positive 1 3.25 "14[.]09722[345]" "[123]" -qB)
   check_pair ("${sample}" fast-edge-zero 1 0 "" "" -qB)
+
+  set (sample "${WORK_DIR}/scaled/000000_0000.wav")
+  file (MAKE_DIRECTORY "${WORK_DIR}/scaled")
+  write_signal ("${sample}" 1628 0)
+  check_pair ("${sample}" fast-scaled-positive 1 3.25 "14[.]09722[456]" 0 -qB)
+  check_pair ("${sample}" fast-scaled-zero 1 0 "" "" -qB)
 else ()
   message (FATAL_ERROR "Unsupported WSPR variant: ${VARIANT}")
 endif ()

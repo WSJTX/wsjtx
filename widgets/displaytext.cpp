@@ -17,7 +17,6 @@
 #include <QMenu>
 #include <QAction>
 #include <QListIterator>
-#include <QRegularExpression>
 #include <QScrollBar>
 #include <QToolButton>
 #include <QResizeEvent>
@@ -46,14 +45,6 @@ bool play_CQZOB = false;
 bool play_ITUZ = false;
 bool play_ITUZOB = false;
 bool muted = false;
-
-namespace
-{
-  QRegularExpression const message_73_regexp {"^(73|RR73)$"};
-  // Trailing #? matches Q65's "copied last Tx" flag marker (e.g. "q3#"),
-  // appended after the usual AP-type/averaging-count qualifier.
-  QRegularExpression const ap_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9*]?#?)$)"};
-}
 
 using SpecOp = Configuration::SpecialOperatingActivity;
 
@@ -640,24 +631,18 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   muted=alertsMuted;
   QColor bg;
   QColor fg;
-  bool CQcall = false;
-  auto is_73 = decodedText.messageWords().filter (message_73_regexp).size();
-  if (decodedText.string ().contains (" CQ ")) {
+  auto const& fields = decodedText.fields ();
+  auto const& words = decodedText.payloadWords ();
+  bool const is_73 = words.contains ("73") || words.contains ("RR73")
+    || !fields.acknowledgedRecipient.isEmpty ();
+  if (fields.cq) {
     if (m_config->alert_CQ()) {
       if (!muted) play_CQ = true;
     }
   }
-  if (decodedText.string ().contains (" CQ ")
-      || decodedText.string ().contains (" CQDX ")
-      || decodedText.string ().contains (" QRZ ")
-      || (is_73 && (m_config->highlight_73 ())))
-    {
-      CQcall = true;
-    }
-  else
-    {
-      if (bCQonly) return false;
-    }
+  bool const CQcall = fields.cq || fields.destination == "QRZ"
+    || (is_73 && m_config->highlight_73 ());
+  if (!CQcall && bCQonly) return false;
   auto message = decodedText.string();
   auto const& dxCall = facts.sender;
   auto const& dxGrid = facts.grid;
@@ -722,14 +707,16 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
     {
       extra += QString {"%1"}.arg (fSpread, 5, 'f', fSpread < 0.95 ? 3 : 2) + QChar {' '};
     }
-  auto ap_pos = message.lastIndexOf (ap_regexp);
-  if (ap_pos >= 0)
+  auto const& annotations = decodedText.annotations ();
+  if (!annotations.suffix.isEmpty () && (annotations.ap || annotations.q >= 0)
+      && message.endsWith (annotations.suffix))
     {
-      extra += message.mid (ap_pos) + QChar {' '};
-      message = message.left (ap_pos).trimmed ();
+      extra += annotations.suffix + QChar {' '};
+      message.chop (annotations.suffix.size ());
+      message = message.trimmed ();
     }
   if (CQcall || (is_73 && m_config->highlight_73()) || (mode == "FT4" && m_config->highlight_73() && m_config->NCCC_Sprint()
-      && (SpecOp::NA_VHF == m_config->special_op_id()) && decodedText.string().contains(" R ")))
+      && (SpecOp::NA_VHF == m_config->special_op_id()) && fields.exchange == "R"))
     {
       if (displayDXCCEntity)
         {
@@ -771,29 +758,22 @@ bool DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
         }
     }
 
-  if (myCall.size ())
+  if (!myCall.isEmpty () && !fields.hasMalformedCalls)
     {
-      QString regexp {"[ <]" + myCall + "[ >]"};
-      if (Radio::is_compound_callsign (myCall))
+      auto const baseCall = Radio::base_callsign (myCall);
+      auto const matchesOwnCall = [&myCall, &baseCall] (QString const& call) {
+        return call == myCall || call == baseCall;
+      };
+      if (matchesOwnCall (fields.destination) || matchesOwnCall (fields.acknowledgedRecipient))
         {
-          regexp = "(?:" + regexp + "|[ <]" + Radio::base_callsign (myCall) + "[ >])";
+          highlight_types types {Highlight::MyCall};
+          set_colours (m_config, &bg, &fg, types);
+          if (m_config->alert_MyCall()) play_MyCall = true;
         }
-      if ((decodedText.clean_string () + " ").contains (QRegularExpression {regexp}))
+      else if (matchesOwnCall (fields.sender))
         {
-        QStringList tw;
-        if (mode == "FT8" or mode == "FT4" or mode == "MSK144") {
-          tw=decodedText.string().mid(24).split(" ",SkipEmptyParts);
-        } else {
-          tw=decodedText.string().mid(22).split(" ",SkipEmptyParts);
-        }
-          if ((tw.size () > 0 && tw[0].contains(myCall)) or decodedText.clean_string().contains("; " + myCall)) {
-            highlight_types types {Highlight::MyCall};
-            set_colours (m_config, &bg, &fg, types);
-            if (m_config->alert_MyCall()) play_MyCall = true;
-          } else {
-            highlight_types types {Highlight::Tx};
-            set_colours (m_config, &bg, &fg, types);
-          }
+          highlight_types types {Highlight::Tx};
+          set_colours (m_config, &bg, &fg, types);
         }
     }
 
@@ -972,32 +952,97 @@ namespace
   }
 }
 
+namespace
+{
+  bool is_callsign_text (QString const& text)
+  {
+    if (text.isEmpty () || text.size () > 32)
+      {
+        return false;
+      }
+    return std::all_of (text.cbegin (), text.cend (), [] (QChar c) {
+      return (c >= QChar {'A'} && c <= QChar {'Z'})
+          || (c >= QChar {'a'} && c <= QChar {'z'})
+          || (c >= QChar {'0'} && c <= QChar {'9'})
+          || c == QChar {'/'}
+          || c == QChar {'<'}
+          || c == QChar {'>'};
+    });
+  }
+
+  QTextCursor find_callsign (QTextDocument const& document, QString const& callsign, QTextCursor cursor)
+  {
+    auto const continues_callsign = [] (QChar c) {
+      return c.isLetterOrNumber () || c == QLatin1Char {'/'};
+    };
+    while (!(cursor = document.find (callsign, cursor)).isNull ())
+      {
+        auto start = cursor.selectionStart ();
+        auto end = cursor.selectionEnd ();
+        auto before = document.characterAt (start - 1);
+        auto after = document.characterAt (end);
+        if (before == QLatin1Char {'<'})
+          {
+            --start;
+            before = document.characterAt (start - 1);
+          }
+        if (after == QLatin1Char {'>'})
+          {
+            ++end;
+            after = document.characterAt (end);
+          }
+        if (continues_callsign (before) || continues_callsign (after))
+          {
+            continue;
+          }
+        if (start != cursor.selectionStart () || end != cursor.selectionEnd ())
+          {
+            cursor.setPosition (start);
+            cursor.setPosition (end, QTextCursor::KeepAnchor);
+          }
+        return cursor;
+      }
+    return cursor;
+  }
+
+  int constexpr max_highlighted_calls {5000};
+}
+
 void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
                                       QColor const& fg, bool last_period_only)
 {
-  auto regexp = callsign;
-  if (!callsign.size () || callsign == "" || callsign == " " || callsign == "0")
+  if (callsign == "CLEARALL!")
+    {
+      highlighted_calls_.clear ();
+      return;
+    }
+  if (callsign == "0" || !is_callsign_text (callsign))
     {
       return;
     }
-  if (callsign == "CLEARALL!")  // programmatic means of clearing all highlighting
-  {
-    highlighted_calls_.clear();
-    return;
-  }
-  // allow for hashed callsigns and escape any regexp metacharacters
-  QRegularExpression target {QString {"<?"}
-                             + regexp.replace (QLatin1Char {'+'}, QLatin1String {"\\+"})
-                                 .replace (QLatin1Char {'.'}, QLatin1String {"\\."})
-                                 .replace (QLatin1Char {'?'}, QLatin1String {"\\?"})
-                             + QString {">?"}
-                             , QRegularExpression::DontCaptureOption};
+
+  bool const apply_highlight {bg.isValid () || fg.isValid ()};
+  if (!last_period_only)
+    {
+      auto const key = callsign.toUpper ();
+      if (apply_highlight)
+        {
+          if (highlighted_calls_.size () >= max_highlighted_calls && !highlighted_calls_.contains (key))
+            {
+              return;
+            }
+          highlighted_calls_.insert (key, qMakePair (bg, fg));
+        }
+      else
+        {
+          highlighted_calls_.remove (key);
+        }
+    }
+
   QTextCharFormat old_format {currentCharFormat ()};
   QTextCursor cursor {document ()};
   if (last_period_only)
     {
-      // highlight each instance of the given callsign (word) in the
-      // current period
       cursor.movePosition (QTextCursor::End);
       QTextCursor period_start {cursor};
       QTextCursor prior {cursor};
@@ -1007,60 +1052,16 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
           period_start = prior;
         }
       cursor = period_start;
-      while (!cursor.isNull ())
-        {
-          cursor = document ()->find (target, cursor, QTextDocument::FindWholeWords);
-          if (!cursor.isNull () && cursor.hasSelection ())
-            {
-              if (bg.isValid () || fg.isValid ())
-                {
-                  update_selection (cursor, bg, fg);
-                }
-              else
-                {
-                  reset_selection (cursor);
-                }
-            }
-        }
     }
-  else
+  while (!(cursor = find_callsign (*document (), callsign, cursor)).isNull ())
     {
-      auto pos = highlighted_calls_.find (callsign.toUpper ());
-      if (bg.isValid () || fg.isValid ())
+      if (apply_highlight)
         {
-          auto colours = qMakePair (bg, fg);
-          if (pos == highlighted_calls_.end ())
-            {
-              pos = highlighted_calls_.insert (callsign.toUpper (), colours);
-            }
-          else
-            {
-              pos.value () = colours; // update colours
-            }
-          while (!cursor.isNull ())
-            {
-              cursor = document ()->find (target, cursor, QTextDocument::FindWholeWords);
-              if (!cursor.isNull () && cursor.hasSelection ())
-                {
-                  update_selection (cursor, bg, fg);
-                }
-            }
+          update_selection (cursor, bg, fg);
         }
       else
         {
-          if (pos != highlighted_calls_.end ())
-            {
-              highlighted_calls_.erase (pos);
-            }
-          QTextCursor cursor {document ()};
-          while (!cursor.isNull ())
-            {
-              cursor = document ()->find (target, cursor, QTextDocument::FindWholeWords);
-              if (!cursor.isNull () && cursor.hasSelection ())
-                {
-                  reset_selection (cursor);
-                }
-            }
+          reset_selection (cursor);
         }
     }
   setCurrentCharFormat (old_format);

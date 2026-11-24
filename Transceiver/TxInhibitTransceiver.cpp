@@ -67,7 +67,7 @@ void TxInhibitTransceiver::set (TransceiverState const& state,
   requested_ = state;
   sequence_number_ = sequence_number;
   have_requested_state_ = true;
-  apply_requested_state ();
+  apply_requested_state (state.ptt () ? UNK : state.mode ());
 }
 
 void TxInhibitTransceiver::start (unsigned sequence_number) noexcept
@@ -105,7 +105,7 @@ void TxInhibitTransceiver::clear_jtty_pcm (TxAudioQueueEpoch epoch) noexcept
   wrapped_->clear_jtty_pcm (epoch);
 }
 
-void TxInhibitTransceiver::apply_requested_state () noexcept
+void TxInhibitTransceiver::apply_requested_state (MODE receive_mode) noexcept
 {
   if (!have_requested_state_ || !started_) return;
 
@@ -115,6 +115,8 @@ void TxInhibitTransceiver::apply_requested_state () noexcept
       effective.ptt (false);
       effective.tune (false);
     }
+
+  if (!effective.ptt ()) effective.mode (receive_mode);
 
   auto const previous_ptt = have_effective_state_ && last_effective_.ptt ();
   auto final_sent = false;
@@ -126,12 +128,15 @@ void TxInhibitTransceiver::apply_requested_state () noexcept
           prepare.ptt (false);
           if (!have_effective_state_ || prepare != last_effective_)
             {
+              // An explicit mode on this intermediate command would restart RX confirmation.
+              prepare.mode (UNK);
               wrapped_->set (prepare, sequence_number_);
             }
         }
       else
         {
           auto unkey = last_effective_;
+          unkey.mode (UNK);
           unkey.ptt (false);
           wrapped_->set (unkey, sequence_number_);
           final_sent = unkey == effective;

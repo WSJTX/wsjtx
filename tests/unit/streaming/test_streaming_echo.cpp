@@ -882,7 +882,7 @@ private Q_SLOTS:
         jt65 << pcm;
       }
     QJsonObject const keys {{"mode", "JT65"}, {"trperiod", 60}, {"submode", 1}, {"rxfreq", 1700}, {"ntol", 20},
-                            {"depth", 19}};
+                            {"depth", 19}, {"vhf_features", true}};
     auto const noise = periods ({}, 0, 1, 1000, 12u);
     // clearIn: "echo", "jt65" or none.
     auto const session = [&] (QString const& clearIn) {

@@ -5,6 +5,7 @@
 #include <array>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <functional>
 
 #include "TransceiverFactory.hpp"
@@ -163,7 +164,8 @@ protected:
   void do_modulator_stop(bool quick = false) override;
   
   void rx2_enable (bool on);
-  void rig_split ();
+  enum class SplitWait {Observed, Timeout, Reentered, Aborted};
+  SplitWait rig_split ();
   void rig_power (bool on);
   void stream_audio (bool on);
   static qint16 tci_audio_sample_to_int16 (float sample)
@@ -198,6 +200,10 @@ protected:
 
 private:
   friend class TestTciTransceiverCharacterization;
+  SplitWait wait_for_split (bool, quint64, quint64);
+  void send_split (bool, bool indexed = true);
+  void abort_split_wait ();
+  bool split_preparation_required () const;
 
   MODE get_mode (bool requested = false);
   QString frequency_to_string (Frequency) const;
@@ -206,10 +212,13 @@ private:
   void mysleep2 (int ms = 1);
   void mysleep3 (int ms = 1);
   void mysleep4 (int ms = 1);
-  void mysleep5 (int ms = 1);
   void mysleep6 (int ms = 1);
   void mysleep7 (int ms = 1);
   void mysleep8 (int ms = 1);
+  // Every mysleepN runs a nested event loop on the rig thread; the callers
+  // above it still use this object and its wrappers, so none of them may be
+  // deleted from inside it.
+  void wait_exec (QEventLoop *);
   QString mode_to_command (QString) const;
   std::unique_ptr<TransceiverBase> wrapped_; // may be null
   QString rx_;
@@ -234,6 +243,13 @@ private:
   QEventLoop * tci_loop4_;
   QTimer * tci_timer5_;
   QEventLoop * tci_loop5_;
+  QTimer * split_correction_throttle_ {nullptr};
+  std::optional<bool> last_sent_split_;
+  quint64 split_report_serial_ {0};
+  quint64 split_lifecycle_ {0};
+  quint64 split_session_ {0};
+  bool split_wait_expired_ {false};
+  bool split_wait_active_ {false};
   QTimer * tci_timer6_;
   QEventLoop * tci_loop6_;
   QTimer * tci_timer7_;

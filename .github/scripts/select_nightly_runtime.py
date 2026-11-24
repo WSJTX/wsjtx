@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Decide whether Nightly Tests tests this commit.
 
-A scheduled run skips only when the newest completed scheduled run that
-succeeded or failed tested the same commit and succeeded, so an unmoved
-develop that passed is tested once. A night after a failed nightly retests the
-same commit. Cancelled and skipped runs do not count. A dispatched run always
-tests.
+A scheduled run skips only when the newest completed run on develop,
+scheduled or dispatched, that succeeded or failed tested the same commit and
+succeeded, so an unmoved develop that passed is tested once. A night after a
+failed nightly retests the same commit. Cancelled and skipped runs do not
+count. A dispatched run always tests.
 """
 
 from __future__ import annotations
@@ -36,29 +36,38 @@ def run_order(run: dict) -> tuple[str, int]:
     return run.get("created_at") or "", run.get("id") or 0
 
 
-def newest_counted_scheduled_run(runs: list[dict]) -> dict | None:
+def nightly_order(run: dict) -> tuple[str, int]:
+    # A re-run keeps its run's created_at; run_started_at is when its latest attempt started.
+    return run.get("run_started_at") or run.get("created_at") or "", run.get("id") or 0
+
+
+def newest_counted_run(runs: list[dict]) -> dict | None:
     counted = [
         run for run in runs
-        if run.get("event") == "schedule"
-        and run.get("status") == "completed"
+        if run.get("status") == "completed"
         and run.get("conclusion") in COUNTED_CONCLUSIONS
     ]
-    return max(counted, key=run_order, default=None)
+    # The newest commit by its runs' creation, which a re-run keeps, so re-running an older commit's run does not
+    # make it the newest; at that commit, the run whose latest attempt started last decides.
+    newest = max(counted, key=run_order, default=None)
+    if newest is None:
+        return None
+    return max((run for run in counted if run.get("head_sha") == newest.get("head_sha")), key=nightly_order)
 
 
 def decide(event_name: str, head_sha: str, runs: list[dict]) -> Decision:
-    previous = newest_counted_scheduled_run(runs)
+    previous = newest_counted_run(runs)
     if event_name == "workflow_dispatch":
         return Decision(True, previous, "dispatched runs always test")
     if event_name != "schedule":
         raise ValueError(f"unsupported event: {event_name}")
     if previous is None:
-        return Decision(True, None, "no earlier scheduled run succeeded or failed")
+        return Decision(True, None, "no earlier run succeeded or failed")
     if previous.get("head_sha") != head_sha:
-        return Decision(True, previous, "develop has moved since the newest scheduled run")
+        return Decision(True, previous, "develop has moved since the newest run")
     if previous.get("conclusion") == "success":
-        return Decision(False, previous, f"the newest scheduled run already passed at {head_sha}")
-    return Decision(True, previous, "the newest scheduled run failed at this commit, so it is tested again")
+        return Decision(False, previous, f"the newest run already passed at {head_sha}")
+    return Decision(True, previous, "the newest run failed at this commit, so it is tested again")
 
 
 class GitHub:
@@ -81,9 +90,9 @@ class GitHub:
         except urllib.error.HTTPError as error:
             raise RuntimeError(f"GET {path} failed with HTTP {error.code}") from error
 
-    def scheduled_runs(self) -> list[dict]:
+    def develop_runs(self) -> list[dict]:
         path = f"/repos/{self.repository}/actions/workflows/{WORKFLOW}/runs"
-        return self.call(path, {"event": "schedule", "status": "completed", "per_page": 100})["workflow_runs"]
+        return self.call(path, {"branch": "develop", "status": "completed", "per_page": 100})["workflow_runs"]
 
 
 def summary(decision: Decision, head_sha: str, server: str, repository: str) -> str:
@@ -91,7 +100,7 @@ def summary(decision: Decision, head_sha: str, server: str, repository: str) -> 
     lines.append(f"{'Testing' if decision.run else 'Skipping'} `{head_sha}`: {decision.reason}.")
     if decision.previous is not None:
         previous_sha = decision.previous.get("head_sha", "")
-        lines += ["", f"Newest scheduled run: {decision.previous.get('html_url', '')} at `{previous_sha}`."]
+        lines += ["", f"Newest run: {decision.previous.get('html_url', '')} at `{previous_sha}`."]
         if previous_sha and previous_sha != head_sha:
             lines.append(f"Changes since then: {server}/{repository}/compare/{previous_sha}...{head_sha}")
     return "\n".join(lines) + "\n"
@@ -107,7 +116,7 @@ def main() -> int:
     event_name = os.environ["GITHUB_EVENT_NAME"]
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
 
-    decision = decide(event_name, head_sha, GitHub(token, repository).scheduled_runs())
+    decision = decide(event_name, head_sha, GitHub(token, repository).develop_runs())
     print(f"{'Testing' if decision.run else 'Skipping'} {head_sha}: {decision.reason}")
     output = os.environ.get("GITHUB_OUTPUT")
     if output:

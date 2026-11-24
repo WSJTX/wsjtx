@@ -172,6 +172,12 @@ private slots:
            q65Average.left(q65Average.size() - 1),
            "Q65", SpecOp::NONE, false, Disposition::Decode,
            true, 3, false, 0.0f, false, 0, 0, decodeActions);
+    auto q65CopiedAverage = q65Average;
+    q65CopiedAverage.replace("q23", "q23#");
+    addRow("short-period copied averaged Q65", q65CopiedAverage,
+           q65CopiedAverage.left(q65CopiedAverage.size() - 1),
+           "Q65", SpecOp::NONE, false, Disposition::Decode,
+           true, 3, false, 0.0f, false, 0, 0, decodeActions);
 
     QByteArray const fst4Short = QByteArray {"060500 -18  0.3 1500 `  "}
       .append(QByteArray {"CQ W1AW FN31"}.leftJustified(37, ' '))
@@ -534,6 +540,7 @@ private slots:
 
     QCOMPARE(plan.disposition, DecodeOutputPlan::LineDisposition::Ignore);
     QCOMPARE(actionNames(plan.actions), QStringList({"qsy"}));
+
   }
 
   void legacyPaddingDoesNotChangeDecodedRepresentations()
@@ -557,20 +564,42 @@ private slots:
     auto context = preparationContext();
     context.nominalFrequency = 50313000;
     QByteArray const line {"060500 -20  0.3 1500 ~  CQ W1AW FN31"};
-    context.earlyDecodes = QString::fromUtf8(line.mid(23, 19));
+    context.earlyDecodeKeys.insert(DecodeOutputPlan::duplicateKey(DecodedText {QString::fromUtf8(line)}));
 
     auto const plan = DecodeOutputPlan::prepareLine(line, context);
 
     QCOMPARE(plan.disposition, DecodeOutputPlan::LineDisposition::Ignore);
     QCOMPARE(plan.reason, QString {"early duplicate rejected"});
     QCOMPARE(actionNames(plan.actions), QStringList({"qsy"}));
+
+    auto const annotated = line + QByteArray {" a3"};
+    auto const annotatedPlan = DecodeOutputPlan::prepareLine(annotated, context);
+    QCOMPARE(annotatedPlan.disposition, DecodeOutputPlan::LineDisposition::Ignore);
+
+    context.earlyDecodeKeys.clear();
+    context.earlyDecodeKeys.insert("K1ABC OH6OKSA R-13");
+    auto const distinctReport = DecodeOutputPlan::prepareLine(
+      "060500 -20  0.3 1500 ~  K1ABC OH6OKSA R-15", context);
+    QCOMPARE(distinctReport.disposition, DecodeOutputPlan::LineDisposition::Decode);
+
+    context.earlyDecodeKeys.clear();
+    auto const malformed = DecodeOutputPlan::prepareLine(
+      "060500 -10  0.3 1500 ~  C8K <<OH6OKSA>> R-13", context);
+    auto const malformedKey = DecodeOutputPlan::duplicateKey(malformed.logicMessage);
+    QVERIFY(malformedKey.isEmpty());
+    context.earlyDecodeKeys.insert(malformedKey);
+    auto const validAcknowledgement = DecodeOutputPlan::prepareLine(
+      "060500 -10  0.3 1500 ~  C8K <OH6OKSA> R-13", context);
+    QCOMPARE(validAcknowledgement.disposition, DecodeOutputPlan::LineDisposition::Decode);
+    QCOMPARE(DecodeOutputPlan::duplicateKey(validAcknowledgement.logicMessage),
+             QString {"C8K OH6OKSA R-13"});
   }
 
   void shortLineIsNotAnEarlyDuplicate()
   {
     auto context = preparationContext();
     context.nominalFrequency = 50313000;
-    context.earlyDecodes = "060500 -20  0.3 1500 ~  CQ W1AW FN31";
+    context.earlyDecodeKeys.insert("CQ W1AW FN31");
     QByteArray const line {"060500 -20  0.3 1500"};
 
     auto const plan = DecodeOutputPlan::prepareLine(line, context);
@@ -583,7 +612,7 @@ private slots:
     auto context = preparationContext();
     context.nominalFrequency = 50313000;
     QByteArray const line {"<DecodeFinished>   1   6     2003"};
-    context.earlyDecodes = QString::fromUtf8(line);
+    context.earlyDecodeKeys.insert(QString::fromUtf8(line));
 
     auto const plan = DecodeOutputPlan::prepareLine(line, context);
 
@@ -668,6 +697,15 @@ private slots:
     QVERIFY(decision.filtered);
     QVERIFY(decision.continueProcessing);
     QVERIFY(decision.resetPounceScores);
+
+    context.waitAndPounceOnly = false;
+    for (QString const& keyword : {QString {"060500"}, QString {"1500"}, QString {"a3"}}) {
+      context.blacklistKeywords = QStringList {keyword};
+      DecodedText const annotated {"060500 -10  0.3 1500 ~  CQ W1AW FN31 a3"};
+      auto const metadataDecision = DecodeOutputPlan::decideKeywordFilter(annotated, context);
+      QVERIFY(!metadataDecision.filtered);
+      QVERIFY(metadataDecision.continueProcessing);
+    }
   }
 
   void filterPrecedenceMatrix_data()
@@ -1015,6 +1053,9 @@ private slots:
     addRow("Hound retains decode for operator",
            "060500 -10  0.3 1900 ~  K1ABC W1AW R-10", "FT8", SpecOp::HOUND,
            "K1ABC", "K1ABC", "W1AW", 1500, 1500, false, false, true, true);
+    addRow("Fox does not claim longer callsign prefix",
+           "060500 -10  0.3 1900 ~  K1ABCD W1AW R-10", "FT8", SpecOp::FOX,
+           "K1ABC", "K1ABC", "W1AW", 1500, 1500, false, false, false, false);
   }
 
   void routingOperatorIntentMatrix()
@@ -1049,6 +1090,66 @@ private slots:
     QCOMPARE(decision.displayRight, expectedDisplayRight);
   }
 
+  void foxAcknowledgementIdentifiesOneActiveHound_data()
+  {
+    QTest::addColumn<QString>("line");
+    QTest::addColumn<QString>("myCall");
+    QTest::addColumn<QStringList>("activeHounds");
+    QTest::addColumn<QString>("expectedHound");
+    QTest::addColumn<QString>("expectedReport");
+
+    auto addRow = [] (char const* name, QString const& payload, QStringList const& active,
+                     QString const& hound = {}, QString const& report = {}, QString const& myCall = "C8K") {
+      QTest::newRow(name) << QString {"140615 -13  0.1  878 ~  "} + payload
+                          << myCall << active << hound << report;
+    };
+    QStringList const nonstandard {"OH6OKSA", "EA8/W1ABC"};
+    addRow("nonstandard-no-slash", "C8K <OH6OKSA> R-13", nonstandard, "OH6OKSA", "-13");
+    addRow("bracketed-fox", "<C8K> <OH6OKSA> R-13", nonstandard, "OH6OKSA", "-13");
+    addRow("annotated-padded", QString {"C8K <OH6OKSA> R-13"}.leftJustified(36, ' ') + "? a3",
+           nonstandard, "OH6OKSA", "-13");
+    addRow("unresolved-sender", "C8K <...> R-13", nonstandard);
+    addRow("missing-sender", "C8K <> R-13", nonstandard);
+    addRow("malformed-brackets", "C8K <<OH6OKSA>> R-13", nonstandard);
+    addRow("unresolved-fox", "<...> OH6OKSA R-13", nonstandard);
+    addRow("different-fox", "C8KA <OH6OKSA> R-13", nonstandard);
+    addRow("report-junk", "C8K <OH6OKSA> R-13X", nonstandard);
+    addRow("report-punctuation", "C8K <OH6OKSA> R-13!", nonstandard);
+    addRow("extra-field", "C8K <OH6OKSA> R-13 X", nonstandard);
+    addRow("report-without-ack", "C8K <OH6OKSA> -13", nonstandard);
+    addRow("inactive-hound", "C8K W9XYZ R-13", nonstandard);
+    addRow("unique-base", "C8K W1ABC R-13", {"EA8/W1ABC"}, "EA8/W1ABC", "-13");
+    addRow("compound-sender", "C8K <EA8/W1ABC> R-13", {"EA8/W1ABC"}, "EA8/W1ABC", "-13");
+    addRow("legacy-de", "DE W1ABC R-13", {"EA8/W1ABC"}, "EA8/W1ABC", "-13");
+    addRow("ambiguous-base", "C8K W1ABC R-13", {"EA8/W1ABC", "KH1/W1ABC"});
+    addRow("exact-precedes-base", "C8K W1ABC R-13", {"W1ABC", "EA8/W1ABC"}, "W1ABC", "-13");
+    addRow("different-compound", "C8K <EA8/W1ABC> R-13", {"KH1/W1ABC"});
+    addRow("prefix-collision", "C8K W1ABC R-13", {"EA8/W1ABCD"});
+    addRow("minimum-report", "C8K <OH6OKSA> R-50", nonstandard, "OH6OKSA", "-50");
+    addRow("maximum-report", "C8K <OH6OKSA> R+49", nonstandard, "OH6OKSA", "+49");
+    addRow("report-below-range", "C8K <OH6OKSA> R-51", nonstandard);
+    addRow("report-above-range", "C8K <OH6OKSA> R+50", nonstandard);
+    addRow("fox-base-form", "C8K <OH6OKSA> R-13", nonstandard, "OH6OKSA", "-13", "C8K/P");
+    QTest::newRow("invalid-header") << QString {"C8K <OH6OKSA> R-13"} << QString {"C8K"}
+                                    << nonstandard << QString {} << QString {};
+  }
+
+  void foxAcknowledgementIdentifiesOneActiveHound()
+  {
+    QFETCH(QString, line);
+    QFETCH(QString, myCall);
+    QFETCH(QStringList, activeHounds);
+    QFETCH(QString, expectedHound);
+    QFETCH(QString, expectedReport);
+    DecodedText const message {line};
+    DecodeOutputPlan::FoxReportContext context {myCall, activeHounds};
+
+    auto const decision = DecodeOutputPlan::decideFoxReport(message, context);
+
+    QCOMPARE(decision.houndCall, expectedHound);
+    QCOMPARE(decision.report, expectedReport);
+  }
+
   void foxReportRequiresStandaloneReportToken_data()
   {
     QTest::addColumn<QString>("line");
@@ -1057,6 +1158,10 @@ private slots:
       << QString {"060500 -10  0.3 1900 ~  K1ABC W1AW R-10"} << true;
     QTest::newRow("embedded-report-shape")
       << QString {"060500 -10  0.3 1900 ~  K1ABC W1AW XR-10"} << false;
+    QTest::newRow("report-with-junk")
+      << QString {"060500 -10  0.3 1900 ~  K1ABC W1AW R-10X"} << false;
+    QTest::newRow("report-with-extra-payload")
+      << QString {"060500 -10  0.3 1900 ~  K1ABC W1AW R-10 X"} << false;
   }
 
   void foxReportRequiresStandaloneReportToken()

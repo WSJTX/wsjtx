@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: install-packages.sh normal|tsan" >&2
+  echo "Usage: install-packages.sh normal|jammy|tsan" >&2
   exit 2
 fi
 
@@ -49,6 +49,18 @@ case "$1" in
     if ! command -v gfortran >/dev/null 2>&1; then
       packages+=(gfortran)
     fi
+    ;;
+  jammy)
+    packages=("${normal_packages[@]}" gcc-12 g++-12 gfortran-12 perl
+      libasound2-dev libcups2-dev libdbus-1-dev libegl1-mesa-dev
+      libfontconfig1-dev libfreetype-dev libgl1-mesa-dev
+      libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libpulse-dev libssl-dev
+      libx11-dev libx11-xcb-dev libxcb1-dev libxcb-glx0-dev
+      libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-randr0-dev
+      libxcb-render-util0-dev libxcb-shape0-dev libxcb-shm0-dev libxcb-sync-dev
+      libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
+      libxext-dev libxfixes-dev libxi-dev libxrender-dev
+      libxkbcommon-dev libxkbcommon-x11-dev)
     ;;
   tsan) packages=("${tsan_packages[@]}") ;;
   *)

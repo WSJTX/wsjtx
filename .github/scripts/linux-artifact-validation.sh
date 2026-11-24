@@ -22,6 +22,37 @@ validate_linux_boost_dependencies() {
   fi
 }
 
+validate_linux_glibc_versions() {
+  local label=$1 versions=$2 ceiling=$3 version comparison
+  command -v dpkg >/dev/null || {
+    linux_validation_error "$label cannot verify glibc requirements without dpkg"
+    return 1
+  }
+  versions=$(printf '%s\n' "$versions" | awk '
+    /^Version needs section/ { needs = 1; next }
+    /^Version (definition|symbols) section/ { needs = 0 }
+    needs { print }
+  ') || return
+  if [[ "$versions" == *GLIBC_PRIVATE* ]]; then
+    linux_validation_error "$label requires a private glibc symbol"
+    return 1
+  fi
+  while [[ "$versions" =~ GLIBC_([0-9]+\.[0-9]+(\.[0-9]+)?) ]]; do
+    version=${BASH_REMATCH[1]}
+    versions=${versions#*"${BASH_REMATCH[0]}"}
+    if dpkg --compare-versions "$version" gt "$ceiling"; then
+      linux_validation_error "$label requires GLIBC_$version, above ceiling $ceiling"
+      return 1
+    else
+      comparison=$?
+      if [ "$comparison" -ne 1 ]; then
+        linux_validation_error "$label cannot compare GLIBC_$version with ceiling $ceiling (dpkg exited $comparison)"
+        return 1
+      fi
+    fi
+  done
+}
+
 validate_linux_static_boost_tree() {
   local root="$1" path metadata dynamic versions
   local readelf_command="${READELF:-readelf}"
@@ -35,6 +66,9 @@ validate_linux_static_boost_tree() {
     dynamic=$("$readelf_command" -dW -- "$path") || return
     validate_linux_boost_dynamic "$path" "$dynamic" || return
     versions=$("$readelf_command" -VW -- "$path") || return
+    if [ -n "${LINUX_GLIBC_CEILING:-}" ]; then
+      validate_linux_glibc_versions "$path" "$versions" "$LINUX_GLIBC_CEILING" || return
+    fi
     printf 'Runtime symbol requirements: %s\n' "$path"
     printf '%s\n' "$versions" | awk '
       /^Version needs section/ { needs = 1; next }

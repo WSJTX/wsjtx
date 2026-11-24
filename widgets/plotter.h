@@ -17,6 +17,7 @@
 
 #include "WaterfallScale.hpp"
 #include "JttySpectrum.hpp"
+#include "WaterfallCalls.hpp"
 
 #define VERT_DIVS 7	//specify grid screen divisions
 
@@ -104,10 +105,23 @@ public:
   void setJttySpectrum (std::array<float, JttySpectrumFrame::BinCount> const& cumulative,
                         std::array<float, JttySpectrumFrame::BinCount> const& linearAverage);
 
+  // JTTY: the callsign strip above the spectrum.
+  static constexpr int callStripHeight = 32;
+  void setCallLabels (QVector<WaterfallCalls::Label> const& labels);
+  QStringList shownCallLabels () const;               // placed, in priority order
+  QRect callLabelRect (QString const& call) const;    // in widget coordinates
+  bool isOnCallLabel (QPoint const& pos) const;       // on a label's dark box
+  int  waterfallTop () const;                         // y of the first waterfall row
+  // y of the top of the label rows: on the lower edge of the waterfall, just
+  // above the spectrum (or above the controls when the spectrum is 0 %). The
+  // waterfall keeps its place; only a label's own box covers it.
+  int  callStripTop () const;
+
 signals:
   void freezeDecode1(int n);
   void setFreq1(int rxFreq, int txFreq);
   void jttyDecodeAgainAtSample (quint64 reception, qint64 endSample);
+  void jttyCallClicked (QString const& call, int frequency);   // a click on a call label
 
 protected:
   //re-implemented widget event handlers
@@ -123,6 +137,16 @@ private:
   float FreqfromX(int x);
   void drawSavedWaterfall();
   void drawJttyLabels (QPainter& painter, bool newestOnly);
+  bool hasCallStrip () const {return m_mode == "JTTY";}
+  struct PlacedCall {
+    WaterfallCalls::Label label;
+    QRect rect;                 // widget coordinates
+  };
+  static QFont callLabelFont ();
+  QVector<PlacedCall> layoutCallLabels () const;
+  static QRect callLabelBox (QRect const& textRect);
+  void drawCallStrip (QPainter& painter);
+  QVector<WaterfallCalls::Label> m_callLabels;
 
   QAction * m_set_freq_action;
 

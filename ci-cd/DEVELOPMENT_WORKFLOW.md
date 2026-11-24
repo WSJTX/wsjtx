@@ -183,7 +183,7 @@ Or use the GitHub web UI: go to the repo, click "Compare & pull request" on the 
 
 #### 6. CI runs automatically
 
-When the PR is opened (and on every subsequent push), the default CI path builds and tests Linux x86_64. It leaves out the streaming runtime tests, which CTest labels `runtime`, and so does a push to `develop`; Nightly Tests runs them on `develop` each night, beside a Windows build of the whole suite, and pushes to `release/**`, full CI, manual runs, and a PR to or from a `release/` branch run them ([Test Failure Policy](#test-failure-policy)). To run them on a PR branch without full CI, see the [Quick Reference](#12-quick-reference).
+When the PR is opened (and on every subsequent push), the default CI path builds and tests Linux x86_64. It leaves out the streaming runtime tests, which CTest labels `runtime`, and so does a push to `develop`; Nightly Tests runs them on `develop` each night, beside a Windows build of the whole suite, and pushes to `release/**`, full CI, manual runs, and a PR to or from a `release/` branch run them. A beta cut takes only a `develop` commit that passed both push CI and Nightly Tests ([Test Failure Policy](#test-failure-policy)). To run the runtime tests on a PR branch without full CI, see the [Quick Reference](#12-quick-reference).
 
 Apply the `full-ci` label once, when the PR is otherwise ready. Applying it, or opening or reopening a PR that carries it, starts one run of all supported targets with the runtime tests and the ASan + UBSan job. Dispatching CI manually runs the same targets without the sanitizer job:
 
@@ -204,7 +204,7 @@ The team reviews the PR via GitHub. When approved, merge to `develop`. Prefer **
 
 ### Can I push directly to develop?
 
-No. A repository ruleset takes changes to `develop` only through pull requests, typo fixes included, so every change gets a PR CI run. Each pull request needs an approving review from someone other than its last pusher, and a push that changes the diff dismisses earlier approvals. The ruleset does not require CI to pass.
+No. A repository ruleset takes changes to `develop` only through pull requests, typo fixes included, so every change gets a PR CI run. The ruleset requires no approving review, and it does not require CI to pass.
 
 ---
 
@@ -321,11 +321,11 @@ CI/CD serves two purposes: **quality gates** (does it compile?) and **release au
 - Merging or closing such a pull request, which starts a run that skips every job and cancels the pull request's CI still in progress ([step 6](#6-ci-runs-automatically))
 
 **What CI checks:**
-- Default PR and branch CI compiles and tests Linux x86_64; applying `full-ci`, manual CI, and release candidates provide broader coverage ([step 6](#6-ci-runs-automatically)). A routine PR run and a `develop` push leave out the `runtime` tests, which Nightly Tests runs on `develop` each night with a Windows build ([Test Failure Policy](#test-failure-policy)).
+- Default PR and branch CI compiles and tests Linux x86_64; applying `full-ci`, manual CI, and release candidates provide broader coverage ([step 6](#6-ci-runs-automatically)). A routine PR run and a `develop` push leave out the `runtime` tests, which Nightly Tests runs on `develop` each night with a Windows build; a beta cut takes only a commit that passed it ([Test Failure Policy](#test-failure-policy)).
 - CI, candidate, and beta installers and packages are unsigned; on macOS the app inside carries an ad-hoc signature for validation ([beta signing](DEPLOYMENT_PLAYBOOK.md#beta-signing)).
 - Only a GA installer is signed, through SignPath; a GA release's macOS packages are Developer ID-signed, and so are an RC's while hosted Developer ID signing is enabled ([procedures by channel](DEPLOYMENT_PLAYBOOK.md#procedures-by-channel)).
 - Build artifacts are uploaded for inspection. CI keeps its packages, installers, and executables for 7 days; for downloads that last longer, build them with Build Selected Artifacts ([Quick Reference](#12-quick-reference)), which keeps the repository default of 90 days.
-- **Tests pass on every platform** (Qt helpers, decoder smoke tests, pFUnit Fortran unit tests — registered via ctest). See [Test Failure Policy](#test-failure-policy) below.
+- **Tests pass on every platform** (Qt helpers, decoder smoke tests, Fortran unit tests registered with CTest). See [Test Failure Policy](#test-failure-policy) below.
 
 **What CI does not check:**
 - Code style or linting
@@ -357,17 +357,17 @@ CI runs on GitHub-hosted runners:
 
 **Included minutes:** The organization's GitHub Team plan includes 3,000 Actions minutes a month for private repositories. Usage draws on them at each runner's per-minute list price, and usage beyond them is billed at the same rates. Standard GitHub-hosted runners are free in public repositories.
 
-**Caching:** Native dependency builds (Hamlib, Boost, FFTW, and pFUnit, plus Qt, libusb, and PortAudio on macOS), MSYS2 packages, and compiler objects (ccache) are cached to reduce build times; Linux dependencies come prebuilt in the CI images. First-run builds are slower; subsequent builds use the cache. Refresh Build Caches (`warm-dependency-caches.yml`) refreshes the caches every Monday and the Linux CI images monthly, and runs on dispatch and on a push to `develop` that changes a file hashed into a dependency-cache key, or a Linux CI image input. It does not watch workflow files, so a push that changes a value a dependency key carries does not start it. After changing `hamlib_branch`, a macOS `runner`, or a `deployment_target` (literals in the workflows that call the builds, such as `ci.yml`, `release.yml` and `warm-dependency-caches.yml`; `rg -n 'hamlib_branch|deployment_target|runner:' .github/workflows` lists every one), dispatch it with `gh workflow run warm-dependency-caches.yml --ref develop -f targets=macos`, and for `hamlib_branch` also with `-f targets=windows`; after changing `build-windows.yml`'s MSYS2 package list or `WSJT_WINDOWS_API_FLOOR`, dispatch it with `-f targets=windows`. Linux compiler caches are pruned automatically: after a `develop` push's Linux builds, and in each Refresh Build Caches run on `develop`, every `ccache-linux-*` entry on `develop` except the newest of each configuration is deleted. When more than 20 entries are due, the prune deletes none and logs an error, and the run still passes; [Cache Management](DEPLOYMENT_PLAYBOOK.md#cache-management) shows how to prune by hand. Before saving its compiler cache, the ASan + UBSan build evicts the objects that build did not use and trims the rest to a size cap.
+**Caching:** Native dependency builds (Hamlib, Boost, and FFTW, plus Qt, libusb, and PortAudio on macOS), MSYS2 packages, and compiler objects (ccache) are cached to reduce build times; Linux dependencies come prebuilt in the CI images. First-run builds are slower; subsequent builds use the cache. Refresh Build Caches (`warm-dependency-caches.yml`) refreshes the caches every Monday and the Linux CI images monthly, and runs on dispatch and on a push to `develop` that changes a file hashed into a dependency-cache key, or a Linux CI image input. It does not watch workflow files, so a push that changes a value a dependency key carries does not start it. After changing `hamlib_branch`, a macOS `runner`, or a `deployment_target` (literals in the workflows that call the builds, such as `ci.yml`, `release.yml` and `warm-dependency-caches.yml`; `rg -n 'hamlib_branch|deployment_target|runner:' .github/workflows` lists every one), dispatch it with `gh workflow run warm-dependency-caches.yml --ref develop -f targets=macos`, and for `hamlib_branch` also with `-f targets=windows`; after changing `build-windows.yml`'s MSYS2 package list or `WSJT_WINDOWS_API_FLOOR`, dispatch it with `-f targets=windows`. Linux compiler caches are pruned automatically: after a `develop` push's Linux builds, and in each Refresh Build Caches run on `develop`, every `ccache-linux-*` entry on `develop` except the newest of each configuration is deleted. When more than 20 entries are due, the prune deletes none and logs an error, and the run still passes; [Cache Management](DEPLOYMENT_PLAYBOOK.md#cache-management) shows how to prune by hand. Before saving its compiler cache, the ASan + UBSan build evicts the objects that build did not use and trims the rest to a size cap.
 
 ### Test Failure Policy
 
-Tests run via ctest at the end of each platform's build job, after compilation succeeds. The streaming runtime tests carry the label `runtime` (`tests/unit/streaming/CMakeLists.txt`). A routine pull-request run and a push to `develop` leave them out of their Linux x86_64 leg with `ctest -LE '^runtime$'`. Every other leg runs them, and so does Linux x86_64 on pushes to `release/**`, in Nightly Tests, in full-ci and dispatched runs, and in a PR to or from a `release/` branch. Among them, the decode-thread rows that took 30 s or more on some platform when labelled also carry the label `decode-thread-long`. armhf and macOS Intel, the slow legs, always leave them out with `ctest -LE decode-thread-long`. So does every leg in a release candidate build and a tag build, whose tree has passed them in the Linux x86_64 push CI of its `release/` branch. Everywhere else they run: Linux x86_64 in every run that runs the runtime tests, including the nightly and a `release/` branch's push CI; aarch64 and macOS arm64 in full-ci, dispatched and Refresh Build Caches runs; and Windows, which registers only the inline ones. The policy is **hard-fail everywhere**:
+Tests run via ctest at the end of each platform's build job, after compilation succeeds. The streaming runtime tests carry the label `runtime` (`tests/unit/streaming/CMakeLists.txt`). A routine pull-request run and a push to `develop` leave them out of their Linux x86_64 leg with `ctest -LE '^runtime$'`, so a beta cut also requires a pass of Nightly Tests (below). Every other leg runs them, and so does Linux x86_64 on pushes to `release/**`, in Nightly Tests, in full-ci and dispatched runs, and in a PR to or from a `release/` branch. Among them, the decode-thread rows that took 30 s or more on some platform when labelled also carry the label `decode-thread-long`. armhf and macOS Intel, the slow legs, always leave them out with `ctest -LE decode-thread-long`. So does every leg in a release candidate build and a tag build, whose tree has passed them in the Linux x86_64 push CI of its `release/` branch. Everywhere else they run: Linux x86_64 in every run that runs the runtime tests, including the nightly and a `release/` branch's push CI; aarch64 and macOS arm64 in full-ci, dispatched and Refresh Build Caches runs; and Windows, which registers only the inline ones. The policy is **hard-fail everywhere**:
 
 - Any test failure fails the platform's build job
 - A failed build job fails the entire CI run (red X on the PR or push)
 - A failed candidate build blocks `release.yml`'s `candidate-ready` job, which requires macOS arm64 and Intel, Linux x86_64, aarch64, and armhf, plus Windows x86_64. Candidate builds do not publish.
 
-**Nightly Tests** (`nightly-runtime-tests.yml`) builds `develop` at 06:17 UTC twice: Linux x86_64 running only the runtime tests (`ctest -L '^runtime$'`), and Windows x86_64, which routine CI never builds, running its whole suite. It skips a night only when the newest scheduled run that passed or failed tested the same commit and passed, so a passing commit is tested once; a night after a failed nightly retests the same commit. Cancelled runs do not count, and a dispatch always runs the tests. A failed scheduled run opens the issue "Nightly tests failed on develop", or comments on it while it is open. A green `develop` push covers neither the runtime tests nor Windows: check the nightly with `gh run list --workflow nightly-runtime-tests.yml`, and run it at once with `gh workflow run nightly-runtime-tests.yml --ref develop`. The weekly beta cut takes the newest green `develop` push; the cut's push CI on `release/X.Y` runs the runtime tests before a candidate is built.
+**Nightly Tests** (`nightly-runtime-tests.yml`) builds `develop` at 06:17 UTC twice: Linux x86_64 running only the runtime tests (`ctest -L '^runtime$'`), and Windows x86_64, which routine CI never builds, running its whole suite. It skips a night only when the newest run that passed or failed, scheduled or dispatched, tested the same commit and passed, so a passing commit is tested once: a night after a passing dispatch at an unmoved tip skips, and a night after a failed run retests the same commit. Cancelled runs do not count, a re-run counts by its latest attempt, and a dispatch always runs the tests. Do not cancel a re-run of a failed nightly: the cancelled re-run hides the failure, and the next scheduled night can skip on an older pass at that commit and let it into a beta. A failed scheduled run opens the issue "Nightly tests failed on develop", or comments on it while it is open. A `develop` push run covers neither the runtime tests nor Windows: check the nightly with `gh run list --workflow nightly-runtime-tests.yml`, and run it at once with `gh workflow run nightly-runtime-tests.yml --ref develop`. Every beta cut takes the newest `develop` commit whose push CI passed and whose newest counted nightly passed; the cut's push CI on `release/X.Y` runs the runtime tests again before a candidate is built. On Wednesday or Thursday, a successful nightly also restarts a failed beta ([restart after a failure](DEPLOYMENT_PLAYBOOK.md#restart-after-a-failure)).
 
 This is the simplest possible policy for v1. If a flaky test emerges, the team can add `continue-on-error: true` to the offending test's platform as a targeted soft-warn, file an issue to triage the flake, and remove the exception once fixed. No blanket soft-warn policy on `develop`.
 
@@ -381,7 +381,7 @@ This is the simplest possible policy for v1. If a flaky test emerges, the team c
 
 ## 6. The Release Process
 
-For an RC or GA, after candidate creation, two approvals remain. First, review the candidate and run Promote Release Source with `operation=promote`; this makes the exact source public. After builds and bundle checks finish, approve the final `publish` job in `public-release`. The same maintainer can do both. Weekly betas run the same pipeline with no human step.
+For an RC or GA, after candidate creation, two approvals remain. First, review the candidate and run Promote Release Source with `operation=promote`; this makes the exact source public. After builds and bundle checks finish, approve the final `publish` job in `public-release`. The same maintainer can do both. Weekly betas, and the restart after a failed one, run the same pipeline with no human step.
 
 ### Release channels
 
@@ -390,7 +390,7 @@ Every build identifies its channel through `release-state.txt`:
 | Channel | Version | Built from | Published |
 |---------|---------|------------|-----------|
 | `DEVEL` | `X.Y.Z-devel` | `develop` and other development builds | Never |
-| `BETA` | `X.Y.Z-betaN` | `release/X.Y` before the freeze, with the newest green `develop` merged in weekly | Automatically, as an unsigned GitHub prerelease that never becomes Latest |
+| `BETA` | `X.Y.Z-betaN` | `release/X.Y` before the freeze, with the newest `develop` commit that passed push CI and Nightly Tests merged in weekly and after a failed beta | Automatically, as an unsigned GitHub prerelease that never becomes Latest |
 | `RC` | `X.Y.Z-rcN` | `release/X.Y` after the freeze | After release-manager promotion and `release-approvers` approval, as an unsigned GitHub prerelease while hosted Developer ID signing is disabled |
 | `GA` | `X.Y.Z` | `release/X.Y` after the freeze | After release-manager promotion and `release-approvers` approval; signed; Latest only for the newest GA on the newest line |
 
@@ -398,7 +398,7 @@ Every build identifies its channel through `release-state.txt`:
 
 A line publishes betas from its start ([starting a release line](DEPLOYMENT_PLAYBOOK.md#starting-a-release-line)) until a commit on `release/X.Y` sets `RC 1`, which freezes it ([pause and freeze](DEPLOYMENT_PLAYBOOK.md#pause-and-freeze)). RCs and GA then follow the steps below. After the freeze, bump `develop` to `X.(Y+1).0` in a one-line PR, and publish `samples/contents_X.(Y+1).json` to `feat-web-pages` as the [sample catalog procedure](#3-promote-the-exact-source) describes.
 
-**Fixes land on `develop` first, in every phase.** The weekly beta carries them to the line; after the freeze, cherry-pick each fix from `develop` to `release/X.Y`. In the beta phase, push no fix to `release/X.Y`, not even a cherry-pick from `develop`. The scheduler stops the line on such a commit until that exact commit is reachable from `develop` ([state machine](DEPLOYMENT_PLAYBOOK.md#state-machine)). For an urgent fix, land it on `develop` and, once its push CI passes, dispatch Scheduled Beta Cut, which cuts the next beta at once when the current one is published.
+**Fixes land on `develop` first, in every phase.** The weekly beta carries them to the line; after the freeze, cherry-pick each fix from `develop` to `release/X.Y`. In the beta phase, push no fix to `release/X.Y`, not even a cherry-pick from `develop`. The scheduler stops the line on such a commit until that exact commit is reachable from `develop` ([state machine](DEPLOYMENT_PLAYBOOK.md#state-machine)). For an urgent fix, land it on `develop`; once its push CI passes, dispatch Nightly Tests (`gh workflow run nightly-runtime-tests.yml --ref develop`), and once that run passes, dispatch Scheduled Beta Cut, which cuts the next beta at once when the current one is published.
 
 ### Overview
 
@@ -509,7 +509,7 @@ Team members can run candidate validation. Creating the candidate and promoting 
 | `feat-*` | New feature | `develop` | `develop` via PR | Until merged |
 | `fix-*` | Bug fix | `develop` | `develop` via PR | Until merged |
 | `<issue#>-*` | Issue-linked work | `develop` | `develop` via PR | Until merged |
-| `release/X.Y` | Weekly betas, then RCs and GA after the freeze | `develop` | Promoted to public `release/X.Y` with its tags; `master` only at newest-line GA; each GA commit (`build/vX.Y.Z`) merged back into `develop` | Maintained for patch releases, which skip the beta phase |
+| `release/X.Y` | Weekly betas, plus a restart after a failed beta, then RCs and GA after the freeze | `develop` | Promoted to public `release/X.Y` with its tags; `master` only at newest-line GA; each GA commit (`build/vX.Y.Z`) merged back into `develop` | Maintained for patch releases, which skip the beta phase |
 | `develop` | Main development trunk | — | — | Permanent |
 | `master` | Public releases (on wsjtx) | — | — | Permanent |
 
@@ -604,7 +604,7 @@ Any team member can review any PR. For changes that affect specific areas:
 
 ### Approval and merge
 
-- A PR into `develop` merges only after a team member other than its last pusher approves it; the ruleset enforces this, and a push that changes the diff dismisses earlier approvals
+- The ruleset requires no approving review before a PR merges into `develop`
 - For significant changes (new features, architectural changes), wait for input from the relevant domain expert
 - Use **"Create a merge commit"** (not squash or rebase) to preserve branch history
 
@@ -652,7 +652,7 @@ Another team member reviews the Fortran change, confirms the logic, and approves
 
 ### 6. Eventually released
 
-If a line is in its beta phase, the fix ships in the first weekly beta cut after a `develop` commit containing it passes push CI. With no line in its beta phase, it ships in the next line's betas. A frozen line gets the fix only once it is cherry-picked to that line's `release/X.Y`.
+If a line is in its beta phase, the fix ships in the first beta cut after a `develop` commit containing it passes push CI and Nightly Tests: the next Tuesday cut, or a Wednesday or Thursday restart after a failed beta. With no line in its beta phase, it ships in the next line's betas. A frozen line gets the fix only once it is cherry-picked to that line's `release/X.Y`.
 
 ---
 
@@ -662,7 +662,7 @@ Here's the complete flow for releasing `3.3.0-rc1`.
 
 ### 1. Release decision
 
-The team decides to freeze `release/3.3`, which a maintainer cut from a green `develop` to start its weekly betas ([starting a release line](DEPLOYMENT_PLAYBOOK.md#starting-a-release-line)). Later `3.3.x` patches use that existing release branch with `RC N` metadata commits and cherry-picked fixes, never a `BETA` state, so unrelated work on `develop` is not included.
+The team decides to freeze `release/3.3`, which a maintainer cut from a `develop` commit that passed push CI and Nightly Tests to start its weekly betas ([starting a release line](DEPLOYMENT_PLAYBOOK.md#starting-a-release-line)). Later `3.3.x` patches use that existing release branch with `RC N` metadata commits and cherry-picked fixes, never a `BETA` state, so unrelated work on `develop` is not included.
 
 ### 2. Version preparation
 
@@ -749,7 +749,7 @@ After a newest-line GA promotion, public `master` advances to the GA commit and 
 | Run full CI on my PR | Once the PR is ready, `gh pr edit <PR> --add-label full-ci`; after that run, `gh pr edit <PR> --remove-label full-ci`. See [step 6](#6-ci-runs-automatically). |
 | Build one platform from my branch | `gh workflow run build-selected-artifacts.yml --ref <branch> -f targets=windows-x64`; the other single targets are `macos-arm64`, `macos-x64`, `linux-x64`, and `linux-arm64`. For armhf: `gh workflow run build-linux.yml --ref <branch> -f arch=armhf -f armhf_distro=bookworm -f allow_stale_image=true` (or `armhf_distro=trixie`). |
 | Run the runtime tests on my branch | `gh workflow run build-linux.yml --ref <branch> -f build_packages=false -f runtime_tests=only -f allow_stale_image=true` |
-| Check the nightly tests on `develop` | `gh run list --workflow nightly-runtime-tests.yml`; to run them at once, `gh workflow run nightly-runtime-tests.yml --ref develop` |
+| Check the nightly tests on `develop` | `gh run list --workflow nightly-runtime-tests.yml`; to run them at once, `gh workflow run nightly-runtime-tests.yml --ref develop`. On Wednesday or Thursday (UTC), a dispatch that passes can cut a beta after a failed one ([restart after a failure](DEPLOYMENT_PLAYBOOK.md#restart-after-a-failure)). |
 | Refresh the Windows caches after changing `build-windows.yml` | `gh workflow run warm-dependency-caches.yml --ref develop -f targets=windows` |
 
 ### For External Contributors

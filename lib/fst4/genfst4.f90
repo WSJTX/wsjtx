@@ -43,10 +43,7 @@ subroutine genfst4_for_state(msg0,ichk,msgsent,msgbits,i4tone,iwspr,state)
          exit
       endif
    enddo
-   do i=1,37                               !Strip leading blanks
-      if(message(1:1).ne.' ') exit
-      message=message(i+1:)
-   enddo
+   message=adjustl(message)
 
    requested_wspr=iwspr.eq.1
    i3=-1

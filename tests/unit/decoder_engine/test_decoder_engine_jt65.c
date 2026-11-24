@@ -55,7 +55,8 @@ static void observe(const decoder_observation *record, void *opaque)
   if (!record->jt65.has_width) CHECK(record->jt65.width_hz == 0.0f);
   ++f->count;
   if (record->jt65.kind == DECODER_JT65_MESSAGE) {
-    const char *expected = "K1ABC W9XYZ FN42";
+    const char *expected = f->expected_kind == 1 ? "K1ABC W9XYZ FN42 OOO" : "K1ABC W9XYZ FN42";
+    CHECK(record->jt65.ooo == (f->expected_kind == 1));
     int bit = 1;
     float frequency = 1500.0f;
     if (f->expected_kind >= 3 && f->expected_kind <= 5) {

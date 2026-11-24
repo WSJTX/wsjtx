@@ -29,9 +29,9 @@
 ! rxfreq - ntol to rxfreq + ntol Hz, or from 0 to 2 * rxfreq when ntol is
 ! above rxfreq. A configure that carries "mode":"FREQCAL" sets the receive
 ! frequency to 1500 unless it carries rxfreq, as choosing FreqCal sets the
-! GUI's Rx Freq (the transmit frequency keeps its value, as the GUI's Tx Freq), and
-! one that carries mode or trperiod resets ntol to 50, the GUI's JT9 F Tol,
-! unless it carries ntol (lib/streaming_apply.f90). FreqCal takes them in the
+! GUI's Rx Freq (the transmit frequency keeps its value, as the GUI's Tx Freq);
+! ntol is the GUI's F Tol, which choosing FreqCal keeps, or with VHF features
+! sets to JT9's (lib/streaming_apply.f90). FreqCal takes them in the
 ! GUI's ranges, 200 to 5000 Hz and 1 to 1000 Hz. Above them (rxfreq + ntol
 ! beyond 6000 Hz) freqcal would index past its spectrum; at rxfreq + ntol of
 ! 6000 Hz, a peak in

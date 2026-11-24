@@ -349,7 +349,7 @@ To rerun a single test, substitute its name below:
 ctest --test-dir build -R '^test_name$' --output-on-failure
 ----
 
-An ordinary local test run does not require a separate pFUnit installation.
+The Fortran unit tests are compiled directly and run by CTest.
 
 === Install and run
 

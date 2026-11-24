@@ -147,6 +147,24 @@ static void (*rows_write) (char const *text, int64_t size, int64_t dropped);
 static atomic_int progress_pass, progress_mode, progress_label, progress_nzhsym;
 static atomic_llong progress_last = -(1LL << 62);
 
+/* The receive dial frequency in force (configure's dial_frequency, Hz; -1:
+ * none yet), set by the frame loop as it reads each change; the frequency
+ * the running decode pass was published under (-1: none, or never dropped);
+ * and whether a change has made that pass obsolete (latched). A pass's
+ * decode lines, from the decode thread and its OpenMP workers alike, are
+ * dropped once it is (lib/streaming_emit.f90). */
+static atomic_llong dial_in_force = -1;
+static atomic_llong pass_dial = -1;
+static atomic_int pass_obsolete;
+/* The rest of WSJT-X's decode identity (DecodeOperatingContext
+ * hasSameDecodeIdentity), as a value the frame loop computes from what is
+ * in force (-1: none), and the value the running pass was made under (-1:
+ * none, from a file, or a pass WSJT-X never drops, WSPR's). As WSJT-X
+ * compares at each line, a change and a change back between two lines
+ * leave the pass as it was. */
+static atomic_llong identity_in_force = -1;
+static atomic_llong pass_identity = -1;
+
 static void lock_queue (void)
 {
   pthread_mutex_lock (&queue);
@@ -401,6 +419,50 @@ void stream_writer_unlock (void)
       pthread_mutex_unlock (&rows);
     }
   pthread_mutex_unlock (&writer);
+}
+
+/* The receive dial frequency in force, which the frame loop sets. */
+void stream_decode_set_dial (int64_t hz)
+{
+  atomic_store (&dial_in_force, (long long) hz);
+}
+
+/* The decode identity in force, which the frame loop sets. */
+void stream_decode_set_identity (int64_t identity)
+{
+  atomic_store (&identity_in_force, (long long) identity);
+}
+
+/* A decode pass starts under receive frequency hz and decode identity
+ * identity, those its operation was made under (-1: none). */
+void stream_decode_pass_begin (int64_t hz, int64_t identity)
+{
+  atomic_store (&pass_obsolete, 0);
+  atomic_store (&pass_dial, (long long) hz);
+  atomic_store (&pass_identity, (long long) identity);
+}
+
+/* 1 once the running pass's frequency or identity is not the one in force
+ * (latched). */
+int stream_decode_pass_obsolete (void)
+{
+  long long const dial = atomic_load (&pass_dial);
+  long long const identity = atomic_load (&pass_identity);
+  if (!atomic_load (&pass_obsolete)
+      && ((dial >= 0 && atomic_load (&dial_in_force) != dial)
+          || (identity >= 0 && atomic_load (&identity_in_force) != identity)))
+    atomic_store (&pass_obsolete, 1);
+  return atomic_load (&pass_obsolete);
+}
+
+/* The pass ends: whether it was obsolete, checked once more. */
+int stream_decode_pass_end (void)
+{
+  int const obsolete = stream_decode_pass_obsolete ();
+  atomic_store (&pass_dial, -1LL);
+  atomic_store (&pass_identity, -1LL);
+  atomic_store (&pass_obsolete, 0);
+  return obsolete;
 }
 
 /* The decode pass now running reports progress under generation (0: none

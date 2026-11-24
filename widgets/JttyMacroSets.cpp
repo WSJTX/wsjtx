@@ -1,5 +1,6 @@
 #include "JttyMacroSets.hpp"
 
+#include <QRegularExpression>
 #include <QSettings>
 
 #include <algorithm>
@@ -73,6 +74,7 @@ namespace Jtty
           {QStringLiteral ("Open"), QStringLiteral ("%[%H DE %M ")},
           {QStringLiteral ("Over"), QStringLiteral ("BTU %H DE %M K%]")},
           {QStringLiteral ("Sign off"), QStringLiteral ("%H DE %M SK%]")},
+          {QStringLiteral ("CQ grid"), QStringLiteral ("%[CQ %M %G%]")},
         });
     }
     return {};
@@ -83,6 +85,42 @@ namespace Jtty
     return {defaultMacroSet (QStringLiteral ("Run")),
             defaultMacroSet (QStringLiteral ("S&P")),
             defaultMacroSet (QStringLiteral ("Chat"))};
+  }
+
+  bool textHasCall (QString const& text, QString const& myCall)
+  {
+    QString const call = myCall.trimmed ().toUpper ();
+    if (call.isEmpty ()) return false;
+    // The base call, so that DL3WDG/P and DL3WDG count as the same station.
+    QString base = call;
+    for (auto const& part : call.split ('/')) {
+      if (part.size () > base.size () || base.contains ('/')) base = part;
+    }
+    for (auto word : text.toUpper ().split (QRegularExpression {QStringLiteral ("\\s+")},
+                                            Qt::SkipEmptyParts)) {
+      word.remove ('<').remove ('>');
+      while (!word.isEmpty () && QStringLiteral (".,;:!?").contains (word.back ())) word.chop (1);
+      if (word == call) return true;
+      for (auto const& part : word.split ('/')) {
+        if (part == base) return true;
+      }
+    }
+    return false;
+  }
+
+  QString withMyCallPrefix (QString const& text, QString const& myCall)
+  {
+    QString const call = myCall.trimmed ().toUpper ();
+    if (call.isEmpty () || text.trimmed ().isEmpty () || textHasCall (text, call)) return text;
+    return call + QStringLiteral (": ") + text.trimmed ();
+  }
+
+  bool overPrefixDue (bool prefixEnabled, bool chatStyle, int committed,
+                      bool nothingPending, bool prefixedThisOver, bool streaming,
+                      bool textNamesMyCall)
+  {
+    return prefixEnabled && chatStyle && committed == 0 && nothingPending
+      && !(prefixedThisOver && streaming) && !textNamesMyCall;
   }
 
   QString macroKeyName (int key)

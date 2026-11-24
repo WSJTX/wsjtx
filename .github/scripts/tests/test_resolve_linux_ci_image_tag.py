@@ -66,6 +66,14 @@ class ResolveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "does not exist"):
             MODULE.resolve(FakeClient(packages))
 
+    def test_resolves_jammy_generation_with_matching_asan_image(self):
+        tag, packages = self.coherent()
+        packages["wsjtx-internal/linux-noble"].append(version(9, ("stable", "build-20260801-1-1")))
+        self.assertEqual(MODULE.resolve(FakeClient(packages)), tag)
+        packages["wsjtx-internal/linux-noble"] = packages["wsjtx-internal/linux-noble"][-1:]
+        with self.assertRaisesRegex(RuntimeError, "linux-noble"):
+            MODULE.resolve(FakeClient(packages))
+
     def test_strict_resolution_rejects_missing_armhf(self):
         _, packages = self.coherent()
         packages[MODULE.ARMHF_PACKAGE] = []
