@@ -10000,7 +10000,10 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     ui->tx2->clear ();
     ui->tx3->clear ();
     ui->tx4->clear ();
-    if(unconditional && !keepTx5) ui->tx5->lineEdit ()->clear ();   //Test if it needs sending again
+    if (unconditional && !keepTx5) {
+      ui->tx5->lineEdit ()->clear ();
+      m_lastCallsign.clear ();
+    }
     m_gen_message_is_cq = false;
     return;
   }
