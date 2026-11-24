@@ -77,6 +77,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxLogDisplayed", m_foxLogWindow && m_foxLogWindow->isVisible ());
   m_settings->setValue("ContestLogDisplayed", m_contestLogWindow && m_contestLogWindow->isVisible ());
   m_settings->setValue("ActiveStationsDisplayed", m_ActiveStationsWidget && m_ActiveStationsWidget->isVisible ());
+  m_settings->setValue("HeardByDisplayed", m_heardByWindow && m_heardByWindow->isVisible ());
   m_settings->setValue("QSYMessageCreatorDisplayed", m_QSYMessageCreatorWidget && m_QSYMessageCreatorWidget->isVisible ());
   m_settings->setValue("ShowQSYMessages", ui->actionEnable_QSY_Popups->isChecked());
   m_settings->setValue("QSYMonitorDisplayed", m_qsymonitorWidget && m_qsymonitorWidget->isVisible ());
@@ -304,6 +305,7 @@ void MainWindow::readSettings()
   auto displayFoxLog = m_settings->value ("FoxLogDisplayed", false).toBool ();
   auto displayContestLog = m_settings->value ("ContestLogDisplayed", false).toBool ();
   bool displayActiveStations = m_settings->value ("ActiveStationsDisplayed", false).toBool ();
+  bool displayHeardBy = m_settings->value ("HeardByDisplayed", false).toBool ();
   bool displayQSYMessageCreator = m_settings->value ("QSYMessageCreatorDisplayed", false).toBool ();
   bool displayQSYMonitor = m_settings->value("QSYMonitorDisplayed", false).toBool ();
   bool enableQSYpopups = m_settings->value("ShowQSYMessages", true).toBool ();
@@ -621,6 +623,7 @@ void MainWindow::readSettings()
   if (displayFoxLog) on_fox_log_action_triggered ();
   if (displayContestLog) on_contest_log_action_triggered ();
   if (displayActiveStations) on_actionActiveStations_triggered();
+  if (displayHeardBy) on_actionHeard_by_triggered ();
   if (displayQSYMessageCreator) on_actionQSYMessage_Creator_triggered();
   if (displayQSYMonitor) on_actionQSY_Monitor_triggered();
 

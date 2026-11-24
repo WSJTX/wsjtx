@@ -88,6 +88,45 @@ station stays listed. With focus on the main window, *Alt+A* clears
 
 image::active_stations_QMAP.png[align="center",width=411]
 
+[[HEARD_BY]]
+.Heard by
+
+*Heard by* lists the stations that have reported receiving your signal
+on https://pskreporter.info/[PSK Reporter]. Open it from the *View*
+menu; it listens to PSK Reporter's live feed only while the window is
+open, and asks nothing of the service otherwise. Only reports of your
+own callsign (*My Call* in *Settings | General*) are requested. Reports
+reach the feed a few minutes after the signal was heard, so the list
+starts empty and fills as they arrive. It is kept while _WSJT-X_ runs,
+also when you close and reopen the window, and starts again if you
+change your callsign.
+
+There is one row for each receiver, band and mode, showing the time of
+the latest report (*UTC*, and its age in *Ago*), the receiver's call and
+Maidenhead locator, the *Band* and *MHz* the receiver reports (some
+receivers use a different dial setting from yours), the *Mode*, the
+best *dB* reported, the distance in *km* and true *Brg* (great-circle
+bearing) from your grid, and the number of *Spots*. The line under the
+list says how many stations have heard you and what the feed is doing;
+the line above it shows the mode and band that _WSJT-X_ is using. The
+window can be narrowed until only the first columns show.
+
+The feed is encrypted (TLS, port 1884) by default and the server's
+certificate is checked; if an encrypted connection cannot be made,
+_WSJT-X_ does *not* fall back to a plain one. Unticking *Encrypted
+(TLS)* uses the unencrypted port 1883 instead.
+
+Occasionally PSK Reporter's feed stops delivering while the connection
+stays up. After five minutes without a report of your own, _WSJT-X_
+looks at the broker's own status and says in red if the feed is silent,
+and then tries a new connection, which may reach the other of the two
+servers behind the public name. If the banner says the feed is
+delivering, nobody has reported you recently.
+
+Reports are delivered by https://www.mqtt.pskreporter.info/[mqtt.pskreporter.info],
+run by Tom Fanning M0LTE, from the data of PSK Reporter by Philip
+Gladstone.
+
 .SWL Mode
 
 *SWL Mode* reduces the main window to show just the menus, decodes

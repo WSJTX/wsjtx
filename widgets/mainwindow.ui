@@ -5420,6 +5420,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="fox_log_action"/>
     <addaction name="actionColors"/>
     <addaction name="actionActiveStations"/>
+    <addaction name="actionHeard_by"/>
     <addaction name="actionSWL_Mode"/>
     <addaction name="actionQSYMessage_Creator"/>
     <addaction name="actionQSY_Monitor"/>
@@ -6451,6 +6452,14 @@ QPushButton[state=&quot;ok&quot;] {
    </property>
    <property name="text">
     <string>Enable Message Popups</string>
+   </property>
+  </action>
+  <action name="actionHeard_by">
+   <property name="text">
+    <string>Heard by</string>
+   </property>
+   <property name="toolTip">
+    <string>Stations that report your signal on PSK Reporter</string>
    </property>
   </action>
   <action name="actionQSY_Monitor">

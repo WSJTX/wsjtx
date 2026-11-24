@@ -170,6 +170,8 @@ set (wsjtx_CXXSRCS
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
   Network/PSKReporterIPFIX.cpp
+  Network/HeardByMqtt.cpp
+  models/HeardByModel.cpp
   Audio/WavLoadCoordinator.cpp
   Audio/WavInputLoader.cpp
   Modulator/Modulator.cpp
@@ -238,6 +240,7 @@ set (wsjtx_CXXSRCS
   widgets/QSYMessageParser.cpp
   widgets/QSYMessageCreator.cpp
   widgets/qsymonitor.cpp
+  widgets/HeardByWindow.cpp
   widgets/MMTTYIF.cpp
   )
 
