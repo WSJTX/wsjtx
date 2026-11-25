@@ -421,7 +421,7 @@ private Q_SLOTS:
     QVERIFY2 (c.encrypted (), qPrintable (c.status ()));
     QTRY_VERIFY_WITH_TIMEOUT (spy.count () >= 5, 20000);
     qInfo () << "LIVE TLS:" << c.status () << "spots" << spy.count () << "failures" << c.stats ().failures;
-    QCOMPARE (c.stats ().failures, 0);
+    QVERIFY2 (0 == c.stats ().failures, qPrintable (c.stats ().last_error));
     c.stop ();
   }
 
