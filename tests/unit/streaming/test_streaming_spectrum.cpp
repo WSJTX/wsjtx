@@ -1439,42 +1439,58 @@ int threadCount (qint64 pid)
   return int (ps.readAllStandardOutput ().trimmed ().split ('\n').size ()) - 1;
 }
 
-// A session's spectrum rows around its one rows_dropped line, for periods
-// of blocksPerPeriod rows each: those before it must be the session's first
-// blocks and those after it its last, and the line must count the rows
-// between. Sets first, the session block the rows after the line begin at,
-// and after, how many there are; returns the first problem, or empty.
-QString droppedRun (QList<Line> const& lines, int blocksPerPeriod, int periods, int& first, int& after)
+// A session's spectrum rows and rows_dropped lines, for periods of
+// blocksPerPeriod rows each, checked against the queue's rule, however the
+// codec's threads were scheduled: the rows come in session order, each gap is
+// counted by the rows_dropped lines just before the row after it, and the
+// rows after the last such line run to the session's last block. Needs at
+// least one rows_dropped line. Sets first, the session block the rows after
+// the last line begin at, and after, how many there are; adds each gap, as
+// session blocks [from, to), to gaps when given. Returns the first problem,
+// or empty.
+QString droppedRun (QList<Line> const& lines, int blocksPerPeriod, int periods, int& first, int& after,
+                    QList<QPair<int, int>> * gaps = nullptr)
 {
-  QList<qint64> before, since;
-  int countLines = 0;
-  qint64 dropped = 0;
+  auto const total = periods * blocksPerPeriod;
+  auto const kOf = [&] (int block) {return qint64 (block % blocksPerPeriod + 1) * HsymSamples;};
+  int countLines = 0, next = 0;
+  qint64 pending = 0;
   for (auto const& line : lines)
     {
       if (line.error) continue;
       auto const type = typeOf (line.text);
       if ("rows_dropped" == type)
         {
+          auto const counted = qint64 (json (line.text).value ("lines").toDouble ());
+          if (counted < 1) return QString {"a rows_dropped line counts %1 rows"}.arg (counted);
           ++countLines;
-          dropped += qint64 (json (line.text).value ("lines").toDouble ());
+          pending += counted;
+          first = -1;
+          after = 0;
         }
-      else if ("spectrum" == type) (countLines ? since : before) << qint64 (json (line.text).value ("k").toDouble ());
+      else if ("spectrum" == type)
+        {
+          auto const block = next + pending;
+          auto const k = qint64 (json (line.text).value ("k").toDouble ());
+          if (block >= total)
+            return QString {"a row past the session's %1 blocks (rows_dropped counts %2 before it)"}.arg (total).arg (pending);
+          if (k != kOf (int (block)))
+            return QString {"block %1's row has k %2, not %3: rows out of order, or a gap rows_dropped does not count"}
+              .arg (block).arg (k).arg (kOf (int (block)));
+          if (pending && gaps) *gaps << qMakePair (next, int (block));
+          pending = 0;
+          next = int (block) + 1;
+          if (countLines)
+            {
+              if (first < 0) first = int (block);
+              ++after;
+            }
+        }
     }
-  if (1 != countLines) return QString {"%1 rows_dropped lines"}.arg (countLines);
-  auto const total = periods * blocksPerPeriod;
-  auto const kOf = [&] (int block) {return qint64 (block % blocksPerPeriod + 1) * HsymSamples;};
-  for (int i = 0; i < before.size (); ++i)
-    if (before.at (i) != kOf (i)) return QString {"row %1 before the line has k %2, not %3"}.arg (i).arg (before.at (i)).arg (kOf (i));
-  first = total - int (since.size ());
-  after = int (since.size ());
-  for (int i = 0; i < since.size (); ++i)
-    if (since.at (i) != kOf (first + i))
-      return QString {"row %1 after the line has k %2, not %3: not the session's last blocks"}.arg (i)
-        .arg (since.at (i)).arg (kOf (first + i));
-  auto const kept = int (before.size ());
-  if (first < kept) return "the rows before and after the line overlap";
-  if (dropped != first - kept)
-    return QString {"rows_dropped counts %1 rows; blocks %2 to %3 are missing"}.arg (dropped).arg (kept).arg (first - 1);
+  if (!countLines) return "no rows_dropped line";
+  if (pending) return QString {"the last rows_dropped lines count %1 rows, but no row follows them"}.arg (pending);
+  if (next != total)
+    return QString {"the last row is block %1 (blocks 0 to %2): the newest are missing"}.arg (next - 1).arg (total - 1);
   return {};
 }
 
@@ -1494,8 +1510,8 @@ QString stalledSession (QJsonObject const& settings, QByteArray const& pcm, Mode
   return {};
 }
 
-// The model's rows without the session blocks [from, to).
-QList<Row> withoutBlocks (QList<Row> const& rows, int blocksPerPeriod, int from, int to)
+// The model's rows without the session blocks of gaps, each [from, to).
+QList<Row> withoutBlocks (QList<Row> const& rows, int blocksPerPeriod, QList<QPair<int, int>> const& gaps)
 {
   QList<Row> kept;
   auto const periods = byPeriod (rows);
@@ -1506,7 +1522,9 @@ QList<Row> withoutBlocks (QList<Row> const& rows, int blocksPerPeriod, int from,
         if ("spectrum" == row.kind)
           {
             auto const block = p * blocksPerPeriod + int (row.ints.at (0) / HsymSamples) - 1;
-            keep = block < from || block >= to;
+            keep = std::none_of (gaps.cbegin (), gaps.cend (), [block] (QPair<int, int> const& gap) {
+              return block >= gap.first && block < gap.second;
+            });
           }
         if (keep) kept << row;
       }
@@ -3249,9 +3267,11 @@ private slots:
 
   // The row queue keeps a few seconds of rows and drops the oldest: with live
   // audio, a reader stalled past the cap of 20 entries loses the oldest
-  // rows, and one rows_dropped line, before the first row
-  // written after, counts their lines; the rows after it are the session's
-  // newest and run to its end, the GUI's. The decodes are those of the session
+  // rows, and each rows_dropped line, just before a row, counts the rows
+  // missing between that row and the row before it, or the session's start;
+  // a writer thread that starts late splits the drops over two or more lines.
+  // The rows after the last line include at least the newest 20 and run to
+  // the session's end, the GUI's. The decodes are those of the session
   // without rows, which writes no row and no rows_dropped line.
   void rowsPastTheCapDropTheOldest ()
   {
@@ -3270,9 +3290,16 @@ private slots:
     QVERIFY2 (failure.isEmpty (), qPrintable (failure));
     QCOMPARE (count (off, outType ("rows_dropped")) + count (off, outType ("spectrum")), 0);
     int first = 0, after = 0;
-    auto const problem = droppedRun (on, blocks, 2, first, after);
+    QList<QPair<int, int>> gaps;
+    auto const problem = droppedRun (on, blocks, 2, first, after, &gaps);
     QVERIFY2 (problem.isEmpty (), qPrintable (problem + "\n" + show (on)));
-    QCOMPARE (after, 20);
+    // At the last discard the newest 20 are queued; rows that arrive after it,
+    // while the writer still takes rows, add to them. With a 64 KiB pipe
+    // (macOS; Linux with 4 KiB pages) the stalled pipe, with the reader's one
+    // read of up to 4 KiB before its stall, holds less than two rows of about
+    // 36 KB, so after the last discard the writer takes at most two: one
+    // written, one in flight.
+    QVERIFY2 (after >= 20 && after <= 22, qPrintable (QString {"%1 rows after the last rows_dropped line"}.arg (after)));
     // The configure that sets live_audio makes the session's first period droppable.
     QVERIFY2 (countKind (rowsOf (on).rows, "spectrum") - after < blocks, "nothing was dropped in the first period");
     QCOMPARE (decodeLines (on), decodeLines (off));
@@ -3282,8 +3309,7 @@ private slots:
                                  << QString {"period live 0 %1"}.arg (m.samples)
                                  << QString {"period live %1 %1"}.arg (m.samples));
     QVERIFY2 (model.ok, qPrintable (model.failure));
-    auto const kept = int (countKind (rows.rows, "spectrum")) - after;
-    auto const difference = compareRows (rows.rows, withoutBlocks (model.rows, blocks, kept, first));
+    auto const difference = compareRows (rows.rows, withoutBlocks (model.rows, blocks, gaps));
     QVERIFY2 (difference.isEmpty (), qPrintable (difference));
 #endif
   }
@@ -3991,6 +4017,7 @@ private slots:
     int first = 0, after = 0;
     auto const problem = droppedRun (on.lines, liveRows (Ft8PeriodSamples), Periods, first, after);
     QVERIFY2 (problem.isEmpty (), qPrintable (problem));
+    QCOMPARE (count (on.lines, outType ("rows_dropped")), 1);
     qInfo ().noquote () << QString {"rows after rows_dropped from block %1; %2 blocks were in before the reader resumed"}
       .arg (first).arg (on.resumed);
     QVERIFY2 (first <= on.resumed && first >= on.resumed - 23, "the rows after rows_dropped are not the newest");
