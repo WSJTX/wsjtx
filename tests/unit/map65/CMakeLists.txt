@@ -4,14 +4,14 @@ add_executable (test_map65_decode_display_filter
 )
 target_include_directories (test_map65_decode_display_filter PRIVATE ${CMAKE_SOURCE_DIR}/map65)
 target_link_libraries (test_map65_decode_display_filter Qt5::Test)
-add_test (NAME test_map65_decode_display_filter COMMAND test_map65_decode_display_filter)
+wsjt_add_qt_test (test_map65_decode_display_filter test_map65_decode_display_filter)
 
 add_executable (test_map65_half_symbol_scheduler
   test_map65_half_symbol_scheduler.cpp
 )
 target_include_directories (test_map65_half_symbol_scheduler PRIVATE ${CMAKE_SOURCE_DIR}/map65)
 target_link_libraries (test_map65_half_symbol_scheduler Qt5::Test)
-add_test (NAME test_map65_half_symbol_scheduler COMMAND test_map65_half_symbol_scheduler)
+wsjt_add_qt_test (test_map65_half_symbol_scheduler test_map65_half_symbol_scheduler)
 
 add_executable (test_map65_runtime_paths
   test_map65_runtime_paths.cpp
@@ -19,7 +19,7 @@ add_executable (test_map65_runtime_paths
 )
 target_include_directories (test_map65_runtime_paths PRIVATE ${CMAKE_SOURCE_DIR}/map65)
 target_link_libraries (test_map65_runtime_paths Qt5::Test)
-add_test (NAME test_map65_runtime_paths COMMAND test_map65_runtime_paths)
+wsjt_add_qt_test (test_map65_runtime_paths test_map65_runtime_paths)
 
 if (UNIX)
   add_executable (test_map65_ptt_unix test_map65_ptt_unix.c)

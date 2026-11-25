@@ -4,7 +4,7 @@ add_executable (test_ft8_mtd_decode_scheduler
 )
 target_include_directories (test_ft8_mtd_decode_scheduler PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries (test_ft8_mtd_decode_scheduler Qt5::Test)
-add_test (NAME test_ft8_mtd_decode_scheduler COMMAND test_ft8_mtd_decode_scheduler)
+wsjt_add_qt_test (test_ft8_mtd_decode_scheduler test_ft8_mtd_decode_scheduler)
 
 add_executable (test_ft8_mtd_decode_coordinator
   test_ft8_mtd_decode_coordinator.cpp
@@ -17,7 +17,7 @@ target_include_directories (test_ft8_mtd_decode_coordinator PRIVATE
   ${CMAKE_SOURCE_DIR}/lib
 )
 target_link_libraries (test_ft8_mtd_decode_coordinator wsjt_cxx Qt5::Test)
-add_test (NAME test_ft8_mtd_decode_coordinator COMMAND test_ft8_mtd_decode_coordinator)
+wsjt_add_qt_test (test_ft8_mtd_decode_coordinator test_ft8_mtd_decode_coordinator)
 
 add_executable (test_ft8_decode_ranges
   test_ft8_decode_ranges.f90)

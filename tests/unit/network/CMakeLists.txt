@@ -1,20 +1,20 @@
 add_executable (test_linrad_packet test_linrad_packet.cpp)
 target_link_libraries (test_linrad_packet Qt5::Test Qt5::Network)
-add_test (NAME test_linrad_packet COMMAND test_linrad_packet)
+wsjt_add_qt_test (test_linrad_packet test_linrad_packet)
 
 add_executable (test_lotw_users
   test_lotw_users.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp
 )
 target_link_libraries (test_lotw_users wsjt_qt Boost::log_setup Qt5::Test Qt5::Network)
-add_test (NAME test_lotw_users COMMAND test_lotw_users)
+wsjt_add_qt_test (test_lotw_users test_lotw_users)
 
 add_executable (test_pskreporter_ipfix
   test_pskreporter_ipfix.cpp
   ${CMAKE_SOURCE_DIR}/Network/PSKReporterIPFIX.cpp
   )
 target_link_libraries (test_pskreporter_ipfix Qt5::Test)
-add_test (NAME test_pskreporter_ipfix COMMAND test_pskreporter_ipfix)
+wsjt_add_qt_test (test_pskreporter_ipfix test_pskreporter_ipfix)
 
 add_executable (test_pskreporter_transport
   test_pskreporter_transport.cpp
@@ -22,7 +22,7 @@ add_executable (test_pskreporter_transport
   ${CMAKE_SOURCE_DIR}/Network/PSKReporterIPFIX.cpp
   )
 target_link_libraries (test_pskreporter_transport wsjt_cxx Qt5::Test Qt5::Network)
-add_test (NAME test_pskreporter_transport COMMAND test_pskreporter_transport)
+wsjt_add_qt_test (test_pskreporter_transport test_pskreporter_transport)
 
 add_executable (test_heard_by
   test_heard_by.cpp
@@ -30,7 +30,7 @@ add_executable (test_heard_by
   )
 target_include_directories (test_heard_by PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries (test_heard_by Qt5::Test Qt5::Network)
-add_test (NAME test_heard_by COMMAND test_heard_by)
+wsjt_add_qt_test (test_heard_by test_heard_by)
 
 add_executable (test_heard_by_mqtt
   test_heard_by_mqtt.cpp
@@ -38,7 +38,7 @@ add_executable (test_heard_by_mqtt
   )
 target_include_directories (test_heard_by_mqtt PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries (test_heard_by_mqtt Qt5::Test Qt5::Network)
-add_test (NAME test_heard_by_mqtt COMMAND test_heard_by_mqtt)
+wsjt_add_qt_test (test_heard_by_mqtt test_heard_by_mqtt)
 
 add_executable (test_heard_by_window
   test_heard_by_window.cpp
@@ -49,7 +49,7 @@ add_executable (test_heard_by_window
   )
 target_include_directories (test_heard_by_window PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/widgets ${CMAKE_BINARY_DIR})
 target_link_libraries (test_heard_by_window Qt5::Test Qt5::Network Qt5::Widgets)
-add_test (NAME test_heard_by_window COMMAND test_heard_by_window)
+wsjt_add_qt_test (test_heard_by_window test_heard_by_window)
 set_tests_properties (test_heard_by_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable (test_map65_pskreporter_settings
@@ -57,7 +57,7 @@ add_executable (test_map65_pskreporter_settings
   ${CMAKE_SOURCE_DIR}/map65/pskreporter_settings.cpp
   )
 target_link_libraries (test_map65_pskreporter_settings Qt5::Test)
-add_test (NAME test_map65_pskreporter_settings COMMAND test_map65_pskreporter_settings)
+wsjt_add_qt_test (test_map65_pskreporter_settings test_map65_pskreporter_settings)
 
 add_executable (test_map65_pskreporter_decode
   test_map65_pskreporter_decode.cpp
@@ -66,7 +66,7 @@ add_executable (test_map65_pskreporter_decode
   ${CMAKE_SOURCE_DIR}/validators/LiveCQCallsign.cpp
 )
 target_link_libraries (test_map65_pskreporter_decode Qt5::Test)
-add_test (NAME test_map65_pskreporter_decode COMMAND test_map65_pskreporter_decode)
+wsjt_add_qt_test (test_map65_pskreporter_decode test_map65_pskreporter_decode)
 
 add_executable (test_map65_livecq_decode
   test_map65_livecq_decode.cpp
@@ -75,49 +75,49 @@ add_executable (test_map65_livecq_decode
   ${CMAKE_SOURCE_DIR}/validators/LiveCQCallsign.cpp
 )
 target_link_libraries (test_map65_livecq_decode Qt5::Test)
-add_test (NAME test_map65_livecq_decode COMMAND test_map65_livecq_decode)
+wsjt_add_qt_test (test_map65_livecq_decode test_map65_livecq_decode)
 
 add_executable (test_wsprnet_upload
   test_wsprnet_upload.cpp
   ${CMAKE_SOURCE_DIR}/Network/wsprnet.cpp
   )
 target_link_libraries (test_wsprnet_upload Qt5::Test Qt5::Network)
-add_test (NAME test_wsprnet_upload COMMAND test_wsprnet_upload)
+wsjt_add_qt_test (test_wsprnet_upload test_wsprnet_upload)
 
 add_executable (test_livecq_upload
   test_livecq_upload.cpp
   ${CMAKE_SOURCE_DIR}/Network/LiveCQUpload.cpp
   )
 target_link_libraries (test_livecq_upload Qt5::Test Qt5::Network)
-add_test (NAME test_livecq_upload COMMAND test_livecq_upload)
+wsjt_add_qt_test (test_livecq_upload test_livecq_upload)
 
 add_executable (test_eqsl_upload test_eqsl_upload.cpp)
 target_link_libraries (test_eqsl_upload wsjt_qt Qt5::Test Qt5::Network)
-add_test (NAME test_eqsl_upload COMMAND test_eqsl_upload)
+wsjt_add_qt_test (test_eqsl_upload test_eqsl_upload)
 
 add_executable (test_message_client_adif test_message_client_adif.cpp ${CMAKE_SOURCE_DIR}/Logger.cpp)
 target_link_libraries (test_message_client_adif wsjt_qt Boost::log_setup Qt5::Test Qt5::Network)
-add_test (NAME test_message_client_adif COMMAND test_message_client_adif)
+wsjt_add_qt_test (test_message_client_adif test_message_client_adif)
 
 add_executable (test_message_client_replay
   test_message_client_replay.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp
   )
 target_link_libraries (test_message_client_replay wsjt_qt Boost::log_setup Qt5::Test Qt5::Network)
-add_test (NAME test_message_client_replay COMMAND test_message_client_replay)
+wsjt_add_qt_test (test_message_client_replay test_message_client_replay)
 
 add_executable (test_message_client_inhibit_status
   test_message_client_inhibit_status.cpp
   ${CMAKE_SOURCE_DIR}/Logger.cpp
   )
 target_link_libraries (test_message_client_inhibit_status wsjt_qt Boost::log_setup Qt5::Test Qt5::Network)
-add_test (NAME test_message_client_inhibit_status COMMAND test_message_client_inhibit_status)
+wsjt_add_qt_test (test_message_client_inhibit_status test_message_client_inhibit_status)
 
 add_executable (test_message_server
   test_message_server.cpp
   )
 target_link_libraries (test_message_server wsjtx_udp-static Qt5::Test Qt5::Network)
-add_test (NAME test_message_server COMMAND test_message_server)
+wsjt_add_qt_test (test_message_server test_message_server)
 
 add_executable (test_cloudlog_connection_check
   test_cloudlog_connection_check.cpp
@@ -127,7 +127,7 @@ add_executable (test_cloudlog_connection_check
 add_dependencies (test_cloudlog_connection_check revisiontag)
 target_include_directories (test_cloudlog_connection_check PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_cloudlog_connection_check Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
-add_test (NAME test_cloudlog_connection_check COMMAND test_cloudlog_connection_check)
+wsjt_add_qt_test (test_cloudlog_connection_check test_cloudlog_connection_check)
 
 add_executable (test_sample_downloader
   test_sample_downloader.cpp
@@ -135,7 +135,7 @@ add_executable (test_sample_downloader
   )
 target_include_directories (test_sample_downloader PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_sample_downloader Qt5::Test Qt5::Network)
-add_test (NAME test_sample_downloader COMMAND test_sample_downloader)
+wsjt_add_qt_test (test_sample_downloader test_sample_downloader)
 
 if (WSJT_ENABLE_TSAN)
   set (wsjt_tsan_network_test_environment

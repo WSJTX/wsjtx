@@ -1,6 +1,6 @@
 add_executable (test_bwf_file test_bwf_file.cpp)
 target_link_libraries (test_bwf_file wsjt_qtmm wsjt_qt Qt5::Test Qt5::Multimedia)
-add_test (NAME test_bwf_file COMMAND test_bwf_file)
+wsjt_add_qt_test (test_bwf_file test_bwf_file)
 if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_bwf_file PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -12,7 +12,7 @@ if (WSJT_BUILD_UTILS)
   target_compile_definitions (test_echosim_wav_trailer PRIVATE
     ECHOSIM_EXECUTABLE="$<TARGET_FILE:echosim>")
   add_dependencies (test_echosim_wav_trailer echosim)
-  add_test (NAME test_echosim_wav_trailer COMMAND test_echosim_wav_trailer)
+  wsjt_add_qt_test (test_echosim_wav_trailer test_echosim_wav_trailer)
 endif ()
 
 add_executable (test_wav_input_loading
@@ -20,35 +20,35 @@ add_executable (test_wav_input_loading
   ${CMAKE_SOURCE_DIR}/Audio/WavInputLoader.cpp)
 target_link_libraries (test_wav_input_loading
   wsjt_qtmm wsjt_qt wsjt_fort_common Qt5::Test Qt5::Multimedia)
-add_test (NAME test_wav_input_loading COMMAND test_wav_input_loading)
+wsjt_add_qt_test (test_wav_input_loading test_wav_input_loading)
 
 add_executable (test_wav_load_coordinator
   test_wav_load_coordinator.cpp
   ${CMAKE_SOURCE_DIR}/Audio/WavLoadCoordinator.cpp)
 target_link_libraries (test_wav_load_coordinator wsjt_qt Qt5::Test)
-add_test (NAME test_wav_load_coordinator COMMAND test_wav_load_coordinator)
+wsjt_add_qt_test (test_wav_load_coordinator test_wav_load_coordinator)
 set_tests_properties (test_wav_load_coordinator PROPERTIES TIMEOUT 15)
 
 add_executable (test_tx_playback_diagnostics
   test_tx_playback_diagnostics.cpp
   ${CMAKE_SOURCE_DIR}/Audio/TxPlaybackDiagnostics.cpp)
 target_link_libraries (test_tx_playback_diagnostics Qt5::Core Qt5::Test)
-add_test (NAME test_tx_playback_diagnostics COMMAND test_tx_playback_diagnostics)
+wsjt_add_qt_test (test_tx_playback_diagnostics test_tx_playback_diagnostics)
 
 add_executable (test_rx_audio_buffer_policy test_rx_audio_buffer_policy.cpp)
 target_link_libraries (test_rx_audio_buffer_policy Qt5::Test)
-add_test (NAME test_rx_audio_buffer_policy COMMAND test_rx_audio_buffer_policy)
+wsjt_add_qt_test (test_rx_audio_buffer_policy test_rx_audio_buffer_policy)
 
 add_executable (test_tx_request test_tx_request.cpp)
 target_link_libraries (test_tx_request Qt5::Test)
-add_test (NAME test_tx_request COMMAND test_tx_request)
+wsjt_add_qt_test (test_tx_request test_tx_request)
 
 add_executable (test_tx_audio_queue
   test_tx_audio_queue.cpp
   ${CMAKE_SOURCE_DIR}/Audio/TxAudioQueue.cpp
   ${CMAKE_SOURCE_DIR}/Modulator/JttyPcmFifo.cpp)
 target_link_libraries (test_tx_audio_queue Qt5::Core Qt5::Test)
-add_test (NAME test_tx_audio_queue COMMAND test_tx_audio_queue)
+wsjt_add_qt_test (test_tx_audio_queue test_tx_audio_queue)
 
 add_executable (test_audio_input_stream_descriptor
   test_audio_input_stream_descriptor.cpp
@@ -59,8 +59,8 @@ add_executable (test_audio_input_stream_descriptor
   ${CMAKE_SOURCE_DIR}/Detector/Detector.cpp)
 target_link_libraries (test_audio_input_stream_descriptor
   wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia)
-add_test (NAME test_audio_input_stream_descriptor
-  COMMAND test_audio_input_stream_descriptor)
+wsjt_add_qt_test (test_audio_input_stream_descriptor
+  test_audio_input_stream_descriptor)
 
 add_executable (test_sound_input
   test_sound_input.cpp
@@ -70,7 +70,7 @@ add_executable (test_sound_input
   ${CMAKE_SOURCE_DIR}/Logger.cpp)
 target_link_libraries (test_sound_input
   wsjt_qtmm wsjt_qt Boost::log_setup Qt5::Test Qt5::Multimedia)
-add_test (NAME test_sound_input COMMAND test_sound_input)
+wsjt_add_qt_test (test_sound_input test_sound_input)
 
 add_executable (test_fixture_audio_output
   test_fixture_audio_output.cpp
@@ -79,7 +79,7 @@ add_executable (test_fixture_audio_output
   ${CMAKE_SOURCE_DIR}/Audio/FixtureSoundOutput.cpp)
 target_link_libraries (test_fixture_audio_output
   wsjt_qtmm Qt5::Core Qt5::Test Qt5::Multimedia)
-add_test (NAME test_fixture_audio_output COMMAND test_fixture_audio_output)
+wsjt_add_qt_test (test_fixture_audio_output test_fixture_audio_output)
 
 add_executable (test_sound_output
   test_sound_output.cpp
@@ -96,7 +96,7 @@ set_target_properties (sound_output_test_plugin PROPERTIES
 target_compile_definitions (test_sound_output PRIVATE
   SOUND_OUTPUT_TEST_PLUGIN_ROOT="${sound_output_test_plugin_root}")
 add_dependencies (test_sound_output sound_output_test_plugin)
-add_test (NAME test_sound_output COMMAND test_sound_output)
+wsjt_add_qt_test (test_sound_output test_sound_output)
 
 add_executable (test_modulator
   test_modulator.cpp
@@ -105,7 +105,7 @@ add_executable (test_modulator
   ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp)
 target_link_libraries (test_modulator
   wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
-add_test (NAME test_modulator COMMAND test_modulator)
+wsjt_add_qt_test (test_modulator test_modulator)
 
 add_executable (test_receive_audio_handoff
   test_receive_audio_handoff.cpp
@@ -132,8 +132,8 @@ set (receive_handoff_scenarios
     echo_metadata_vs_append
     echo_metadata_vs_reset
     stale_echo_metadata_must_not_modify_next_period)
-add_test (NAME test_receive_audio_handoff
-  COMMAND test_receive_audio_handoff ${receive_handoff_scenarios})
+wsjt_add_qt_test (test_receive_audio_handoff
+  test_receive_audio_handoff ${receive_handoff_scenarios})
 
 # refspectrum has saved accumulation state, so keep DSP cases in fresh
 # processes.
@@ -146,8 +146,8 @@ set (receive_handoff_isolated_scenarios
     reference_measurement_survives_unwritable_file)
 set (receive_handoff_tests test_receive_audio_handoff)
 foreach (scenario IN LISTS receive_handoff_isolated_scenarios)
-  add_test (NAME test_receive_${scenario}
-    COMMAND test_receive_audio_handoff ${scenario})
+  wsjt_add_qt_test (test_receive_${scenario}
+    test_receive_audio_handoff ${scenario})
   list (APPEND receive_handoff_tests test_receive_${scenario})
 endforeach ()
 set_tests_properties (${receive_handoff_tests} PROPERTIES
@@ -174,14 +174,14 @@ add_executable (test_fast_decode_ownership
 target_link_libraries (test_fast_decode_ownership
   wsjt_fort_common Qt5::Core Qt5::Test Qt5::Multimedia)
 target_include_directories (test_fast_decode_ownership PRIVATE ${CMAKE_BINARY_DIR})
-add_test (NAME test_fast_decode_ownership COMMAND test_fast_decode_ownership
+wsjt_add_qt_test (test_fast_decode_ownership test_fast_decode_ownership
   captures_submission_inputs capture_does_not_race_live_append
   overlapping_jobs_retain_submission_identity)
 set_tests_properties (test_fast_decode_ownership PROPERTIES
   TIMEOUT 30 LABELS "receive-handoff;fast-decode-ownership")
 if (WSJT_ENABLE_TSAN)
-  add_test (NAME test_fast_decode_overlap_does_not_race_decoder
-    COMMAND test_fast_decode_ownership
+  wsjt_add_qt_test (test_fast_decode_overlap_does_not_race_decoder
+    test_fast_decode_ownership
       overlapping_submission_does_not_race_decoder)
   set_tests_properties (test_fast_decode_ownership
     test_fast_decode_overlap_does_not_race_decoder PROPERTIES
@@ -215,8 +215,8 @@ endif ()
 foreach (function ft8 ft4 ft4PhaseWrap fst4 fst4w q65 msk144 jt4 jt9 jt65 wspr tune echo singleTones fastJt9 cwId
     ranges fst4Long retunes lateStart rangeStates heard msk144Tables cwIdStation foxSlots foxTransmitState foxSequences superFox transmitState jttyUnchanged
     readyListsEncodes decodesItsOwnRender renderAfterDecode refusals accepted)
-  add_test (NAME test_wsjt_codec_slot_encode_${function}
-    COMMAND test_wsjt_codec_slot_encode ${function})
+  wsjt_add_qt_test (test_wsjt_codec_slot_encode_${function}
+    test_wsjt_codec_slot_encode ${function})
   set_tests_properties (test_wsjt_codec_slot_encode_${function} PROPERTIES
     LABELS "streaming;encode;runtime" TIMEOUT 300 ENVIRONMENT "${slot_encode_environment}")
 endforeach ()
@@ -236,5 +236,5 @@ target_link_libraries (test_fixwav Qt5::Test)
 target_compile_definitions (test_fixwav PRIVATE
   FIXWAV_EXECUTABLE="$<TARGET_FILE:fixwav_test_driver>")
 add_dependencies (test_fixwav fixwav_test_driver)
-add_test (NAME test_fixwav COMMAND test_fixwav)
+wsjt_add_qt_test (test_fixwav test_fixwav)
 set_tests_properties (test_fixwav PROPERTIES TIMEOUT 30)

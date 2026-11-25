@@ -199,6 +199,7 @@ runs:
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_ENABLE_TESTS=ON \
+          -DWSJT_CAPTURE_QTTEST_REPORTS=ON \
           -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
           -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
@@ -270,6 +271,15 @@ runs:
         name: ctest-results-linux-${{ inputs.arch }}
         path: wsjtx-build/ctest-results.xml
         if-no-files-found: ignore
+
+    - name: Upload QtTest reports
+      if: ${{ !cancelled() && steps.ctest.outcome == 'failure' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: qttest-reports-linux-${{ inputs.arch }}
+        path: wsjtx-build/qttest-reports/
+        if-no-files-found: ignore
+        retention-days: 7
 
     - name: Verify binary
       shell: bash

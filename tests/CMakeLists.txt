@@ -1,5 +1,19 @@
 find_package (Qt5Test 5 REQUIRED)
 
+option (WSJT_CAPTURE_QTTEST_REPORTS "Write a native QtTest report for each CTest invocation." OFF)
+if (WSJT_CAPTURE_QTTEST_REPORTS)
+  file (MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/qttest-reports")
+endif ()
+
+function (wsjt_add_qt_test name executable)
+  set (report_options "")
+  if (WSJT_CAPTURE_QTTEST_REPORTS)
+    # Some CTest entries match QtTest's console output to confirm a data row ran.
+    set (report_options -o -,txt -o "${CMAKE_BINARY_DIR}/qttest-reports/${name}.txt,txt")
+  endif ()
+  add_test (NAME "${name}" COMMAND "${executable}" ${report_options} ${ARGN})
+endfunction ()
+
 add_executable (test_fftw_runtime dependencies/test_fftw_runtime.c)
 target_include_directories (test_fftw_runtime PRIVATE ${FFTW3_INCLUDE_DIRS})
 target_link_libraries (test_fftw_runtime PRIVATE ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})

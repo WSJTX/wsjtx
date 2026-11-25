@@ -25,7 +25,7 @@ if (WSJT_BUILD_UTILS)
   list (APPEND streaming_consumer_fixtures superfox_wav)
 endif ()
 
-add_test (NAME test_streaming_consumers COMMAND test_streaming_consumers)
+wsjt_add_qt_test (test_streaming_consumers test_streaming_consumers)
 # Without a console (a Windows runner) QtTest writes to the debugger, not to ctest.
 set (streaming_consumers_environment "QT_FORCE_STDERR_LOGGING=1")
 if (WSJT_ENABLE_TSAN)
@@ -49,8 +49,8 @@ endif ()
 if (WSJT_ENABLE_TSAN)
   list (APPEND streaming_schedule_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
-add_test (NAME test_streaming_gui_schedule
-  COMMAND test_streaming_consumers decodesAtTheGuiStopPoint fileSharesFollowTheEngine decodesInsideALongFrame
+wsjt_add_qt_test (test_streaming_gui_schedule
+  test_streaming_consumers decodesAtTheGuiStopPoint fileSharesFollowTheEngine decodesInsideALongFrame
     aConfigureMovesTheStopPoint ft8PassesFollowTheGui decodeAfterEmeDelaySetsTheDelay
     decodeAgainLeavesThePeriodInFlight)
 set_tests_properties (test_streaming_gui_schedule PROPERTIES
@@ -69,8 +69,8 @@ endif ()
 if (WSJT_ENABLE_TSAN)
   list (APPEND streaming_range_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
-add_test (NAME test_streaming_configure_ranges
-  COMMAND test_streaming_consumers wsjtCodecDeclinesValuesTheEngineRefuses wsjtCodecDeclinesBadLabels
+wsjt_add_qt_test (test_streaming_configure_ranges
+  test_streaming_consumers wsjtCodecDeclinesValuesTheEngineRefuses wsjtCodecDeclinesBadLabels
     wsjtCodecAcceptsValuesAtTheEngineLimits wsjtCodecReportsRefusedDecodes
     wsjtCodecReportsStartValuesWsjtxCannotGive depthReachesTheDecoderAsWsjtxGivesIt
     depthWsjtxCannotHoldIsDeclinedInEveryMode)
@@ -90,8 +90,8 @@ endif ()
 if (WSJT_ENABLE_TSAN)
   list (APPEND streaming_read_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
-add_test (NAME test_streaming_reads_while_decoding
-  COMMAND test_streaming_consumers wsjtCodecReadsWhileItDecodes)
+wsjt_add_qt_test (test_streaming_reads_while_decoding
+  test_streaming_consumers wsjtCodecReadsWhileItDecodes)
 set_tests_properties (test_streaming_reads_while_decoding PROPERTIES
   LABELS "streaming;runtime"
   ENVIRONMENT "${streaming_read_environment}"
@@ -152,8 +152,8 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
   if (WSJT_ENABLE_TSAN)
     list (APPEND streaming_mtd_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
   endif ()
-  add_test (NAME test_streaming_mtd_parity
-    COMMAND test_streaming_consumers ${streaming_mtd_rows})
+  wsjt_add_qt_test (test_streaming_mtd_parity
+    test_streaming_consumers ${streaming_mtd_rows})
   set_tests_properties (test_streaming_mtd_parity PROPERTIES
     LABELS "streaming;runtime;mtd"
     ENVIRONMENT "${streaming_mtd_environment}"
@@ -173,7 +173,7 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
   if (WSJT_ENABLE_TSAN)
     list (APPEND streaming_flag_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
   endif ()
-  add_test (NAME test_streaming_stream_flag COMMAND test_streaming_consumers wsjtCodecIgnoresTheStreamFlag)
+  wsjt_add_qt_test (test_streaming_stream_flag test_streaming_consumers wsjtCodecIgnoresTheStreamFlag)
   set_tests_properties (test_streaming_stream_flag PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_flag_environment}"
@@ -192,8 +192,8 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/JT9/130418_1742.wav")
   if (WSJT_ENABLE_TSAN)
     list (APPEND streaming_jt9_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
   endif ()
-  add_test (NAME test_streaming_jt9_periods
-    COMMAND test_streaming_consumers wsjtCodecKeepsJt9AtSixtySeconds)
+  wsjt_add_qt_test (test_streaming_jt9_periods
+    test_streaming_consumers wsjtCodecKeepsJt9AtSixtySeconds)
   set_tests_properties (test_streaming_jt9_periods PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_jt9_environment}"
@@ -243,7 +243,7 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav"
     list (APPEND streaming_backlog_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
   endif ()
   foreach (row IN LISTS streaming_backlog_rows)
-    add_test (NAME test_streaming_backlog_${row} COMMAND test_streaming_backlog ${row})
+    wsjt_add_qt_test (test_streaming_backlog_${row} test_streaming_backlog ${row})
     set_tests_properties (test_streaming_backlog_${row} PROPERTIES
       LABELS "streaming;runtime"
       ENVIRONMENT "${streaming_backlog_environment}"
@@ -266,7 +266,7 @@ target_link_libraries (test_streaming_render wsjt_qt wsjt_fort_common Qt5::Test)
 target_compile_definitions (test_streaming_render PRIVATE
   JT9_EXECUTABLE="$<TARGET_FILE:jt9>"
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>")
-add_test (NAME test_streaming_render COMMAND test_streaming_render rendersJt9Lines rendersDecodeFinished)
+wsjt_add_qt_test (test_streaming_render test_streaming_render rendersJt9Lines rendersDecodeFinished)
 set_tests_properties (test_streaming_render PROPERTIES LABELS "streaming" TIMEOUT 60)
 if (WSJT_BUILD_UTILS)
   # The worker's path, for settings jt9's command line cannot give.
@@ -300,7 +300,7 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/samples/FT8/210703_133430.wav")
   list (APPEND streaming_render_environment "WSJT_SAMPLES_DIR=${CMAKE_SOURCE_DIR}/samples")
 endif ()
 function (wsjt_add_streaming_render_test name function fixtures)
-  add_test (NAME test_streaming_render_${name} COMMAND test_streaming_render "${function}")
+  wsjt_add_qt_test (test_streaming_render_${name} test_streaming_render "${function}")
   # QtTest exits 0 for a data tag it does not have: require the row's PASS.
   string (REPLACE ":" "\\(" pattern "${function}")
   if (function MATCHES ":")
@@ -522,7 +522,7 @@ if (WSJT_ENABLE_TSAN)
   list (APPEND streaming_msk144_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 foreach (row IN LISTS streaming_msk144_rows)
-  add_test (NAME test_streaming_msk144_${row} COMMAND test_streaming_msk144 ${row})
+  wsjt_add_qt_test (test_streaming_msk144_${row} test_streaming_msk144 ${row})
   set_tests_properties (test_streaming_msk144_${row} PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_msk144_environment}"
@@ -576,7 +576,7 @@ foreach (row IN LISTS streaming_fast_jt9_rows)
   else ()
     string (APPEND pattern "\\(")
   endif ()
-  add_test (NAME test_streaming_fast_jt9_${name} COMMAND test_streaming_fast_jt9 "${row}")
+  wsjt_add_qt_test (test_streaming_fast_jt9_${name} test_streaming_fast_jt9 "${row}")
   set_tests_properties (test_streaming_fast_jt9_${name} PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_fast_jt9_environment}"
@@ -617,8 +617,8 @@ if (WSJT_ENABLE_TSAN)
   list (APPEND decode_thread_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 set (decode_thread_fixtures ft8_engine_wav fst4_engine_wav q65_engine_wav jt4_engine_wav)
-add_test (NAME test_streaming_decode_thread_deadline_model
-  COMMAND test_streaming_decode_thread clientDeadlineModel)
+wsjt_add_qt_test (test_streaming_decode_thread_deadline_model
+  test_streaming_decode_thread clientDeadlineModel)
 set_tests_properties (test_streaming_decode_thread_deadline_model PROPERTIES
   LABELS "streaming"
   ENVIRONMENT "${decode_thread_environment}"
@@ -639,7 +639,7 @@ function (wsjt_add_decode_thread_test name function)
   if (NOT WSJT_ENABLE_STREAM_TIMING_TESTS AND (row_TIMING OR (WIN32 AND NOT row_PORTABLE)))
     return ()
   endif ()
-  add_test (NAME test_streaming_decode_thread_${name} COMMAND test_streaming_decode_thread "${function}")
+  wsjt_add_qt_test (test_streaming_decode_thread_${name} test_streaming_decode_thread "${function}")
   # QtTest exits 0 for a data tag it does not have: require the row's PASS.
   string (REPLACE ":" "\\(" pattern "${function}")
   if (function MATCHES ":")
@@ -834,7 +834,7 @@ if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
       if (row MATCHES "^mtd")
         list (APPEND labels decode-thread-long)
       endif ()
-      add_test (NAME test_streaming_decode_thread_inline_${row} COMMAND test_streaming_backlog ${row})
+      wsjt_add_qt_test (test_streaming_decode_thread_inline_${row} test_streaming_backlog ${row})
       set_tests_properties (test_streaming_decode_thread_inline_${row} PROPERTIES
         LABELS "${labels}"
         ENVIRONMENT "${streaming_backlog_environment};WSJT_CODEC_TEST_INLINE=1"
@@ -845,8 +845,8 @@ if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
       endif ()
     endif ()
   endforeach ()
-  add_test (NAME test_streaming_decode_thread_inline_decode_again
-    COMMAND test_streaming_consumers decodeAgainNeedsADecodedPeriod decodeAgainDecodesAtTheRxFrequency
+  wsjt_add_qt_test (test_streaming_decode_thread_inline_decode_again
+    test_streaming_consumers decodeAgainNeedsADecodedPeriod decodeAgainDecodesAtTheRxFrequency
       decodeAgainLeavesThePeriodInFlight discontinuityRunsAWaitingDecodeAgain wsjtCodecHaltsAfterThePeriodInFlight)
   set_tests_properties (test_streaming_decode_thread_inline_decode_again PROPERTIES
     LABELS "streaming;runtime;decode-thread-long"
@@ -854,8 +854,8 @@ if (NOT WSJT_ENABLE_TSAN AND NOT WSJT_ENABLE_ASAN_UBSAN)
     FIXTURES_REQUIRED "${streaming_consumer_fixtures}"
     TIMEOUT 300)
   if (have_msk144_samples)
-    add_test (NAME test_streaming_decode_thread_inline_msk144_blocks
-      COMMAND test_streaming_msk144 samplesDecodeAtTheGuiBlocks)
+    wsjt_add_qt_test (test_streaming_decode_thread_inline_msk144_blocks
+      test_streaming_msk144 samplesDecodeAtTheGuiBlocks)
     set_tests_properties (test_streaming_decode_thread_inline_msk144_blocks PROPERTIES
       LABELS "streaming;runtime;decode-thread-long"
       ENVIRONMENT "WSJT_CODEC_TEST_INLINE=1"
@@ -914,7 +914,7 @@ function (wsjt_add_spectrum_test name function)
   if (NOT WSJT_ENABLE_STREAM_TIMING_TESTS AND row_TIMING)
     return ()
   endif ()
-  add_test (NAME test_streaming_spectrum_${name} COMMAND test_streaming_spectrum "${function}")
+  wsjt_add_qt_test (test_streaming_spectrum_${name} test_streaming_spectrum "${function}")
   # QtTest exits 0 for a data tag it does not have: require the row's PASS.
   # On Windows, where rows QSKIP, a row's SKIP reports it Skipped; elsewhere a
   # SKIP fails for want of its PASS.
@@ -1125,7 +1125,7 @@ foreach (row
   else ()
     string (APPEND pattern "\\(\\)")
   endif ()
-  add_test (NAME test_streaming_freqcal_${name} COMMAND test_streaming_freqcal "${row}")
+  wsjt_add_qt_test (test_streaming_freqcal_${name} test_streaming_freqcal "${row}")
   set_tests_properties (test_streaming_freqcal_${name} PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_freqcal_environment}"
@@ -1183,7 +1183,7 @@ if (WSJT_ENABLE_TSAN)
   list (APPEND streaming_echo_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 foreach (row IN LISTS streaming_echo_rows)
-  add_test (NAME test_streaming_echo_${row} COMMAND test_streaming_echo ${row})
+  wsjt_add_qt_test (test_streaming_echo_${row} test_streaming_echo ${row})
   set_tests_properties (test_streaming_echo_${row} PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_echo_environment}"
@@ -1252,7 +1252,7 @@ foreach (row IN LISTS streaming_wspr_rows)
   else ()
     string (APPEND pattern "\\(\\)")
   endif ()
-  add_test (NAME test_streaming_wspr_${name} COMMAND test_streaming_wspr "${row}")
+  wsjt_add_qt_test (test_streaming_wspr_${name} test_streaming_wspr "${row}")
   set_tests_properties (test_streaming_wspr_${name} PROPERTIES
     LABELS "streaming;runtime"
     ENVIRONMENT "${streaming_wspr_environment}"
@@ -1330,7 +1330,7 @@ if (WSJT_BUILD_UTILS)
     FIXTURES_SETUP side_sim_wavs TIMEOUT 30)
 endif ()
 function (wsjt_add_side_test name function fixtures)
-  add_test (NAME test_streaming_side_${name} COMMAND test_streaming_side "${function}")
+  wsjt_add_qt_test (test_streaming_side_${name} test_streaming_side "${function}")
   # QtTest exits 0 for a data tag it does not have, and for a skip: require the row's PASS.
   string (REPLACE ":" "\\(" pattern "${function}")
   if (function MATCHES ":")
@@ -1417,7 +1417,7 @@ if (WSJT_ENABLE_TSAN)
   list (APPEND streaming_jtty_review_environment "TSAN_OPTIONS=${wsjt_tsan_fortran_options}")
 endif ()
 foreach (row IN LISTS streaming_jtty_review_rows)
-  add_test (NAME test_streaming_jtty_review_${row} COMMAND test_streaming_jtty_review ${row})
+  wsjt_add_qt_test (test_streaming_jtty_review_${row} test_streaming_jtty_review ${row})
   set_tests_properties (test_streaming_jtty_review_${row} PROPERTIES
     LABELS "streaming;jtty;runtime"
     ENVIRONMENT "${streaming_jtty_review_environment}"
