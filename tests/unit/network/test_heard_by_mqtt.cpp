@@ -21,7 +21,7 @@ namespace
 {
   QJsonObject sp (QString const& rc, int sq = 0) {return {{"sc", "K1ABC"}, {"rc", rc}, {"sq", sq}};}
 
-  // Qt 5 on macOS is built with Secure Transport instead of OpenSSL.
+  // Qt 5 on macOS is built with Secure Transport by default, not OpenSSL.
   bool secure_transport ()
   {
     return QSslSocket::sslLibraryVersionString ().contains ("Secure Transport", Qt::CaseInsensitive);
@@ -371,7 +371,7 @@ private Q_SLOTS:
 
   void tls_trusted_certificate_gives_spots_even_in_a_burst ()
   {
-    if (!QSslSocket::supportsSsl ()) QSKIP ("no OpenSSL here");
+    if (!QSslSocket::supportsSsl ()) QSKIP ("no TLS support here");
     if (secure_transport ()) QSKIP ("not checked with Secure Transport (no spots arrived there with the test certificate)");
     QSslCertificate const cert {QByteArray {heard_by_test_cert::certificate}};
     QSslKey const key {QByteArray {heard_by_test_cert::private_key}, QSsl::Rsa};
@@ -429,7 +429,7 @@ private Q_SLOTS:
   // that keeps failing - and is never answered by a plain connection.
   void tls_untrusted_or_misnamed_certificate_is_refused ()
   {
-    if (!QSslSocket::supportsSsl ()) QSKIP ("no OpenSSL here");
+    if (!QSslSocket::supportsSsl ()) QSKIP ("no TLS support here");
     QSslCertificate const cert {QByteArray {heard_by_test_cert::certificate}};
     QSslKey const key {QByteArray {heard_by_test_cert::private_key}, QSsl::Rsa};
     for (bool misnamed : {false, true})
@@ -453,9 +453,9 @@ private Q_SLOTS:
         QVERIFY2 (c.status ().contains ("disconnected"), qPrintable (c.status ()));
         QCOMPARE (spy.count (), 0);
         QVERIFY (!c.subscribed ());
-        QVERIFY (b.client_ids ().isEmpty ());         // the client never sent its CONNECT
-        // With Secure Transport the broker counted the connection as
-        // encrypted although the client refused it.
+        QVERIFY (b.client_ids ().isEmpty ());         // the broker never got a CONNECT
+        // On the macOS CI (Secure Transport) the broker counted these
+        // connections as encrypted although the client refused them.
         if (!secure_transport ()) QCOMPARE (b.connections (), 0);
         c.stop ();
         b.finish ();
