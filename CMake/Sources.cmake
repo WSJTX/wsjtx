@@ -170,6 +170,8 @@ set (wsjtx_CXXSRCS
   Network/PSKReporter.cpp
   Network/PSKReporterConfiguration.cpp
   Network/PSKReporterIPFIX.cpp
+  Network/HeardByMqtt.cpp
+  models/HeardByModel.cpp
   Audio/WavLoadCoordinator.cpp
   Audio/WavInputLoader.cpp
   Modulator/Modulator.cpp
@@ -238,6 +240,7 @@ set (wsjtx_CXXSRCS
   widgets/QSYMessageParser.cpp
   widgets/QSYMessageCreator.cpp
   widgets/qsymonitor.cpp
+  widgets/HeardByWindow.cpp
   widgets/MMTTYIF.cpp
   )
 
@@ -764,7 +767,7 @@ set (wsprsim_CSRCS
   lib/lookup3.c
   lib/wsprd/wsprsim.c
   lib/wsprd/wsprsim_utils.c
-  lib/wsprd/wsprd_utils.c
+  lib/wsprd/wspr_pack.c
   lib/wsprd/fano.c
   lib/wsprd/tab.c
   lib/wsprd/nhash.c
@@ -776,6 +779,7 @@ set (wspr_decoder_CSRCS
   lib/wsprd/wspr_noncoherent.c
   lib/wsprd/wspr_demodulation.c
   lib/wsprd/wsprsim_utils.c
+  lib/wsprd/wspr_pack.c
   lib/wsprd/wsprd_utils.c
   lib/wsprd/fano.c
   lib/wsprd/jelinek.c

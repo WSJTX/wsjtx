@@ -122,6 +122,10 @@ program wsprcode
 
   data0=0
   call wqencode(msg,ntype0,data0)             !Source encoding
+  if(ntype0.eq.-999) then
+     write(*,'(a)') 'Invalid WSPR message'
+     stop 1
+  endif
   write(*,1002) data0(1:7),data0(1:6),data0(7)/64
 1002 format(/'Source-encoded message, 50 bits:'/'Hex:    ',7z3.2/    &
           'Binary: ',6b9.8,b3.2)

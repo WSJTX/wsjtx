@@ -1252,6 +1252,17 @@ if (WSJT_ENABLE_TESTS)
     LABELS "gui;frequency-control;integration"
     PROCESSORS 1
     TIMEOUT 30)
+  foreach (mode IN ITEMS FT8 FST4W)
+    string (TOLOWER "${mode}" mode_suffix)
+    set (test_name "test_wsjtx_operating_band_rx_offsets_${mode_suffix}")
+    add_test (NAME ${test_name}
+      COMMAND $<TARGET_FILE:wsjtx> --operating-band-test --rig-name CTEST-RX-OFFSETS-${mode})
+    set_tests_properties (${test_name} PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WSJT_QMAP_SHARED_MEMORY_KEY=mem_qmap-${test_name};WSJT_OPERATING_BAND_RX_OFFSET_MODE=${mode}"
+      LABELS "gui;frequency-control;integration"
+      PROCESSORS 1
+      TIMEOUT 30)
+  endforeach ()
 endif ()
 
 if (APPLE)

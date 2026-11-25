@@ -1,6 +1,7 @@
 #include "DecoderEngine.h"
 #include "lib/wsprd/wsprsim_utils.h"
-#include "lib/wsprd/wsprd_utils.h"
+#include "lib/wsprd/wspr_pack.h"
+#include "lib/wsprd/nhash.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +14,13 @@
   } \
 } while (0)
 
+static void make_tones(const char *text, unsigned char tones[162])
+{
+  unsigned char data[WSPR_PACKED_SIZE];
+  CHECK(wspr_pack_message(text, strlen(text), data) != WSPR_PACK_INVALID);
+  wspr_channel_symbols_from_data(data, tones);
+}
+
 static int sample_count(int variant)
 {
   return (variant == 15 ? 912 : 114) * 12000;
@@ -24,20 +32,15 @@ static int16_t *make_signal_at_level(const char *text, int variant, double frequ
   const int count = sample_count(variant);
   const int scale = variant == 15 ? 8 : 1;
   int16_t *samples = malloc((size_t)count * sizeof *samples);
-  char *calls = calloc(WSPRD_HASH_COUNT, WSPRD_CALLSIGN_SIZE);
-  char *grids = calloc(WSPRD_HASH_COUNT, WSPRD_GRID4_SIZE);
   unsigned char tones[162];
-  char message[WSPRD_MESSAGE_SIZE];
-  CHECK(samples && calls && grids);
+  CHECK(samples);
   uint32_t random = 1234567;
   for (int i = 0; i < count; ++i) {
     random = 1664525U * random + 1013904223U;
     samples[i] = (int16_t)(((int)(random >> 24) - 128) * noise_scale);
   }
   if (strcmp(text, "noise")) {
-    CHECK(strlen(text) < sizeof message);
-    strcpy(message, text);
-    CHECK(get_wspr_channel_symbols(message, calls, grids, tones));
+    make_tones(text, tones);
     double phase = 0.0;
     int index = (int)lround(start * 12000.0);
     for (int symbol = 0; symbol < 162; ++symbol) {
@@ -59,8 +62,6 @@ static int16_t *make_signal_at_level(const char *text, int variant, double frequ
       }
     }
   }
-  free(grids);
-  free(calls);
   return samples;
 }
 
@@ -96,14 +97,10 @@ static void write_wav(const char *path, const int16_t *samples, int count)
 
 static void write_c2(const char *path, const char *text, int variant, double frequency, double start, double drift)
 {
-  char *calls = calloc(WSPRD_HASH_COUNT, WSPRD_CALLSIGN_SIZE);
-  char *grids = calloc(WSPRD_HASH_COUNT, WSPRD_GRID4_SIZE);
   float *iq = calloc(90000, sizeof *iq);
   unsigned char tones[162];
-  char message[WSPRD_MESSAGE_SIZE];
-  CHECK(calls && grids && iq && strlen(text) < sizeof message);
-  strcpy(message, text);
-  CHECK(get_wspr_channel_symbols(message, calls, grids, tones));
+  CHECK(iq);
+  make_tones(text, tones);
   const double scale = variant == 15 ? 8 : 1;
   const double center = variant == 15 ? 1612.5 : 1500;
   double phase = 0;
@@ -135,8 +132,6 @@ static void write_c2(const char *path, const char *text, int variant, double fre
   CHECK(fwrite(iq, sizeof *iq, 90000, file) == 90000);
   CHECK(fclose(file) == 0);
   free(iq);
-  free(grids);
-  free(calls);
 }
 
 static int16_t *read_wav(const char *path, int variant, int *count)

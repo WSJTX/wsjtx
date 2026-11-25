@@ -23,6 +23,8 @@ public:
 private:
   void prepare ();
   bool run ();
+  bool startupRxOffset ();
+  bool rxOffsetTransitions ();
   bool filtering ();
   bool editorRequests ();
   bool rendering ();
@@ -46,6 +48,7 @@ private:
   bool finished_ {false};
   bool succeeded_ {false};
   bool echo_startup_ {false};
+  QString const rx_offset_mode_;
 };
 
 #endif

@@ -37,6 +37,7 @@
 #include "wspr_demodulation.h"
 #include "wsprd_utils.h"
 #include "wsprsim_utils.h"
+#include "wspr_pack.h"
 #include "fano.h"
 #include "jelinek.h"
 
@@ -1343,11 +1344,11 @@ int32_t wspr_decoder_run(wspr_decoder *ctx, const decoder_wspr_options *options,
                 noprint=wsprd_interpret(message,hashtab,loctab,call_loc_pow,callsign,&interpreted);
                 int printable=1;
                 if( subtraction && !noprint ) {
-                    // With subtraction on, a decode whose printed text no WSPR
-                    // encoder makes, most likely a false decode, is neither
-                    // subtracted nor printed, as before; the candidates after
-                    // it still decode.
-                    if( !get_wspr_channel_symbols(call_loc_pow, hashtab, loctab, channel_symbols) ) {
+                    // Full calls must be encodable. A Type 3 callsign may be a placeholder.
+                    unsigned char packed[WSPR_PACKED_SIZE];
+                    if( interpreted.message_type != DECODER_WSPR_HASHED &&
+                        wspr_pack_message(call_loc_pow, strlen(call_loc_pow), packed)
+                            == WSPR_PACK_INVALID ) {
                         printable=0;
                     } else {
                         // Subtract the symbols of the bits decoded, not of the

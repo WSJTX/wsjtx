@@ -32,6 +32,7 @@ void MainWindow::requestModeChange (ModeEntry::Request request, std::function<vo
   if (setup) m_modeSetupContinuations.insert (identity, std::move (setup));
   while (auto operation = m_modeEntries.takeNext ())
     {
+      bool const leaving_fst4w = m_mode == "FST4W" && operation->request.mode != "FST4W";
       m_modeSetupActive = true;
       m_modeSetupMode = operation->request.mode;
       auto const configured = configureMode (operation->request.mode);
@@ -39,6 +40,12 @@ void MainWindow::requestModeChange (ModeEntry::Request request, std::function<vo
         {
           m_modeEntries.accept (operation->identity);
           m_pendingModeRetune.cancel ();
+          if (leaving_fst4w)
+            {
+              auto const rx = m_mode == "JTTY"
+                ? ui->RxFreqSpinBox_2->value () : ui->RxFreqSpinBox->value ();
+              if (m_wideGraph->rxFreq () != rx) m_wideGraph->setRxFreq (rx);
+            }
         }
       auto const continuation = m_modeSetupContinuations.take (operation->identity);
       if (configured && continuation) continuation ();

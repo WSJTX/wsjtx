@@ -19,6 +19,11 @@ subroutine genwspr(message,msgsent,itone)
       0,0/
 
   call wqencode(message,ntype,data0)          !Source encoding
+  if(ntype.eq.-999) then
+     msgsent='*** bad message ***'
+     itone=-1
+     return
+  endif
   call encode232(data0,162,symbol)            !Convolutional encoding
   call inter_wspr(symbol,1)                   !Interleaving
   do i=1,162

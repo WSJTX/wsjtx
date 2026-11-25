@@ -53,6 +53,10 @@ program wsprsim
   txt=NN*NSPS0/12000.0
 
   call genwspr(msg,msgsent,itone)       !Encode the message, get itone
+  if(msgsent.eq.'*** bad message ***') then
+     write(*,'(a)') 'Invalid WSPR message'
+     stop 1
+  endif
 
   write(*,1000) f0,xdt,txt,snrdb,fspread,delay,nfiles,msgsent
 1000 format('f0:',f9.3,'   DT:',f6.2,'   txt:',f6.1,'   SNR:',f6.1,    &
