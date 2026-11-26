@@ -678,6 +678,37 @@ class TestTciTransceiverCharacterization final
 {
   Q_OBJECT
 
+private:
+  bool start_with_split_reply (RigHarness& harness)
+  {
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    auto const first_report = rig.split_report_serial_;
+    auto& server = harness.server ();
+    auto const first_message = server.transcript ().size ();
+    if (!harness.start ()) return false;
+
+    // Online can be published before the startup split reply reaches the parser.
+    return server.wait_for ([&] {
+      auto const command = message_index (
+        server, first_message, Direction::ClientToServer, QStringLiteral ("split_enable"),
+        [] (Message const& message) {return has_args (message, {"false"});});
+      if (command < 0) return false;
+      auto const reply = message_index (
+        server, command + 1, Direction::ServerToClient, QStringLiteral ("split_enable"),
+        [] (Message const& message) {return has_args (message, {"0", "false"});});
+      if (reply < 0) return false;
+
+      auto serial = first_report;
+      for (auto i = first_message; i <= reply; ++i)
+        {
+          auto const& message = server.transcript ().at (i);
+          if (message.direction == Direction::ServerToClient && message.verb == "split_enable")
+            ++serial;
+        }
+      return rig.split_report_serial_ >= serial;
+    }, 5000);
+  }
+
 private slots:
   void initTestCase ()
   {
@@ -1471,7 +1502,7 @@ private slots:
     QFETCH (bool, matching_reply);
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     struct Reports
     {
       bool stale_delivered {false};
@@ -1514,7 +1545,7 @@ private slots:
     QVERIFY (!reports->premature_ptt);
     if (matching_reply)
       {
-        QCOMPARE (harness.failure_count (), 0);
+        QVERIFY2 (harness.failure_count () == 0, qPrintable (harness.diagnostics ()));
         QVERIFY (reports->matching_delivered);
         QVERIFY (reports->ptt_seen);
         QVERIFY (harness.state ().split ());
@@ -1544,7 +1575,7 @@ private slots:
     QFETCH (bool, expired);
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     struct Reports {int setters {0}; int queries {0}; bool last_value {false};};
     auto reports = std::make_shared<Reports> ();
@@ -1595,7 +1626,7 @@ private slots:
     QFETCH (bool, desired);
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     rig.split_ = !desired;
     rig.update_split (!desired);
@@ -1629,7 +1660,7 @@ private slots:
   {
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     rig.split_ = true;
     rig.last_sent_split_ = false;
@@ -1676,7 +1707,7 @@ private slots:
     QFETCH (int, reply);
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     struct Reports {bool query {false}; bool same_timer {false}; bool busy {false};};
     auto reports = std::make_shared<Reports> ();
@@ -1745,7 +1776,7 @@ private slots:
     QFETCH (int, action);
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     auto entered = std::make_shared<bool> (false);
     auto nested = std::make_shared<TCITransceiver::SplitWait> (TCITransceiver::SplitWait::Timeout);
@@ -1793,7 +1824,7 @@ private slots:
   {
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     struct Reports
     {
@@ -1840,7 +1871,7 @@ private slots:
   {
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
     auto& rig = static_cast<TCITransceiver&> (harness.rig ());
     struct Reports {int corrections {0}; int barriers {0};};
     auto reports = std::make_shared<Reports> ();
@@ -1880,7 +1911,7 @@ private slots:
   {
     RigHarness harness;
     QVERIFY (harness.listen ());
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
 
     Frequency constexpr tx_frequency {14076000};
     auto const operation_start = harness.server ().transcript ().size ();
@@ -2002,10 +2033,12 @@ private slots:
     auto const setup_cursor = harness.set (requested, 35);
     QVERIFY2 (harness.wait_for_state (
       setup_cursor, 35,
-      [] (State const& state) {return state.split ();}),
+      [] (State const& state) {return state.split () && state.tx_frequency () == 14076050;}),
       qPrintable (harness.diagnostics ()));
     QVERIFY (harness.state ().split ());
 
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    auto const split_serial = rig.split_report_serial_;
     auto const operation_start = harness.server ().transcript ().size ();
     auto const observation_cursor = harness.observation_count ();
     harness.server ().send_text (QStringLiteral ("split_enable:0,false"));
@@ -2029,8 +2062,9 @@ private slots:
       [] (Message const& message) {return has_args (message, {"0", "true"});});
     if (correction >= 0)
       {
-        QVERIFY (harness.server ().wait_for (
-          [&harness] {return harness.state ().split ();}, 1000));
+        QVERIFY2 (harness.server ().wait_for ([&rig, split_serial] {
+          return rig.split_report_serial_ >= split_serial + 2 && rig.split_;
+        }, 5000), qPrintable (harness.diagnostics ()));
       }
     else
       {
