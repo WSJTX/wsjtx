@@ -128,7 +128,6 @@ namespace
 
     ~RigHarness ()
     {
-      tearing_down_ = true;
       command_handler_ = {};
       destroy_rig ();
       server_.close ();
@@ -207,18 +206,6 @@ namespace
     void set_now (State const& state, unsigned sequence_number)
     {
       rig_->set (state, sequence_number);
-    }
-
-    void schedule_set (State state, unsigned sequence_number)
-    {
-      QTimer::singleShot (0, &server_,
-                          [this, state, sequence_number]
-                          {
-                            if (!tearing_down_ && rig_)
-                              {
-                                rig_->set (state, sequence_number);
-                              }
-                          });
     }
 
     void set_command_handler (CommandHandler handler)
@@ -423,7 +410,6 @@ namespace
     QVector<StateObservation> observations_;
     QStringList failures_;
     State state_;
-    bool tearing_down_ {false};
     bool split_state_ {false};
   };
 
@@ -2116,13 +2102,15 @@ private slots:
     QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
     auto const failure_cursor = harness.failure_count ();
 
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    bool disconnected_during_wait {false};
     harness.set_command_handler (
-      [&harness] (QString const& verb, QStringList const& args, int)
+      [&harness, &rig, &disconnected_during_wait] (QString const& verb, QStringList const& args, int)
       {
         if (verb != QStringLiteral ("vfo")
             || args != QStringList {"0", "0", "14074150"}) return false;
-        QTimer::singleShot (0, &harness.server (),
-                            [&harness] {harness.server ().close_client ();});
+        disconnected_during_wait = rig.busy_rx_frequency_ && rig.tci_loop7_->isRunning ();
+        harness.server ().close_client ();
         return true;
       });
     auto requested = state_from (harness);
@@ -2130,14 +2118,13 @@ private slots:
 
     QElapsedTimer deadline;
     deadline.start ();
-    harness.set (requested, 42);
-    QVERIFY (harness.server ().wait_for (
-      [&harness] {return harness.server ().client_disconnected ();}, 1000));
-
-    harness.set_command_handler ({});
-    QVERIFY2 (harness.stop (), qPrintable (harness.diagnostics ()));
+    harness.set_now (requested, 42);
+    QVERIFY (disconnected_during_wait);
+    QCOMPARE (harness.failure_count () - failure_cursor, 1);
+    QVERIFY (!rig.state ().online ());
     QVERIFY (deadline.elapsed () < 8000);
-    QVERIFY (harness.failure_count () - failure_cursor <= 1);
+    QVERIFY (harness.server ().wait_for (
+      [&harness] {return harness.server ().client_disconnected ();}, 5000));
   }
 
   void unexpected_stale_and_duplicate_messages_leave_coherent_state ()
@@ -2156,31 +2143,17 @@ private slots:
         if (injected || verb != QStringLiteral ("vfo")
             || args != QStringList {"0", "0", "14074200"}) return false;
         injected = true;
-        harness.server ().send_text (
-          QStringLiteral ("unexpected:payload;vfo:1,0,not-a-frequency"));
-        harness.server ().send_text_later (QStringLiteral ("vfo:0,0,14074199"), 10);
-        harness.server ().send_text_later (
-          QStringLiteral ("vfo:0,0,14074200;vfo:0,0,14074200"), 25);
+        harness.server ().send_text (QStringLiteral (
+          "unexpected:payload;vfo:1,0,not-a-frequency;vfo:0,0,14074199;"
+          "vfo:0,0,14074200;vfo:0,0,14074200"));
         return true;
       });
     auto requested = state_from (harness);
     requested.frequency (target);
-    harness.set (requested, 50);
-
-    QVERIFY (harness.server ().wait_for (
-      [&harness]
-      {
-        int correct_acks {0};
-        for (auto const& message : harness.server ().messages (
-               Direction::ServerToClient, QStringLiteral ("vfo")))
-          {
-            if (has_args (message, {"0", "0", "14074200"})) ++correct_acks;
-          }
-        return correct_acks == 2;
-      }, 1000));
+    // The parser consumes the entire frame before the waiting set() resumes.
+    harness.set_now (requested, 50);
+    QVERIFY (injected);
     QCOMPARE (harness.failure_count (), failure_cursor);
-    QVERIFY (harness.wait_for_current_state (
-      [] (State const& state) {return state.frequency () == target;}));
     QCOMPARE (harness.state ().frequency (), target);
 
     int requested_attempts {0};
@@ -2206,16 +2179,23 @@ private slots:
     Frequency constexpr target {14074250};
     auto requested = state_from (harness);
     requested.frequency (target);
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    bool nested_scheduled {false};
     bool reentered {false};
-    harness.set_command_handler (
-      [&harness, &reentered, requested] (QString const& verb,
-                                        QStringList const& args, int)
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler (
+      [&] (QString const& verb, QStringList const& args, int)
       {
-        if (reentered || verb != QStringLiteral ("vfo")
-            || args != QStringList {"0", "0", "14074250"}) return false;
-        reentered = true;
-        harness.schedule_set (requested, 61);
-        harness.server ().send_text_later (QStringLiteral ("vfo:0,0,14074250"), 25);
+        if (verb != "vfo" || args != QStringList {"0", "0", "14074250"}) return false;
+        if (!nested_scheduled)
+          {
+            nested_scheduled = true;
+            scenario.later (0, [&] {
+              reentered = rig.busy_rx_frequency_ && rig.tci_loop7_->isRunning ();
+              harness.set_now (requested, 61);
+              harness.server ().send_text (QStringLiteral ("vfo:0,0,14074250"));
+            });
+          }
         return true;
       });
 
@@ -2243,16 +2223,23 @@ private slots:
     first.frequency (first_target);
     auto latest = first;
     latest.frequency (latest_target);
+    auto& rig = static_cast<TCITransceiver&> (harness.rig ());
+    bool nested_scheduled {false};
     bool reentered {false};
-    harness.set_command_handler (
-      [&harness, &reentered, latest] (QString const& verb,
-                                     QStringList const& args, int)
+    ScopedRigScenario scenario {harness};
+    scenario.set_command_handler (
+      [&] (QString const& verb, QStringList const& args, int)
       {
-        if (reentered || verb != QStringLiteral ("vfo")
-            || args != QStringList {"0", "0", "14074300"}) return false;
-        reentered = true;
-        harness.schedule_set (latest, 71);
-        harness.server ().send_text_later (QStringLiteral ("vfo:0,0,14074300"), 25);
+        if (verb != "vfo" || args != QStringList {"0", "0", "14074300"}) return false;
+        if (!nested_scheduled)
+          {
+            nested_scheduled = true;
+            scenario.later (0, [&] {
+              reentered = rig.busy_rx_frequency_ && rig.tci_loop7_->isRunning ();
+              harness.set_now (latest, 71);
+              harness.server ().send_text (QStringLiteral ("vfo:0,0,14074300"));
+            });
+          }
         return true;
       });
 
