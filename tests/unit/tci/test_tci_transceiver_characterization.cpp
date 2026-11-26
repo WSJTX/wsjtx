@@ -13,6 +13,7 @@
 #include <boost/log/keywords/channel.hpp>
 
 #include <QCoreApplication>
+#include <QEvent>
 #include <QEventLoop>
 #include <QScopeGuard>
 #include <QElapsedTimer>
@@ -2420,22 +2421,14 @@ private slots:
       server.send_text (expert_sdr3 + ';');
     });
     QVERIFY (harness.listen ());
-    // The startup split_enable:false is not answered: a late reply would end
-    // the setup set()'s split wait early.
-    harness.set_command_handler (
-      [] (QString const& verb, QStringList const&, int)
-      {
-        return verb == QStringLiteral ("split_enable");
-      });
-    QVERIFY2 (harness.start (), qPrintable (harness.diagnostics ()));
-    harness.set_command_handler ({});
+    QVERIFY2 (start_with_split_reply (harness), qPrintable (harness.diagnostics ()));
 
     auto requested = state_from (harness);
     requested.tx_frequency (14076050);
     requested.split (true);
     auto const setup_cursor = harness.set (requested, 50);
     QVERIFY2 (harness.wait_for_state (
-      setup_cursor, 50, [] (State const& state) {return state.split ();}),
+      setup_cursor, 50, [] (State const& state) {return state.split () && state.tx_frequency () == 14076050;}),
       qPrintable (harness.diagnostics ()));
 
     // The rig is owned the way Configuration owns it: stop() ends in a queued
@@ -2444,8 +2437,8 @@ private slots:
     harness.release_rig ();
     auto in_set = std::make_shared<bool> (true);
     auto destroyed = std::make_shared<bool> (false);
-    auto stopped_in_set = std::make_shared<bool> (false);
-    auto finished_in_set = std::make_shared<bool> (false);
+    auto stop_ran = std::make_shared<bool> (false);
+    auto finished = std::make_shared<bool> (false);
     auto failures = std::make_shared<QStringList> ();
     auto const release = qScopeGuard ([rig, destroyed]
                                       {
@@ -2454,7 +2447,7 @@ private slots:
     QObject::connect (rig, &Transceiver::finished, rig, &QObject::deleteLater,
                       Qt::QueuedConnection);
     QObject::connect (rig, &Transceiver::finished, rig,
-                      [in_set, finished_in_set] {*finished_in_set = *in_set;});
+                      [finished] {*finished = true;});
     QObject::connect (rig, &QObject::destroyed, &harness.server (),
                       [in_set, destroyed]
                       {
@@ -2487,33 +2480,28 @@ private slots:
           || args.at (2) == QStringLiteral ("7077000");
       });
     QObject::connect (rig, &Transceiver::failure, rig,
-                      [rig, in_set, stopped_in_set, failures] (QString const& reason)
+                      [rig, stop_ran, failures] (QString const& reason)
                       {
                         failures->append (reason);
                         if (failures->size () > 1) return;
                         QMetaObject::invokeMethod (
-                          rig, [rig, in_set, stopped_in_set]
+                          rig, [rig, stop_ran]
                           {
-                            *stopped_in_set = *in_set;
+                            *stop_ran = true;
                             rig->stop ();
                           }, Qt::QueuedConnection);
                       });
 
-    auto const held_before = Transceiver::DeferredDeleteHold::held_count ();
     rig->set (band, 51);
     *in_set = false;
     QVERIFY (harness.server ().wait_for ([destroyed] {return *destroyed;}, 5000));
 
-    // A nested wait really did receive the delete and the hold kept it back.
-    QVERIFY (Transceiver::DeferredDeleteHold::held_count () > held_before);
-
-    // The scenario happened: the nested set() failed on its Tx VFO and the
-    // stop and the finished signal both came while set() was on the stack.
+    // The nested request reached the Tx VFO wait before the outer Rx wait finished.
     QVERIFY2 (!failures->isEmpty ()
               && failures->first ().contains (QStringLiteral ("txfreq")),
               qPrintable (failures->join ('|')));
-    QVERIFY (*stopped_in_set);
-    QVERIFY (*finished_in_set);
+    QVERIFY (*stop_ran);
+    QVERIFY (*finished);
   }
 
   void deferred_delete_hold_covers_wrapped_transceivers ()
@@ -2527,15 +2515,23 @@ private slots:
                           QStringLiteral ("127.0.0.1:1"), true, 0}};
     QPointer<Transceiver> wrapper {
       new EmulateSplitTransceiver {logger, std::move (inner)}};
-    {
-      Transceiver::DeferredDeleteHold hold;
+    auto const cleanup = qScopeGuard ([&wrapper] {delete wrapper.data ();});
+    // Use a separate rig so a missing hold can delete the wrapper without
+    // invalidating the active wait.
+    TCITransceiver waiting_rig {logger, {}, QStringLiteral ("0"),
+                                QStringLiteral ("127.0.0.1:1"), true, 0};
+    QEventLoop nested;
+    auto const held_before = Transceiver::DeferredDeleteHold::held_count ();
+    QTimer::singleShot (0, &nested, [&] {
       wrapper->deleteLater ();
-      QEventLoop nested;
-      QTimer::singleShot (0, &nested, &QEventLoop::quit);
-      nested.exec ();
-      QVERIFY (wrapper);
-    }
-    QVERIFY (harness.server ().wait_for ([&wrapper] {return !wrapper;}, 1000));
+      QCoreApplication::sendPostedEvents (wrapper.data (), QEvent::DeferredDelete);
+      nested.quit ();
+    });
+    waiting_rig.wait_exec (&nested);
+    QVERIFY (wrapper);
+    QCOMPARE (Transceiver::DeferredDeleteHold::held_count (), held_before + 1);
+    QCoreApplication::sendPostedEvents (wrapper.data (), QEvent::DeferredDelete);
+    QVERIFY (!wrapper);
   }
 };
 
