@@ -14,19 +14,19 @@ set_tests_properties (test_jtty_genjtty_text PROPERTIES
 add_executable (test_jtty_transmit_text test_jtty_transmit_text.cpp)
 target_link_libraries (test_jtty_transmit_text PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_transmit_text)
-add_test (NAME test_jtty_transmit_text COMMAND test_jtty_transmit_text)
+wsjt_add_qt_test (test_jtty_transmit_text test_jtty_transmit_text)
 set_tests_properties (test_jtty_transmit_text PROPERTIES TIMEOUT 60)
 
 add_executable (test_jtty_transmit_encoder test_jtty_transmit_encoder.cpp)
 target_link_libraries (test_jtty_transmit_encoder PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_transmit_encoder)
-add_test (NAME test_jtty_transmit_encoder COMMAND test_jtty_transmit_encoder)
+wsjt_add_qt_test (test_jtty_transmit_encoder test_jtty_transmit_encoder)
 set_tests_properties (test_jtty_transmit_encoder PROPERTIES TIMEOUT 120)
 
 add_executable (test_jtty_transmit_host test_jtty_transmit_host.cpp)
 target_link_libraries (test_jtty_transmit_host PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_transmit_host)
-add_test (NAME test_jtty_transmit_host COMMAND test_jtty_transmit_host)
+wsjt_add_qt_test (test_jtty_transmit_host test_jtty_transmit_host)
 set_tests_properties (test_jtty_transmit_host PROPERTIES TIMEOUT 120)
 
 add_executable (test_jtty_source_codec test_jtty_source_codec.f90)
@@ -208,7 +208,7 @@ add_executable (test_jtty_txstream
   ${CMAKE_SOURCE_DIR}/Modulator/JttyTxStream.cpp
   ${CMAKE_SOURCE_DIR}/Audio/AudioOutputSink.hpp)
 target_link_libraries (test_jtty_txstream wsjt_qt Boost::log_setup Qt5::Test Qt5::Multimedia)
-add_test (NAME test_jtty_txstream COMMAND test_jtty_txstream)
+wsjt_add_qt_test (test_jtty_txstream test_jtty_txstream)
 if (WSJT_ENABLE_TSAN)
   set_tests_properties (test_jtty_txstream PROPERTIES
     ENVIRONMENT
@@ -218,12 +218,12 @@ endif ()
 add_executable (test_jtty_messages test_jtty_messages.cpp)
 target_link_libraries (test_jtty_messages PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_messages)
-add_test (NAME test_jtty_messages COMMAND test_jtty_messages)
+wsjt_add_qt_test (test_jtty_messages test_jtty_messages)
 
 add_executable (test_jtty_filler test_jtty_filler.cpp)
 target_link_libraries (test_jtty_filler PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_filler)
-add_test (NAME test_jtty_filler COMMAND test_jtty_filler)
+wsjt_add_qt_test (test_jtty_filler test_jtty_filler)
 set_tests_properties (test_jtty_filler PROPERTIES TIMEOUT 60)
 
 add_executable (test_jtty_continuous_decode test_jtty_continuous_decode.f90)
@@ -240,29 +240,29 @@ add_executable (test_jtty_spectrum
   ${CMAKE_SOURCE_DIR}/widgets/JttySpectrum.cpp)
 target_link_libraries (test_jtty_spectrum PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_spectrum)
-add_test (NAME test_jtty_spectrum COMMAND test_jtty_spectrum)
+wsjt_add_qt_test (test_jtty_spectrum test_jtty_spectrum)
 
 add_executable (test_jtty_waterfall
   test_jtty_waterfall.cpp
   ${CMAKE_SOURCE_DIR}/widgets/plotter.cpp)
 target_link_libraries (test_jtty_waterfall PRIVATE wsjt_qt Qt5::Test)
 wsjt_link_common_fortran (test_jtty_waterfall)
-add_test (NAME test_jtty_waterfall COMMAND test_jtty_waterfall)
+wsjt_add_qt_test (test_jtty_waterfall test_jtty_waterfall)
 set_tests_properties (test_jtty_waterfall PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable (test_jtty_recording
   test_jtty_recording.cpp
   ${CMAKE_SOURCE_DIR}/JttyRecording.cpp)
 target_link_libraries (test_jtty_recording wsjt_qt wsjt_qtmm Qt5::Test Qt5::Multimedia)
-add_test (NAME test_jtty_recording COMMAND test_jtty_recording)
+wsjt_add_qt_test (test_jtty_recording test_jtty_recording)
 
 add_executable (test_jtty_receive_history test_jtty_receive_history.cpp)
 target_link_libraries (test_jtty_receive_history Qt5::Test)
-add_test (NAME test_jtty_receive_history COMMAND test_jtty_receive_history)
+wsjt_add_qt_test (test_jtty_receive_history test_jtty_receive_history)
 
 add_executable (test_jtty_receive_line test_jtty_receive_line.cpp)
 target_link_libraries (test_jtty_receive_line Qt5::Test Qt5::Gui)
-add_test (NAME test_jtty_receive_line COMMAND test_jtty_receive_line)
+wsjt_add_qt_test (test_jtty_receive_line test_jtty_receive_line)
 set_tests_properties (test_jtty_receive_line PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable (test_jtty_receive_results
@@ -270,27 +270,27 @@ add_executable (test_jtty_receive_results
   ${CMAKE_SOURCE_DIR}/JttyReceiveResultController.cpp
   ${CMAKE_SOURCE_DIR}/Radio.cpp)
 target_link_libraries (test_jtty_receive_results Qt5::Test Qt5::Gui)
-add_test (NAME test_jtty_receive_results COMMAND test_jtty_receive_results)
+wsjt_add_qt_test (test_jtty_receive_results test_jtty_receive_results)
 set_tests_properties (test_jtty_receive_results PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable (test_jtty_tx_lifecycle test_jtty_tx_lifecycle.cpp)
 target_link_libraries (test_jtty_tx_lifecycle Qt5::Test)
-add_test (NAME test_jtty_tx_lifecycle COMMAND test_jtty_tx_lifecycle)
+wsjt_add_qt_test (test_jtty_tx_lifecycle test_jtty_tx_lifecycle)
 
 add_executable (test_jtty_transmit_queue test_jtty_transmit_queue.cpp)
 target_link_libraries (test_jtty_transmit_queue Qt5::Test)
-add_test (NAME test_jtty_transmit_queue COMMAND test_jtty_transmit_queue)
+wsjt_add_qt_test (test_jtty_transmit_queue test_jtty_transmit_queue)
 
 add_executable (test_jtty_live_entry test_jtty_live_entry.cpp)
 target_link_libraries (test_jtty_live_entry PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_live_entry)
-add_test (NAME test_jtty_live_entry COMMAND test_jtty_live_entry)
+wsjt_add_qt_test (test_jtty_live_entry test_jtty_live_entry)
 
 add_executable (test_jtty_key_router
   test_jtty_key_router.cpp
   ${CMAKE_SOURCE_DIR}/widgets/JttyKeyRouter.cpp)
 target_link_libraries (test_jtty_key_router PRIVATE Qt5::Test Qt5::Widgets)
-add_test (NAME test_jtty_key_router COMMAND test_jtty_key_router)
+wsjt_add_qt_test (test_jtty_key_router test_jtty_key_router)
 set_tests_properties (test_jtty_key_router PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable (test_jtty_macro_sets
@@ -298,7 +298,7 @@ add_executable (test_jtty_macro_sets
   ${CMAKE_SOURCE_DIR}/widgets/JttyMacroSets.cpp)
 target_link_libraries (test_jtty_macro_sets PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_macro_sets)
-add_test (NAME test_jtty_macro_sets COMMAND test_jtty_macro_sets)
+wsjt_add_qt_test (test_jtty_macro_sets test_jtty_macro_sets)
 
 add_executable (test_jtty_style_buttons
   test_jtty_style_buttons.cpp
@@ -306,23 +306,23 @@ add_executable (test_jtty_style_buttons
 target_compile_definitions (test_jtty_style_buttons PRIVATE WSJTX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries (test_jtty_style_buttons PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_style_buttons)
-add_test (NAME test_jtty_style_buttons COMMAND test_jtty_style_buttons)
+wsjt_add_qt_test (test_jtty_style_buttons test_jtty_style_buttons)
 add_executable (test_jtty_waterfall_calls test_jtty_waterfall_calls.cpp)
 target_link_libraries (test_jtty_waterfall_calls PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_waterfall_calls)
-add_test (NAME test_jtty_waterfall_calls COMMAND test_jtty_waterfall_calls)
+wsjt_add_qt_test (test_jtty_waterfall_calls test_jtty_waterfall_calls)
 
 add_executable (test_jtty_n1mm test_jtty_n1mm.cpp)
 target_link_libraries (test_jtty_n1mm PRIVATE Qt5::Test)
 wsjt_link_common_fortran (test_jtty_n1mm)
-add_test (NAME test_jtty_n1mm COMMAND test_jtty_n1mm)
+wsjt_add_qt_test (test_jtty_n1mm test_jtty_n1mm)
 
 add_executable (test_mmttyif
   test_mmttyif.cpp
   ${CMAKE_SOURCE_DIR}/widgets/MMTTYIF.cpp
 )
 target_link_libraries (test_mmttyif Qt5::Test Qt5::Network)
-add_test (NAME test_mmttyif COMMAND test_mmttyif)
+wsjt_add_qt_test (test_mmttyif test_mmttyif)
 # Connection setup may retry for several seconds on slow Windows runners.
 set_tests_properties (test_mmttyif PROPERTIES TIMEOUT 30)
 
@@ -351,7 +351,7 @@ add_executable (test_jtty_replay_ownership
   ${CMAKE_SOURCE_DIR}/DecDataMutex.cpp)
 target_link_libraries (test_jtty_replay_ownership
   Qt5::Core Qt5::Test)
-add_test (NAME test_jtty_replay_ownership COMMAND test_jtty_replay_ownership)
+wsjt_add_qt_test (test_jtty_replay_ownership test_jtty_replay_ownership)
 set_tests_properties (test_jtty_replay_ownership PROPERTIES
   TIMEOUT 30 LABELS "receive-handoff;jtty-replay")
 if (WSJT_ENABLE_TSAN)
@@ -375,7 +375,7 @@ if (WSJT_BUILD_UTILS)
   target_compile_definitions (test_wsjt_codec_jtty PRIVATE RJTTY_EXECUTABLE="$<TARGET_FILE:rjtty>")
   add_dependencies (test_wsjt_codec_jtty rjtty)
 endif ()
-add_test (NAME test_wsjt_codec_jtty COMMAND test_wsjt_codec_jtty)
+wsjt_add_qt_test (test_wsjt_codec_jtty test_wsjt_codec_jtty)
 set_tests_properties (test_wsjt_codec_jtty PROPERTIES
   LABELS "streaming;jtty;runtime"
   TIMEOUT 600
@@ -400,7 +400,7 @@ target_compile_definitions (test_wsjt_codec_encode PRIVATE
   WSJT_CODEC_EXECUTABLE="$<TARGET_FILE:wsjt-codec>"
   FT8_ENGINE_WAV="${CMAKE_BINARY_DIR}/tests/unit/decoder_engine/ft8-engine.wav")
 add_dependencies (test_wsjt_codec_encode wsjt-codec test_decoder_engine)
-add_test (NAME test_wsjt_codec_encode COMMAND test_wsjt_codec_encode)
+wsjt_add_qt_test (test_wsjt_codec_encode test_wsjt_codec_encode)
 set_tests_properties (test_wsjt_codec_encode PROPERTIES
   LABELS "streaming;jtty;runtime"
   TIMEOUT 300

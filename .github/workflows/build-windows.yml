@@ -255,6 +255,7 @@ jobs:
             -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_CAPTURE_QTTEST_REPORTS=ON \
             -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
             -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
             -DCMAKE_REQUIRE_FIND_PACKAGE_OpenMP=ON \
@@ -321,6 +322,15 @@ jobs:
           name: ctest-results-windows
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
+
+      - name: Upload QtTest reports
+        if: ${{ !cancelled() && steps.ctest.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: qttest-reports-windows
+          path: wsjtx-build/qttest-reports/
+          if-no-files-found: ignore
+          retention-days: 7
 
       # MAP65 builds by default again. Under OPENMP_ONLY, m65impl resolves
       # wsjt_fort_common to wsjt_fort_omp, so this keeps the Windows Fortran

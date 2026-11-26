@@ -732,6 +732,7 @@ jobs:
           WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH: ${{ inputs.allow_stale_image }}
           ARMHF_RUNTIME_PHASE: ${{ inputs.build_packages && 'all' || 'test' }}
         run: |
+          status=0
           GITHUB_TOKEN="${{ github.token }}" docker run --rm --platform linux/arm/v7 \
             --shm-size=1g \
             -v "${GITHUB_WORKSPACE}:/work" \
@@ -744,7 +745,13 @@ jobs:
             -e ARMHF_RUNTIME_PHASE \
             -e WSJTX_CI_IMAGE_ALLOW_RECIPE_MISMATCH \
             "$RUNTIME_IMAGE" \
-            bash .github/scripts/validate-linux-armhf-runtime.sh
+            bash .github/scripts/validate-linux-armhf-runtime.sh || status=$?
+          timing=wsjtx-build/armhf-ctest-timing.env
+          if [ "$status" -ne 0 ] && [ -f "$timing" ] &&
+              awk -F= '$1 == "status" && $2 + 0 != 0 { failed = 1 } END { exit !failed }' "$timing"; then
+            echo "ctest_failed=true" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$status"
 
       - name: Test shared-memory allocation failure on native ARMv7
         env:
@@ -854,3 +861,12 @@ jobs:
           name: ctest-results-linux-armhf-${{ inputs.armhf_distro }}
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
+
+      - name: Upload QtTest reports
+        if: ${{ !cancelled() && steps.armhf-runtime.outputs.ctest_failed == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: qttest-reports-linux-armhf-${{ inputs.armhf_distro }}
+          path: wsjtx-build/qttest-reports/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -551,6 +551,7 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_CAPTURE_QTTEST_REPORTS=ON \
             -DWSJT_FFTW_VERSION="${FFTW_VERSION}" \
             -DWSJT_ENABLE_GUI_SMOKE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
@@ -595,6 +596,15 @@ jobs:
           name: ctest-results-macos-${{ inputs.arch }}
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
+
+      - name: Upload QtTest reports
+        if: ${{ !cancelled() && steps.ctest.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: qttest-reports-macos-${{ inputs.arch }}
+          path: wsjtx-build/qttest-reports/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload WSJT-X startup diagnostics
         if: failure() && steps.ctest.outcome == 'failure'

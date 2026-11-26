@@ -4,7 +4,7 @@ add_executable (test_qmap_livecq_parser
   ${CMAKE_SOURCE_DIR}/validators/LiveCQCallsign.cpp
 )
 target_link_libraries (test_qmap_livecq_parser Qt5::Test)
-add_test (NAME test_qmap_livecq_parser COMMAND test_qmap_livecq_parser)
+wsjt_add_qt_test (test_qmap_livecq_parser test_qmap_livecq_parser)
 
 add_executable (test_qmap_plotter_initialization
   test_plotter_initialization.cpp
@@ -18,7 +18,7 @@ target_link_libraries (test_qmap_plotter_initialization
   Qt5::Test
   Qt5::Widgets
 )
-add_test (NAME test_qmap_plotter_initialization COMMAND test_qmap_plotter_initialization)
+wsjt_add_qt_test (test_qmap_plotter_initialization test_qmap_plotter_initialization)
 if (WIN32)
   set_tests_properties (test_qmap_plotter_initialization PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=windows"
@@ -35,7 +35,7 @@ add_executable (test_qmap_sample_rates
 )
 target_include_directories (test_qmap_sample_rates PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries (test_qmap_sample_rates wsjt_qt qmap_impl Qt5::Test)
-add_test (NAME test_qmap_sample_rates COMMAND test_qmap_sample_rates)
+wsjt_add_qt_test (test_qmap_sample_rates test_qmap_sample_rates)
 
 add_executable (test_qmap_qm_rate test_qmap_qm_rate.f90)
 target_include_directories (test_qmap_qm_rate PRIVATE ${CMAKE_BINARY_DIR}/qmap/libqmap)
@@ -44,18 +44,18 @@ add_test (NAME test_qmap_qm_rate COMMAND test_qmap_qm_rate)
 
 add_executable (test_qmap_ipc test_qmap_ipc.cpp)
 target_link_libraries (test_qmap_ipc Qt5::Test)
-add_test (NAME test_qmap_ipc COMMAND test_qmap_ipc)
+wsjt_add_qt_test (test_qmap_ipc test_qmap_ipc)
 
 add_executable (test_qmap_decode_record test_qmap_decode_record.cpp)
 target_link_libraries (test_qmap_decode_record wsjt_qt wsjt_fort_common Qt5::Test)
-add_test (NAME test_qmap_decode_record COMMAND test_qmap_decode_record)
+wsjt_add_qt_test (test_qmap_decode_record test_qmap_decode_record)
 
 add_executable (test_qmap_decode_click_coalescer
   test_decode_click_coalescer.cpp
   ${CMAKE_SOURCE_DIR}/qmap/decode_click_coalescer.cpp
 )
 target_link_libraries (test_qmap_decode_click_coalescer Qt5::Test Qt5::Widgets)
-add_test (NAME test_qmap_decode_click_coalescer COMMAND test_qmap_decode_click_coalescer)
+wsjt_add_qt_test (test_qmap_decode_click_coalescer test_qmap_decode_click_coalescer)
 
 add_executable (test_qmap_candidates test_qmap_candidates.f90)
 target_include_directories (test_qmap_candidates PRIVATE ${CMAKE_BINARY_DIR}/qmap/libqmap)
