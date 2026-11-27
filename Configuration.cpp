@@ -161,6 +161,10 @@
 #include <QIntValidator>
 #include <QThread>
 #include <QTimer>
+#include <QScreen>
+#include <QScrollArea>
+#include <QVBoxLayout>
+#include <QWindow>
 #include <QStandardPaths>
 #include <QFont>
 #include <QFontDialog>
@@ -1813,6 +1817,24 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 {
   ui_->setupUi (this);
 
+  // Keep the tabs and dialog buttons visible when the page needs to scroll.
+  QTabWidget * tabs = ui_->configuration_tabs;
+  for (int index = 0; index < tabs->count (); ++index)
+    {
+      QWidget * page = tabs->widget (index);
+      QWidget * contents = new QWidget;
+      contents->setLayout (page->layout ());
+
+      QScrollArea * scroll = new QScrollArea {page};
+      scroll->setFrameShape (QFrame::NoFrame);
+      scroll->setWidgetResizable (true);
+      scroll->setWidget (contents);
+
+      QVBoxLayout * layout = new QVBoxLayout {page};
+      layout->setContentsMargins (0, 0, 0, 0);
+      layout->addWidget (scroll);
+    }
+
   {
     // Make sure the default save directory exists
     QString save_dir {"save"};
@@ -3220,6 +3242,25 @@ int Configuration::impl::exec ()
   rig_changed_ = false;
 
   initialize_models ();
+
+  QTimer::singleShot (0, this, [this] {
+      QWindow * window = windowHandle ();
+      if (!window || !window->screen ())
+        {
+          return;
+        }
+
+      QRect const available = window->screen ()->availableGeometry ();
+      QSize const borders = frameGeometry ().size () - size ();
+      resize (size ().boundedTo (available.size () - borders));
+
+      QRect const frame = frameGeometry ();
+      int const x = qBound (available.left (), frame.left (),
+                           qMax (available.left (), available.right () - frame.width () + 1));
+      int const y = qBound (available.top (), frame.top (),
+                           qMax (available.top (), available.bottom () - frame.height () + 1));
+      move (pos () + QPoint {x - frame.left (), y - frame.top ()});
+    });
 
   return QDialog::exec();
 }
