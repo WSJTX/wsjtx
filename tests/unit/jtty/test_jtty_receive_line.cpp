@@ -42,6 +42,8 @@ private slots:
     QCOMPARE (check.charFormat ().foreground (), txText.foreground ());
     QVERIFY (!second.render (document, message (12, "ANOTHER MESSAGE COMPLETE"), {true}, font).isNull ());
     QCOMPARE (document.lastBlock ().text (), QString {"Tx: MY RESPONSE"});
+    for (auto block = document.begin (); block.isValid (); block = block.next ())
+      QCOMPARE (JttyReceiveLine::isJttyBlock (block), block != document.lastBlock ());
     QVERIFY (second.render (document, message (12, "ANOTHER MESSAGE COMPLETE"), {true}, font).isNull ());
   }
 
@@ -53,6 +55,7 @@ private slots:
       JttyReceiveLine completed;
       QVERIFY (!completed.render (document, message (1, "CQ MiXeD CASE"), {}, font).isNull ());
     }
+    QVERIFY (JttyReceiveLine::isJttyBlock (document.begin ()));
     QFont const larger {"Monospace", 14};
     JttyReceiveLine::refresh (document, {true}, larger);
     QCOMPARE (document.toPlainText (), QString {"123456 1500 -10  cq mixed case"});

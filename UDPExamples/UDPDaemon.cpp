@@ -94,6 +94,19 @@ public:
       }
   }
 
+  Q_SLOT void jtty_text_added (ClientKey const& key, qint64 message_id, QDateTime start
+                              , quint32 delta_frequency, qint32 snr, QString const& text
+                              , bool complete, bool off_air)
+  {
+    if (key == key_)
+      {
+        qDebug () << "id:" << message_id << "start:" << start << "snr:" << snr
+                  << "Df:" << delta_frequency << "complete:" << complete << "On air:" << !off_air;
+        std::cout << QString {"%1(%2): "}.arg (key_.second).arg (key_.first.toString ()).toStdString ()
+                  << QString {"JTTY text %1"}.arg (text).toStdString () << std::endl;
+      }
+  }
+
   Q_SLOT void beacon_spot_added (bool is_new, ClientKey const& key, QTime time, qint32 snr
       , float delta_time, Frequency delta_frequency, qint32 drift, QString const& callsign
                                  , QString const& grid, qint32 power, bool off_air)
@@ -185,6 +198,7 @@ private:
     auto client = new Client {key};
     connect (server_, &MessageServer::status_update, client, &Client::update_status);
     connect (server_, &MessageServer::decode, client, &Client::decode_added);
+    connect (server_, &MessageServer::jtty_text, client, &Client::jtty_text_added);
     connect (server_, &MessageServer::WSPR_decode, client, &Client::beacon_spot_added);
     connect (server_, &MessageServer::qso_logged, client, &Client::qso_logged);
     connect (server_, &MessageServer::logged_ADIF, client, &Client::logged_ADIF);

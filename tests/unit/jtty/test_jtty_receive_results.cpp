@@ -26,9 +26,19 @@ struct Harness
   JttyReceiveLine::Options display;
   Controller::EchoOptions echo {true, false};
   bool reporting {true};
+  Radio::Frequency rx {14078000};
   QStringList trace, echoes, logs;
   QVector<DecodeOperatingContext> logContexts;
   QVector<Controller::Spot> spots;
+  struct JttyText {
+    qint64 messageId;
+    QDateTime start;
+    quint32 frequency;
+    qint32 snr;
+    QString text;
+    bool complete, offAir;
+  };
+  QVector<JttyText> texts;
   QVector<QPair<qint64, qint64>> intervals;
   QVector<JttyReceiveLine::Presentation> presentations;
   std::function<void(QString const&)> after;
@@ -55,6 +65,7 @@ struct Harness
     inputs.selection = [this] { event ("selection"); return selection; };
     inputs.echo = [this] { event ("echo-options"); return echo; };
     inputs.reporting = [this] { event ("reporting"); return reporting; };
+    inputs.rxFrequency = [this] { return rx; };
     effects.reviewHeading = [this] (Pane pane) {
       auto& document = pane == Pane::All ? all : qso;
       QTextCursor cursor {&document};
@@ -79,6 +90,10 @@ struct Harness
       logs.append (text); logContexts.append (context); event ("log");
     };
     effects.spot = [this] (Controller::Spot const& spot) { spots.append (spot); event ("spot"); };
+    effects.jttyText = [this] (qint64 messageId, QDateTime const& start, quint32 frequency, qint32 snr,
+                               QString const& text, bool complete, bool offAir) {
+      texts.append ({messageId, start, frequency, snr, text, complete, offAir}); event ("jtty-text");
+    };
   }
 
   void apply (QVector<Jtty::ReceiveUpdate> const& updates)
@@ -93,6 +108,62 @@ class TestJttyReceiveResults final : public QObject
   Q_OBJECT
 
 private slots:
+  void jttyTextOnlyOnTheDialFrequencyItWasHeardOn ()
+  {
+    Harness h;
+    h.apply ({update (7, "CQ K1ABC")});
+    QCOMPARE (h.texts.size (), 1);
+    h.rx = 14080000;
+    h.apply ({update (7, "CQ K1ABC FN42"),
+              update (7, "CQ K1ABC FN42 K", Terminal::Complete)});
+    QCOMPARE (h.texts.size (), 1);
+    QCOMPARE (h.logs.size (), 1);
+    h.rx = 14078000;
+    h.apply ({update (8, "CQ K2DEF", Terminal::Complete)});
+    QCOMPARE (h.texts.size (), 2);
+    QCOMPARE (h.texts.last ().text, QString {"CQ K2DEF"});
+    QVERIFY (h.texts.last ().complete);
+
+    Harness wav;
+    wav.reception.source = Source::Wav;
+    wav.rx = 7074000;
+    wav.apply ({update (9, "CQ K3GHI", Terminal::Complete)});
+    QCOMPARE (wav.texts.size (), 1);
+    QVERIFY (wav.texts.front ().offAir);
+  }
+
+  void jttyTextTracksVisibleGrowthAndCompletion ()
+  {
+    Harness h;
+    qint64 constexpr id {qint64 {1} << 40};
+    h.selection.center = 1700;
+    h.reception.anchor = h.reception.anchor.toOffsetFromUtc (3600);
+    h.apply ({update (id, "<<<<< <<<<<")});
+    QVERIFY (h.texts.isEmpty ());
+    h.apply ({update (id, "CQ K1ABC", Terminal::Growing, 1500.6f, -9),
+              update (id, "CQ K1ABC <<<<< <<<<<"),
+              update (id, "CQ K1ABC <<<<< <<<<< FN42", Terminal::Growing, 1500.6f, -8),
+              update (id, "CQ K1ABC <<<<< <<<<< FN42"),
+              update (id, "CQ K1ABC <<<<< <<<<< FN42", Terminal::Complete, 1500.6f, -7)});
+    QCOMPARE (h.texts.size (), 3);
+    QCOMPARE (h.texts[0].text, QString {"CQ K1ABC"});
+    QCOMPARE (h.texts[1].text, QString {"CQ K1ABC FN42"});
+    QCOMPARE (h.texts[2].text, h.texts[1].text);
+    for (int i = 0; i < h.texts.size (); ++i) {
+      auto const& text = h.texts[i];
+      QCOMPARE (text.messageId, id);
+      QCOMPARE (text.start, h.reception.anchor.addMSecs (2250));
+      QCOMPARE (text.start.timeSpec (), Qt::UTC);
+      QCOMPARE (text.frequency, quint32 {1501});
+      QCOMPARE (text.snr, qint32 (-9 + i));
+      QCOMPARE (text.complete, i == 2);
+      QVERIFY (!text.offAir);
+    }
+    QVERIFY (h.qso.isEmpty ());
+    h.apply ({update (id + 1, "<<<<< <<<<<", Terminal::Complete)});
+    QCOMPARE (h.texts.size (), 3);
+  }
+
   void interleavedGrowthAndTerminalOnlyDelivery ()
   {
     Harness h;
@@ -144,6 +215,11 @@ private slots:
     QCOMPARE (h.spots.size (), int (!empty && live && terminal == 1));
     QCOMPARE (h.intervals.size (), int (!empty && live));
     QCOMPARE (h.echoes.size (), int (!empty && !review));
+    QCOMPARE (h.texts.size (), int (!empty && !review));
+    if (!h.texts.isEmpty ()) {
+      QCOMPARE (h.texts.front ().offAir, h.reception.source == Source::Wav);
+      QCOMPARE (h.texts.front ().complete, terminal != 0);
+    }
     QCOMPARE (h.trace.count ("heading-all"), int (!empty && review));
     QCOMPARE (h.trace.count ("heading-qso"), int (!empty && review));
     QCOMPARE (h.presentations.size (), empty ? 0 : 2);
@@ -201,6 +277,9 @@ private slots:
     h.apply ({complete});
     QCOMPARE (h.logContexts.size (), 1);
     QCOMPARE (h.logContexts.front ().sequenceStart, firstAnchor.addMSecs (2250));
+    QCOMPARE (h.texts.size (), 2);
+    QCOMPARE (h.texts.front ().start, firstAnchor.addMSecs (2250));
+    QCOMPARE (h.texts.last ().start, h.texts.front ().start);
     QCOMPARE (h.logContexts.front ().band, QString {"20m"});
     QCOMPARE (h.logContexts.front ().myCall, QString {"N0ME"});
     QCOMPARE (h.logs.front (), QString {"1501  -3  CQ K1ABC FN42"});
@@ -266,7 +345,7 @@ private slots:
     };
     h.apply ({update (1, "CQ K1ABC FN42", Terminal::Complete)});
     QCOMPARE (h.trace, QStringList ({"display", "all", "selection", "qso", "echo-options",
-                                    "echo", "recording", "log", "reporting", "spot"}));
+                                    "echo", "jtty-text", "recording", "log", "reporting", "spot"}));
     QVERIFY (h.qso.toPlainText ().contains ("CQ K1ABC FN42"));
     QCOMPARE (h.echoes, QStringList {"\r\ncq k1abc fn42"});
     QCOMPARE (h.spots.size (), 1);
